@@ -1,0 +1,8 @@
+{
+  "name": "PrintEngine 3D — Refined Manufacturing",
+  "description": "Sistema de impressão 3D premium com visual industrial, calculadora em tempo real e análise de arquivos STL.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

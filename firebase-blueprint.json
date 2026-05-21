@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Customer or Admin profile",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["CUSTOMER", "ADMIN", "OPERATOR"] },
+        "phone": { "type": "string" },
+        "loyaltyPoints": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Catalog item",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "basePrice": { "type": "number" },
+        "images": { "type": "array" },
+        "active": { "type": "boolean" },
+        "categoryId": { "type": "string" }
+      },
+      "required": ["name", "basePrice", "active"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer purchase",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "status": { "type": "string" },
+        "total": { "type": "number" },
+        "items": { "type": "array" },
+        "paymentId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "status", "total"]
+    },
+    "Quote": {
+      "title": "Quote",
+      "description": "Custom STL request",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "status": { "type": "string" },
+        "proposedPrice": { "type": "number" }
+      },
+      "required": ["fileUrl", "status"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "products/{productId}": {
+      "schema": "Product",
+      "description": "Catalog products"
+    },
+    "showcase/{itemId}": {
+      "schema": "object",
+      "description": "Featured items for catalog header"
+    },
+    "coupons/{couponId}": {
+      "schema": "object",
+      "description": "Discount coupons"
+    },
+    "customers/{customerId}": {
+      "schema": "object",
+      "description": "Customer profiles and notes"
+    },
+    "tickets/{ticketId}": {
+      "schema": "object",
+      "description": "Support tickets and contact messages"
+    },
+    "faqs/{faqId}": {
+      "schema": "object",
+      "description": "Dynamic FAQ entries"
+    },
+    "settings/{settingId}": {
+      "schema": "object",
+      "description": "Global application settings (production, shipping, costs)"
+    },
+    "logs/{logId}": {
+      "schema": "object",
+      "description": "System audit logs"
+    },
+    "orders/{orderId}": {
+      "schema": "Order",
+      "description": "Customer orders"
+    },
+    "quotes/{quoteId}": {
+      "schema": "Quote",
+      "description": "Custom print quotes"
+    }
+  }
+}

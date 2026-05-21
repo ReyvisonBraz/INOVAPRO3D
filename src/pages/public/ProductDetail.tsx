@@ -1,0 +1,360 @@
+import React, { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { 
+  ChevronLeft, 
+  Layers, 
+  Weight, 
+  Clock, 
+  Settings2,
+  ShoppingCart,
+  CheckCircle2,
+  Zap,
+  Shield,
+  Info,
+  Maximize2
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { db } from "../../services/firebase";
+import { STLViewer } from "../../components/ui/STLViewer";
+import { Button } from "../../components/ui/Button";
+import { useCart } from "../../contexts/CartContext";
+import { toast } from "sonner";
+
+export default function ProductDetail() {
+  const { id } = useParams();
+  const { addItem } = useCart();
+  const [product, setProduct] = useState<any>(null);
+  const [materials, setMaterials] = useState<any[]>([]);
+  const [productionTime, setProductionTime] = useState<number>(7);
+  const [loading, setLoading] = useState(true);
+  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [scale, setScale] = useState(100);
+  const [quantity, setQuantity] = useState(1);
+  const [activeMediaTab, setActiveMediaTab] = useState<'3d' | number>('3d');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!id) return;
+      try {
+        const docRef = doc(db, "products", id);
+        const [prodSnap, matSnap, settingsSnap] = await Promise.all([
+          getDoc(docRef),
+          getDocs(collection(db, "materials")),
+          getDoc(doc(db, "settings", "production"))
+        ]);
+
+        if (prodSnap.exists()) {
+          setProduct({ id: prodSnap.id, ...prodSnap.data() });
+        }
+
+        if (settingsSnap.exists()) {
+          setProductionTime(settingsSnap.data().avgDays || 7);
+        }
+
+        const matList = matSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        if (matList.length > 0) {
+          setMaterials(matList);
+          setSelectedMaterial(matList[0]);
+        } else {
+          const fallback = [
+            { id: 'pla', name: 'PLA Pro', color: '#FF6B00', priceMult: 1, desc: 'Superior estético.' },
+            { id: 'petg', name: 'PETG', color: '#0066FF', priceMult: 1.3, desc: 'Resistente.' }
+          ];
+          setMaterials(fallback);
+          setSelectedMaterial(fallback[0]);
+        }
+      } catch (error) {
+        console.error("Error product detail:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [id]);
+
+  const totalPrice = product && selectedMaterial ? (product.basePrice * selectedMaterial.priceMult * (scale / 100) * quantity) : 0;
+
+  const handleAddToCart = () => {
+    if (!product || !selectedMaterial) return;
+    addItem({
+      id: `${product.id}-${selectedMaterial.id}-${scale}`,
+      name: `${product.name} (${selectedMaterial.name}) - ${scale}%`,
+      price: totalPrice / quantity,
+      quantity: quantity,
+      image: product.images[0],
+      type: 'PRODUCT'
+    });
+    toast.success(`${product.name} adicionado!`, {
+      description: `Escala ${scale}% | Material: ${selectedMaterial.name}`,
+    });
+  };
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!product) return (
+    <div className="min-h-screen flex flex-col items-center justify-center">
+      <h2 className="text-2xl font-bold mb-4">Produto não encontrado</h2>
+      <Link to="/catalogo">
+        <Button variant="outline">Voltar ao Catálogo</Button>
+      </Link>
+    </div>
+  );
+
+  return (
+    <div className="container-section py-8 sm:py-12">
+      <nav aria-label="Breadcrumb" className="mb-8 sm:mb-12">
+        <Link to="/catalogo" className="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors group">
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#FAFAFA]/40 group-hover:text-white transition-colors">Voltar ao Catálogo</span>
+        </Link>
+      </nav>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 sm:gap-16 items-start">
+        {/* VIEW AREA */}
+        <div className="lg:sticky lg:top-28 space-y-6">
+          <div className="aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25">
+            {activeMediaTab === '3d' ? (
+              <STLViewer url={product.modelUrl || "/cube.stl"} color={selectedMaterial?.color || '#FF6B00'} scale={scale/100} />
+            ) : (
+              <AnimatePresence mode="wait">
+                <motion.img 
+                  key={activeMediaTab}
+                  src={product.images[activeMediaTab]} 
+                  alt={`${product.name} - Foto Real ${activeMediaTab as number + 1}`}
+                  className="w-full h-full object-cover"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.05 }}
+                  transition={{ duration: 0.4, ease: "easeOut" }}
+                />
+              </AnimatePresence>
+            )}
+          </div>
+
+          {/* MEDIA HUB SELECTION TABS */}
+          {product.images && product.images.length > 0 && (
+            <div className="flex gap-2 justify-center overflow-x-auto py-1 no-scrollbar">
+              <button
+                type="button"
+                onClick={() => setActiveMediaTab('3d')}
+                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  activeMediaTab === '3d'
+                    ? 'bg-primary border-primary text-white shadow-lg shadow-primary/10 animate-pulse-subtle'
+                    : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                📐 MODELO 3D
+              </button>
+              {product.images.map((img: string, idx: number) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => setActiveMediaTab(idx)}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                    activeMediaTab === idx
+                      ? 'bg-primary border-primary text-white shadow-lg shadow-primary/10'
+                      : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <img src={img} className="w-4 h-4 rounded-md object-cover border border-white/10 shrink-0" alt="" referrerPolicy="no-referrer" />
+                  FOTO {idx + 1}
+                </button>
+              ))}
+            </div>
+          )}
+          
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
+                <Layers className="w-4 h-4 text-primary mb-2" />
+                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Camada</p>
+                <p className="text-[10px] sm:text-xs font-mono font-bold">{product.technical?.resolution || '0.12mm'}</p>
+             </div>
+             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
+                <Zap className="w-4 h-4 text-primary mb-2" />
+                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Infill</p>
+                <p className="text-[10px] sm:text-xs font-mono font-bold">{product.technical?.infill || 20}%</p>
+             </div>
+             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
+                <Clock className="w-4 h-4 text-primary mb-2" />
+                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Tempo</p>
+                <p className="text-[10px] sm:text-xs font-mono font-bold">{product.technical?.printTime || '2h'}</p>
+             </div>
+             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
+                <Weight className="w-4 h-4 text-primary mb-2" />
+                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Peso Est.</p>
+                <p className="text-[10px] sm:text-xs font-mono font-bold">~{Math.round((product.technical?.weight || 80) * Math.pow(scale / 100, 3))}g</p>
+             </div>
+          </div>
+        </div>
+
+        {/* INFO AREA */}
+        <div className="space-y-10 sm:space-y-12">
+          <header>
+            <div className="flex flex-wrap items-center gap-3 mb-6">
+              <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-widest">
+                {product.category}
+              </span>
+              <span className="text-[10px] text-white/20 font-mono mr-2">REF: {product.id.slice(0, 8)}</span>
+              {product.stock === 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-black text-red-400 uppercase tracking-widest">
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                  Esgotado • Encomenda sob demanda
+                </span>
+              ) : typeof product.stock === 'number' && product.stock <= 3 && product.stock > 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black text-amber-400 uppercase tracking-widest animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                  Apenas {product.stock} em estoque!
+                </span>
+              ) : null}
+            </div>
+            <h1 className="heading-lg mb-6 leading-none">
+              {product.name}
+            </h1>
+            <p className="text-lg sm:text-xl text-white/50 leading-relaxed max-w-lg font-medium italic">
+              {product.description}
+            </p>
+          </header>
+
+          <div className="space-y-10">
+            <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+               <Info className="w-3 h-3" />
+               Configurar Fabricação
+            </h3>
+            
+            {/* MATERIAL SELECTION */}
+            <div className="space-y-4">
+              <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Material</p>
+              <div className="grid grid-cols-1 gap-3">
+                {materials.map(m => (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMaterial(m)}
+                    className={`p-5 rounded-2xl border text-left transition-all flex items-center justify-between group ${
+                      selectedMaterial?.id === m.id 
+                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
+                        : 'border-white/5 bg-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-4 h-4 rounded-full border border-white/10" style={{ backgroundColor: m.color }} />
+                      <div>
+                        <p className="font-bold text-sm uppercase tracking-tight">{m.name}</p>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide">{m.desc || 'Acabamento de alta qualidade'}</p>
+                      </div>
+                    </div>
+                    {selectedMaterial?.id === m.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* SCALE SETTINGS */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Escala do Modelo</p>
+                <span className="text-sm font-mono text-primary font-black">{scale}%</span>
+              </div>
+              <div className="p-8 pb-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                <div>
+                  <input 
+                    type="range" 
+                    min="50" 
+                    max="200" 
+                    step="5"
+                    value={scale}
+                    onChange={(e) => setScale(Number(e.target.value))}
+                    className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-2"
+                  />
+                  <div className="flex justify-between text-[8px] text-white/20 uppercase font-black tracking-widest pb-4 border-b border-white/5">
+                    <span>Mínimo (50%)</span>
+                    <span>Padrão (100%)</span>
+                    <span>Máximo (200%)</span>
+                  </div>
+                </div>
+                
+                {/* REAL DIMENSIONER */}
+                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between text-xs font-mono text-white/50 pt-1">
+                  <span className="text-[10px] text-white/30 uppercase font-black tracking-wider">Dimensões Estimadas:</span>
+                  <span className="text-primary font-bold">
+                    {Math.round((product.baseDimensions?.x || 120) * (scale / 100))} x{" "}
+                    {Math.round((product.baseDimensions?.y || 120) * (scale / 100))} x{" "}
+                    {Math.round((product.baseDimensions?.z || 150) * (scale / 100))} mm
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center justify-between py-10 border-y border-white/5 gap-6">
+              <div>
+                <p className="text-[10px] text-white/30 uppercase font-black mb-2 tracking-widest">Orçamento Estimado</p>
+                <div className="flex items-baseline gap-2">
+                   <span className="text-lg font-mono text-white/40">R$</span>
+                   <p className="text-6xl font-display font-black text-shimmer leading-none">
+                     {(product?.stock === 0 ? 0 : totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                   </p>
+                </div>
+              </div>
+              
+              <div className={`flex items-center bg-white/5 rounded-2xl border border-white/10 overflow-hidden h-16 w-full md:w-auto ${product?.stock === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                <button 
+                  disabled={product?.stock === 0}
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
+                >
+                  -
+                </button>
+                <span className="w-16 text-center font-display font-black text-2xl">{product?.stock === 0 ? 0 : quantity}</span>
+                <button 
+                  disabled={product?.stock === 0}
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+               <div className="md:col-span-3">
+                 <Button 
+                    size="lg" 
+                    className={`w-full h-20 rounded-3xl gap-4 text-xl font-display font-black uppercase tracking-tight ${
+                      product?.stock === 0 ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20' : ''
+                    }`}
+                    onClick={() => {
+                       if (product?.stock === 0) {
+                          const msg = encodeURIComponent(`Olá Inovalt 3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`);
+                          window.open(`https://wa.me/55999999999?text=${msg}`);
+                       } else {
+                          handleAddToCart();
+                       }
+                    }}
+                    isShimmer={product?.stock !== 0}
+                  >
+                    <ShoppingCart className="w-6 h-6" />
+                    {product?.stock === 0 ? "ENCOMENDAR SOB DEMANDA" : "SOLICITAR IMPRESSÃO"}
+                  </Button>
+               </div>
+               <div className="flex items-center justify-center px-6 py-4 bg-white/5 border border-white/10 rounded-3xl text-center">
+                  <div className="text-center">
+                     <p className="text-[8px] text-white/30 uppercase font-bold">Produção</p>
+                     <p className="text-xs font-mono font-bold text-primary">~{productionTime} DIAS</p>
+                  </div>
+               </div>
+            </div>
+            
+            <div className="flex items-center justify-center gap-3 text-[10px] text-white/20 uppercase font-black tracking-widest py-6 bg-white/[0.01] rounded-[32px] border border-white/[0.02]">
+               <Maximize2 className="w-4 h-4 opacity-50" />
+               Volume Máximo de Trabalho: 300 x 300 x 350 mm
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
