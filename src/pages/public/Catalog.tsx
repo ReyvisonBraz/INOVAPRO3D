@@ -8,6 +8,7 @@ import { motion, AnimatePresence, Variants } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import type { Product, ShowcaseItem } from "../../types/domain";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -29,18 +30,6 @@ const itemVariants: Variants = {
   }
 };
 
-interface Product {
-  id: string;
-  name: string;
-  description: string;
-  basePrice: number;
-  images: string[];
-  category: string;
-  modelUrl?: string;
-  stock?: number;
-  baseDimensions?: { x: number; y: number; z: number };
-}
-
 const SHOWCASE_ITEMS = [
   { id: 1, image: "https://images.unsplash.com/photo-1631551351111-209f8742d131?q=80&w=2070", title: "Dragão Flexível", category: "DECORAÇÃO" },
   { id: 2, image: "https://images.unsplash.com/photo-1616803689943-5601631c7fec?q=80&w=2070", title: "Vasos Geométricos", category: "UTILITÁRIOS" },
@@ -49,7 +38,7 @@ const SHOWCASE_ITEMS = [
 export default function Catalog() {
   const { addItem } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
-  const [showcase, setShowcase] = useState<any[]>([]);
+  const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
@@ -78,7 +67,7 @@ export default function Catalog() {
     try {
       // Fetch Showcase once
       const sSnap = await getDocs(collection(db, "showcase"));
-      setShowcase(sSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+      setShowcase(sSnap.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem)));
 
       // Fetch first batch of products
       let q = query(

@@ -54,7 +54,7 @@ export function Navbar() {
     try {
       await loginWithGoogle();
       // Restore attempted route from route location state
-      const from = (location.state as any)?.from?.pathname;
+      const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
       if (from && from !== "/") {
         navigate(from, { replace: true });
       }

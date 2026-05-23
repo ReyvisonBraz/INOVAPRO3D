@@ -1,13 +1,5 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image?: string;
-  type: 'PRODUCT' | 'QUOTE';
-}
+import React, { createContext, useContext, useState } from 'react';
+import type { CartItem } from '../types/domain';
 
 interface CartContextType {
   items: CartItem[];

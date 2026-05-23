@@ -21,6 +21,7 @@ import { Link } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "../../services/firebase";
+import type { ShowcaseItem } from "../../types/domain";
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -43,7 +44,7 @@ const itemVariants: Variants = {
 };
 
 export default function Home() {
-  const [showcase, setShowcase] = useState<any[]>([]);
+  const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('ALL');
   const [categories, setCategories] = useState<string[]>([]);
@@ -53,10 +54,10 @@ export default function Home() {
     const fetchShowcase = async () => {
       try {
         const snap = await getDocs(query(collection(db, "showcase"), orderBy("createdAt", "desc")));
-        const items = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem));
         setShowcase(items);
         
-        const cats = Array.from(new Set(items.map((i: any) => i.category).filter(Boolean)));
+        const cats = Array.from(new Set(items.map(i => i.category).filter(Boolean)));
         setCategories(cats as string[]);
       } catch (err) {
         console.error("Error fetching showcase:", err);

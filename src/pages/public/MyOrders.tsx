@@ -22,10 +22,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/Button";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import type { Order, OrderItem, OrderStatus } from "../../types/domain";
 
 export default function MyOrders() {
   const { user } = useAuth();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -39,7 +40,7 @@ export default function MyOrders() {
           orderBy("createdAt", "desc")
         );
         const querySnapshot = await getDocs(q);
-        setOrders(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+        setOrders(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, path);
       } finally {
@@ -49,7 +50,7 @@ export default function MyOrders() {
     fetchOrders();
   }, [user]);
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
       case "PENDING_PAYMENT": return <Wallet className="w-4 h-4" />;
       case "PAID": return <CheckCircle2 className="w-4 h-4" />;
@@ -62,7 +63,7 @@ export default function MyOrders() {
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: OrderStatus) => {
     switch (status) {
       case "PENDING_PAYMENT": return "Aguardando Pagamento";
       case "PAID": return "Pagamento Aprovado";
@@ -75,7 +76,7 @@ export default function MyOrders() {
     }
   };
 
-  const getStatusWidth = (status: string) => {
+  const getStatusWidth = (status: OrderStatus) => {
     switch (status) {
       case "PENDING_PAYMENT": return "10%";
       case "PAID": return "25%";
@@ -174,7 +175,7 @@ export default function MyOrders() {
                     </div>
 
                     <div className="space-y-4">
-                      {order.items.map((item: any, i: number) => (
+                      {order.items.map((item: OrderItem, i: number) => (
                         <div key={i} className="flex items-center gap-6 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] group-hover:bg-white/[0.04] transition-colors">
                           <div className="w-16 h-16 rounded-xl bg-black/40 overflow-hidden border border-white/5">
                             <img src={item.image} className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" alt="" />
@@ -264,21 +265,6 @@ export default function MyOrders() {
                       </div>
                       
                       <div className="flex items-center gap-2">
-                        <button 
-                          onClick={async () => {
-                             try {
-                                const { updateDoc, doc } = await import('firebase/firestore');
-                                await updateDoc(doc(db, 'orders', order.id), { status: 'PAID' });
-                                toast.success("Pagamento Confirmado!", { description: "Simulação de webhook concluída." });
-                                setOrders(orders.map(o => o.id === order.id ? { ...o, status: 'PAID' } : o));
-                             } catch(err) {
-                               toast.error("Erro ao simular pagamento");
-                             }
-                          }}
-                          className="h-10 px-4 rounded-xl bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-2"
-                        >
-                          Simular Pagamento
-                        </button>
                         <button 
                           onClick={() => {
                             const pixCode = "00020101021226830014br.gov.bcb.pix2561api.inovalt3d.com.br/pix/qr/v2/cob/order_" + order.id + "_" + (order.total || 0).toFixed(0);

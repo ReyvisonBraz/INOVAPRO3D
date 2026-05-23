@@ -117,7 +117,7 @@ export function Footer() {
   );
 }
 
-function SocialLink({ icon }: { icon: any }) {
+function SocialLink({ icon }: { icon: React.ReactNode }) {
   return (
     <a 
       href="#" 

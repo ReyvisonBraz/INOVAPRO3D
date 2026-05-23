@@ -20,15 +20,16 @@ import { STLViewer } from "../../components/ui/STLViewer";
 import { Button } from "../../components/ui/Button";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
+import type { Material, Product } from "../../types/domain";
 
 export default function ProductDetail() {
   const { id } = useParams();
   const { addItem } = useCart();
-  const [product, setProduct] = useState<any>(null);
-  const [materials, setMaterials] = useState<any[]>([]);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [productionTime, setProductionTime] = useState<number>(7);
   const [loading, setLoading] = useState(true);
-  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [scale, setScale] = useState(100);
   const [quantity, setQuantity] = useState(1);
   const [activeMediaTab, setActiveMediaTab] = useState<'3d' | number>('3d');
@@ -45,14 +46,14 @@ export default function ProductDetail() {
         ]);
 
         if (prodSnap.exists()) {
-          setProduct({ id: prodSnap.id, ...prodSnap.data() });
+          setProduct({ id: prodSnap.id, ...prodSnap.data() } as Product);
         }
 
         if (settingsSnap.exists()) {
           setProductionTime(settingsSnap.data().avgDays || 7);
         }
 
-        const matList = matSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const matList = matSnap.docs.map(d => ({ id: d.id, ...d.data() } as Material));
         if (matList.length > 0) {
           setMaterials(matList);
           setSelectedMaterial(matList[0]);
@@ -73,7 +74,7 @@ export default function ProductDetail() {
     fetchData();
   }, [id]);
 
-  const totalPrice = product && selectedMaterial ? (product.basePrice * selectedMaterial.priceMult * (scale / 100) * quantity) : 0;
+  const totalPrice = product && selectedMaterial ? (product.basePrice * (selectedMaterial.priceMult ?? 1) * (scale / 100) * quantity) : 0;
 
   const handleAddToCart = () => {
     if (!product || !selectedMaterial) return;
@@ -124,8 +125,8 @@ export default function ProductDetail() {
               <AnimatePresence mode="wait">
                 <motion.img 
                   key={activeMediaTab}
-                  src={product.images[activeMediaTab]} 
-                  alt={`${product.name} - Foto Real ${activeMediaTab as number + 1}`}
+                  src={product.images[activeMediaTab as number]} 
+                  alt={`${product.name} - Foto Real ${(activeMediaTab as number) + 1}`}
                   className="w-full h-full object-cover"
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}

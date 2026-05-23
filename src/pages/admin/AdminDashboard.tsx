@@ -81,25 +81,40 @@ import {
 } from 'recharts';
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
+import type {
+  AuditLog,
+  Coupon,
+  Customer,
+  FAQ,
+  GlobalSettings,
+  Material,
+  Order,
+  Product,
+  Quote,
+  ShowcaseItem,
+  Ticket,
+} from "../../types/domain";
+
+type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'materials' | 'showcase' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs';
 
 export default function AdminDashboard() {
-  const [orders, setOrders] = useState<any[]>([]);
-  const [quotes, setQuotes] = useState<any[]>([]);
-  const [products, setProducts] = useState<any[]>([]);
-  const [showcase, setShowcase] = useState<any[]>([]);
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [coupons, setCoupons] = useState<any[]>([]);
-  const [customers, setCustomers] = useState<any[]>([]);
-  const [tickets, setTickets] = useState<any[]>([]);
-  const [faqs, setFaqs] = useState<any[]>([]);
-  const [logs, setLogs] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [quotes, setQuotes] = useState<Quote[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'overview' | 'orders' | 'quotes' | 'products' | 'materials' | 'showcase' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs'>('overview');
+  const [activeTab, setActiveTab] = useState<AdminTabId>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  const [globalSettings, setGlobalSettings] = useState({
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
     promoBanner: 'Frete Grátis em pedidos acima de R$ 250',
     minOrderValue: 50,
     maintenanceMode: false
@@ -111,7 +126,7 @@ export default function AdminDashboard() {
         const docRef = doc(db, 'settings', 'global');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setGlobalSettings(docSnap.data() as any);
+          setGlobalSettings(docSnap.data() as GlobalSettings);
         }
       } catch (err) {
         console.error("Error fetching settings:", err);
@@ -163,7 +178,7 @@ export default function AdminDashboard() {
 
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
   const [isEditingMaterial, setIsEditingMaterial] = useState(false);
-  const [selectedMaterial, setSelectedMaterial] = useState<any>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [newMaterial, setNewMaterial] = useState({
     name: '',
     type: 'PLA',
@@ -174,7 +189,7 @@ export default function AdminDashboard() {
 
   const [isAddingShowcase, setIsAddingShowcase] = useState(false);
   const [isEditingShowcase, setIsEditingShowcase] = useState(false);
-  const [selectedShowcase, setSelectedShowcase] = useState<any>(null);
+  const [selectedShowcase, setSelectedShowcase] = useState<ShowcaseItem | null>(null);
   const [newShowcase, setNewShowcase] = useState({
     title: '',
     subtitle: '',
@@ -343,9 +358,9 @@ export default function AdminDashboard() {
       toast.error("Falha ao gerar arquivo CSV.");
     }
   };
-  const [selectedCRMUser, setSelectedCRMUser] = useState<any>(null);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
-  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [selectedCRMUser, setSelectedCRMUser] = useState<Customer | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<(Quote | Ticket) | null>(null);
 
   // Custom states for refining quotes
   const [editingQuoteTotal, setEditingQuoteTotal] = useState<number>(45.90);
@@ -486,7 +501,7 @@ export default function AdminDashboard() {
     }
   }, [selectedCustomer, activeTab, customers]);
 
-  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
@@ -503,12 +518,21 @@ export default function AdminDashboard() {
     baseDimensions: { x: 120, y: 120, z: 150 }
   });
 
-  const handleDuplicateProduct = (product: any) => {
+  const handleDuplicateProduct = (product: Product) => {
     const { id, createdAt, updatedAt, ...rest } = product;
     setNewProduct({
       ...rest,
       name: `${rest.name} (Cópia)`,
       modelUrl: rest.modelUrl || '',
+      active: rest.active !== undefined ? rest.active : true,
+      stock: rest.stock || 0,
+      tags: rest.tags || [],
+      technical: {
+        infill: rest.technical?.infill ?? 20,
+        resolution: rest.technical?.resolution || '0.20mm',
+        printTime: rest.technical?.printTime || '2h 30m',
+        weight: rest.technical?.weight ?? 80,
+      },
       baseDimensions: rest.baseDimensions || { x: 120, y: 120, z: 150 },
       images: rest.images || ['']
     });
@@ -530,20 +554,20 @@ export default function AdminDashboard() {
       const settingsSnap = await getDocs(collection(db, "settings"));
       const logsSnap = await getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100)));
       
-      setOrders(ordersSnap.docs.map(o => ({ id: o.id, ...o.data() })));
-      setQuotes(quotesSnap.docs.map(q => ({ id: q.id, ...q.data() })));
-      setProducts(productsSnap.docs.map(p => ({ id: p.id, ...p.data() })));
-      setShowcase(showcaseSnap.docs.map(s => ({ id: s.id, ...s.data() })));
-      setMaterials(materialsSnap.docs.map(m => ({ id: m.id, ...m.data() })));
-      setCoupons(couponsSnap.docs.map(c => ({ id: c.id, ...c.data() })));
-      setCustomers(customersSnap.docs.map(c => ({ id: c.id, ...c.data() })));
-      setTickets(ticketsSnap.docs.map(t => ({ id: t.id, ...t.data() })));
-      setFaqs(faqsSnap.docs.map(f => ({ id: f.id, ...f.data() })));
+      setOrders(ordersSnap.docs.map(o => ({ id: o.id, ...o.data() } as Order)));
+      setQuotes(quotesSnap.docs.map(q => ({ id: q.id, ...q.data() } as Quote)));
+      setProducts(productsSnap.docs.map(p => ({ id: p.id, ...p.data() } as Product)));
+      setShowcase(showcaseSnap.docs.map(s => ({ id: s.id, ...s.data() } as ShowcaseItem)));
+      setMaterials(materialsSnap.docs.map(m => ({ id: m.id, ...m.data() } as Material)));
+      setCoupons(couponsSnap.docs.map(c => ({ id: c.id, ...c.data() } as Coupon)));
+      setCustomers(customersSnap.docs.map(c => ({ id: c.id, ...c.data() } as Customer)));
+      setTickets(ticketsSnap.docs.map(t => ({ id: t.id, ...t.data() } as Ticket)));
+      setFaqs(faqsSnap.docs.map(f => ({ id: f.id, ...f.data() } as FAQ)));
       
-      const settingsObj: any = {};
+      const settingsObj: GlobalSettings = {};
       settingsSnap.docs.forEach(d => settingsObj[d.id] = d.data());
       setGlobalSettings(settingsObj);
-      setLogs(logsSnap.docs.map(l => ({ id: l.id, ...l.data() })));
+      setLogs(logsSnap.docs.map(l => ({ id: l.id, ...l.data() } as AuditLog)));
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, "admin/data");
     } finally {
@@ -578,7 +602,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const updateStatus = async (type: string, id: string, newStatus: any) => {
+  const updateStatus = async (type: string, id: string, newStatus: string | Record<string, unknown>) => {
     try {
       const updatePayload = typeof newStatus === 'object' ? newStatus : { status: newStatus };
       await updateDoc(doc(db, type, id), updatePayload);
@@ -586,10 +610,10 @@ export default function AdminDashboard() {
       
       // Update local active modal state if it matches the edited item
       if (type === 'orders' && selectedOrder && selectedOrder.id === id) {
-        setSelectedOrder((prev: any) => prev ? { ...prev, ...updatePayload } : null);
+        setSelectedOrder((prev) => prev ? { ...prev, ...updatePayload } : null);
       }
       if (type === 'quotes' && selectedCustomer && selectedCustomer.id === id) {
-        setSelectedCustomer((prev: any) => prev ? { ...prev, ...updatePayload } : null);
+        setSelectedCustomer((prev) => prev ? { ...prev, ...updatePayload } : null);
       }
       
       toast.success("Registro atualizado com sucesso!");
@@ -657,7 +681,7 @@ export default function AdminDashboard() {
   };
 
   const handleWhatsAppQuote = (
-    q: any, 
+    q: Quote | Ticket, 
     finalPrice: number, 
     orderId?: string, 
     phoneOverride?: string, 
@@ -681,7 +705,7 @@ export default function AdminDashboard() {
     window.open(url, '_blank');
   };
 
-  const handlePrintQuote = (q: any) => {
+  const handlePrintQuote = (q: Quote | Ticket) => {
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
       toast.error("Popup bloqueado pelo navegador. Por favor, permita popups para esta página.");
@@ -960,7 +984,7 @@ export default function AdminDashboard() {
     printWindow.document.close();
   };
 
-  const handleApproveQuote = async (quote: any) => {
+  const handleApproveQuote = async (quote: Quote | Ticket) => {
     try {
       const isSelected = selectedCustomer && selectedCustomer.id === quote.id;
       
@@ -1038,7 +1062,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSaveQuoteSpecifications = async (quote: any) => {
+  const handleSaveQuoteSpecifications = async (quote: Quote | Ticket) => {
     try {
       const phoneClean = editingQuotePhone.replace(/\D/g, '');
       await updateDoc(doc(db, "quotes", quote.id), {
@@ -1052,7 +1076,7 @@ export default function AdminDashboard() {
       });
       
       // Update selectedCustomer in local state so changes don't flash back
-      setSelectedCustomer((prev: any) => prev ? {
+      setSelectedCustomer((prev) => prev ? {
         ...prev,
         total: editingQuoteTotal,
         infill: editingQuoteInfill,
@@ -1150,7 +1174,7 @@ export default function AdminDashboard() {
             <button
               key={item.id}
               onClick={() => {
-                setActiveTab(item.id as any);
+                setActiveTab(item.id as AdminTabId);
                 setIsSidebarOpen(false);
               }}
               className={cn(
@@ -1635,7 +1659,7 @@ export default function AdminDashboard() {
                              <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => handleDuplicateProduct(p)} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-blue-400 transition-colors" title="Duplicar"><Layers className="w-4 h-4" /></button>
-                                <button onClick={() => { setSelectedProduct(p); setIsEditingProduct(true); setNewProduct({ name: p.name || '', description: p.description || '', basePrice: p.basePrice || 0, category: p.category || 'DECORAÇÃO', images: p.images || [''], active: p.active !== undefined ? p.active : true, stock: p.stock || 0, tags: p.tags || [], technical: p.technical || { infill: 20, resolution: '0.20mm', printTime: '2h 30m', weight: 80 }, modelUrl: p.modelUrl || '', baseDimensions: p.baseDimensions || { x: 120, y: 120, z: 150 } }); }} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-primary transition-colors"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => { setSelectedProduct(p); setIsEditingProduct(true); setNewProduct({ name: p.name || '', description: p.description || '', basePrice: p.basePrice || 0, category: p.category || 'DECORAÇÃO', images: p.images || [''], active: p.active !== undefined ? p.active : true, stock: p.stock || 0, tags: p.tags || [], technical: { infill: p.technical?.infill ?? 20, resolution: p.technical?.resolution || '0.20mm', printTime: p.technical?.printTime || '2h 30m', weight: p.technical?.weight ?? 80 }, modelUrl: p.modelUrl || '', baseDimensions: p.baseDimensions || { x: 120, y: 120, z: 150 } }); }} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-primary transition-colors"><Edit className="w-4 h-4" /></button>
                                 <button onClick={() => deleteItem('products', p.id)} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                              </div>
                              <div className="absolute bottom-4 left-4">
@@ -1985,7 +2009,13 @@ export default function AdminDashboard() {
                              <div className="mt-6 flex gap-3 opacity-0 group-hover:opacity-100 transition-all translate-y-4 group-hover:translate-y-0">
                                 <button onClick={() => {
                                    setSelectedShowcase(s);
-                                   setNewShowcase({ ...s });
+                                   setNewShowcase({
+                                     title: s.title || '',
+                                     subtitle: s.subtitle || '',
+                                     image: s.image || '',
+                                     link: s.link || '',
+                                     active: s.active !== undefined ? s.active : true
+                                   });
                                    setIsEditingShowcase(true);
                                 }} className="flex-1 py-3 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 hover:bg-primary hover:border-primary transition-all text-[10px] font-black uppercase italic tracking-widest">Editar Config</button>
                                 <button onClick={() => deleteItem('showcase', s.id)} className="p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
@@ -2152,7 +2182,7 @@ export default function AdminDashboard() {
                 <div className="flex-1 p-6 sm:p-12 overflow-y-auto no-scrollbar bg-[#050508]/40">
                    <h3 className="text-sm font-black uppercase tracking-widest italic mb-8 border-b border-white/5 pb-4">Manifesto de Produção</h3>
                    <div className="space-y-4">
-                      {selectedOrder.items?.map((item: any, idx: number) => (
+                      {selectedOrder.items?.map((item, idx: number) => (
                          <div key={idx} className="flex gap-6 p-6 bg-white/[0.02] border border-white/5 rounded-[32px] group hover:bg-white/[0.04] transition-all">
                             <div className="w-20 h-20 rounded-2xl overflow-hidden bg-black border border-white/5">
                                <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
@@ -3099,3 +3129,4 @@ export default function AdminDashboard() {
     </div>
   );
 }
+

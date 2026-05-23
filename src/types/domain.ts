@@ -1,0 +1,229 @@
+import type { FieldValue, Timestamp } from "firebase/firestore";
+
+export type FirestoreDate = Timestamp | { seconds: number };
+
+export type UserRole = "CUSTOMER" | "ADMIN" | "OPERATOR";
+
+export interface UserProfile {
+  email: string | null;
+  name: string | null;
+  photoURL: string | null;
+  role: UserRole;
+  createdAt?: Timestamp | FieldValue;
+  loyaltyPoints?: number;
+  phone?: string;
+  addresses?: ShippingAddress[];
+}
+
+export type UserProfileUpdate = Partial<Pick<UserProfile, "name" | "phone" | "addresses" | "photoURL">>;
+
+export type CartItemType = "PRODUCT" | "QUOTE";
+
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image?: string;
+  type: CartItemType;
+  options?: Record<string, string | number | boolean | null | undefined>;
+}
+
+export type OrderStatus =
+  | "PENDING_PAYMENT"
+  | "PAID"
+  | "QUEUE"
+  | "SLICING"
+  | "PRINTING"
+  | "FINISHING"
+  | "READY"
+  | "SHIPPED"
+  | "COMPLETED"
+  | "CANCELED";
+
+export type QuoteStatus =
+  | "PENDING"
+  | "IN_REVIEW"
+  | "APPROVED"
+  | "SENT_TO_CUSTOMER"
+  | "CONVERTED_TO_ORDER"
+  | "REJECTED"
+  | "CANCELED";
+
+export interface ShippingAddress {
+  zipCode: string;
+  street: string;
+  number: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+}
+
+export interface OrderItem extends CartItem {
+  fileName?: string;
+}
+
+export interface Order {
+  id: string;
+  userId: string;
+  userName?: string | null;
+  userEmail?: string | null;
+  phone?: string;
+  items: OrderItem[];
+  total: number;
+  shippingAddress?: ShippingAddress;
+  status: OrderStatus;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+  trackingCode?: string;
+}
+
+export interface Quote {
+  id: string;
+  userId: string;
+  userName?: string | null;
+  userEmail?: string | null;
+  status: QuoteStatus;
+  fileName: string;
+  materialId: string;
+  infill: number;
+  estimatedPrice?: number;
+  total?: number;
+  weight?: number;
+  printTime?: string;
+  phone?: string;
+  notes?: string;
+  adminNotes?: string;
+  email?: string;
+  message?: string;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export interface ProductTechnicalSpec {
+  infill?: number;
+  resolution?: string;
+  printTime?: string;
+  weight?: number;
+}
+
+export interface ProductDimensions {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  basePrice: number;
+  images: string[];
+  category: string;
+  active?: boolean;
+  modelUrl?: string;
+  stock?: number;
+  tags?: string[];
+  technical?: ProductTechnicalSpec;
+  baseDimensions?: ProductDimensions;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export interface Material {
+  id: string;
+  name: string;
+  type?: string;
+  color: string;
+  desc?: string;
+  priceMult?: number;
+  pricePerGram?: number;
+  pricePerKg?: number;
+  inStock?: boolean;
+}
+
+export interface ShowcaseItem {
+  id: string;
+  image: string;
+  title: string;
+  category?: string;
+  description?: string;
+  subtitle?: string;
+  link?: string;
+  active?: boolean;
+}
+
+export interface Coupon {
+  id: string;
+  code?: string;
+  discount?: number;
+  active?: boolean;
+  expiresAt?: Timestamp | FieldValue;
+  createdAt?: FirestoreDate;
+}
+
+export interface Customer {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  tags?: string[];
+  address?: string;
+  photoURL?: string;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export interface Ticket {
+  id: string;
+  userId?: string;
+  userName?: string;
+  userEmail?: string | null;
+  email?: string;
+  phone?: string;
+  subject?: string;
+  message?: string;
+  status?: string;
+  fileName?: string;
+  materialId?: string;
+  infill?: number;
+  estimatedPrice?: number;
+  total?: number;
+  weight?: number;
+  printTime?: string;
+  notes?: string;
+  adminNotes?: string;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export interface FAQ {
+  id: string;
+  question: string;
+  answer: string;
+  category?: string;
+  active?: boolean;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export interface AuditLog {
+  id: string;
+  action?: string;
+  details?: string;
+  adminId?: string;
+  userEmail?: string;
+  ticketId?: string;
+  orderId?: string;
+  quoteId?: string;
+  reply?: string;
+  createdAt?: FirestoreDate;
+}
+
+export interface GlobalSettings {
+  promoBanner?: string;
+  minOrderValue?: number;
+  maintenanceMode?: boolean;
+  flatRate?: number;
+  [key: string]: unknown;
+}

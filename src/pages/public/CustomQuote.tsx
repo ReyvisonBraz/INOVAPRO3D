@@ -21,15 +21,16 @@ import { Link } from "react-router-dom";
 import { collection, addDoc, serverTimestamp, getDocs } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { toast } from "sonner";
+import type { Material } from "../../types/domain";
 
 export default function CustomQuote() {
   const { user } = useAuth();
-  const [materials, setMaterials] = useState<any[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [step, setStep] = useState(1); // 1: Upload, 2: Config, 3: Success
-  const [material, setMaterial] = useState<any>(null);
+  const [material, setMaterial] = useState<Material | null>(null);
   const [infill, setInfill] = useState(20);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -37,7 +38,7 @@ export default function CustomQuote() {
     const fetchMaterials = async () => {
       try {
         const snap = await getDocs(collection(db, "materials"));
-        const list = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Material));
         if (list.length > 0) {
           setMaterials(list);
           setMaterial(list[0]);
@@ -158,12 +159,18 @@ export default function CustomQuote() {
        return;
     }
     
+    if (!file || !material) {
+      toast.error("Dados incompletos", { description: "Selecione um arquivo e material antes de enviar." });
+      return;
+    }
+
     try {
       await addDoc(collection(db, "quotes"), {
         userId: user.uid,
         userName: user.displayName || user.email,
+        userEmail: user.email,
         status: "PENDING",
-        fileName: file?.name,
+        fileName: file.name,
         materialId: material.id,
         infill: infill,
         estimatedPrice: 45.90, 

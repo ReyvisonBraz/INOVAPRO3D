@@ -8,21 +8,22 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, handleFirestoreError, OperationType } from '../services/firebase';
+import type { UserProfile, UserProfileUpdate } from '../types/domain';
 
 interface AuthContextType {
   user: User | null;
-  profile: any | null;
+  profile: UserProfile | null;
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
-  updateProfile: (data: Partial<any>) => Promise<void>;
+  updateProfile: (data: UserProfileUpdate) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [profile, setProfile] = useState<any | null>(null);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,12 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDoc = await getDoc(userDocRef);
           
           if (!userDoc.exists()) {
-            const isAdmin = currentUser.email === 'littlefigther50@gmail.com';
-            const newProfile = {
+            const newProfile: UserProfile = {
               email: currentUser.email,
               name: currentUser.displayName,
               photoURL: currentUser.photoURL,
-              role: isAdmin ? 'ADMIN' : 'CUSTOMER',
+              role: 'CUSTOMER',
               createdAt: serverTimestamp(),
               loyaltyPoints: 0
             };
@@ -53,17 +53,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               handleFirestoreError(err, OperationType.CREATE, path);
             }
           } else {
-            const data = userDoc.data();
-            const isAdmin = currentUser.email === 'littlefigther50@gmail.com';
+            const data = userDoc.data() as UserProfile;
             
             // Sincronização Inteligente no Login (Profile Sync)
             let needsUpdate = false;
-            const updatedFields: any = {};
+            const updatedFields: UserProfileUpdate = {};
             
-            if (isAdmin && data.role !== 'ADMIN') {
-              updatedFields.role = 'ADMIN';
-              needsUpdate = true;
-            }
             if (currentUser.displayName && data.name !== currentUser.displayName) {
               updatedFields.name = currentUser.displayName;
               needsUpdate = true;
@@ -112,12 +107,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateProfile = async (data: Partial<any>) => {
+  const updateProfile = async (data: UserProfileUpdate) => {
     if (!user) return;
     try {
+      const allowedKeys = ['name', 'phone', 'addresses', 'photoURL'];
+      const safeData = Object.fromEntries(
+        Object.entries(data).filter(([key]) => allowedKeys.includes(key))
+      );
+      if (Object.keys(safeData).length === 0) return;
+
       const userDocRef = doc(db, 'users', user.uid);
-      await setDoc(userDocRef, data, { merge: true });
-      setProfile((prev: any) => prev ? { ...prev, ...data } : { ...data });
+      await setDoc(userDocRef, safeData, { merge: true });
+      setProfile((prev) => prev ? { ...prev, ...safeData } : prev);
     } catch (err) {
       console.error("Failed to update profile:", err);
       throw err;

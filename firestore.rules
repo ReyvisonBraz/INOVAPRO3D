@@ -1,118 +1,185 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 🛡️ SECURITY HELPERS
+    // SECURITY HELPERS
     function isSignedIn() { return request.auth != null; }
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
-    
-    // Auth tokens never contain custom claims. We lookup roles in the users collection.
-    function isAdmin() { 
-      return isSignedIn() && 
+    function authEmail() { return request.auth.token.email; }
+
+    // Auth tokens do not use custom claims in this project. Roles are stored in users/{uid}.
+    function isAdmin() {
+      return isSignedIn() &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "ADMIN";
     }
 
-    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+    function changedKeys() { return incoming().diff(existing()).affectedKeys(); }
+    function optionalString(value, maxSize) {
+      return value == null || (value is string && value.size() <= maxSize);
+    }
+    function optionalNumber(value) {
+      return value == null || value is number;
+    }
 
     function isValidUser(data) {
-      return data.email is string && 
-             data.role is string && 
+      return data.email is string &&
+             data.role is string &&
              data.role in ['CUSTOMER', 'ADMIN', 'OPERATOR'] &&
              data.keys().hasAll(['email', 'role', 'createdAt']);
     }
 
-    // 🔒 DEFAULT DENY
+    function isValidCustomerUserCreate(data) {
+      return isValidUser(data) &&
+             data.keys().hasOnly(['email', 'name', 'photoURL', 'role', 'createdAt', 'loyaltyPoints']) &&
+             data.email == authEmail() &&
+             data.role == 'CUSTOMER' &&
+             data.createdAt == request.time &&
+             (!('loyaltyPoints' in data) || data.loyaltyPoints == 0) &&
+             optionalString(data.name, 160) &&
+             optionalString(data.photoURL, 2048);
+    }
+
+    function isValidProfileSelfUpdate() {
+      return changedKeys().hasOnly(['name', 'phone', 'addresses', 'photoURL']) &&
+             optionalString(incoming().name, 160) &&
+             optionalString(incoming().phone, 32) &&
+             optionalString(incoming().photoURL, 2048);
+    }
+
+    function isValidAdminUserUpdate() {
+      return changedKeys().hasOnly(['role', 'loyaltyPoints', 'name', 'phone', 'addresses', 'photoURL']) &&
+             isValidUser(incoming()) &&
+             optionalString(incoming().name, 160) &&
+             optionalString(incoming().phone, 32) &&
+             optionalString(incoming().photoURL, 2048) &&
+             optionalNumber(incoming().loyaltyPoints);
+    }
+
+    function isValidTicketCreate(data) {
+      return data.keys().hasOnly(['userId', 'userName', 'email', 'phone', 'subject', 'message', 'status', 'createdAt']) &&
+             data.keys().hasAll(['subject', 'message', 'status', 'createdAt']) &&
+             data.subject is string && data.subject.size() >= 3 && data.subject.size() <= 160 &&
+             data.message is string && data.message.size() >= 10 && data.message.size() <= 4000 &&
+             data.status == 'OPEN' &&
+             data.createdAt == request.time &&
+             optionalString(data.userId, 128) &&
+             optionalString(data.userName, 160) &&
+             optionalString(data.email, 254) &&
+             optionalString(data.phone, 32);
+    }
+
+    function isValidOrderCreate(data) {
+      return data.keys().hasOnly(['userId', 'userName', 'userEmail', 'items', 'total', 'shippingAddress', 'status', 'createdAt']) &&
+             data.keys().hasAll(['userId', 'items', 'total', 'shippingAddress', 'status', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             optionalString(data.userName, 160) &&
+             optionalString(data.userEmail, 254) &&
+             data.items is list && data.items.size() > 0 && data.items.size() <= 50 &&
+             data.total is number && data.total >= 0 &&
+             data.shippingAddress is map &&
+             data.status == 'PENDING_PAYMENT' &&
+             data.createdAt == request.time;
+    }
+
+    function isValidQuoteCreate(data) {
+      return data.keys().hasOnly(['userId', 'userName', 'userEmail', 'status', 'fileName', 'materialId', 'infill', 'estimatedPrice', 'createdAt']) &&
+             data.keys().hasAll(['userId', 'status', 'fileName', 'materialId', 'infill', 'createdAt']) &&
+             data.userId == request.auth.uid &&
+             optionalString(data.userName, 160) &&
+             optionalString(data.userEmail, 254) &&
+             data.status == 'PENDING' &&
+             data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 120 &&
+             isValidId(data.materialId) &&
+             data.infill is number && data.infill >= 0 && data.infill <= 100 &&
+             optionalNumber(data.estimatedPrice) &&
+             data.createdAt == request.time;
+    }
+
+    // DEFAULT DENY
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // 👤 USERS
+    // USERS
     match /users/{userId} {
-      // Allow get for self or admin
       allow get: if isOwner(userId) || (isSignedIn() && isAdmin());
-      
-      // Allow creation of profile by the user themselves
-      allow create: if isSignedIn() && isOwner(userId) && 
-                     isValidUser(incoming()) && 
-                     (incoming().role == "CUSTOMER" || (incoming().role == "ADMIN" && incoming().email == "littlefigther50@gmail.com")) &&
-                     incoming().createdAt == request.time;
-      
-      // Allow updates to non-critical fields for self, or ADMIN role for specific user
-      allow update: if (isOwner(userId) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'addresses', 'photoURL']) ||
-        (incoming().role == "ADMIN" && incoming().email == "littlefigther50@gmail.com")
-      )) || (isSignedIn() && isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'loyaltyPoints', 'name', 'phone', 'addresses', 'photoURL']));
+      allow create: if isSignedIn() && isOwner(userId) && isValidCustomerUserCreate(incoming());
+      allow update: if (isOwner(userId) && isValidProfileSelfUpdate()) ||
+                    (isSignedIn() && isAdmin() && isValidAdminUserUpdate());
     }
 
-    // 📦 PRODUCTS
+    // PRODUCTS
     match /products/{productId} {
-      allow read: if true; // Public catalog
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // 🖼️ SHOWCASE
+    // SHOWCASE
     match /showcase/{itemId} {
-      allow read: if true; // Public showcase
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // 🧵 MATERIALS
+    // MATERIALS
     match /materials/{materialId} {
-      allow read: if true; // Public materials
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // 🎫 COUPONS
+    // COUPONS
     match /coupons/{couponId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // 👥 CUSTOMERS
+    // CUSTOMERS
     match /customers/{customerId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
-    // 🎫 TICKETS
+    // TICKETS
     match /tickets/{ticketId} {
       allow read: if isAdmin();
-      allow create: if true; // Public can create tickets via contact form
+      allow create: if isValidTicketCreate(incoming());
       allow update, delete: if isAdmin();
     }
 
-    // ❓ FAQS
+    // FAQS
     match /faqs/{faqId} {
-      allow read: if true; // Public FAQ
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // ⚙️ SETTINGS
+    // SETTINGS
     match /settings/{settingId} {
-      allow read: if true; // Public needs to know global ship times etc
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // 📜 LOGS
+    // LOGS
     match /logs/{logId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
-    // 💳 ORDERS
+    // ORDERS
     match /orders/{orderId} {
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid && incoming().createdAt == request.time;
+      allow create: if isAdmin() || (isSignedIn() && isValidOrderCreate(incoming()));
       allow update: if isAdmin();
     }
 
-    // 📂 QUOTES
+    // QUOTES
     match /quotes/{quoteId} {
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow create: if isAdmin() || (isSignedIn() && isValidQuoteCreate(incoming()));
       allow update: if isAdmin();
     }
   }

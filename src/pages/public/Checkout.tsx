@@ -19,6 +19,7 @@ import { Button } from "../../components/ui/Button";
 import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { toast } from "sonner";
+import type { ShippingAddress } from "../../types/domain";
 
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
@@ -26,13 +27,45 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Success
   const [loading, setLoading] = useState(false);
+  const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [shippingRate, setShippingRate] = useState<number>(0);
-  const [address, setAddress] = useState({
-    zip: '',
+  const [address, setAddress] = useState<ShippingAddress>({
+    zipCode: '',
     street: '',
     number: '',
-    city: ''
+    neighborhood: '',
+    city: '',
+    state: ''
   });
+
+  const validateAddress = () => {
+    const requiredFields = [
+      address.zipCode,
+      address.street,
+      address.number,
+      address.neighborhood,
+      address.city,
+      address.state,
+    ];
+
+    if (requiredFields.some(field => !field.trim())) {
+      toast.error("Endereco incompleto", { description: "Preencha CEP, rua, numero, bairro, cidade e UF antes de continuar." });
+      return false;
+    }
+
+    if (address.state.trim().length !== 2) {
+      toast.error("UF invalida", { description: "Informe a UF com duas letras, por exemplo SP." });
+      return false;
+    }
+
+    return true;
+  };
+
+  const goToPayment = () => {
+    if (validateAddress()) {
+      setStep(2);
+    }
+  };
 
   React.useEffect(() => {
     const fetchSettings = async () => {
@@ -53,13 +86,16 @@ export default function Checkout() {
         toast.error("Autenticação necessária", { description: "Por favor, entre em sua conta para finalizar." });
         return;
     }
+    if (!validateAddress()) return;
+
     setLoading(true);
     const path = "orders";
     
     try {
-      await addDoc(collection(db, path), {
+      const orderRef = await addDoc(collection(db, path), {
         userId: user.uid,
         userName: user.displayName || user.email,
+        userEmail: user.email,
         items: items,
         total: total + shippingRate,
         shippingAddress: address,
@@ -67,6 +103,7 @@ export default function Checkout() {
         createdAt: serverTimestamp()
       });
       
+      setCreatedOrderId(orderRef.id);
       setStep(3);
       clearCart();
       toast.success("Pedido gerado com sucesso!", { description: "Aguardando confirmação de pagamento Pix." });
@@ -143,8 +180,8 @@ export default function Checkout() {
                             inputMode="numeric"
                             autoComplete="postal-code"
                             className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none" 
-                            value={address.zip}
-                            onChange={(e) => setAddress({...address, zip: e.target.value})}
+                            value={address.zipCode}
+                            onChange={(e) => setAddress({...address, zipCode: e.target.value})}
                           />
                        </div>
                        <div className="space-y-3">
@@ -160,14 +197,14 @@ export default function Checkout() {
                        <div className="space-y-3">
                           <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número / Bairro</label>
                           <input 
-                            placeholder="Ex: 123 - Centro" 
+                            placeholder="Ex: 123" 
                             className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none" 
                             value={address.number}
                             onChange={(e) => setAddress({...address, number: e.target.value})}
                           />
                        </div>
                        <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Cidade - UF</label>
+                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Cidade</label>
                           <input 
                             placeholder="São Paulo - SP" 
                             autoComplete="address-level2"
@@ -176,10 +213,31 @@ export default function Checkout() {
                             onChange={(e) => setAddress({...address, city: e.target.value})}
                           />
                        </div>
+                       <div className="space-y-3">
+                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Bairro</label>
+                          <input 
+                            placeholder="Ex: Centro" 
+                            autoComplete="address-level3"
+                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none" 
+                            value={address.neighborhood}
+                            onChange={(e) => setAddress({...address, neighborhood: e.target.value})}
+                          />
+                       </div>
+                       <div className="space-y-3">
+                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">UF</label>
+                          <input 
+                            placeholder="SP" 
+                            maxLength={2}
+                            autoComplete="address-level1"
+                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none" 
+                            value={address.state}
+                            onChange={(e) => setAddress({...address, state: e.target.value.toUpperCase()})}
+                          />
+                       </div>
                     </div>
                  </section>
 
-                 <Button size="lg" className="h-16 sm:h-20 w-full rounded-2xl sm:rounded-3xl gap-4 text-lg sm:text-xl font-display font-black uppercase tracking-tight" onClick={() => setStep(2)}>
+                 <Button size="lg" className="h-16 sm:h-20 w-full rounded-2xl sm:rounded-3xl gap-4 text-lg sm:text-xl font-display font-black uppercase tracking-tight" onClick={goToPayment}>
                    CONFIGURAR PAGAMENTO <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
                  </Button>
               </motion.div>
@@ -270,7 +328,7 @@ export default function Checkout() {
                   Ordem <br /> Iniciada.
                 </h2>
                 <p className="text-xl text-white/40 font-medium mb-12 leading-relaxed max-w-md">
-                   Sua ordem de manufatura <span className="text-primary">#{Math.random().toString(36).substring(7).toUpperCase()}</span> foi enfileirada para o cluster de impressão.
+                   Sua ordem de manufatura <span className="text-primary">#{createdOrderId?.slice(0, 10).toUpperCase()}</span> foi registrada e aguarda confirmacao de pagamento.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-6 w-full max-w-2xl">
@@ -345,7 +403,7 @@ export default function Checkout() {
                 <p className="text-2xl font-display font-black text-primary">R$ {(total + shippingRate).toFixed(2)}</p>
               </div>
               <Button 
-                onClick={() => step === 1 ? setStep(2) : handleCompleteOrder()}
+                onClick={() => step === 1 ? goToPayment() : handleCompleteOrder()}
                 loading={loading}
                 className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em]"
               >
