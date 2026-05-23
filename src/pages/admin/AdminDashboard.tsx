@@ -362,6 +362,18 @@ export default function AdminDashboard() {
   const [calcSetupFee, setCalcSetupFee] = useState<number>(10.00); // base slicing/setup fee
   const [calcMargin, setCalcMargin] = useState<number>(50); // profit margin in %
 
+  // Dashboard Quick Smart Pricing Calculator states
+  const [quickCalcWeight, setQuickCalcWeight] = useState<number>(80);
+  const [quickCalcTime, setQuickCalcTime] = useState<string>('2h 30m');
+  const [quickCalcInfill, setQuickCalcInfill] = useState<number>(20);
+  const [quickCalcPhone, setQuickCalcPhone] = useState<string>('');
+  const [quickCalcCustomerName, setQuickCalcCustomerName] = useState<string>('');
+  const [quickCalcPieceName, setQuickCalcPieceName] = useState<string>('');
+  const [quickCalcMargin, setQuickCalcMargin] = useState<number>(50);
+  const [quickCalcFilamentPrice, setQuickCalcFilamentPrice] = useState<number>(0.15);
+  const [quickCalcHourCost, setQuickCalcHourCost] = useState<number>(4.50);
+  const [quickCalcSetupFee, setQuickCalcSetupFee] = useState<number>(10.00);
+
   // Helper to convert time strings (e.g., "2h 30m" or "5.5" or "5:30") to decimal hours
   const parseTimeToHours = (timeStr: string): number => {
     if (!timeStr) return 0;
@@ -384,6 +396,7 @@ export default function AdminDashboard() {
     }
     return h + (m / 60);
   };
+
   const [approvalStatus, setApprovalStatus] = useState<{ 
     success: boolean; 
     orderId?: string; 
@@ -425,6 +438,30 @@ export default function AdminDashboard() {
         setConfirmState(null);
       }
     });
+  };
+
+  const handleSendQuickWhatsAppQuote = () => {
+    const rawPhone = quickCalcPhone;
+    const phoneClean = (rawPhone || '').replace(/\D/g, '');
+    if (!phoneClean) {
+      toast.error("Por favor, preencha o número de WhatsApp do cliente para enviar o orçamento.");
+      return;
+    }
+    const weightVal = Number(quickCalcWeight) || 0;
+    const timeVal = quickCalcTime || '2h 30m';
+    const hours = parseTimeToHours(timeVal);
+    const costFilament = weightVal * quickCalcFilamentPrice;
+    const costTime = hours * quickCalcHourCost;
+    const directCost = costFilament + costTime + quickCalcSetupFee;
+    const finalPrice = directCost * (1 + quickCalcMargin / 100);
+    
+    const clientName = quickCalcCustomerName || "Cliente";
+    const pieceName = quickCalcPieceName || "Peça Customizada";
+    
+    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado por nosso assistente na *Inovalt 3D*.\n\n*Especificações Simuladas:*\n• Preenchimento (Infill): ${quickCalcInfill}%\n• Peso Estimado: ${weightVal}g\n• Tempo de Impressão: ${timeVal}\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\nPeso total: ${weightVal}g | Tempo total: ${timeVal} (${hours.toFixed(2)}h)\n\nFicamos à disposição para fecharmos o seu pedido! 🚀`;
+    const encodedText = encodeURIComponent(text);
+    const url = `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`;
+    window.open(url, '_blank');
   };
 
   useEffect(() => {
@@ -1241,6 +1278,234 @@ export default function AdminDashboard() {
                           </div>
                        ))}
                     </div>
+                  </div>
+                </div>
+
+                {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
+                <div className="glass rounded-[40px] p-8 border border-white/5 bg-gradient-to-b from-white/[0.01] to-black/40 space-y-6">
+                   <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                      <div className="flex items-center gap-2">
+                         <Calculator className="w-5 h-5 text-primary" />
+                         <div>
+                            <h3 className="text-xs font-black uppercase tracking-widest italic text-white">Assistente de Orçamento Rápido</h3>
+                            <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">Simule preços e envie propostas por WhatsApp na hora</p>
+                         </div>
+                      </div>
+                      <span className="text-[9px] font-black tracking-wider uppercase text-[#FF6B00] bg-[#FF6B00]/10 px-2.5 py-1 rounded-full border border-[#FF6B00]/10">Modo Avulso</span>
+                   </div>
+
+                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {/* INPUTS GERAIS */}
+                      <div className="space-y-4">
+                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#FF6B00] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
+                         <div>
+                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Nome do Cliente</label>
+                            <input
+                               type="text"
+                               value={quickCalcCustomerName}
+                               onChange={(e) => setQuickCalcCustomerName(e.target.value)}
+                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                               placeholder="Ex: João Silva"
+                            />
+                         </div>
+                         <div>
+                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">WhatsApp (DDD + Número)</label>
+                            <input
+                               type="text"
+                               value={quickCalcPhone}
+                               onChange={(e) => setQuickCalcPhone(e.target.value)}
+                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               placeholder="Ex: 11999998888"
+                            />
+                         </div>
+                         <div>
+                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Nome do Modelo 3D</label>
+                            <input
+                               type="text"
+                               value={quickCalcPieceName}
+                               onChange={(e) => setQuickCalcPieceName(e.target.value)}
+                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                               placeholder="Ex: Suporte de Headset"
+                            />
+                         </div>
+                      </div>
+
+                      {/* INPUTS TÉCNICOS */}
+                      <div className="space-y-4">
+                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#FF6B00] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
+                         <div className="grid grid-cols-2 gap-3">
+                            <div>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Peso Geral (g)</label>
+                               <input
+                                  type="number"
+                                  value={quickCalcWeight}
+                                  onChange={(e) => setQuickCalcWeight(Number(e.target.value))}
+                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Infill / Preenc. (%)</label>
+                               <input
+                                  type="number"
+                                  value={quickCalcInfill}
+                                  onChange={(e) => setQuickCalcInfill(Number(e.target.value))}
+                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               />
+                            </div>
+                         </div>
+                         <div>
+                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Tempo de Impressão</label>
+                            <input
+                               type="text"
+                               value={quickCalcTime}
+                               onChange={(e) => setQuickCalcTime(e.target.value)}
+                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               placeholder="Ex: 2h 30m"
+                            />
+                         </div>
+                         
+                         {/* Taxas do Cálculo Direct Edit */}
+                         <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-2">
+                            <p className="text-[8px] uppercase font-black text-white/40 tracking-wider mb-1">Taxas de Custo Direto</p>
+                            <div className="grid grid-cols-3 gap-2">
+                               <div>
+                                  <label className="text-[7px] text-white/30 uppercase block font-black">Filamento/g</label>
+                                  <input
+                                     type="number"
+                                     step="0.01"
+                                     value={quickCalcFilamentPrice}
+                                     onChange={(e) => setQuickCalcFilamentPrice(Number(e.target.value))}
+                                     className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
+                                  />
+                               </div>
+                               <div>
+                                  <label className="text-[7px] text-white/30 uppercase block font-black">Hora de Impressão</label>
+                                  <input
+                                     type="number"
+                                     step="0.10"
+                                     value={quickCalcHourCost}
+                                     onChange={(e) => setQuickCalcHourCost(Number(e.target.value))}
+                                     className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
+                                  />
+                               </div>
+                               <div>
+                                  <label className="text-[7px] text-white/30 uppercase block font-black">M. Lucro %</label>
+                                  <input
+                                     type="number"
+                                     value={quickCalcMargin}
+                                     onChange={(e) => setQuickCalcMargin(Number(e.target.value))}
+                                     className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
+                                  />
+                               </div>
+                            </div>
+                         </div>
+                      </div>
+
+                      {/* DETALHAMENTO DO CÁLCULO DIRETO + COMPARTILHAMENTO */}
+                      <div className="space-y-4">
+                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#FF6B00] italic border-b border-white/5 pb-2">3. Demonstrativo Detalhado</h4>
+
+                         <div className="bg-black/40 border border-white/5 rounded-[24px] p-5 space-y-3">
+                            <div className="flex justify-between text-xs text-white/70">
+                               <span>Custo Filamento ({quickCalcWeight}g × R$ {quickCalcFilamentPrice.toFixed(2)}):</span>
+                               <span className="font-mono text-white">R$ {(quickCalcWeight * quickCalcFilamentPrice).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/70">
+                               <span>Custo Máquina ({parseTimeToHours(quickCalcTime).toFixed(2)}h × R$ {quickCalcHourCost.toFixed(2)}):</span>
+                               <span className="font-mono text-white">R$ {(parseTimeToHours(quickCalcTime) * quickCalcHourCost).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs text-white/70">
+                               <span>Taxa Setup:</span>
+                               <span className="font-mono text-white">R$ {quickCalcSetupFee.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-xs font-bold text-white/40 border-t border-white/5 pt-2">
+                               <span>Soma dos Custos Diretos:</span>
+                               <span className="font-mono text-white/60">R$ {(quickCalcWeight * quickCalcFilamentPrice + parseTimeToHours(quickCalcTime) * quickCalcHourCost + quickCalcSetupFee).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-black text-white border-t border-white/10 pt-3">
+                               <span className="uppercase text-[#FF6B00] italic">Preço Sugerido (+{quickCalcMargin}%):</span>
+                               <span className="font-mono text-primary text-base">
+                                  R$ {((quickCalcWeight * quickCalcFilamentPrice + parseTimeToHours(quickCalcTime) * quickCalcHourCost + quickCalcSetupFee) * (1 + quickCalcMargin / 100)).toFixed(2)}
+                                </span>
+                            </div>
+                         </div>
+
+                         <Button
+                            type="button"
+                            disabled={!quickCalcPhone.replace(/\D/g, '')}
+                            onClick={handleSendQuickWhatsAppQuote}
+                            className="w-full h-11 rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                         >
+                            <Smartphone className="w-4 h-4" /> Enviar Orçamento por WhatsApp
+                         </Button>
+                      </div>
+                   </div>
+                </div>
+
+                {/* ESTEIRA DE PRODUÇÃO (KANBAN) DIRETA NA TELA INICIAL */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[32px] border border-white/5">
+                     <div>
+                        <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2">
+                           <Layers className="w-4 h-4 text-primary" /> Esteira de Produção
+                        </h3>
+                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Controle logístico e manufatura diretamente no dashboard inicial</p>
+                     </div>
+                  </div>
+
+                  <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar">
+                     {[
+                       { id: 'PENDING_PAYMENT', label: 'AGUAR. PAGTO', icon: Wallet },
+                       { id: 'PAID', label: 'PAGO', icon: CheckCircle2 },
+                       { id: 'QUEUE', label: 'FILA IMPRESSÃO', icon: ListTodo },
+                       { id: 'PRINTING', label: 'IMPRIMINDO', icon: Zap },
+                       { id: 'FINISHING', label: 'ACABAMENTO', icon: Layers },
+                       { id: 'SHIPPED', label: 'ENVIADO', icon: Truck },
+                       { id: 'COMPLETED', label: 'FINALIZADO', icon: Shield },
+                     ].map(stage => {
+                        const stageOrders = orders.filter(o => o.status === stage.id &&
+                          (searchTerm === "" ||
+                           o.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           o.id.toLowerCase().includes(searchTerm.toLowerCase()))
+                        );
+                        const Icon = stage.icon;
+                        return (
+                           <div key={stage.id} className="min-w-[260px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[32px] flex flex-col h-[420px]">
+                              <div className="p-4 border-b border-white/5 bg-white/[0.01]">
+                                 <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                       <Icon className="w-3.5 h-3.5 text-primary" />
+                                       <h4 className="text-[10px] font-black uppercase text-white/70">{stage.label}</h4>
+                                    </div>
+                                    <span className="text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40">{stageOrders.length}</span>
+                                 </div>
+                              </div>
+                              <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
+                                 {stageOrders.map(o => (
+                                    <div key={o.id} onClick={() => { setActiveTab('orders'); setSelectedOrder(o); }} className="glass p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(255,107,0,0.08)]">
+                                       <div className="flex justify-between items-start mb-2">
+                                          <p className="text-[8px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
+                                          <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
+                                       </div>
+                                       <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">{o.userName}</h5>
+                                       <p className="text-[9px] text-white/30 line-clamp-1 mb-3 mt-1 font-bold">{o.items?.map((i:any) => i.name || i.fileName).join(' • ')}</p>
+                                       <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                                           <p className="text-[8px] font-mono text-white/20">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                           <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all">
+                                               <ArrowRight className="w-2.5 h-2.5" />
+                                           </div>
+                                       </div>
+                                    </div>
+                                 ))}
+                                 {stageOrders.length === 0 && (
+                                    <div className="py-12 text-center">
+                                       <p className="text-[8px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto">Sem Pedidos</p>
+                                    </div>
+                                 )}
+                              </div>
+                           </div>
+                        )
+                     })}
                   </div>
                 </div>
 
