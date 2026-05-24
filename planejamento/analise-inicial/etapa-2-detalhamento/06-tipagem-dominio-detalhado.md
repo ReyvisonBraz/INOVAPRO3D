@@ -158,9 +158,9 @@ export type OrderStatus =
 - `npm.cmd run lint` passou apos aplicar tipos iniciais no admin.
 - `npm.cmd run build` passou apos remover os `any` diretos restantes.
 - Busca global por padroes comuns de `any` (`any[]`, `useState<any`, `: any`, `as any`, parametros e maps com `any`) nao retornou ocorrencias em `src`.
+- Revalidado em 2026-05-24: os dois `map((i:any) => ...)` residuais em `AdminDashboard.tsx` foram trocados para `OrderItem`, e a busca por `any` em `src` nao retornou ocorrencias.
 
 ### Pendencias
 
-- Remover `any` do admin e de componentes/layout restantes.
 - Criar helpers para conversao de documentos Firestore.
 - Padronizar status no admin usando os mesmos tipos compartilhados.

@@ -75,6 +75,8 @@ Ao final, adicionar neste documento:
 - `npm.cmd install`
 - `npm.cmd run lint`
 - `npm.cmd run build`
+- `npm.cmd run clean`
+- `npm.cmd run build`
 
 ### Resultado
 
@@ -93,4 +95,34 @@ Ao final, adicionar neste documento:
 
 - Registrar versao de Node usada.
 - Rodar smoke test no navegador com o dev server.
+- Considerar separacao de chunks na fase de performance.
+
+## Revalidacao - 2026-05-24
+
+### Ambiente
+
+- Node: `v24.12.0`
+
+### Comandos Executados
+
+- `npm.cmd run lint`
+- `npm.cmd run build`
+
+### Resultado
+
+- Typecheck passou.
+- Build de producao passou.
+- O aviso de chunk JavaScript maior que 500 kB permanece.
+- Dev server subiu em `http://localhost:3000`.
+- Smoke test HTTP retornou status 200 para `/`, `/catalogo`, `/checkout`, `/meus-pedidos`, `/admin` e `/conhecimento` usando `http://127.0.0.1:3000`.
+- `npm.cmd run clean` passou no Windows e o build apos limpeza passou.
+
+### Ajustes Aplicados
+
+- Removidos os dois usos residuais de `any` nos cards de pedidos do `AdminDashboard.tsx`, usando `OrderItem`.
+- Script `clean` trocado de `rm -rf dist` para `node -e "fs.rmSync('dist', { recursive: true, force: true })"`.
+
+### Pendencias Atualizadas
+
+- Rodar smoke test visual no navegador quando o browser interno estiver disponivel.
 - Considerar separacao de chunks na fase de performance.

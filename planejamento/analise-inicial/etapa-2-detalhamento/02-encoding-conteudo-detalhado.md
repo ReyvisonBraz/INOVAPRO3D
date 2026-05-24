@@ -87,3 +87,25 @@ Precisam ser consistentes:
 - [ ] Admin.
 - [ ] Mobile menu.
 
+## Execucao Parcial - 2026-05-24
+
+### Alteracoes Aplicadas
+
+- Comentario com mojibake em `vite.config.ts` foi corrigido.
+- Logs e comentarios com caracteres quebrados em `server.ts` foram trocados por texto ASCII.
+- Endpoint `/api/debug/markers` deixou de listar `Mercado Pago (Sandbox)` como integracao ativa e passou a marcar `Mercado Pago Pix/Webhook` como pendente.
+- Texto antigo `Expansao em Q3 2024` no checkout foi trocado por `Em planejamento`.
+- Texto de confianca sobre PCI-DSS no checkout foi substituido por uma frase alinhada ao estado real: pagamento ainda depende de confirmacao operacional.
+- Titulo HTML padrao `My Google AI Studio App` foi trocado por `INOVAPRO3D`.
+
+### Validacao
+
+- Busca por `Q3 2024`, `Mercado Pago (Sandbox)`, `My Google AI Studio App`, `Do not modify`, `AI Studio automatically`, `Next.js 14`, `Supabase`, `Prisma` e `NextAuth` nao retornou ocorrencias em `README.md`, `.env.example`, `index.html`, `vite.config.ts`, `server.ts` e `src`.
+- `npm.cmd run lint` passou.
+- `npm.cmd run build` passou.
+
+### Pendencias
+
+- Rodar validacao visual no navegador.
+- Definir nome final da marca entre Inovalt3D/Inovapro3D/INOVAPRO3D.
+- Revisar promessas comerciais restantes como cashback, prazos e numeros de prova social.

@@ -8,26 +8,27 @@ async function startServer() {
 
   app.use(express.json());
 
-  // 🕵️ STATUS & DIAGNOSTICS ENDPOINT
-  app.get("/api/health", (req, res) => {
+  // Status and diagnostics endpoint.
+  app.get("/api/health", (_req, res) => {
     res.json({
       status: "online",
       timestamp: new Date().toISOString(),
       environment: process.env.NODE_ENV || "development",
       checks: {
-        firebase: "pending", // Será atualizado após setup
+        firebase: "pending",
         storage: "online",
         memoryUsage: process.memoryUsage(),
-      }
+      },
     });
   });
 
-  // Proxy para logs ou depuração futura
-  app.get("/api/debug/markers", (req, res) => {
+  // Lightweight diagnostics for the admin/debug UI.
+  app.get("/api/debug/markers", (_req, res) => {
     res.json({
-      active_integrations: ["Firebase Auth", "Firestore", "Mercado Pago (Sandbox)"],
+      active_integrations: ["Firebase Auth", "Firestore"],
+      pending_integrations: ["Mercado Pago Pix/Webhook"],
       ui_version: "2.0.0-refined",
-      theme: "industrial-dark"
+      theme: "industrial-dark",
     });
   });
 
@@ -38,15 +39,15 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (_req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
     });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Impressão 3D Engine rodando em http://localhost:${PORT}`);
+    console.log(`INOVAPRO3D server running at http://localhost:${PORT}`);
   });
 }
 

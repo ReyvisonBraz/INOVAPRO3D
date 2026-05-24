@@ -89,6 +89,7 @@ import type {
   GlobalSettings,
   Material,
   Order,
+  OrderItem,
   Product,
   Quote,
   ShowcaseItem,
@@ -1512,7 +1513,7 @@ export default function AdminDashboard() {
                                           <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
                                        </div>
                                        <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">{o.userName}</h5>
-                                       <p className="text-[9px] text-white/30 line-clamp-1 mb-3 mt-1 font-bold">{o.items?.map((i:any) => i.name || i.fileName).join(' • ')}</p>
+                                       <p className="text-[9px] text-white/30 line-clamp-1 mb-3 mt-1 font-bold">{o.items?.map((i: OrderItem) => i.name || i.fileName).join(' • ')}</p>
                                        <div className="flex items-center justify-between border-t border-white/5 pt-2">
                                            <p className="text-[8px] font-mono text-white/20">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
                                            <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all">
@@ -1617,7 +1618,7 @@ export default function AdminDashboard() {
                                          <p className="text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
                                       </div>
                                       <h5 className="text-sm font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">{o.userName}</h5>
-                                      <p className="text-[10px] text-white/30 line-clamp-1 mb-4 mt-1 font-bold">{o.items?.map((i:any) => i.name || i.fileName).join(' • ')}</p>
+                                      <p className="text-[10px] text-white/30 line-clamp-1 mb-4 mt-1 font-bold">{o.items?.map((i: OrderItem) => i.name || i.fileName).join(' • ')}</p>
                                       
                                       <div className="flex items-center justify-between border-t border-white/5 pt-3">
                                           <p className="text-[8px] font-mono text-white/20">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>

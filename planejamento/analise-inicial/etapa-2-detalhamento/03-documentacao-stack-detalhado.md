@@ -73,3 +73,25 @@ Nao e recomendado apagar sem preservar, porque ele contem bastante regra de nego
 - Documentos antigos sao preservados com nome correto.
 - Nao ha conflito entre roadmap e codigo atual sem observacao.
 
+## Execucao Parcial - 2026-05-24
+
+### Alteracoes Aplicadas
+
+- README principal foi substituido por um guia operacional da stack real.
+- O README antigo foi preservado em `DOCS/product-spec-original.md`.
+- O novo README documenta comandos, stack, Firebase, rotas de smoke test, funcionalidades atuais e pendencias simuladas.
+- `.env.example` deixou de mencionar AI Studio como premissa operacional e passou a listar `DISABLE_HMR`.
+- `index.html` recebeu `lang="pt-BR"` e titulo `INOVAPRO3D`.
+
+### Validacao
+
+- `DOCS/product-spec-original.md` existe e preserva o conteudo anterior.
+- Busca por stack antiga (`Next.js 14`, `Supabase`, `Prisma`, `NextAuth`) nao retornou ocorrencias no README operacional.
+- `npm.cmd run lint` passou.
+- `npm.cmd run build` passou.
+
+### Pendencias
+
+- Confrontar `ROADMAP.md` com o codigo atual.
+- Documentar o processo oficial de bootstrap do primeiro admin.
+- Documentar variaveis reais quando houver backend de pagamento/webhook.

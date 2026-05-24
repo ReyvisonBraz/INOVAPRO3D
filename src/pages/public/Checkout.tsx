@@ -278,7 +278,7 @@ export default function Checkout() {
                           </div>
                           <div className="text-left">
                             <p className="text-xl font-black uppercase font-display leading-tight">Cartão de Crédito</p>
-                            <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Expansão em Q3 2024</p>
+                            <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Em planejamento</p>
                           </div>
                         </div>
                         <Lock className="w-6 h-6 text-white/10" />
@@ -289,7 +289,7 @@ export default function Checkout() {
                 <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex gap-4">
                    <ShieldCheck className="w-6 h-6 text-primary shrink-0" />
                    <p className="text-[11px] text-white/40 leading-relaxed italic font-medium">
-                     Nossa infraestrutura de pagamentos atende aos protocolos PCI-DSS. Seu projeto entrará em fatiamento imediato após a confirmação da transação.
+                     O pagamento real ainda depende de confirmação operacional. Seu projeto entra na fila após validação do pedido pela equipe.
                    </p>
                 </div>
 
