@@ -505,6 +505,8 @@ export default function AdminDashboard() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isEditingProduct, setIsEditingProduct] = useState(false);
+  const [productImportUrl, setProductImportUrl] = useState('');
+  const [isImportingProduct, setIsImportingProduct] = useState(false);
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
@@ -515,15 +517,35 @@ export default function AdminDashboard() {
     stock: 0,
     tags: [] as string[],
     technical: { infill: 20, resolution: '0.20mm', printTime: '2h 30m', weight: 80 },
+    sourceUrl: '',
     modelUrl: '',
     baseDimensions: { x: 120, y: 120, z: 150 }
   });
+
+  const resetNewProduct = () => {
+    setNewProduct({
+      name: '',
+      description: '',
+      basePrice: 0,
+      category: 'DECORAÃ‡ÃƒO',
+      images: [''],
+      active: true,
+      stock: 0,
+      tags: [],
+      technical: { infill: 20, resolution: '0.20mm', printTime: '2h 30m', weight: 80 },
+      sourceUrl: '',
+      modelUrl: '',
+      baseDimensions: { x: 120, y: 120, z: 150 }
+    });
+    setProductImportUrl('');
+  };
 
   const handleDuplicateProduct = (product: Product) => {
     const { id, createdAt, updatedAt, ...rest } = product;
     setNewProduct({
       ...rest,
       name: `${rest.name} (Cópia)`,
+      sourceUrl: rest.sourceUrl || '',
       modelUrl: rest.modelUrl || '',
       active: rest.active !== undefined ? rest.active : true,
       stock: rest.stock || 0,
@@ -539,6 +561,44 @@ export default function AdminDashboard() {
     });
     setIsAddingProduct(true);
     toast.info("Protótipo duplicado. Ajuste os detalhes antes de salvar.");
+  };
+
+  const handleImportProductMetadata = async () => {
+    const url = productImportUrl.trim();
+    if (!url) {
+      toast.error("Informe o link do modelo antes de importar.");
+      return;
+    }
+
+    try {
+      setIsImportingProduct(true);
+      const response = await fetch(`/api/model-metadata?url=${encodeURIComponent(url)}`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Nao foi possivel importar este link.");
+      }
+
+      const importedImages = Array.isArray(data.images)
+        ? data.images.filter((image: unknown): image is string => typeof image === 'string' && image.length > 0)
+        : [];
+
+      setNewProduct((current) => ({
+        ...current,
+        name: data.title || current.name,
+        description: data.description || current.description,
+        images: importedImages.length > 0 ? importedImages : current.images,
+        sourceUrl: data.sourceUrl || url,
+        modelUrl: data.modelUrl || current.modelUrl,
+        tags: Array.from(new Set([...current.tags, data.sourceHost].filter(Boolean))),
+      }));
+
+      toast.success("Metadados importados. Revise o preco antes de salvar.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao importar metadados.");
+    } finally {
+      setIsImportingProduct(false);
+    }
   };
 
   const fetchData = async () => {
@@ -672,9 +732,11 @@ export default function AdminDashboard() {
         stock: 0,
         tags: [],
         technical: { infill: 20, resolution: '0.20mm', printTime: '2h 30m', weight: 80 },
+        sourceUrl: '',
         modelUrl: '',
         baseDimensions: { x: 120, y: 120, z: 150 }
       });
+      setProductImportUrl('');
       fetchData();
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, "products");
@@ -1648,7 +1710,7 @@ export default function AdminDashboard() {
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Controle de Catálogo</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Gerencie os itens visíveis na loja</p>
                     </div>
-                    <Button onClick={() => setIsAddingProduct(true)} className="rounded-2xl gap-2 h-11 px-6">
+                    <Button onClick={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }} className="rounded-2xl gap-2 h-11 px-6">
                        <Plus className="w-4 h-4" /> Novo Produto
                     </Button>
                  </div>
@@ -1660,7 +1722,7 @@ export default function AdminDashboard() {
                              <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                              <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button onClick={() => handleDuplicateProduct(p)} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-blue-400 transition-colors" title="Duplicar"><Layers className="w-4 h-4" /></button>
-                                <button onClick={() => { setSelectedProduct(p); setIsEditingProduct(true); setNewProduct({ name: p.name || '', description: p.description || '', basePrice: p.basePrice || 0, category: p.category || 'DECORAÇÃO', images: p.images || [''], active: p.active !== undefined ? p.active : true, stock: p.stock || 0, tags: p.tags || [], technical: { infill: p.technical?.infill ?? 20, resolution: p.technical?.resolution || '0.20mm', printTime: p.technical?.printTime || '2h 30m', weight: p.technical?.weight ?? 80 }, modelUrl: p.modelUrl || '', baseDimensions: p.baseDimensions || { x: 120, y: 120, z: 150 } }); }} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-primary transition-colors"><Edit className="w-4 h-4" /></button>
+                                <button onClick={() => { setSelectedProduct(p); setIsEditingProduct(true); setProductImportUrl(p.sourceUrl || ''); setNewProduct({ name: p.name || '', description: p.description || '', basePrice: p.basePrice || 0, category: p.category || 'DECORAÇÃO', images: p.images || [''], active: p.active !== undefined ? p.active : true, stock: p.stock || 0, tags: p.tags || [], technical: { infill: p.technical?.infill ?? 20, resolution: p.technical?.resolution || '0.20mm', printTime: p.technical?.printTime || '2h 30m', weight: p.technical?.weight ?? 80 }, sourceUrl: p.sourceUrl || '', modelUrl: p.modelUrl || '', baseDimensions: p.baseDimensions || { x: 120, y: 120, z: 150 } }); }} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-primary transition-colors"><Edit className="w-4 h-4" /></button>
                                 <button onClick={() => deleteItem('products', p.id)} className="p-2 bg-black/60 backdrop-blur-md rounded-xl border border-white/10 hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
                              </div>
                              <div className="absolute bottom-4 left-4">
@@ -2304,12 +2366,44 @@ export default function AdminDashboard() {
         {(isAddingProduct || isEditingProduct) && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/90 backdrop-blur-3xl overflow-y-auto">
              <motion.div initial={{ opacity: 0, y: 50 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 50 }} className="bg-surface border border-white/10 rounded-[32px] sm:rounded-[48px] p-6 sm:p-12 max-w-2xl w-full relative my-auto">
-                <button onClick={() => { setIsAddingProduct(false); setIsEditingProduct(false); }} className="absolute top-6 right-6 sm:top-8 sm:right-8 text-white/20 hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
+                <button onClick={() => { setIsAddingProduct(false); setIsEditingProduct(false); setProductImportUrl(''); }} className="absolute top-6 right-6 sm:top-8 sm:right-8 text-white/20 hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
                 <h2 className="text-3xl font-black italic tracking-tighter mb-8">
                    {isEditingProduct ? 'Editar Produto' : 'Novo Produto no Catálogo'}
                 </h2>
                 
                 <form onSubmit={handleProductSubmit} className="space-y-6">
+                    <div className="space-y-3 rounded-[28px] border border-primary/20 bg-primary/5 p-4 sm:p-5">
+                       <div className="flex items-center justify-between gap-4">
+                          <div>
+                             <label className="text-[10px] font-black uppercase tracking-widest text-primary">Importar por link</label>
+                             <p className="text-[9px] text-white/35 font-bold uppercase tracking-widest mt-1">Preenche nome, imagem, descricao e origem. O preco continua manual.</p>
+                          </div>
+                          <Download className="w-5 h-5 text-primary/70 shrink-0" />
+                       </div>
+                       <div className="flex flex-col sm:flex-row gap-3">
+                          <input
+                             type="url"
+                             value={productImportUrl}
+                             onChange={(e) => setProductImportUrl(e.target.value)}
+                             placeholder="Cole um link publico do modelo, ex: MakerWorld/Bambu Lab"
+                             className="min-w-0 flex-1 bg-black border border-white/10 rounded-2xl p-4 text-xs font-mono outline-none focus:border-primary/50 transition-all"
+                          />
+                          <Button
+                             type="button"
+                             onClick={handleImportProductMetadata}
+                             disabled={isImportingProduct}
+                             className="rounded-2xl px-6 h-12 text-[10px] font-black uppercase tracking-widest"
+                          >
+                             {isImportingProduct ? 'Importando...' : 'Importar'}
+                          </Button>
+                       </div>
+                       {newProduct.sourceUrl && (
+                         <p className="text-[8px] text-white/30 font-mono break-all">
+                           Origem: {newProduct.sourceUrl}
+                         </p>
+                       )}
+                    </div>
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Identidade do Item</label>
@@ -2402,6 +2496,17 @@ export default function AdminDashboard() {
                           className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs"
                        />
                        <span className="text-[8px] uppercase tracking-widest text-white/30">Deixe em branco para usar o cubo padrão. Defina uma URL para renderização 3D interativa!</span>
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Link de Origem / Download do Modelo</label>
+                       <input 
+                          value={newProduct.sourceUrl || ''}
+                          onChange={(e) => setNewProduct({...newProduct, sourceUrl: e.target.value})}
+                          placeholder="Link da pagina do modelo ou download externo"
+                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs"
+                       />
+                       <span className="text-[8px] uppercase tracking-widest text-white/30">Use este campo para guardar a pagina original. O visualizador 3D usa apenas links diretos de arquivo no campo acima.</span>
                     </div>
 
                     <div className="grid grid-cols-3 gap-4 bg-white/5 p-4 sm:p-6 rounded-3xl border border-white/5">

@@ -121,6 +121,7 @@ export interface Product {
   images: string[];
   category: string;
   active?: boolean;
+  sourceUrl?: string;
   modelUrl?: string;
   stock?: number;
   tags?: string[];

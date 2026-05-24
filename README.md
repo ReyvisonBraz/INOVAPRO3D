@@ -54,6 +54,7 @@ Variaveis conhecidas:
 - `APP_URL`: URL publica da aplicacao, quando houver deploy.
 - `DISABLE_HMR`: quando `true`, desativa HMR/file watching no Vite.
 - `NODE_ENV`: controla modo de desenvolvimento/producao do servidor Express.
+- `MODEL_IMPORT_ALLOWED_HOSTS`: hosts permitidos no importador de produtos por link. Padrao: `makerworld.com,bambulab.com,bambulab.cn`.
 
 ## Firebase
 
@@ -81,6 +82,7 @@ Bootstrap do primeiro admin ainda precisa ser definido operacionalmente. Por enq
 - Solicitacao de orcamento customizado.
 - Area "Meus pedidos".
 - Painel admin com pedidos, orcamentos, produtos, materiais, vitrine, CRM, suporte, FAQ, logs e configuracoes.
+- Importador de metadados por link no cadastro de produtos.
 - Regras Firestore endurecidas para usuarios, pedidos, orcamentos e tickets.
 - Tipos de dominio em `src/types/domain.ts`.
 
@@ -93,6 +95,24 @@ Bootstrap do primeiro admin ainda precisa ser definido operacionalmente. Por enq
 - Storage real para arquivos 3D ainda precisa ser definido.
 - Smoke test visual no navegador ainda precisa ser executado.
 - Bundle principal ainda esta grande e pede code splitting futuro.
+
+## Importacao de Produtos por Link
+
+No admin, em `Catalogo > Novo Produto`, use "Importar por link" para preencher dados iniciais do produto a partir de uma pagina publica de modelo.
+
+O importador tenta extrair:
+
+- titulo;
+- descricao;
+- imagem principal;
+- link de origem;
+- link direto de arquivo, somente quando o link aponta para `.stl`, `.3mf`, `.obj`, `.step`, `.stp`, `.iges`, `.igs` ou `.zip`.
+
+O preco base nao e importado. Ele deve ser definido manualmente pelo admin antes de salvar.
+
+Links de paginas como MakerWorld/Bambu Lab normalmente entram como `sourceUrl`. O campo `modelUrl` deve ficar reservado para arquivos diretos que o visualizador 3D consiga carregar.
+
+Por seguranca, o endpoint de importacao aceita apenas hosts configurados em `MODEL_IMPORT_ALLOWED_HOSTS`.
 
 ## Rotas Para Smoke Test
 
