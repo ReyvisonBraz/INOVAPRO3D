@@ -87,7 +87,7 @@ export function Navbar() {
             <Box className="text-white w-5 h-5" />
           </div>
           <span className="font-display font-black text-xl uppercase tracking-tighter text-shimmer">
-            Inovalt3D
+            INOVAPRO3D
           </span>
         </Link>
         
@@ -104,7 +104,7 @@ export function Navbar() {
               {location.pathname === link.path && (
                 <motion.div 
                   layoutId="active-nav"
-                  className="absolute -bottom-1 left-0 right-0 h-px bg-primary shadow-[0_0_8px_rgba(255,107,0,0.5)]"
+                  className="absolute -bottom-1 left-0 right-0 h-px bg-primary shadow-[0_0_8px_rgba(37,99,235,0.5)]"
                 />
               )}
             </Link>
@@ -132,7 +132,7 @@ export function Navbar() {
                 {location.pathname === '/admin' && (
                   <motion.div 
                     layoutId="active-nav"
-                    className="absolute -bottom-1 left-0 right-0 h-px bg-primary shadow-[0_0_8px_rgba(255,107,0,0.5)]"
+                    className="absolute -bottom-1 left-0 right-0 h-px bg-primary shadow-[0_0_8px_rgba(37,99,235,0.5)]"
                   />
                 )}
               </Link>

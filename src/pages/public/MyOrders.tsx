@@ -267,7 +267,7 @@ export default function MyOrders() {
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={() => {
-                            const pixCode = "00020101021226830014br.gov.bcb.pix2561api.inovalt3d.com.br/pix/qr/v2/cob/order_" + order.id + "_" + (order.total || 0).toFixed(0);
+                            const pixCode = "00020101021226830014br.gov.bcb.pix2561api.INOVAPRO3D.com.br/pix/qr/v2/cob/order_" + order.id + "_" + (order.total || 0).toFixed(0);
                             navigator.clipboard.writeText(pixCode);
                             toast.success("Código Pix Copiado!", { description: "Cole no aplicativo do seu banco para pagar." });
                           }}
@@ -282,14 +282,14 @@ export default function MyOrders() {
                       <div className="md:col-span-8 space-y-2">
                         <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">Código Pix Copia e Cola</p>
                         <div className="p-3 bg-black/40 rounded-xl border border-white/5 font-mono text-[10px] text-white/60 select-all break-all overflow-y-auto max-h-[80px]">
-                          00020101021226830014br.gov.bcb.pix2561api.inovalt3d.com.br/pix/qr/v2/cob/order_{order.id}_{(order.total || 0).toFixed(0)}
+                          00020101021226830014br.gov.bcb.pix2561api.INOVAPRO3D.com.br/pix/qr/v2/cob/order_{order.id}_{(order.total || 0).toFixed(0)}
                         </div>
                       </div>
 
                       <div className="md:col-span-4 flex justify-center sm:justify-end">
                         <div className="p-3 bg-white rounded-2xl flex flex-col items-center gap-1.5 w-[140px] shadow-2xl relative group">
                           <img 
-                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent("00020101021226830014br.gov.bcb.pix2561api.inovalt3d.com.br/pix/qr/v2/cob/order_" + order.id + "_" + (order.total || 0).toFixed(0))}`}
+                            src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent("00020101021226830014br.gov.bcb.pix2561api.INOVAPRO3D.com.br/pix/qr/v2/cob/order_" + order.id + "_" + (order.total || 0).toFixed(0))}`}
                             className="w-24 h-24"
                             alt="Pix QR Code"
                           />

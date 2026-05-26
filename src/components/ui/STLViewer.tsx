@@ -35,7 +35,7 @@ function Loader() {
   );
 }
 
-function Model({ url, color = "#FF6B00", scale = 1 }: STLViewerProps) {
+function Model({ url, color = "#2563EB", scale = 1 }: STLViewerProps) {
   const geom = useLoader(STLLoader, url);
   const meshRef = useRef<THREE.Mesh>(null);
 
@@ -123,7 +123,7 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
         
         <ambientLight intensity={0.5} />
         <spotLight position={[50, 50, 50]} angle={0.15} penumbra={1} intensity={2} castShadow />
-        <pointLight position={[-50, -50, -50]} intensity={1} color={color || "#ff6b00"} />
+        <pointLight position={[-50, -50, -50]} intensity={1} color={color || "#2563EB"} />
 
         <Suspense fallback={<Loader />}>
           {cachedUrl ? (
@@ -147,7 +147,7 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
               fadeStrength={2} 
               cellSize={5} 
               sectionSize={25} 
-              sectionColor={color || "#ff6b00"} 
+              sectionColor={color || "#2563EB"} 
               cellColor="#333" 
               position={[0, -10.1, 0]}
             />

@@ -45,7 +45,7 @@ export default function CustomQuote() {
         } else {
           // Fallback
           const fallback = [
-            { id: 'pla-pro', name: 'PLA Pro', pricePerGram: 0.15, desc: 'Acabamento resistente.', color: '#FF6B00' },
+            { id: 'pla-pro', name: 'PLA Pro', pricePerGram: 0.15, desc: 'Acabamento resistente.', color: '#2563EB' },
             { id: 'pla-silk', name: 'PLA Silk', pricePerGram: 0.18, desc: 'Efeito metalizado.', color: '#EAB308' }
           ];
           setMaterials(fallback);

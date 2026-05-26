@@ -183,7 +183,7 @@ export default function AdminDashboard() {
   const [newMaterial, setNewMaterial] = useState({
     name: '',
     type: 'PLA',
-    color: '#FF6B00',
+    color: '#2563EB',
     pricePerKg: 120,
     inStock: true
   });
@@ -350,7 +350,7 @@ export default function AdminDashboard() {
       const encodedUri = encodeURI(csvContent);
       const link = document.createElement("a");
       link.setAttribute("href", encodedUri);
-      link.setAttribute("download", `clientes_inovalt_${new Date().toLocaleDateString()}.csv`);
+      link.setAttribute("download", `clientes_INOVAPRO_${new Date().toLocaleDateString()}.csv`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -474,7 +474,7 @@ export default function AdminDashboard() {
     const clientName = quickCalcCustomerName || "Cliente";
     const pieceName = quickCalcPieceName || "Peça Customizada";
     
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado por nosso assistente na *Inovalt 3D*.\n\n*Especificações Simuladas:*\n• Preenchimento (Infill): ${quickCalcInfill}%\n• Peso Estimado: ${weightVal}g\n• Tempo de Impressão: ${timeVal}\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\nPeso total: ${weightVal}g | Tempo total: ${timeVal} (${hours.toFixed(2)}h)\n\nFicamos à disposição para fecharmos o seu pedido! 🚀`;
+    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado por nosso assistente na *INOVAPRO3D*.\n\n*Especificações Simuladas:*\n• Preenchimento (Infill): ${quickCalcInfill}%\n• Peso Estimado: ${weightVal}g\n• Tempo de Impressão: ${timeVal}\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\nPeso total: ${weightVal}g | Tempo total: ${timeVal} (${hours.toFixed(2)}h)\n\nFicamos à disposição para fecharmos o seu pedido! 🚀`;
     const encodedText = encodeURIComponent(text);
     const url = `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`;
     window.open(url, '_blank');
@@ -762,7 +762,7 @@ export default function AdminDashboard() {
     const infillToUse = infillOverride !== undefined ? infillOverride : editingQuoteInfill;
     const timeToUse = timeOverride !== undefined ? timeOverride : editingQuoteTime;
     const weightToUse = weightOverride !== undefined ? weightOverride : editingQuoteWeight;
-    const text = `Olá, *${q.userName}*!\n\nSeu orçamento para a peça *${q.fileName}* foi analisado pela equipe *Inovalt 3D*${orderMsg}.\n\n*Detalhes do Projeto:*\n• Preenchimento (Infill): ${infillToUse}%\n• Tempo de Impressão: ${timeToUse}\n• Peso Estimado: ${weightToUse}g\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\nAcesse o painel para verificar os detalhes e acompanhar a manufatura.\n\nFicamos à disposição! 🚀`;
+    const text = `Olá, *${q.userName}*!\n\nSeu orçamento para a peça *${q.fileName}* foi analisado pela equipe *INOVAPRO3D*${orderMsg}.\n\n*Detalhes do Projeto:*\n• Preenchimento (Infill): ${infillToUse}%\n• Tempo de Impressão: ${timeToUse}\n• Peso Estimado: ${weightToUse}g\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\nAcesse o painel para verificar os detalhes e acompanhar a manufatura.\n\nFicamos à disposição! 🚀`;
     const encodedText = encodeURIComponent(text);
     const url = `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`;
     window.open(url, '_blank');
@@ -783,7 +783,7 @@ export default function AdminDashboard() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Orçamento Inovalt 3D - ${q.id.slice(0, 8)}</title>
+        <title>Orçamento INOVAPRO3D - ${q.id.slice(0, 8)}</title>
         <style>
           @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
           body {
@@ -807,7 +807,7 @@ export default function AdminDashboard() {
             letter-spacing: -0.05em;
           }
           .logo span {
-            color: #FF6B00;
+            color: #2563EB;
             font-style: italic;
           }
           .title {
@@ -972,7 +972,7 @@ export default function AdminDashboard() {
       </head>
       <body>
         <div class="header">
-          <div class="logo">INOVALT<span>3D</span></div>
+          <div class="logo">INOVAPRO<span>3D</span></div>
           <div class="title">
             <h1>Orçamento de Manufatura</h1>
             <p>Protocolo #${q.id.slice(0, 8).toUpperCase()}</p>
@@ -1022,8 +1022,8 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        <div class="card" style="margin-bottom: 40px; border-left: 4px solid #FF6B00;">
-          <h3 style="color:#FF6B00">Instruções para Faturamento</h3>
+        <div class="card" style="margin-bottom: 40px; border-left: 4px solid #2563EB;">
+          <h3 style="color:#2563EB">Instruções para Faturamento</h3>
           <p style="font-size: 12px; font-weight: normal; margin-top: 5px; color: #4b5563;">
             Este orçamento foi homologado por um engenheiro. Após aprovação, o pedido oficial é gerado na categoria de <strong>Aguardando Pagamento</strong>. 
             O pagamento pode ser efetuado via Pix através do QR Code disponível no painel. O prazo de fabricação inicia imediatamente após a compensação.
@@ -1031,7 +1031,7 @@ export default function AdminDashboard() {
         </div>
 
         <div class="footer-info">
-          Inovalt 3D Ltda. - Soluções Industriais e Manufatura Aditiva de Alta Resolução.<br/>
+          INOVAPRO3D Ltda. - Soluções Industriais e Manufatura Aditiva de Alta Resolução.<br/>
           Termo de confidencialidade garantido. Seus arquivos de geometria são eliminados do servidor após a produção.
         </div>
 
@@ -1196,7 +1196,7 @@ export default function AdminDashboard() {
     { name: 'Concluído', value: orders.filter(o => o.status === 'COMPLETED').length },
   ];
 
-  const COLORS = ['#FF6B00', '#22C55E', '#3B82F6', '#EAB308'];
+  const COLORS = ['#2563EB', '#22C55E', '#3B82F6', '#EAB308'];
 
   if (loading) return (
     <div className="min-h-screen bg-[#050508] flex items-center justify-center">
@@ -1226,7 +1226,7 @@ export default function AdminDashboard() {
         <div className="p-8 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
             <Zap className="w-6 h-6 text-primary fill-primary" />
-            <h1 className="text-xl font-black font-display uppercase italic tracking-tighter">Inovalt<span className="text-primary truncate">Admin</span></h1>
+            <h1 className="text-xl font-black font-display uppercase italic tracking-tighter">INOVAPRO<span className="text-primary truncate">Admin</span></h1>
           </Link>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-white/20 hover:text-white">
             <X className="w-5 h-5" />
@@ -1378,13 +1378,13 @@ export default function AdminDashboard() {
                             <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">Simule preços e envie propostas por WhatsApp na hora</p>
                          </div>
                       </div>
-                      <span className="text-[9px] font-black tracking-wider uppercase text-[#FF6B00] bg-[#FF6B00]/10 px-2.5 py-1 rounded-full border border-[#FF6B00]/10">Modo Avulso</span>
+                      <span className="text-[9px] font-black tracking-wider uppercase text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-1 rounded-full border border-[#2563EB]/10">Modo Avulso</span>
                    </div>
 
                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                       {/* INPUTS GERAIS */}
                       <div className="space-y-4">
-                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#FF6B00] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
+                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
                          <div>
                             <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Nome do Cliente</label>
                             <input
@@ -1419,7 +1419,7 @@ export default function AdminDashboard() {
 
                       {/* INPUTS TÉCNICOS */}
                       <div className="space-y-4">
-                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#FF6B00] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
+                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
                          <div className="grid grid-cols-2 gap-3">
                             <div>
                                <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Peso Geral (g)</label>
@@ -1490,7 +1490,7 @@ export default function AdminDashboard() {
 
                       {/* DETALHAMENTO DO CÁLCULO DIRETO + COMPARTILHAMENTO */}
                       <div className="space-y-4">
-                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#FF6B00] italic border-b border-white/5 pb-2">3. Demonstrativo Detalhado</h4>
+                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Demonstrativo Detalhado</h4>
 
                          <div className="bg-black/40 border border-white/5 rounded-[24px] p-5 space-y-3">
                             <div className="flex justify-between text-xs text-white/70">
@@ -1510,7 +1510,7 @@ export default function AdminDashboard() {
                                <span className="font-mono text-white/60">R$ {(quickCalcWeight * quickCalcFilamentPrice + parseTimeToHours(quickCalcTime) * quickCalcHourCost + quickCalcSetupFee).toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between text-sm font-black text-white border-t border-white/10 pt-3">
-                               <span className="uppercase text-[#FF6B00] italic">Preço Sugerido (+{quickCalcMargin}%):</span>
+                               <span className="uppercase text-[#2563EB] italic">Preço Sugerido (+{quickCalcMargin}%):</span>
                                <span className="font-mono text-primary text-base">
                                   R$ {((quickCalcWeight * quickCalcFilamentPrice + parseTimeToHours(quickCalcTime) * quickCalcHourCost + quickCalcSetupFee) * (1 + quickCalcMargin / 100)).toFixed(2)}
                                 </span>
@@ -1569,7 +1569,7 @@ export default function AdminDashboard() {
                               </div>
                               <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
                                  {stageOrders.map(o => (
-                                    <div key={o.id} onClick={() => { setActiveTab('orders'); setSelectedOrder(o); }} className="glass p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(255,107,0,0.08)]">
+                                    <div key={o.id} onClick={() => { setActiveTab('orders'); setSelectedOrder(o); }} className="glass p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)]">
                                        <div className="flex justify-between items-start mb-2">
                                           <p className="text-[8px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
                                           <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
@@ -1603,15 +1603,15 @@ export default function AdminDashboard() {
                         <AreaChart data={chartData}>
                           <defs>
                             <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#FF6B00" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#FF6B00" stopOpacity={0}/>
+                              <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
                             </linearGradient>
                           </defs>
                           <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                           <XAxis dataKey="name" stroke="#ffffff10" fontSize={9} tick={{ fill: '#ffffff20' }} />
                           <YAxis stroke="#ffffff10" fontSize={9} tick={{ fill: '#ffffff20' }} />
-                          <Tooltip contentStyle={{ backgroundColor: '#0A0A0F', border: '1px solid rgba(255,107,0,0.1)', borderRadius: '24px' }} />
-                          <Area type="monotone" dataKey="total" stroke="#FF6B00" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+                          <Tooltip contentStyle={{ backgroundColor: '#0A0A0F', border: '1px solid rgba(37,99,235,0.1)', borderRadius: '24px' }} />
+                          <Area type="monotone" dataKey="total" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
                         </AreaChart>
                      </ResponsiveContainer>
                   </div>
@@ -1674,7 +1674,7 @@ export default function AdminDashboard() {
                              {/* Column Body / Cards */}
                              <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
                                 {stageOrders.map(o => (
-                                   <div key={o.id} onClick={() => setSelectedOrder(o)} className="glass p-4 sm:p-5 rounded-[24px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_20px_rgba(255,107,0,0.1)]">
+                                   <div key={o.id} onClick={() => setSelectedOrder(o)} className="glass p-4 sm:p-5 rounded-[24px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_20px_rgba(37,99,235,0.1)]">
                                       <div className="flex justify-between items-start mb-3">
                                          <p className="text-[9px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
                                          <p className="text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
@@ -2170,7 +2170,7 @@ export default function AdminDashboard() {
                        </button>
                        <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
                           <p className="text-[10px] font-black uppercase text-white/20 mb-2">Versão do Engine</p>
-                          <p className="text-xs font-mono font-bold">Inovalt-OS v2.4.8-stable</p>
+                          <p className="text-xs font-mono font-bold">INOVAPRO-OS v2.4.8-stable</p>
                        </div>
                     </div>
                  </div>
@@ -2296,7 +2296,7 @@ export default function AdminDashboard() {
                       const phone = matchedC?.phone || selectedOrder.phone || '';
                       const orderId = selectedOrder.id;
                       const finalPrice = selectedOrder.total || 0;
-                      const pixCode = "00020101021226830014br.gov.bcb.pix2561api.inovalt3d.com.br/pix/qr/v2/cob/order_" + orderId + "_" + finalPrice.toFixed(0);
+                      const pixCode = "00020101021226830014br.gov.bcb.pix2561api.INOVAPRO3D.com.br/pix/qr/v2/cob/order_" + orderId + "_" + finalPrice.toFixed(0);
 
                       const handleSendWhatsAppBilling = () => {
                         const phoneClean = phone.replace(/\D/g, '');
@@ -2304,19 +2304,19 @@ export default function AdminDashboard() {
                           toast.error("Número de WhatsApp do cliente não encontrado. Atualize o contato no CRM.");
                           return;
                         }
-                        const text = `Olá, *${selectedOrder.userName}*!\n\nSeu pedido *#${orderId.slice(0,8)}* na *Inovalt 3D* está pronto para faturamento. 😊\n\n*Valor:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\n*Pix Copia e Cola:*\n\`${pixCode}\`\n\nAbra o aplicativo do seu banco, escolha "Pix Copia e Cola" e cole o código acima.\n\nFicamos no aguardo de sua confirmação para acelerar a produção de sua peça! 🚀`;
+                        const text = `Olá, *${selectedOrder.userName}*!\n\nSeu pedido *#${orderId.slice(0,8)}* na *INOVAPRO3D* está pronto para faturamento. 😊\n\n*Valor:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\n*Pix Copia e Cola:*\n\`${pixCode}\`\n\nAbra o aplicativo do seu banco, escolha "Pix Copia e Cola" e cole o código acima.\n\nFicamos no aguardo de sua confirmação para acelerar a produção de sua peça! 🚀`;
                         const encodedText = encodeURIComponent(text);
                         window.open(`https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`, '_blank');
                       };
 
                       return (
-                        <div className="mt-8 p-8 border border-[#FF6B00]/20 bg-[#FF6B00]/[0.02] rounded-[40px] space-y-6">
+                        <div className="mt-8 p-8 border border-[#2563EB]/20 bg-[#2563EB]/[0.02] rounded-[40px] space-y-6">
                            <div className="flex items-center gap-4">
                               <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center p-2 shadow-lg shrink-0">
                                 <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" className="w-full object-contain" alt="Pix" />
                               </div>
                               <div>
-                                <h4 className="text-xs font-black uppercase tracking-widest text-[#FF6B00]">Gestão de Faturamento</h4>
+                                <h4 className="text-xs font-black uppercase tracking-widest text-[#2563EB]">Gestão de Faturamento</h4>
                                 <p className="text-[10px] text-white/40 font-medium italic">Copie o Pix ou envie a cobrança direta ao cliente do pedido.</p>
                               </div>
                            </div>
@@ -2656,7 +2656,7 @@ export default function AdminDashboard() {
                              <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center p-1.5 shrink-0 shadow-md">
                                <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" className="w-full object-contain" alt="Pix" />
                              </div>
-                             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#FF6B00]">Pix Copia e Cola</h4>
+                             <h4 className="text-[10px] font-black uppercase tracking-widest text-[#2563EB]">Pix Copia e Cola</h4>
                            </div>
                            <p className="text-[10px] text-white/40 leading-relaxed font-medium italic">Copie este código para o aplicativo de pagamento do cliente ou envie pelo link de WhatsApp.</p>
                          </div>
@@ -2664,7 +2664,7 @@ export default function AdminDashboard() {
                          <div className="space-y-2">
                            <button 
                              onClick={() => {
-                               const code = "00020101021226830014br.gov.bcb.pix2561api.inovalt3d.com.br/pix/qr/v2/cob/order_" + approvalStatus.orderId + "_" + (approvalStatus.finalPrice || 45.90).toFixed(0);
+                               const code = "00020101021226830014br.gov.bcb.pix2561api.INOVAPRO3D.com.br/pix/qr/v2/cob/order_" + approvalStatus.orderId + "_" + (approvalStatus.finalPrice || 45.90).toFixed(0);
                                navigator.clipboard.writeText(code);
                                toast.success("Código Pix Copiado com sucesso!");
                              }}
@@ -2746,7 +2746,7 @@ export default function AdminDashboard() {
                     </div>
 
                     <div className="space-y-6">
-                       <h3 className="text-xs font-black uppercase tracking-widest text-[#FF6B00] italic">Parâmetros de Homologação</h3>
+                       <h3 className="text-xs font-black uppercase tracking-widest text-[#2563EB] italic">Parâmetros de Homologação</h3>
 
                         {/* CALCULADORA INTELIGENTE DE AUXÍLIO DE PREÇO */}
                         <div className="border border-white/5 rounded-2xl bg-white/[0.02] overflow-hidden transition-all duration-300">
@@ -2875,7 +2875,7 @@ export default function AdminDashboard() {
                              />
                           </div>
                           <div>
-                             <label className="text-[10px] font-black uppercase tracking-wider text-[#FF6B00] mb-1 block font-bold">Tempo de Impressão</label>
+                             <label className="text-[10px] font-black uppercase tracking-wider text-[#2563EB] mb-1 block font-bold">Tempo de Impressão</label>
                              <input 
                                 type="text" 
                                 placeholder="Ex: 2h 30m"
@@ -2885,7 +2885,7 @@ export default function AdminDashboard() {
                              />
                           </div>
                           <div>
-                             <label className="text-[10px] font-black uppercase tracking-wider text-[#FF6B00] mb-1 block font-bold">Peso Estimado (g)</label>
+                             <label className="text-[10px] font-black uppercase tracking-wider text-[#2563EB] mb-1 block font-bold">Peso Estimado (g)</label>
                              <input 
                                 type="number" 
                                 value={editingQuoteWeight}

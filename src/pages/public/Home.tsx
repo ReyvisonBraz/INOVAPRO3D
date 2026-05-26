@@ -95,7 +95,7 @@ export default function Home() {
           >
             <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-[8px] sm:text-[9px] font-black tracking-[0.2em] uppercase mb-6 sm:mb-8">
               <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-              Inovalt3D — Impressão 3D de Alta Definição
+              INOVAPRO3D — Impressão 3D de Alta Definição
             </motion.div>
 
             <motion.h1 variants={itemVariants} className="heading-lg sm:heading-xl mb-6 text-white">
@@ -158,7 +158,7 @@ export default function Home() {
       <section className="container-section py-20 sm:py-24">
         <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 sm:mb-16 gap-8 text-center md:text-left">
            <div className="max-w-xl">
-             <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary mb-3">Por que a Inovalt3D?</h2>
+             <h2 className="text-[9px] font-black uppercase tracking-[0.3em] text-primary mb-3">Por que a INOVAPRO3D?</h2>
              <p className="heading-md sm:heading-lg text-white">
                Transformamos arquivos <br className="hidden sm:block" /> em objetos surpreendentes.
              </p>
@@ -200,7 +200,7 @@ export default function Home() {
             <header className="text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 mb-4">
                  <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-                 <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary">Galeria Inovalt3D</span>
+                 <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary">Galeria INOVAPRO3D</span>
               </div>
               <h2 className="heading-md sm:heading-lg text-white font-black uppercase tracking-tighter">
                 Nossas <span className="text-shimmer italic">Impressões Privadas.</span>
@@ -372,7 +372,7 @@ export default function Home() {
               TRANSFORME <br/> SUA <span className="italic opacity-80 underline underline-offset-[12px] sm:underline-offset-[16px]">IDÉIA EM REALIDADE.</span>
             </h2>
             <p className="text-white text-base sm:text-lg max-w-xl mb-10 font-medium leading-relaxed italic opacity-90 mx-auto lg:mx-0">
-              Pronto para imprimir seu primeiro projeto em 3D? Comece agora com a Inovalt3D.
+              Pronto para imprimir seu primeiro projeto em 3D? Comece agora com a INOVAPRO3D.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Link to="/upload" className="w-full sm:w-auto">

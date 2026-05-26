@@ -59,7 +59,7 @@ export default function ProductDetail() {
           setSelectedMaterial(matList[0]);
         } else {
           const fallback = [
-            { id: 'pla', name: 'PLA Pro', color: '#FF6B00', priceMult: 1, desc: 'Superior estético.' },
+            { id: 'pla', name: 'PLA Pro', color: '#2563EB', priceMult: 1, desc: 'Superior estético.' },
             { id: 'petg', name: 'PETG', color: '#0066FF', priceMult: 1.3, desc: 'Resistente.' }
           ];
           setMaterials(fallback);
@@ -120,7 +120,7 @@ export default function ProductDetail() {
         <div className="lg:sticky lg:top-28 space-y-6">
           <div className="aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25">
             {activeMediaTab === '3d' ? (
-              <STLViewer url={product.modelUrl || "/cube.stl"} color={selectedMaterial?.color || '#FF6B00'} scale={scale/100} />
+              <STLViewer url={product.modelUrl || "/cube.stl"} color={selectedMaterial?.color || '#2563EB'} scale={scale/100} />
             ) : (
               <AnimatePresence mode="wait">
                 <motion.img 
@@ -329,7 +329,7 @@ export default function ProductDetail() {
                     }`}
                     onClick={() => {
                        if (product?.stock === 0) {
-                          const msg = encodeURIComponent(`Olá Inovalt 3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`);
+                          const msg = encodeURIComponent(`Olá INOVAPRO3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`);
                           window.open(`https://wa.me/55999999999?text=${msg}`);
                        } else {
                           handleAddToCart();

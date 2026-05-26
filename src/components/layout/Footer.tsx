@@ -18,7 +18,7 @@ export function Footer() {
                 <Cpu className="text-primary w-5 h-5" />
               </div>
               <span className="font-display font-black text-xl uppercase tracking-tighter text-shimmer">
-                ProtoDash
+                INOVAPRO3D
               </span>
             </Link>
             <p className="text-base text-white/30 font-medium leading-relaxed max-w-sm italic">
@@ -104,7 +104,7 @@ export function Footer() {
         {/* Legal Strip */}
         <div className="pt-12 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-8">
           <p className="text-[12px] text-white/20 font-black uppercase tracking-[0.2em] flex items-center gap-2">
-            © 2026 ProtoDash Interactive <span className="opacity-50">|</span> <span className="text-white/10 italic">Industrial Grade Additive Solutions</span>
+            © 2026 INOVAPRO3D <span className="opacity-50">|</span> <span className="text-white/10 italic">Industrial Grade Additive Solutions</span>
           </p>
           <div className="flex gap-12 text-[10px] text-white/20 font-black uppercase tracking-[0.3em]">
             <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>

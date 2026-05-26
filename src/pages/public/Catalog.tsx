@@ -213,7 +213,7 @@ export default function Catalog() {
                     <h2 className="text-xl sm:text-2xl lg:text-4xl font-black font-display uppercase tracking-tight text-white mb-1 leading-none">
                       {showcase[activeSlide].title}
                     </h2>
-                    <p className="text-white/60 text-[10px] sm:text-xs font-medium italic">Trabalho real • Inovalt3D</p>
+                    <p className="text-white/60 text-[10px] sm:text-xs font-medium italic">Trabalho real • INOVAPRO3D</p>
                   </motion.div>
                 </div>
               </motion.div>
@@ -255,7 +255,7 @@ export default function Catalog() {
              <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary">Projetos em Destaque</span>
           </div>
           <h1 className="heading-md sm:heading-lg uppercase mb-1">
-            Catálogo <span className="text-shimmer italic">Inovalt3D.</span>
+            Catálogo <span className="text-shimmer italic">INOVAPRO3D.</span>
           </h1>
           <p className="text-xs text-white/40 font-medium max-w-sm italic">Modelos exclusivos otimizados para PLA.</p>
         </header>
