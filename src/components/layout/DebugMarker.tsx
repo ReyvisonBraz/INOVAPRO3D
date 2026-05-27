@@ -1,9 +1,20 @@
 import { useState, useEffect } from "react";
 import { Activity, ShieldAlert, CheckCircle2 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
+import { useAuth } from "@/src/contexts/AuthContext";
 
 export function DebugMarker() {
+  const { profile } = useAuth();
+
+  if (profile?.role !== 'ADMIN') return null;
+
+  return <DebugMarkerContent />;
+}
+
+function DebugMarkerContent() {
   const [status, setStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
+
+  const statusLabel = { healthy: 'OK', warning: 'Alerta', error: 'Erro' }[status];
   const [latency, setLatency] = useState<number | null>(null);
 
   useEffect(() => {
@@ -39,7 +50,7 @@ export function DebugMarker() {
           status === 'healthy' ? "bg-green-500" : status === 'warning' ? "bg-yellow-500" : "bg-red-500"
         )} />
         
-        <span className="capitalize">{status}</span>
+        <span className="capitalize">{statusLabel}</span>
         
         {latency !== null && (
           <span className="text-[8px] opacity-40 ml-1">{latency}ms</span>
@@ -52,18 +63,18 @@ export function DebugMarker() {
 
       {/* TOOLTIP ON HOVER */}
       <div className="absolute bottom-full right-0 mb-2 w-48 glass p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none scale-95 group-hover:scale-100 origin-bottom-right">
-        <p className="font-display font-bold text-xs mb-1">Diagnostic Engine</p>
+        <p className="font-display font-bold text-xs mb-1">Motor de Diagnóstico</p>
         <div className="space-y-1 text-[10px] text-white/50 font-mono">
           <div className="flex justify-between">
-            <span>Server:</span>
-            <span className="text-green-500">Live</span>
+            <span>Servidor:</span>
+            <span className="text-green-500">Ativo</span>
           </div>
           <div className="flex justify-between">
             <span>Firebase:</span>
-            <span>Disconnected</span>
+            <span>Desconectado</span>
           </div>
           <div className="flex justify-between">
-            <span>UI Mode:</span>
+            <span>Modo UI:</span>
             <span>Refined-Dark</span>
           </div>
         </div>

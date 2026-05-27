@@ -1,0 +1,225 @@
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - navigation [ref=e5]:
+        - link "INOVAPRO3D" [ref=e6] [cursor=pointer]:
+          - /url: /
+          - img [ref=e8]
+          - generic [ref=e11]: INOVAPRO3D
+        - generic [ref=e12]:
+          - link "Projetos" [active] [ref=e13] [cursor=pointer]:
+            - /url: /catalogo
+            - text: Projetos
+          - link "Orçamento" [ref=e14] [cursor=pointer]:
+            - /url: /upload
+          - link "Dicas" [ref=e15] [cursor=pointer]:
+            - /url: /conhecimento
+        - generic [ref=e16]:
+          - button [ref=e17]:
+            - img [ref=e18]
+          - button "ENTRAR" [ref=e22]:
+            - generic [ref=e23]: ENTRAR
+    - main [ref=e25]:
+      - generic [ref=e214]:
+        - generic [ref=e215]:
+          - generic [ref=e216]:
+            - generic [ref=e219]: Projetos em Destaque
+            - heading "Catálogo INOVAPRO3D." [level=1] [ref=e220]
+            - paragraph [ref=e221]: Modelos exclusivos otimizados para PLA.
+          - generic [ref=e222]:
+            - navigation "Categorias" [ref=e223]:
+              - button "TODOS" [ref=e224]
+              - button "DECORAÇÃO" [ref=e225]
+              - button "FANTASIA" [ref=e226]
+              - button "TOOLING" [ref=e227]
+              - button "UTILITÁRIOS" [ref=e228]
+            - generic [ref=e229]:
+              - img [ref=e230]
+              - textbox "Buscar modelos" [ref=e233]:
+                - /placeholder: Buscar modelos...
+        - generic [ref=e234]:
+          - link "Busto 'O Pensador' Moderno Arte Poucas Unidades (1) Busto 'O Pensador' Moderno Interpretação low-poly de clássico da arte em PLA marmorizado. A partir de R$ 199,00 Adicionar" [ref=e235] [cursor=pointer]:
+            - /url: /produto/PLQIA1sLxNWNKrRaMd65
+            - generic [ref=e236]:
+              - generic [ref=e237]:
+                - img "Busto 'O Pensador' Moderno" [ref=e238]
+                - generic [ref=e239]:
+                  - generic [ref=e240]: Arte
+                  - generic [ref=e241]: Poucas Unidades (1)
+                - button [ref=e242]:
+                  - img [ref=e243]
+              - generic [ref=e245]:
+                - heading "Busto 'O Pensador' Moderno" [level=3] [ref=e246]
+                - paragraph [ref=e247]: Interpretação low-poly de clássico da arte em PLA marmorizado.
+                - generic [ref=e248]:
+                  - generic [ref=e249]:
+                    - paragraph [ref=e250]: A partir de
+                    - paragraph [ref=e251]: R$ 199,00
+                  - button "Adicionar" [ref=e252]:
+                    - generic [ref=e254]:
+                      - img [ref=e255]
+                      - generic [ref=e259]: Adicionar
+          - link "Cadeia de Impulso Galáctico Decorativo Poucas Unidades (1) Cadeia de Impulso Galáctico Modelo decorativo complexo impresso em resina de alta precisão. A partir de R$ 149,90 Adicionar" [ref=e260] [cursor=pointer]:
+            - /url: /produto/kQ9KOlxC8gGEyZBp4W93
+            - generic [ref=e261]:
+              - generic [ref=e262]:
+                - img "Cadeia de Impulso Galáctico" [ref=e263]
+                - generic [ref=e264]:
+                  - generic [ref=e265]: Decorativo
+                  - generic [ref=e266]: Poucas Unidades (1)
+                - button [ref=e267]:
+                  - img [ref=e268]
+              - generic [ref=e270]:
+                - heading "Cadeia de Impulso Galáctico" [level=3] [ref=e271]
+                - paragraph [ref=e272]: Modelo decorativo complexo impresso em resina de alta precisão.
+                - generic [ref=e273]:
+                  - generic [ref=e274]:
+                    - paragraph [ref=e275]: A partir de
+                    - paragraph [ref=e276]: R$ 149,90
+                  - button "Adicionar" [ref=e277]:
+                    - generic [ref=e279]:
+                      - img [ref=e280]
+                      - generic [ref=e284]: Adicionar
+          - link "Chaveiro Rudo - Gachiakuta ACTION FIGURES Poucas Unidades (2) Chaveiro Rudo - Gachiakuta XXXXXXXX A partir de R$ 19,99 Adicionar" [ref=e285] [cursor=pointer]:
+            - /url: /produto/7ywZeA4Ce1DkX0ygorL2
+            - generic [ref=e286]:
+              - generic [ref=e287]:
+                - img "Chaveiro Rudo - Gachiakuta" [ref=e288]
+                - generic [ref=e289]:
+                  - generic [ref=e290]: ACTION FIGURES
+                  - generic [ref=e291]: Poucas Unidades (2)
+                - button [ref=e292]:
+                  - img [ref=e293]
+              - generic [ref=e295]:
+                - heading "Chaveiro Rudo - Gachiakuta" [level=3] [ref=e296]
+                - paragraph [ref=e297]: XXXXXXXX
+                - generic [ref=e298]:
+                  - generic [ref=e299]:
+                    - paragraph [ref=e300]: A partir de
+                    - paragraph [ref=e301]: R$ 19,99
+                  - button "Adicionar" [ref=e302]:
+                    - generic [ref=e304]:
+                      - img [ref=e305]
+                      - generic [ref=e309]: Adicionar
+          - link "PLANK ACTION FIGURES Poucas Unidades (1) PLANK yyyyyyyyyyyyyyyyyy A partir de R$ 19,99 Adicionar" [ref=e310] [cursor=pointer]:
+            - /url: /produto/xbiNx4b7YgHZOju18NQn
+            - generic [ref=e311]:
+              - generic [ref=e312]:
+                - img "PLANK" [ref=e313]
+                - generic [ref=e314]:
+                  - generic [ref=e315]: ACTION FIGURES
+                  - generic [ref=e316]: Poucas Unidades (1)
+                - button [ref=e317]:
+                  - img [ref=e318]
+              - generic [ref=e320]:
+                - heading "PLANK" [level=3] [ref=e321]
+                - paragraph [ref=e322]: yyyyyyyyyyyyyyyyyy
+                - generic [ref=e323]:
+                  - generic [ref=e324]:
+                    - paragraph [ref=e325]: A partir de
+                    - paragraph [ref=e326]: R$ 19,99
+                  - button "Adicionar" [ref=e327]:
+                    - generic [ref=e329]:
+                      - img [ref=e330]
+                      - generic [ref=e334]: Adicionar
+    - contentinfo [ref=e117]:
+      - contentinfo [ref=e118]:
+        - generic [ref=e119]:
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - link "INOVAPRO3D" [ref=e122] [cursor=pointer]:
+                - /url: /
+                - img [ref=e124]
+                - generic [ref=e127]: INOVAPRO3D
+              - paragraph [ref=e128]: Materializando o impossível através da manufatura descentralizada de alta precisão.
+              - generic [ref=e129]:
+                - paragraph [ref=e130]: Stay Synced
+                - generic [ref=e131]:
+                  - textbox "Seu e-mail..." [ref=e132]
+                  - button "OK" [ref=e133]
+              - generic [ref=e134]:
+                - link [ref=e135] [cursor=pointer]:
+                  - /url: "#"
+                  - img [ref=e136]
+                - link [ref=e139] [cursor=pointer]:
+                  - /url: "#"
+                  - img [ref=e140]
+                - link [ref=e142] [cursor=pointer]:
+                  - /url: "#"
+                  - img [ref=e143]
+            - generic [ref=e147]:
+              - heading "Plataforma" [level=4] [ref=e148]
+              - list [ref=e149]:
+                - listitem [ref=e150]:
+                  - link "Inventário 3D" [ref=e151] [cursor=pointer]:
+                    - /url: /catalogo
+                - listitem [ref=e152]:
+                  - link "Upload STL" [ref=e153] [cursor=pointer]:
+                    - /url: /upload
+                - listitem [ref=e154]:
+                  - link "Maker Calculus" [ref=e155] [cursor=pointer]:
+                    - /url: /calculadora
+                - listitem [ref=e156]:
+                  - link "Monitoramento" [ref=e157] [cursor=pointer]:
+                    - /url: /meus-pedidos
+            - generic [ref=e158]:
+              - heading "Ecossistema" [level=4] [ref=e159]
+              - list [ref=e160]:
+                - listitem [ref=e161]:
+                  - link "Materiais" [ref=e162] [cursor=pointer]:
+                    - /url: /catalogo
+                - listitem [ref=e163]:
+                  - link "Engenharia" [ref=e164] [cursor=pointer]:
+                    - /url: /catalogo
+                - listitem [ref=e165]:
+                  - link "Segurança IP" [ref=e166] [cursor=pointer]:
+                    - /url: /catalogo
+                - listitem [ref=e167]:
+                  - link "Network" [ref=e168] [cursor=pointer]:
+                    - /url: /catalogo
+            - generic [ref=e169]:
+              - heading "Network Status" [level=4] [ref=e170]
+              - generic [ref=e171]:
+                - generic [ref=e172]:
+                  - generic [ref=e175]: "Cluster Global: Active"
+                  - img [ref=e176]
+                - generic [ref=e180]:
+                  - generic [ref=e181]: Carga Operacional
+                  - generic [ref=e182]: 88.4%
+                - generic [ref=e184]:
+                  - img [ref=e185]
+                  - generic [ref=e187]: Protocolo de Sigilo Nível 4
+          - generic [ref=e188]:
+            - paragraph [ref=e189]:
+              - text: © 2026 INOVAPRO3D
+              - generic [ref=e190]: "|"
+              - generic [ref=e191]: Industrial Grade Additive Solutions
+            - generic [ref=e192]:
+              - link "Privacy Policy" [ref=e193] [cursor=pointer]:
+                - /url: "#"
+              - link "IP Rights" [ref=e194] [cursor=pointer]:
+                - /url: "#"
+              - link "NDA Terms" [ref=e195] [cursor=pointer]:
+                - /url: "#"
+    - button [ref=e197]:
+      - img [ref=e199]
+    - region "Notifications alt+T"
+    - generic:
+      - generic [ref=e201]:
+        - generic [ref=e203]: healthy
+        - generic [ref=e204]: 2ms
+        - img [ref=e206]
+      - generic:
+        - paragraph: Diagnostic Engine
+        - generic:
+          - generic:
+            - generic: "Server:"
+            - generic: Live
+          - generic:
+            - generic: "Firebase:"
+            - generic: Disconnected
+          - generic:
+            - generic: "UI Mode:"
+            - generic: Refined-Dark
+  - iframe [ref=e211]:
+    

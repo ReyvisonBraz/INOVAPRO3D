@@ -12,12 +12,14 @@ import {
   Zap,
   Shield,
   Info,
-  Maximize2
+  Maximize2,
+  AlertTriangle
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
 import { STLViewer } from "../../components/ui/STLViewer";
 import { Button } from "../../components/ui/Button";
+import { ErrorBoundary } from "../../components/layout/ErrorBoundary";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
 import type { Material, Product } from "../../types/domain";
@@ -119,6 +121,21 @@ export default function ProductDetail() {
         {/* VIEW AREA */}
         <div className="lg:sticky lg:top-28 space-y-6">
           <div className="aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25">
+            <ErrorBoundary fallback={
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center px-6">
+                  <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-3">
+                    <AlertTriangle className="w-6 h-6 text-red-400" />
+                  </div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-white/40">
+                    Visualização 3D Indisponível
+                  </p>
+                  <p className="text-[9px] text-white/20 font-medium mt-1">
+                    Erro ao carregar o modelo
+                  </p>
+                </div>
+              </div>
+            }>
             {activeMediaTab === '3d' ? (
               <STLViewer url={product.modelUrl || "/cube.stl"} color={selectedMaterial?.color || '#2563EB'} scale={scale/100} />
             ) : (
@@ -135,6 +152,7 @@ export default function ProductDetail() {
                 />
               </AnimatePresence>
             )}
+            </ErrorBoundary>
           </div>
 
           {/* MEDIA HUB SELECTION TABS */}

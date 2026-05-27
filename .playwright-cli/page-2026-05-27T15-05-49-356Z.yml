@@ -1,0 +1,193 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - navigation [ref=e5]:
+      - link "INOVAPRO3D" [ref=e6] [cursor=pointer]:
+        - /url: /
+        - img [ref=e8]
+        - generic [ref=e11]: INOVAPRO3D
+      - generic [ref=e12]:
+        - link "Projetos" [ref=e13] [cursor=pointer]:
+          - /url: /catalogo
+        - link "Orçamento" [ref=e14] [cursor=pointer]:
+          - /url: /upload
+        - link "Dicas" [ref=e15] [cursor=pointer]:
+          - /url: /conhecimento
+      - generic [ref=e16]:
+        - button [ref=e17]:
+          - img [ref=e18]
+        - button "ENTRAR" [ref=e22]:
+          - generic [ref=e23]: ENTRAR
+  - main [ref=e25]:
+    - generic [ref=e27]:
+      - generic [ref=e30]:
+        - generic [ref=e31]: INOVAPRO3D — Impressão 3D de Alta Definição
+        - heading "Sua Ideia Materializada em Objetos Reais." [level=1] [ref=e33]:
+          - text: Sua Ideia
+          - text: Materializada em Objetos Reais.
+        - paragraph [ref=e34]: Transformamos sonhos digitais em realidade física com acabamento premium. Decorações e protótipos com a melhor tecnologia do mercado.
+        - generic [ref=e35]:
+          - link "Ver Catálogo" [ref=e36] [cursor=pointer]:
+            - /url: /catalogo
+            - button "Ver Catálogo" [ref=e37]:
+              - generic [ref=e39]:
+                - img [ref=e40]
+                - generic [ref=e43]: Ver Catálogo
+          - link "Orçamento Instantâneo" [ref=e44] [cursor=pointer]:
+            - /url: /upload
+            - button "Orçamento Instantâneo" [ref=e45]:
+              - generic [ref=e46]:
+                - img [ref=e47]
+                - generic [ref=e49]: Orçamento Instantâneo
+      - generic [ref=e51]:
+        - generic [ref=e52]:
+          - paragraph [ref=e53]: 48h
+          - paragraph [ref=e54]: ENTREGA RÁPIDA
+        - generic [ref=e55]:
+          - paragraph [ref=e56]: 20+
+          - paragraph [ref=e57]: CORES DISPONÍVEIS
+        - generic [ref=e58]:
+          - paragraph [ref=e59]: PREMIUM
+          - paragraph [ref=e60]: ALTA DEFINIÇÃO
+        - generic [ref=e61]:
+          - paragraph [ref=e62]: 500+
+          - paragraph [ref=e63]: CLIENTES FELIZES
+      - generic [ref=e64]:
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - heading "Por que a INOVAPRO3D?" [level=2] [ref=e67]
+            - paragraph [ref=e68]:
+              - text: Transformamos arquivos
+              - text: em objetos surpreendentes.
+          - paragraph [ref=e69]: Focamos no acabamento final para que sua peça pareça tudo, menos "feita em casa".
+        - generic [ref=e70]:
+          - generic [ref=e71]:
+            - img [ref=e73]
+            - heading "Rapidez" [level=3] [ref=e75]
+            - paragraph [ref=e76]: Seu orçamento e a produção começam quase que instantaneamente.
+          - generic [ref=e77]:
+            - img [ref=e79]
+            - heading "Qualidade" [level=3] [ref=e82]
+            - paragraph [ref=e83]: Peças resistentes e com cores vivas para qualquer finalidade.
+          - generic [ref=e84]:
+            - img [ref=e86]
+            - heading "Confiança" [level=3] [ref=e89]
+            - paragraph [ref=e90]: Acompanhamos seu projeto do início ao fim, garantindo satisfação.
+      - generic [ref=e92]:
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - generic [ref=e97]: Galeria INOVAPRO3D
+            - heading "Nossas Impressões Privadas." [level=2] [ref=e98]
+          - button "Todos" [ref=e100]
+        - link "Explorar Catálogo Completo" [ref=e104] [cursor=pointer]:
+          - /url: /catalogo
+          - button "Explorar Catálogo Completo" [ref=e105]
+      - generic [ref=e108]:
+        - heading "TRANSFORME SUA IDÉIA EM REALIDADE." [level=2] [ref=e109]:
+          - text: TRANSFORME
+          - text: SUA IDÉIA EM REALIDADE.
+        - paragraph [ref=e110]: Pronto para imprimir seu primeiro projeto em 3D? Comece agora com a INOVAPRO3D.
+        - link "SOLICITAR ORÇAMENTO" [ref=e112] [cursor=pointer]:
+          - /url: /upload
+          - button "SOLICITAR ORÇAMENTO" [ref=e113]:
+            - generic [ref=e114]:
+              - text: SOLICITAR ORÇAMENTO
+              - img [ref=e115]
+  - contentinfo [ref=e117]:
+    - contentinfo [ref=e118]:
+      - generic [ref=e119]:
+        - generic [ref=e120]:
+          - generic [ref=e121]:
+            - link "INOVAPRO3D" [ref=e122] [cursor=pointer]:
+              - /url: /
+              - img [ref=e124]
+              - generic [ref=e127]: INOVAPRO3D
+            - paragraph [ref=e128]: Materializando o impossível através da manufatura descentralizada de alta precisão.
+            - generic [ref=e129]:
+              - paragraph [ref=e130]: Stay Synced
+              - generic [ref=e131]:
+                - textbox "Seu e-mail..." [ref=e132]
+                - button "OK" [ref=e133]
+            - generic [ref=e134]:
+              - link [ref=e135] [cursor=pointer]:
+                - /url: "#"
+                - img [ref=e136]
+              - link [ref=e139] [cursor=pointer]:
+                - /url: "#"
+                - img [ref=e140]
+              - link [ref=e142] [cursor=pointer]:
+                - /url: "#"
+                - img [ref=e143]
+          - generic [ref=e147]:
+            - heading "Plataforma" [level=4] [ref=e148]
+            - list [ref=e149]:
+              - listitem [ref=e150]:
+                - link "Inventário 3D" [ref=e151] [cursor=pointer]:
+                  - /url: /catalogo
+              - listitem [ref=e152]:
+                - link "Upload STL" [ref=e153] [cursor=pointer]:
+                  - /url: /upload
+              - listitem [ref=e154]:
+                - link "Maker Calculus" [ref=e155] [cursor=pointer]:
+                  - /url: /calculadora
+              - listitem [ref=e156]:
+                - link "Monitoramento" [ref=e157] [cursor=pointer]:
+                  - /url: /meus-pedidos
+          - generic [ref=e158]:
+            - heading "Ecossistema" [level=4] [ref=e159]
+            - list [ref=e160]:
+              - listitem [ref=e161]:
+                - link "Materiais" [ref=e162] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e163]:
+                - link "Engenharia" [ref=e164] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e165]:
+                - link "Segurança IP" [ref=e166] [cursor=pointer]:
+                  - /url: /
+              - listitem [ref=e167]:
+                - link "Network" [ref=e168] [cursor=pointer]:
+                  - /url: /
+          - generic [ref=e169]:
+            - heading "Network Status" [level=4] [ref=e170]
+            - generic [ref=e171]:
+              - generic [ref=e172]:
+                - generic [ref=e175]: "Cluster Global: Active"
+                - img [ref=e176]
+              - generic [ref=e180]:
+                - generic [ref=e181]: Carga Operacional
+                - generic [ref=e182]: 88.4%
+              - generic [ref=e184]:
+                - img [ref=e185]
+                - generic [ref=e187]: Protocolo de Sigilo Nível 4
+        - generic [ref=e188]:
+          - paragraph [ref=e189]:
+            - text: © 2026 INOVAPRO3D
+            - generic [ref=e190]: "|"
+            - generic [ref=e191]: Industrial Grade Additive Solutions
+          - generic [ref=e192]:
+            - link "Privacy Policy" [ref=e193] [cursor=pointer]:
+              - /url: "#"
+            - link "IP Rights" [ref=e194] [cursor=pointer]:
+              - /url: "#"
+            - link "NDA Terms" [ref=e195] [cursor=pointer]:
+              - /url: "#"
+  - button [ref=e197]:
+    - img [ref=e199]
+  - region "Notifications alt+T"
+  - generic:
+    - generic [ref=e201]:
+      - generic [ref=e203]: healthy
+      - generic [ref=e204]: 23ms
+      - img [ref=e206]
+    - generic:
+      - paragraph: Diagnostic Engine
+      - generic:
+        - generic:
+          - generic: "Server:"
+          - generic: Live
+        - generic:
+          - generic: "Firebase:"
+          - generic: Disconnected
+        - generic:
+          - generic: "UI Mode:"
+          - generic: Refined-Dark

@@ -166,7 +166,7 @@ export default function AdminDashboard() {
   );
   
   const menuItems = [
-    { id: 'overview', name: 'Dashboard', icon: TrendingUp },
+    { id: 'overview', name: 'Painel', icon: TrendingUp },
     { id: 'orders', name: 'Pedidos', icon: Package },
     { id: 'quotes', name: 'Orçamentos', icon: FileText },
     { id: 'products', name: 'Catálogo', icon: Printer },
@@ -176,7 +176,7 @@ export default function AdminDashboard() {
     { id: 'support', name: 'Suporte', icon: AlertCircle },
     { id: 'faqs', name: 'FAQs', icon: HelpCircle },
     { id: 'settings', name: 'Ajustes', icon: Settings },
-    { id: 'logs', name: 'Audit Log', icon: History },
+    { id: 'logs', name: 'Registro de Auditoria', icon: History },
   ];
 
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
@@ -1306,7 +1306,7 @@ export default function AdminDashboard() {
         <div className="p-4 mt-auto border-t border-white/5">
            <button className="flex items-center gap-3 w-full p-2 hover:bg-white/5 rounded-2xl transition-colors" onClick={() => auth.signOut()}>
               <LogOut className="w-4 h-4 text-white/20" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Log Out</span>
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Sair</span>
            </button>
         </div>
       </aside>
@@ -1813,7 +1813,7 @@ export default function AdminDashboard() {
               <motion.div key="materials" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
                  <div className="flex justify-between items-center bg-white/5 p-6 rounded-[32px] border border-white/5">
                     <div>
-                       <h3 className="text-sm font-black uppercase tracking-widest italic">Inventory</h3>
+                       <h3 className="text-sm font-black uppercase tracking-widest italic">Estoque</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Matéria Prima para Impressão</p>
                     </div>
                     <Button onClick={() => setIsAddingMaterial(true)} className="rounded-2xl gap-2 h-11 px-6">

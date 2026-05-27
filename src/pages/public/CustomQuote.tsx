@@ -288,7 +288,7 @@ export default function CustomQuote() {
                         {previewUrl && <STLViewer url={previewUrl} />}
                         <div className="absolute top-4 left-4">
                            <div className="px-3 py-1.5 bg-black/60 backdrop-blur-md rounded-full text-[8px] font-black uppercase tracking-widest text-white/40 border border-white/5">
-                             Preview 3D
+                             Prévia 3D
                            </div>
                         </div>
                     </div>

@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             let needsUpdate = false;
             const updatedFields: UserProfileUpdate = {};
             
-            if (currentUser.displayName && data.name !== currentUser.displayName) {
+            if (!data.name && currentUser.displayName) {
               updatedFields.name = currentUser.displayName;
               needsUpdate = true;
             }

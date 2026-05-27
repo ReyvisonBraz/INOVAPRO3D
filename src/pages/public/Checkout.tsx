@@ -368,7 +368,7 @@ export default function Checkout() {
                     <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
                        <span>Expedição / Logística</span>
                        <span className={shippingRate === 0 ? "text-green-500" : ""}>
-                          {shippingRate === 0 ? "Free Tier" : `R$ ${shippingRate.toFixed(2)}`}
+                           {shippingRate === 0 ? "Frete Grátis" : `R$ ${shippingRate.toFixed(2)}`}
                        </span>
                     </div>
                     <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
@@ -390,7 +390,7 @@ export default function Checkout() {
            </div>
            
            <div className="mt-6 sm:mt-8 text-center hidden lg:block">
-              <p className="text-[8px] font-black uppercase tracking-[0.4em] text-white/10 italic">Secure Print Protocol Secured by AES-256</p>
+               <p className="text-[8px] font-black uppercase tracking-[0.4em] text-white/10 italic">Protocolo de Impressão Segura por AES-256</p>
            </div>
         </aside>
 
