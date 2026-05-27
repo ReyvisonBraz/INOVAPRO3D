@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
-import { collection, query, where, getDocs, limit, startAfter, orderBy, QueryDocumentSnapshot, DocumentData } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import { collection, getDocs } from "firebase/firestore";
 import { Search, Filter, ShoppingCart, Box, Check, Sparkles, TrendingUp, Zap, ChevronRight, Heart } from "lucide-react";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { modelCache } from "../../lib/modelCache";
@@ -45,22 +45,6 @@ export default function Catalog() {
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [addedId, setAddedId] = useState<string | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
-  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
-  const [hasMore, setHasMore] = useState(true);
-  
-  const observer = useRef<IntersectionObserver | null>(null);
-  const lastElementRef = useCallback((node: HTMLElement | null) => {
-    if (loading || loadingMore) return;
-    if (observer.current) observer.current.disconnect();
-    
-    observer.current = new IntersectionObserver(entries => {
-      if (entries[0].isIntersecting && hasMore) {
-        fetchMoreData();
-      }
-    });
-    
-    if (node) observer.current.observe(node);
-  }, [loading, loadingMore, hasMore]);
 
   const fetchInitialData = async () => {
     setLoading(true);
@@ -69,20 +53,12 @@ export default function Catalog() {
       const sSnap = await getDocs(collection(db, "showcase"));
       setShowcase(sSnap.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem)));
 
-      // Fetch first batch of products
-      let q = query(
-        collection(db, "products"), 
-        where("active", "==", true),
-        orderBy("name"),
-        limit(12)
-      );
-
-      if (selectedCategory !== "TODOS") {
-        q = query(q, where("category", "==", selectedCategory));
-      }
-
-      const pSnap = await getDocs(q);
-      const newProducts = pSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
+      // Keep this query index-free so newly created Firebase projects show products immediately.
+      const pSnap = await getDocs(collection(db, "products"));
+      const newProducts = pSnap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Product))
+        .filter(product => product.active !== false)
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
       
       setProducts(newProducts);
 
@@ -94,8 +70,6 @@ export default function Catalog() {
         modelCache.prefetch(modelUrls);
       }
       
-      setLastDoc(pSnap.docs[pSnap.docs.length - 1] || null);
-      setHasMore(pSnap.docs.length === 12);
     } catch (err) {
       console.error("Catalog Initial Fetch Error:", err);
       handleFirestoreError(err, OperationType.LIST, "products/showcase");
@@ -104,47 +78,9 @@ export default function Catalog() {
     }
   };
 
-  const fetchMoreData = async () => {
-    if (!lastDoc || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      let q = query(
-        collection(db, "products"), 
-        where("active", "==", true),
-        orderBy("name"),
-        startAfter(lastDoc),
-        limit(12)
-      );
-
-      if (selectedCategory !== "TODOS") {
-        q = query(q, where("category", "==", selectedCategory));
-      }
-
-      const pSnap = await getDocs(q);
-      const newProducts = pSnap.docs.map(d => ({ id: d.id, ...d.data() } as Product));
-      
-      setProducts(prev => [...prev, ...newProducts]);
-
-      // Prefetch more models
-      const modelUrls = newProducts
-        .map(p => p.modelUrl)
-        .filter((url): url is string => !!url);
-      if (modelUrls.length > 0) {
-        modelCache.prefetch(modelUrls);
-      }
-
-      setLastDoc(pSnap.docs[pSnap.docs.length - 1] || null);
-      setHasMore(pSnap.docs.length === 12);
-    } catch (err) {
-      console.error("Catalog Pagination Error:", err);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
-
   useEffect(() => {
     fetchInitialData();
-  }, [selectedCategory]);
+  }, []);
 
   useEffect(() => {
     if (showcase.length === 0) return;
@@ -303,7 +239,6 @@ export default function Catalog() {
             <Link 
               key={product.id} 
               to={`/produto/${product.id}`}
-              ref={index === filteredProducts.length - 1 ? lastElementRef : null}
             >
               <motion.div 
                 variants={itemVariants}
@@ -411,12 +346,6 @@ export default function Catalog() {
             </Link>
           ))}
         </motion.div>
-      )}
-
-      {loadingMore && (
-        <div className="flex justify-center py-12">
-          <div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-        </div>
       )}
 
       {/* ... footer ... */}
