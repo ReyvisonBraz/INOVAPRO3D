@@ -1,4 +1,4 @@
-import { readModelMetadata } from "./_modelMetadata";
+import { readModelMetadata } from "./_modelMetadata.js";
 
 export default async function handler(req: any, res: any) {
   if (req.method !== "GET") {
