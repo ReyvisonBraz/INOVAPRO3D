@@ -4,7 +4,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
 import { DebugMarker } from "./components/layout/DebugMarker";
-import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import FloatingSupport from "./components/ui/FloatingSupport";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -59,7 +58,6 @@ function RouterContent() {
   return (
     <AuthProvider>
       <CartProvider>
-        <ErrorBoundary>
         <div className="relative min-h-screen selection:bg-primary/30 text-foreground bg-surface transition-colors duration-300">
           <div className="noise" />
           {/* BACKGROUND EFFECTS */}
@@ -121,7 +119,6 @@ function RouterContent() {
           <Toaster position="top-right" richColors expand theme={theme} />
           <DebugMarker />
         </div>
-        </ErrorBoundary>
       </CartProvider>
     </AuthProvider>
   );

@@ -12,7 +12,7 @@ import {
   Center
 } from "@react-three/drei";
 import * as THREE from "three";
-import { Maximize2, AlertTriangle, Box } from "lucide-react";
+import { Maximize2 } from "lucide-react";
 import { modelCache } from "../../lib/modelCache";
 
 interface STLViewerProps {
@@ -35,30 +35,13 @@ function Loader() {
   );
 }
 
-function ModelError() {
-  return (
-    <Html center>
-      <div className="flex flex-col items-center gap-3 text-center px-4">
-        <AlertTriangle className="w-6 h-6 text-red-400" />
-        <span className="text-[10px] text-red-400/80 font-black uppercase tracking-widest whitespace-nowrap">
-          Erro ao carregar modelo
-        </span>
-      </div>
-    </Html>
-  );
-}
-
 function Model({ url, color = "#2563EB", scale = 1 }: STLViewerProps) {
   const geom = useLoader(STLLoader, url);
   const meshRef = useRef<THREE.Mesh>(null);
 
   useEffect(() => {
     if (geom) {
-      try {
-        geom.center();
-      } catch (e) {
-        // geometry may be invalid
-      }
+      geom.center();
     }
   }, [geom]);
 
@@ -84,45 +67,30 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
   const [autoRotate, setAutoRotate] = useState(true);
   const [showGrid, setShowGrid] = useState(true);
   const [cachedUrl, setCachedUrl] = useState<string | null>(null);
-  const [hasError, setHasError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
 
     async function loadModel() {
-      if (!url) return;
-
-      setIsLoading(true);
-      setHasError(false);
-
       try {
         const result = await modelCache.getModel(url);
         if (isMounted) {
           setCachedUrl(result);
-          setIsLoading(false);
         }
       } catch (err) {
         console.error("Error loading model for viewer:", err);
-        if (isMounted) {
-          setHasError(true);
-          setIsLoading(false);
-        }
+        if (isMounted) setCachedUrl(url);
       }
     }
 
-    loadModel();
+    if (url) {
+      loadModel();
+    }
 
     return () => {
       isMounted = false;
     };
   }, [url]);
-
-  const handleCanvasError = (err: Error) => {
-    console.error("[STLViewer] Canvas error:", err);
-    setHasError(true);
-    setIsLoading(false);
-  };
 
   const toggleFullscreen = () => {
     if (!containerRef.current) return;
@@ -135,36 +103,12 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
     }
   };
 
-  if (hasError) {
-    return (
-      <div className="w-full h-full bg-[#050505] rounded-[32px] overflow-hidden border border-white/5 flex items-center justify-center">
-        <div className="text-center px-6">
-          <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-3">
-            <AlertTriangle className="w-6 h-6 text-red-400" />
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-red-400/80 mb-1">
-            Modelo 3D Indisponível
-          </p>
-          <p className="text-[9px] text-white/20 font-medium">
-            O arquivo STL não pôde ser carregado
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div 
       ref={containerRef}
       className="w-full h-full bg-[#050505] rounded-[32px] overflow-hidden border border-white/5 relative group"
     >
-      <Canvas 
-        shadows 
-        dpr={[1, 2]}
-        onCreated={() => {
-          setIsLoading(false);
-        }}
-      >
+      <Canvas shadows dpr={[1, 2]}>
         <PerspectiveCamera makeDefault position={[50, 50, 50]} fov={40} />
         <OrbitControls 
           enablePan={true} 
@@ -181,36 +125,34 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
         <spotLight position={[50, 50, 50]} angle={0.15} penumbra={1} intensity={2} castShadow />
         <pointLight position={[-50, -50, -50]} intensity={1} color={color || "#2563EB"} />
 
-        <ErrorCatcher onError={handleCanvasError}>
-          <Suspense fallback={<Loader />}>
-            {cachedUrl ? (
-              <Model url={cachedUrl} color={color} scale={scale} />
-            ) : isLoading ? (
-              <Loader />
-            ) : null}
-            
-            <ContactShadows 
-              position={[0, -10, 0]} 
-              opacity={0.4} 
-              scale={100} 
-              blur={2} 
-              far={20} 
+        <Suspense fallback={<Loader />}>
+          {cachedUrl ? (
+            <Model url={cachedUrl} color={color} scale={scale} />
+          ) : (
+            <Loader />
+          )}
+          
+          <ContactShadows 
+            position={[0, -10, 0]} 
+            opacity={0.4} 
+            scale={100} 
+            blur={2} 
+            far={20} 
+          />
+          
+          {showGrid && (
+            <Grid 
+              infiniteGrid 
+              fadeDistance={100} 
+              fadeStrength={2} 
+              cellSize={5} 
+              sectionSize={25} 
+              sectionColor={color || "#2563EB"} 
+              cellColor="#333" 
+              position={[0, -10.1, 0]}
             />
-            
-            {showGrid && (
-              <Grid 
-                infiniteGrid 
-                fadeDistance={100} 
-                fadeStrength={2} 
-                cellSize={5} 
-                sectionSize={25} 
-                sectionColor={color || "#2563EB"} 
-                cellColor="#333" 
-                position={[0, -10.1, 0]}
-              />
-            )}
-          </Suspense>
-        </ErrorCatcher>
+          )}
+        </Suspense>
 
         <Environment preset="city" />
       </Canvas>
@@ -247,7 +189,7 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
                showGrid ? 'bg-primary/20 border-primary/40 text-primary' : 'bg-white/5 border-white/10 text-white/40'
              }`}
            >
-              Grade: {showGrid ? 'ON' : 'OFF'}
+               Grade: {showGrid ? 'ON' : 'OFF'}
            </button>
         </div>
 
@@ -259,29 +201,4 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
       </div>
     </div>
   );
-}
-
-function ErrorCatcher({ children, onError }: { children: React.ReactNode; onError: (err: Error) => void }) {
-  useEffect(() => {
-    const handler = (event: ErrorEvent) => {
-      if (event.error instanceof Error) {
-        onError(event.error);
-      }
-    };
-    window.addEventListener('error', handler);
-    return () => window.removeEventListener('error', handler);
-  }, [onError]);
-
-  const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
-    if (event.reason instanceof Error) {
-      onError(event.reason);
-    }
-  };
-
-  useEffect(() => {
-    window.addEventListener('unhandledrejection', handleUnhandledRejection);
-    return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
-  }, [onError]);
-
-  return <>{children}</>;
 }
