@@ -1,0 +1,31 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isSignedIn() &&
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "ADMIN";
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    match /products/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /showcase/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

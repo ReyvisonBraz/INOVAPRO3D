@@ -14,7 +14,8 @@ import {
   deleteDoc,
   onSnapshot
 } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType, auth } from "../../services/firebase";
+import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
+import { db, handleFirestoreError, OperationType, auth, storage } from "../../services/firebase";
 import { 
   Package, 
   Clock, 
@@ -57,7 +58,8 @@ import {
   Download,
   Wallet,
   Calculator,
-  ListTodo
+  ListTodo,
+  Upload
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -507,6 +509,7 @@ export default function AdminDashboard() {
   const [isEditingProduct, setIsEditingProduct] = useState(false);
   const [productImportUrl, setProductImportUrl] = useState('');
   const [isImportingProduct, setIsImportingProduct] = useState(false);
+  const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
   const [newProduct, setNewProduct] = useState({
     name: '',
     description: '',
@@ -598,6 +601,56 @@ export default function AdminDashboard() {
       toast.error(error instanceof Error ? error.message : "Falha ao importar metadados.");
     } finally {
       setIsImportingProduct(false);
+    }
+  };
+
+  const handleProductImageUpload = async (file: File | null) => {
+    if (!file) return;
+    if (!auth.currentUser) {
+      toast.error("Faça login novamente para enviar imagens.");
+      return;
+    }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
+
+    try {
+      setIsUploadingProductImage(true);
+      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeName = file.name
+        .replace(/\.[^.]+$/, "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-zA-Z0-9_-]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .toLowerCase()
+        .slice(0, 60) || "imagem";
+      const path = `products/manual/${auth.currentUser.uid}/${Date.now()}-${safeName}.${extension}`;
+      const fileRef = storageRef(storage, path);
+
+      await uploadBytes(fileRef, file, {
+        contentType: file.type,
+        customMetadata: {
+          uploadedBy: auth.currentUser.uid,
+          source: "admin-product-form",
+        },
+      });
+
+      const downloadUrl = await getDownloadURL(fileRef);
+      setNewProduct((current) => {
+        const images = current.images.filter(Boolean);
+        return {
+          ...current,
+          images: [...images, downloadUrl],
+        };
+      });
+      toast.success("Imagem enviada e adicionada ao produto.");
+    } catch (error) {
+      console.error("Product image upload failed:", error);
+      toast.error(error instanceof Error ? error.message : "Erro ao enviar imagem.");
+    } finally {
+      setIsUploadingProductImage(false);
     }
   };
 
@@ -2474,6 +2527,33 @@ export default function AdminDashboard() {
 
                    <div className="space-y-2">
                        <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Carrossel de Imagens (URLs, uma por linha)</label>
+                       <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4">
+                         <label className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer">
+                           <div className="min-w-0">
+                             <span className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2">
+                               <Upload className="w-4 h-4" />
+                               Enviar imagem manual
+                             </span>
+                             <p className="text-[8px] uppercase tracking-widest text-white/30 mt-1">
+                               JPG, PNG ou WEBP. A URL do Firebase Storage entra automaticamente abaixo.
+                             </p>
+                           </div>
+                           <span className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
+                             {isUploadingProductImage ? "Enviando..." : "Escolher arquivo"}
+                           </span>
+                           <input
+                             type="file"
+                             accept="image/*"
+                             disabled={isUploadingProductImage}
+                             onChange={(e) => {
+                               const file = e.target.files?.[0] || null;
+                               void handleProductImageUpload(file);
+                               e.target.value = "";
+                             }}
+                             className="sr-only"
+                           />
+                         </label>
+                       </div>
                        <textarea 
                           rows={3}
                           value={newProduct.images.join('\n')}
