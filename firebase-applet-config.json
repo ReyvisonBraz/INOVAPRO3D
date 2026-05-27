@@ -1,10 +1,21 @@
-{
-  "projectId": "digitalsantamaria-2ced4",
-  "appId": "1:917773476875:web:f9cedbe2c949aa5607930e",
-  "apiKey": "AIzaSyCjPIPDAcrFDQVYzIrDFmgzpV852ZqqgSE",
-  "authDomain": "digitalsantamaria-2ced4.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-a035c2cd-23f5-4e2c-95bb-cb81f7e2ec04",
-  "storageBucket": "digitalsantamaria-2ced4.firebasestorage.app",
-  "messagingSenderId": "917773476875",
-  "measurementId": ""
-}
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyD9-wM18CyBY2AWcZm9xU4s8VMTkRx4l2g",
+  authDomain: "inovapro3d.firebaseapp.com",
+  projectId: "inovapro3d",
+  storageBucket: "inovapro3d.firebasestorage.app",
+  messagingSenderId: "1032754199588",
+  appId: "1:1032754199588:web:c06062a428b829e2a1ecb1",
+  measurementId: "G-Z126XPZYBS"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
