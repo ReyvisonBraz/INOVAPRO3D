@@ -530,7 +530,7 @@ export default function AdminDashboard() {
       name: '',
       description: '',
       basePrice: 0,
-      category: 'DECORAÃ‡ÃƒO',
+      category: 'DECORAÇÃO',
       images: [''],
       active: true,
       stock: 0,

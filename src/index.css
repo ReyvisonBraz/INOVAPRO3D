@@ -62,7 +62,7 @@
   body {
     @apply bg-surface text-foreground font-sans selection:bg-primary/30;
     -webkit-font-smoothing: antialiased;
-    letter-spacing: -0.01em;
+    letter-spacing: 0;
     transition: background-color 0.3s ease, color 0.3s ease;
   }
 
@@ -75,7 +75,7 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(148, 163, 184, 0.28);
     border-radius: 10px;
   }
   ::-webkit-scrollbar-thumb:hover {
@@ -176,4 +176,14 @@
   border-color: var(--color-primary);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 

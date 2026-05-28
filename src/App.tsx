@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Navbar } from "./components/layout/Navbar";
@@ -11,16 +11,26 @@ import { CartProvider } from "./contexts/CartContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
-// Pages
-import Home from "./pages/public/Home";
-import Catalog from "./pages/public/Catalog";
-import ProductDetail from "./pages/public/ProductDetail";
-import CustomQuote from "./pages/public/CustomQuote";
-import FilamentCalculator from "./pages/public/FilamentCalculator";
-import Checkout from "./pages/public/Checkout";
-import MyOrders from "./pages/public/MyOrders";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import Knowledge from "./pages/public/Knowledge";
+const Home = lazy(() => import("./pages/public/Home"));
+const Catalog = lazy(() => import("./pages/public/Catalog"));
+const ProductDetail = lazy(() => import("./pages/public/ProductDetail"));
+const CustomQuote = lazy(() => import("./pages/public/CustomQuote"));
+const FilamentCalculator = lazy(() => import("./pages/public/FilamentCalculator"));
+const Checkout = lazy(() => import("./pages/public/Checkout"));
+const MyOrders = lazy(() => import("./pages/public/MyOrders"));
+const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
+const Knowledge = lazy(() => import("./pages/public/Knowledge"));
+
+function RouteLoader() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center px-6">
+      <div className="flex items-center gap-3 text-primary">
+        <div className="h-5 w-5 rounded-full border-2 border-primary/20 border-t-primary animate-spin" />
+        <span className="text-[10px] font-black uppercase tracking-[0.3em]">Carregando</span>
+      </div>
+    </div>
+  );
+}
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   const location = useLocation();
@@ -74,39 +84,41 @@ function RouterContent() {
           )}
 
           <main className="relative">
-            <Routes>
-              <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
-              <Route path="/catalogo" element={<PageWrapper><Catalog /></PageWrapper>} />
-              <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
-              <Route path="/calculadora" element={<PageWrapper><FilamentCalculator /></PageWrapper>} />
-              <Route path="/upload" element={<PageWrapper><CustomQuote /></PageWrapper>} />
-              <Route 
-                path="/checkout" 
-                element={
-                  <ProtectedRoute>
-                    <PageWrapper><Checkout /></PageWrapper>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/meus-pedidos" 
-                element={
-                  <ProtectedRoute>
-                    <PageWrapper><MyOrders /></PageWrapper>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route 
-                path="/admin" 
-                element={
-                  <ProtectedRoute requireAdmin>
-                    <PageWrapper><AdminDashboard /></PageWrapper>
-                  </ProtectedRoute>
-                } 
-              />
-              <Route path="/conhecimento" element={<PageWrapper><Knowledge /></PageWrapper>} />
-              <Route path="*" element={<PageWrapper><Home /></PageWrapper>} />
-            </Routes>
+            <Suspense fallback={<RouteLoader />}>
+              <Routes>
+                <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
+                <Route path="/catalogo" element={<PageWrapper><Catalog /></PageWrapper>} />
+                <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
+                <Route path="/calculadora" element={<PageWrapper><FilamentCalculator /></PageWrapper>} />
+                <Route path="/upload" element={<PageWrapper><CustomQuote /></PageWrapper>} />
+                <Route 
+                  path="/checkout" 
+                  element={
+                    <ProtectedRoute>
+                      <PageWrapper><Checkout /></PageWrapper>
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/meus-pedidos" 
+                  element={
+                    <ProtectedRoute>
+                      <PageWrapper><MyOrders /></PageWrapper>
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route 
+                  path="/admin" 
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <PageWrapper><AdminDashboard /></PageWrapper>
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route path="/conhecimento" element={<PageWrapper><Knowledge /></PageWrapper>} />
+                <Route path="*" element={<PageWrapper><Home /></PageWrapper>} />
+              </Routes>
+            </Suspense>
           </main>
 
           {!isAdminPage && (
