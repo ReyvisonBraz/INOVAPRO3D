@@ -1,5 +1,6 @@
 import React from "react";
 import { X, ShoppingBag, Trash2, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { Button } from "../ui/Button";
@@ -11,6 +12,7 @@ interface CartSheetProps {
 
 export function CartSheet({ isOpen, onClose }: CartSheetProps) {
   const { items, removeItem, total } = useCart();
+  const navigate = useNavigate();
 
   return (
     <AnimatePresence>
@@ -56,6 +58,7 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                     <ShoppingBag className="w-8 h-8 text-white/10" />
                   </div>
                   <p className="text-white/30 italic">Seu carrinho está vazio.</p>
+                  <p className="mt-2 max-w-xs text-xs text-white/20">Escolha um produto no catálogo para iniciar seu pedido.</p>
                 </div>
               ) : (
                 items.map((item) => (
@@ -86,13 +89,16 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                 <span className="text-white/40 text-sm font-medium">Subtotal</span>
                 <span className="text-2xl font-display font-bold">R$ {total.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
               </div>
+              <p className="mb-4 text-[10px] leading-relaxed text-white/35">
+                Na próxima etapa você revisa entrega, entra com sua conta e acompanha o andamento em Meus Pedidos.
+              </p>
               
               <Button 
                 className="w-full h-14 rounded-2xl group" 
                 disabled={items.length === 0}
                 onClick={() => {
                   onClose();
-                  window.location.href = '/checkout';
+                  navigate('/checkout');
                 }}
               >
                 FINALIZAR PEDIDO

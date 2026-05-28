@@ -17,16 +17,17 @@ import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../../components/ui/Button";
 import { collection, addDoc, serverTimestamp, doc, getDoc } from "firebase/firestore";
-import { db, handleFirestoreError, OperationType } from "../../services/firebase";
+import { auth, db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { toast } from "sonner";
 import type { ShippingAddress } from "../../types/domain";
 
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState(1); // 1: Shipping, 2: Payment, 3: Success
   const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [shippingRate, setShippingRate] = useState<number>(0);
   const [address, setAddress] = useState<ShippingAddress>({
@@ -67,6 +68,27 @@ export default function Checkout() {
     }
   };
 
+  const ensureCheckoutUser = async () => {
+    if (user) return user;
+
+    try {
+      setAuthLoading(true);
+      await loginWithGoogle();
+      const signedUser = auth.currentUser;
+      if (!signedUser) {
+        toast.error("Não foi possível confirmar o login", { description: "Tente entrar novamente para salvar o pedido." });
+        return null;
+      }
+      toast.success("Login concluído", { description: "Seu pedido será salvo para acompanhamento em Meus Pedidos." });
+      return signedUser;
+    } catch {
+      toast.error("Login cancelado", { description: "Entre com sua conta para finalizar e acompanhar o pedido." });
+      return null;
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
   React.useEffect(() => {
     const fetchSettings = async () => {
       try {
@@ -82,20 +104,18 @@ export default function Checkout() {
   }, []);
 
   const handleCompleteOrder = async () => {
-    if (!user) {
-        toast.error("Autenticação necessária", { description: "Por favor, entre em sua conta para finalizar." });
-        return;
-    }
     if (!validateAddress()) return;
+    const checkoutUser = await ensureCheckoutUser();
+    if (!checkoutUser) return;
 
     setLoading(true);
     const path = "orders";
     
     try {
       const orderRef = await addDoc(collection(db, path), {
-        userId: user.uid,
-        userName: user.displayName || user.email,
-        userEmail: user.email,
+        userId: checkoutUser.uid,
+        userName: checkoutUser.displayName || checkoutUser.email,
+        userEmail: checkoutUser.email,
         items: items,
         total: total + shippingRate,
         shippingAddress: address,
@@ -106,7 +126,7 @@ export default function Checkout() {
       setCreatedOrderId(orderRef.id);
       setStep(3);
       clearCart();
-      toast.success("Pedido gerado com sucesso!", { description: "Aguardando confirmação de pagamento Pix." });
+      toast.success("Pedido gerado com sucesso!", { description: "Agora você pode acompanhar o andamento em Meus Pedidos." });
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, path);
       toast.error("Erro ao gerar pedido", { description: "Tente novamente em alguns instantes." });
@@ -121,8 +141,8 @@ export default function Checkout() {
         <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-8">
            <Package className="w-8 h-8 text-white/20" />
         </div>
-        <h2 className="text-4xl font-display font-black mb-4 uppercase tracking-tight">Seu Terminal está Vazio</h2>
-        <p className="text-white/40 mb-12 font-medium">Seu carrinho de manufatura não possui peças pendentes de checkout.</p>
+        <h2 className="text-4xl font-display font-black mb-4 uppercase tracking-tight">Seu carrinho está vazio</h2>
+        <p className="text-white/40 mb-12 font-medium">Adicione um produto ao carrinho para finalizar seu pedido.</p>
         <Button onClick={() => navigate('/catalogo')} size="lg" className="h-16 px-10 rounded-2xl gap-2 font-black uppercase">
           EXPLORAR CATÁLOGO <ChevronRight className="w-4 h-4" />
         </Button>
@@ -136,9 +156,9 @@ export default function Checkout() {
       <div className="flex flex-col md:flex-row items-center md:items-start justify-between mb-10 sm:mb-16 gap-8">
         <div className="text-center md:text-left">
            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black font-display uppercase tracking-tight mb-2 leading-none">
-             Protocolo de <br className="hidden sm:block" /> <span className="text-shimmer italic">Finalização.</span>
+             Finalizar <br className="hidden sm:block" /> <span className="text-shimmer italic">Pedido.</span>
            </h1>
-           <p className="text-white/40 font-medium text-sm sm:text-base">Configure os parâmetros de entrega e pagamento industrial.</p>
+           <p className="text-white/40 font-medium text-sm sm:text-base">Revise a entrega, confirme o pagamento e acompanhe tudo em Meus Pedidos.</p>
         </div>
         
         <div className="flex items-center gap-4 sm:gap-6 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
@@ -170,7 +190,7 @@ export default function Checkout() {
               >
                  <section className="space-y-6 sm:space-y-8">
                     <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-primary flex items-center gap-3">
-                       <MapPin className="w-4 h-4" /> Logística de Distribuição
+                       <MapPin className="w-4 h-4" /> Endereço de entrega
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                        <div className="space-y-3">
@@ -195,7 +215,7 @@ export default function Checkout() {
                           />
                        </div>
                        <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número / Bairro</label>
+                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número</label>
                           <input 
                             placeholder="Ex: 123" 
                             className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none" 
@@ -238,7 +258,7 @@ export default function Checkout() {
                  </section>
 
                  <Button size="lg" className="h-16 sm:h-20 w-full rounded-2xl sm:rounded-3xl gap-4 text-lg sm:text-xl font-display font-black uppercase tracking-tight" onClick={goToPayment}>
-                   CONFIGURAR PAGAMENTO <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
+                   CONTINUAR PARA PAGAMENTO <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
                  </Button>
               </motion.div>
             )}
@@ -253,7 +273,7 @@ export default function Checkout() {
               >
                 <section className="space-y-8">
                    <h3 className="text-xs font-black uppercase tracking-[0.3em] text-primary flex items-center gap-3">
-                      <CreditCard className="w-4 h-4" /> Transação de Hardware
+                      <CreditCard className="w-4 h-4" /> Forma de pagamento
                    </h3>
                    
                    <div className="space-y-4">
@@ -289,22 +309,31 @@ export default function Checkout() {
                 <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex gap-4">
                    <ShieldCheck className="w-6 h-6 text-primary shrink-0" />
                    <p className="text-[11px] text-white/40 leading-relaxed italic font-medium">
-                     O pagamento real ainda depende de confirmação operacional. Seu projeto entra na fila após validação do pedido pela equipe.
+                     O login só é necessário para salvar seu pedido e liberar o acompanhamento. O pagamento Pix será confirmado pela equipe antes da produção.
                    </p>
                 </div>
+
+                {!user && (
+                  <div className="p-5 rounded-[24px] bg-primary/5 border border-primary/15 flex gap-4">
+                     <Lock className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                     <p className="text-[11px] text-white/55 leading-relaxed font-medium">
+                       Entre com Google na finalização. Depois disso, este pedido aparece automaticamente em <span className="text-white">Meus Pedidos</span>.
+                     </p>
+                  </div>
+                )}
 
                 <div className="flex flex-col sm:flex-row gap-4">
                    <Button variant="outline" className="h-20 rounded-3xl flex-1 text-sm font-black uppercase tracking-widest border-white/10" onClick={() => setStep(1)}>
                      Logística
                    </Button>
                    <Button 
-                      loading={loading}
+                      loading={loading || authLoading}
                       isShimmer
                       size="lg" 
                       className="h-20 rounded-3xl flex-[2] gap-4 text-xl font-display font-black uppercase tracking-tight" 
                       onClick={handleCompleteOrder}
                    >
-                     EMITIR ORDEM DE PRODUÇÃO <ArrowRight className="w-6 h-6" />
+                     {user ? "FINALIZAR PEDIDO" : "ENTRAR E FINALIZAR"} <ArrowRight className="w-6 h-6" />
                    </Button>
                 </div>
               </motion.div>
@@ -325,18 +354,18 @@ export default function Checkout() {
                 </div>
                 
                 <h2 className="text-5xl lg:text-7xl font-display font-black mb-6 uppercase tracking-tighter leading-none">
-                  Ordem <br /> Iniciada.
+                  Pedido <br /> Recebido.
                 </h2>
                 <p className="text-xl text-white/40 font-medium mb-12 leading-relaxed max-w-md">
-                   Sua ordem de manufatura <span className="text-primary">#{createdOrderId?.slice(0, 10).toUpperCase()}</span> foi registrada e aguarda confirmacao de pagamento.
+                   Seu pedido <span className="text-primary">#{createdOrderId?.slice(0, 10).toUpperCase()}</span> foi registrado e já pode ser acompanhado.
                 </p>
                 
                 <div className="flex flex-col sm:flex-row gap-6 w-full max-w-2xl">
                    <Button variant="outline" className="h-16 px-8 rounded-2xl flex-1 text-xs font-black uppercase tracking-widest border-white/5" onClick={() => navigate('/meus-pedidos')}>
-                      PAINEL DE PRODUÇÃO
+                      ACOMPANHAR PEDIDO
                    </Button>
                    <Button className="h-16 px-8 rounded-2xl flex-1 text-xs font-black uppercase tracking-widest" onClick={() => navigate('/')}>
-                      FINALIZAR E SAIR
+                      VOLTAR PARA HOME
                    </Button>
                 </div>
               </motion.div>
@@ -349,7 +378,7 @@ export default function Checkout() {
            <div className="rounded-[32px] sm:rounded-[40px] bg-white/[0.03] border border-white/5 overflow-hidden p-1">
               <div className="bg-surface rounded-[30px] sm:rounded-[38px] p-6 sm:p-10 space-y-6 sm:space-y-10">
                  <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-primary flex items-center gap-3 mb-4 sm:mb-8">
-                    <Package className="w-4 h-4" /> Sumário de Insumos
+                    <Package className="w-4 h-4" /> Resumo do pedido
                  </h3>
 
                  <div className="space-y-4 sm:space-y-6 max-h-[200px] sm:max-h-[300px] overflow-y-auto pr-2 no-scrollbar">
@@ -366,7 +395,7 @@ export default function Checkout() {
 
                  <div className="pt-6 sm:pt-10 border-t border-white/5 space-y-3 sm:space-y-4">
                     <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
-                       <span>Expedição / Logística</span>
+                       <span>Entrega</span>
                        <span className={shippingRate === 0 ? "text-green-500" : ""}>
                            {shippingRate === 0 ? "Frete Grátis" : `R$ ${shippingRate.toFixed(2)}`}
                        </span>
@@ -390,7 +419,7 @@ export default function Checkout() {
            </div>
            
            <div className="mt-6 sm:mt-8 text-center hidden lg:block">
-               <p className="text-[8px] font-black uppercase tracking-[0.4em] text-white/10 italic">Protocolo de Impressão Segura por AES-256</p>
+               <p className="text-[8px] font-black uppercase tracking-[0.4em] text-white/10 italic">Acompanhamento disponível em Meus Pedidos</p>
            </div>
         </aside>
 
@@ -404,10 +433,10 @@ export default function Checkout() {
               </div>
               <Button 
                 onClick={() => step === 1 ? goToPayment() : handleCompleteOrder()}
-                loading={loading}
+                loading={loading || authLoading}
                 className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em]"
               >
-                {step === 1 ? "PRÓXIMO" : "FINALIZAR"}
+                {step === 1 ? "PRÓXIMO" : user ? "FINALIZAR" : "ENTRAR"}
               </Button>
             </div>
           </div>

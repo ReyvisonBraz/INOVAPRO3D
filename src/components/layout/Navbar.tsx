@@ -186,14 +186,14 @@ export function Navbar() {
                         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
                       >
                         <UserIcon className="w-4 h-4 text-primary" />
-                        Meus Projetos
+                        Meus Pedidos
                       </Link>
                       <button 
                         onClick={() => logout()}
                         className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-all"
                       >
                         <LogOut className="w-4 h-4" />
-                        Sair do Terminal
+                        Sair da Conta
                       </button>
                    </div>
                 </div>

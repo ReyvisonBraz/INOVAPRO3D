@@ -187,3 +187,226 @@
   }
 }
 
+.maker-print-report {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  .maker-screen,
+  .noise,
+  .debug-marker-overlay,
+  body > #root header:not(.maker-report-header),
+  body > #root footer:not(.maker-report-footer),
+  body > #root .fixed {
+    display: none !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .maker-print-report {
+    display: block !important;
+    position: static;
+    width: auto;
+    padding: 0;
+    font-family: "Plus Jakarta Sans", Arial, sans-serif;
+    color: #0f172a;
+    background: #ffffff;
+  }
+
+  .maker-print-report,
+  .maker-print-report * {
+    visibility: visible !important;
+  }
+
+  .maker-report-page {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .maker-report-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  .maker-report-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #0f172a;
+  }
+
+  .maker-report-kicker {
+    margin: 0 0 6px;
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: 0.22em;
+    color: #2563eb;
+  }
+
+  .maker-report-header h1 {
+    margin: 0;
+    font-size: 24px;
+    line-height: 1;
+    font-weight: 900;
+    text-transform: uppercase;
+    color: #0f172a;
+  }
+
+  .maker-report-header p {
+    margin: 6px 0 0;
+    font-size: 11px;
+    color: #475569;
+  }
+
+  .maker-report-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #475569;
+  }
+
+  .maker-report-highlight {
+    display: grid;
+    grid-template-columns: 1.25fr 1fr 1fr;
+    gap: 10px;
+    margin: 12px 0;
+  }
+
+  .maker-report-highlight-client {
+    grid-template-columns: 1.35fr 1fr 0.8fr;
+  }
+
+  .maker-report-highlight div,
+  .maker-report-card,
+  .maker-report-table,
+  .maker-report-footer {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .maker-report-highlight div {
+    padding: 10px 12px;
+  }
+
+  .maker-report-highlight span,
+  .maker-report-card h2,
+  .maker-report-table h2 {
+    display: block;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+
+  .maker-report-highlight strong {
+    display: block;
+    margin-top: 5px;
+    font-size: 20px;
+    line-height: 1;
+    color: #0f172a;
+  }
+
+  .maker-report-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .maker-report-wide-card {
+    grid-column: span 2;
+  }
+
+  .maker-report-card {
+    padding: 10px 12px;
+    break-inside: avoid;
+  }
+
+  .maker-report-card h2,
+  .maker-report-table h2 {
+    margin: 0 0 7px;
+    color: #2563eb;
+  }
+
+  .maker-report-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 0;
+    border-top: 1px solid #e2e8f0;
+    font-size: 10px;
+  }
+
+  .maker-report-line:first-of-type {
+    border-top: 0;
+  }
+
+  .maker-report-line span {
+    color: #475569;
+  }
+
+  .maker-report-line strong {
+    color: #0f172a;
+    text-align: right;
+  }
+
+  .maker-report-table {
+    margin-top: 8px;
+    padding: 10px 12px;
+    break-inside: avoid;
+  }
+
+  .maker-report-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10px;
+  }
+
+  .maker-report-table th {
+    padding: 6px;
+    text-align: left;
+    color: #475569;
+    border-bottom: 1px solid #cbd5e1;
+  }
+
+  .maker-report-table td {
+    padding: 6px;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .maker-report-table th:nth-child(2),
+  .maker-report-table th:nth-child(3),
+  .maker-report-table td:nth-child(2),
+  .maker-report-table td:nth-child(3) {
+    text-align: right;
+  }
+
+  .maker-report-footer {
+    margin-top: 8px;
+    padding: 9px 12px;
+    font-size: 9.5px;
+    line-height: 1.4;
+    color: #475569;
+    break-inside: avoid;
+  }
+}
+

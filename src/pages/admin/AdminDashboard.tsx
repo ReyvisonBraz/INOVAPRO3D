@@ -178,6 +178,7 @@ export default function AdminDashboard() {
     { id: 'settings', name: 'Ajustes', icon: Settings },
     { id: 'logs', name: 'Registro de Auditoria', icon: History },
   ];
+  const activeMenuItem = menuItems.find((item) => item.id === activeTab);
 
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
   const [isEditingMaterial, setIsEditingMaterial] = useState(false);
@@ -387,10 +388,12 @@ export default function AdminDashboard() {
   const [quickCalcPhone, setQuickCalcPhone] = useState<string>('');
   const [quickCalcCustomerName, setQuickCalcCustomerName] = useState<string>('');
   const [quickCalcPieceName, setQuickCalcPieceName] = useState<string>('');
-  const [quickCalcMargin, setQuickCalcMargin] = useState<number>(50);
-  const [quickCalcFilamentPrice, setQuickCalcFilamentPrice] = useState<number>(0.15);
-  const [quickCalcHourCost, setQuickCalcHourCost] = useState<number>(4.50);
-  const [quickCalcSetupFee, setQuickCalcSetupFee] = useState<number>(10.00);
+  const [quickCalcBatchQty, setQuickCalcBatchQty] = useState<number>(1);
+  const [quickCalcColorChanges, setQuickCalcColorChanges] = useState<number>(0);
+  const [quickCalcAmsPurge, setQuickCalcAmsPurge] = useState<number>(0);
+  const [quickCalcPurgePerChange, setQuickCalcPurgePerChange] = useState<number>(0.5);
+  const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState<number>(1.6);
+  const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState<number>(2.5);
 
   // Helper to convert time strings (e.g., "2h 30m" or "5.5" or "5:30") to decimal hours
   const parseTimeToHours = (timeStr: string): number => {
@@ -414,6 +417,75 @@ export default function AdminDashboard() {
     }
     return h + (m / 60);
   };
+
+  const formatQuickCurrency = (value: number) =>
+    value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+  const getQuickMachineRate = (hours: number) => {
+    if (hours <= 3) return 8;
+    if (hours <= 6) return 6;
+    return 5;
+  };
+
+  const QUICK_CALC_DEFAULTS = {
+    spoolPrice: 100,
+    spoolWeight: 1000,
+    materialReserveMultiplier: 1.5,
+    kwhCost: 1.15,
+    steadyPowerWatts: 200,
+    startupPowerWatts: 1000,
+    startupMinutes: 5,
+  };
+
+  const quickCalcResult = (() => {
+    const hours = Math.max(0, parseTimeToHours(quickCalcTime));
+    const slicerWeight = Math.max(0, Number(quickCalcWeight) || 0);
+    const quantity = Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1));
+    const colorChanges = Math.max(0, Number(quickCalcColorChanges) || 0);
+    const purgePerChange = Math.max(0, Number(quickCalcPurgePerChange) || 0);
+    const purgeFallback = colorChanges * purgePerChange;
+    const informedPurge = Math.max(0, Number(quickCalcAmsPurge) || 0);
+    const purgeWeight = informedPurge > 0 ? informedPurge : purgeFallback;
+    const realWeight = slicerWeight + purgeWeight;
+    const gramCost = QUICK_CALC_DEFAULTS.spoolPrice / QUICK_CALC_DEFAULTS.spoolWeight;
+    const materialCost = realWeight * gramCost * QUICK_CALC_DEFAULTS.materialReserveMultiplier;
+    const startupHours = Math.min(hours, QUICK_CALC_DEFAULTS.startupMinutes / 60);
+    const steadyHours = Math.max(0, hours - startupHours);
+    const energyKwh = (
+      (startupHours * QUICK_CALC_DEFAULTS.startupPowerWatts) +
+      (steadyHours * QUICK_CALC_DEFAULTS.steadyPowerWatts)
+    ) / 1000;
+    const energyCost = energyKwh * QUICK_CALC_DEFAULTS.kwhCost;
+    const machineRate = getQuickMachineRate(hours);
+    const machineCost = hours * machineRate;
+    const totalCost = materialCost + energyCost + machineCost;
+    const safeTotal = totalCost > 0 ? totalCost : 1;
+    const unitCost = totalCost / quantity;
+    const wholesaleTotal = totalCost * Math.max(0, Number(quickCalcWholesaleMarkup) || 0);
+    const retailTotal = totalCost * Math.max(0, Number(quickCalcRetailMarkup) || 0);
+
+    return {
+      hours,
+      slicerWeight,
+      quantity,
+      purgeWeight,
+      realWeight,
+      energyKwh,
+      materialCost,
+      energyCost,
+      machineRate,
+      machineCost,
+      totalCost,
+      materialShare: (materialCost / safeTotal) * 100,
+      energyShare: (energyCost / safeTotal) * 100,
+      machineShare: (machineCost / safeTotal) * 100,
+      unitCost,
+      wholesaleTotal,
+      wholesaleUnit: wholesaleTotal / quantity,
+      retailTotal,
+      retailUnit: retailTotal / quantity,
+    };
+  })();
 
   const [approvalStatus, setApprovalStatus] = useState<{ 
     success: boolean; 
@@ -465,18 +537,10 @@ export default function AdminDashboard() {
       toast.error("Por favor, preencha o número de WhatsApp do cliente para enviar o orçamento.");
       return;
     }
-    const weightVal = Number(quickCalcWeight) || 0;
-    const timeVal = quickCalcTime || '2h 30m';
-    const hours = parseTimeToHours(timeVal);
-    const costFilament = weightVal * quickCalcFilamentPrice;
-    const costTime = hours * quickCalcHourCost;
-    const directCost = costFilament + costTime + quickCalcSetupFee;
-    const finalPrice = directCost * (1 + quickCalcMargin / 100);
-    
     const clientName = quickCalcCustomerName || "Cliente";
-    const pieceName = quickCalcPieceName || "Peça Customizada";
+    const pieceName = quickCalcPieceName || "Peça personalizada";
     
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado por nosso assistente na *INOVAPRO3D*.\n\n*Especificações Simuladas:*\n• Preenchimento (Infill): ${quickCalcInfill}%\n• Peso Estimado: ${weightVal}g\n• Tempo de Impressão: ${timeVal}\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace('.', ',')}\n\nPeso total: ${weightVal}g | Tempo total: ${timeVal} (${hours.toFixed(2)}h)\n\nFicamos à disposição para fecharmos o seu pedido! 🚀`;
+    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações simuladas:*\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Preenchimento (infill): ${quickCalcInfill}%\n- Peso do job/lote: ${quickCalcResult.slicerWeight.toFixed(1).replace('.', ',')}g\n- Purga AMS considerada: ${quickCalcResult.purgeWeight.toFixed(1).replace('.', ',')}g\n- Tempo total de impressão: ${quickCalcTime || '0h'} (${quickCalcResult.hours.toFixed(2).replace('.', ',')}h)\n\n*Investimento final varejo:*\nTotal: ${formatQuickCurrency(quickCalcResult.retailTotal)}\nUnitário: ${formatQuickCurrency(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico comercial com material, energia e hora-máquina.`;
     const encodedText = encodeURIComponent(text);
     const url = `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`;
     window.open(url, '_blank');
@@ -593,7 +657,17 @@ export default function AdminDashboard() {
         images: importedImages.length > 0 ? importedImages : current.images,
         sourceUrl: data.sourceUrl || url,
         modelUrl: data.modelUrl || current.modelUrl,
-        tags: Array.from(new Set([...current.tags, data.sourceHost].filter(Boolean))),
+        tags: Array.from(new Set([
+          ...current.tags,
+          data.sourceHost,
+          data.author,
+          data.license,
+          ...(Array.isArray(data.tags) ? data.tags : []),
+        ].filter(Boolean))),
+        technical: {
+          ...current.technical,
+          ...(data.technical || {}),
+        },
       }));
 
       toast.success("Metadados importados. Revise o preco antes de salvar.");
@@ -1311,7 +1385,7 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
-      <main className="flex-1 lg:ml-64 min-h-screen">
+      <main className="flex-1 lg:ml-64 min-h-screen min-w-0">
         <header className="h-20 border-b border-white/5 bg-[#050508]/80 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button 
@@ -1320,7 +1394,7 @@ export default function AdminDashboard() {
             >
               <Menu className="w-5 h-5 text-primary" />
             </button>
-            <h2 className="text-[10px] sm:text-sm font-black uppercase tracking-[0.2em] italic truncate">{activeTab}</h2>
+            <h2 className="text-[10px] sm:text-sm font-black uppercase tracking-[0.2em] italic truncate">{activeMenuItem?.name || activeTab}</h2>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
@@ -1349,72 +1423,72 @@ export default function AdminDashboard() {
           </div>
         </header>
 
-        <div className="p-4 sm:p-8 lg:p-12 max-w-7xl mx-auto overflow-hidden">
+        <div className="p-3 sm:p-6 lg:p-10 xl:p-12 max-w-[1600px] mx-auto overflow-x-hidden">
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
                 {/* TOP STATS */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="md:col-span-2 glass rounded-[40px] p-10 border border-white/5 relative overflow-hidden group">
-                    <TrendingUp className="absolute top-10 right-10 w-24 h-24 text-primary opacity-10" />
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
+                  <div className="col-span-2 glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 relative overflow-hidden group min-h-[150px] sm:min-h-[190px]">
+                    <TrendingUp className="absolute top-6 right-6 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 text-primary opacity-10" />
                     <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-2 italic">Receita Acumulada</p>
-                    <h2 className="text-4xl sm:text-6xl font-display font-black italic tracking-tighter">R$ {orders.reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}</h2>
+                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words">R$ {orders.reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}</h2>
                   </div>
-                  <div className="glass rounded-[40px] p-10 border border-white/5 flex flex-col justify-center">
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
                     <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Em Produção</p>
-                    <h3 className="text-4xl font-display font-black italic text-primary">{orders.filter(o => o.status !== "COMPLETED").length}</h3>
+                    <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary">{orders.filter(o => o.status !== "COMPLETED").length}</h3>
                   </div>
-                  <div className="glass rounded-[40px] p-10 border border-white/5 flex flex-col justify-center">
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
                     <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Orçamentos</p>
-                    <h3 className="text-4xl font-display font-black italic">{quotes.filter(q => q.status === "PENDING").length}</h3>
+                    <h3 className="text-3xl sm:text-4xl font-display font-black italic">{quotes.filter(q => q.status === "PENDING").length}</h3>
                   </div>
                 </div>
 
                 {/* RECENT ACTIVITY BENTO */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                   {/* Recent Orders */}
-                  <div className="glass rounded-[40px] p-8 border border-white/5">
-                    <div className="flex items-center justify-between mb-8">
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
                           <Package className="w-3.5 h-3.5 text-primary" /> Últimos Pedidos
                        </h3>
-                       <button onClick={() => setActiveTab('orders')} className="text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
+                       <button onClick={() => setActiveTab('orders')} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
                     </div>
                     <div className="space-y-3">
                        {orders.slice(0, 4).map(o => (
-                          <div key={o.id} className="flex justify-between items-center p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors">
-                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center font-mono text-[9px] font-bold text-white/40">#{o.id.slice(0,4)}</div>
-                                <div>
+                          <div key={o.id} className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0">
+                             <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 shrink-0 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center font-mono text-[9px] font-bold text-white/40">#{o.id.slice(0,4)}</div>
+                                <div className="min-w-0">
                                    <p className="text-xs font-bold uppercase truncate max-w-[120px]">{o.userName}</p>
                                    <p className="text-[8px] text-white/20 uppercase font-black tracking-widest">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
                                 </div>
                              </div>
-                             <p className="text-sm font-display font-black text-primary italic">R$ {(o.total || 0).toFixed(2)}</p>
+                             <p className="shrink-0 text-sm font-display font-black text-primary italic">R$ {(o.total || 0).toFixed(2)}</p>
                           </div>
                        ))}
                     </div>
                   </div>
 
                   {/* Recent Quotes */}
-                  <div className="glass rounded-[40px] p-8 border border-white/5">
-                    <div className="flex items-center justify-between mb-8">
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
                           <FileText className="w-3.5 h-3.5 text-blue-400" /> Consultas de Preço
                        </h3>
-                       <button onClick={() => setActiveTab('quotes')} className="text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
+                       <button onClick={() => setActiveTab('quotes')} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
                     </div>
                     <div className="space-y-3">
                        {quotes.slice(0, 4).map(q => (
-                          <div key={q.id} className="flex justify-between items-center p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors">
-                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center"><FileText className="w-4 h-4 text-blue-400" /></div>
-                                <div>
+                          <div key={q.id} className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0">
+                             <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 shrink-0 rounded-lg bg-blue-500/10 flex items-center justify-center"><FileText className="w-4 h-4 text-blue-400" /></div>
+                                <div className="min-w-0">
                                    <p className="text-xs font-bold uppercase truncate max-w-[120px]">{q.userName}</p>
                                    <p className="text-[8px] text-white/20 uppercase font-black tracking-widest truncate max-w-[150px]">{q.fileName}</p>
                                 </div>
                              </div>
-                             <span className="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">PENDENTE</span>
+                             <span className="shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">PENDENTE</span>
                           </div>
                        ))}
                     </div>
@@ -1422,19 +1496,21 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
-                <div className="glass rounded-[40px] p-8 border border-white/5 bg-gradient-to-b from-white/[0.01] to-black/40 space-y-6">
-                   <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                      <div className="flex items-center gap-2">
-                         <Calculator className="w-5 h-5 text-primary" />
-                         <div>
-                            <h3 className="text-xs font-black uppercase tracking-widest italic text-white">Assistente de Orçamento Rápido</h3>
-                            <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">Simule preços e envie propostas por WhatsApp na hora</p>
+                <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 bg-gradient-to-b from-white/[0.01] to-black/40 space-y-5 sm:space-y-6">
+                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                         <div className="w-9 h-9 rounded-2xl bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0">
+                            <Calculator className="w-4 h-4 text-primary" />
+                         </div>
+                         <div className="min-w-0">
+                            <h3 className="text-xs font-black uppercase tracking-widest italic text-white">Assistente Cálculo Maker Rápido</h3>
+                            <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">P2S + AMS | 110V | custo real com atacado e varejo</p>
                          </div>
                       </div>
-                      <span className="text-[9px] font-black tracking-wider uppercase text-[#2563EB] bg-[#2563EB]/10 px-2.5 py-1 rounded-full border border-[#2563EB]/10">Modo Avulso</span>
+                      <span className="w-fit text-[9px] font-black tracking-wider uppercase text-[#38bdf8] bg-[#38bdf8]/10 px-2.5 py-1 rounded-full border border-[#38bdf8]/10">Maker V4.2</span>
                    </div>
 
-                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
                       {/* INPUTS GERAIS */}
                       <div className="space-y-4">
                          <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
@@ -1473,67 +1549,126 @@ export default function AdminDashboard() {
                       {/* INPUTS TÉCNICOS */}
                       <div className="space-y-4">
                          <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
-                         <div className="grid grid-cols-2 gap-3">
+                         <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
                             <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Peso Geral (g)</label>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Peso Job/Lote (g)</label>
                                <input
                                   type="number"
+                                  min="0"
                                   value={quickCalcWeight}
                                   onChange={(e) => setQuickCalcWeight(Number(e.target.value))}
                                   className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
                                />
                             </div>
                             <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Infill / Preenc. (%)</label>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Peças no Lote</label>
                                <input
                                   type="number"
+                                  min="1"
+                                  value={quickCalcBatchQty}
+                                  onChange={(e) => setQuickCalcBatchQty(Number(e.target.value))}
+                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               />
+                            </div>
+                         </div>
+                         <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
+                            <div>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Tempo Total</label>
+                               <input
+                                  type="text"
+                                  value={quickCalcTime}
+                                  onChange={(e) => setQuickCalcTime(e.target.value)}
+                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                                  placeholder="Ex: 2h 30m"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Infill (%)</label>
+                               <input
+                                  type="number"
+                                  min="0"
+                                  max="100"
                                   value={quickCalcInfill}
                                   onChange={(e) => setQuickCalcInfill(Number(e.target.value))}
                                   className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
                                />
                             </div>
                          </div>
-                         <div>
-                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Tempo de Impressão</label>
-                            <input
-                               type="text"
-                               value={quickCalcTime}
-                               onChange={(e) => setQuickCalcTime(e.target.value)}
-                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               placeholder="Ex: 2h 30m"
-                            />
+                         <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                            <div className="col-span-2 xl:col-span-1">
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Trocas AMS</label>
+                               <input
+                                  type="number"
+                                  min="0"
+                                  value={quickCalcColorChanges}
+                                  onChange={(e) => setQuickCalcColorChanges(Number(e.target.value))}
+                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Purga AMS (g)</label>
+                               <input
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  value={quickCalcAmsPurge}
+                                  onChange={(e) => setQuickCalcAmsPurge(Number(e.target.value))}
+                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               />
+                            </div>
+                            <div>
+                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">g/Troca</label>
+                               <input
+                                  type="number"
+                                  min="0"
+                                  step="0.1"
+                                  value={quickCalcPurgePerChange}
+                                  onChange={(e) => setQuickCalcPurgePerChange(Number(e.target.value))}
+                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                               />
+                            </div>
                          </div>
                          
-                         {/* Taxas do Cálculo Direct Edit */}
-                         <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-2">
-                            <p className="text-[8px] uppercase font-black text-white/40 tracking-wider mb-1">Taxas de Custo Direto</p>
-                            <div className="grid grid-cols-3 gap-2">
+                         <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-3">
+                            <p className="text-[8px] uppercase font-black text-white/40 tracking-wider">Premissas Cálculo Maker</p>
+                            <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2">
+                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                                  <span className="block text-[7px] text-white/30 uppercase font-black">Material</span>
+                                  <strong className="text-[10px] text-white font-mono">R$100/kg +50%</strong>
+                               </div>
+                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                                  <span className="block text-[7px] text-white/30 uppercase font-black">Energia</span>
+                                  <strong className="text-[10px] text-white font-mono">200W + pico 1000W</strong>
+                               </div>
+                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                                  <span className="block text-[7px] text-white/30 uppercase font-black">Tarifa</span>
+                                  <strong className="text-[10px] text-white font-mono">{formatQuickCurrency(QUICK_CALC_DEFAULTS.kwhCost)}/kWh</strong>
+                               </div>
+                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                                  <span className="block text-[7px] text-white/30 uppercase font-black">Hora Máquina</span>
+                                  <strong className="text-[10px] text-white font-mono">R$ {quickCalcResult.machineRate.toFixed(2)}/h</strong>
+                               </div>
+                            </div>
+                            <div className="grid grid-cols-1 min-[430px]:grid-cols-2 lg:grid-cols-2 gap-2">
                                <div>
-                                  <label className="text-[7px] text-white/30 uppercase block font-black">Filamento/g</label>
+                                  <label className="text-[7px] text-white/30 uppercase block font-black">Atacado x</label>
                                   <input
                                      type="number"
-                                     step="0.01"
-                                     value={quickCalcFilamentPrice}
-                                     onChange={(e) => setQuickCalcFilamentPrice(Number(e.target.value))}
+                                     min="0"
+                                     step="0.1"
+                                     value={quickCalcWholesaleMarkup}
+                                     onChange={(e) => setQuickCalcWholesaleMarkup(Number(e.target.value))}
                                      className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
                                   />
                                </div>
                                <div>
-                                  <label className="text-[7px] text-white/30 uppercase block font-black">Hora de Impressão</label>
+                                  <label className="text-[7px] text-white/30 uppercase block font-black">Varejo x</label>
                                   <input
                                      type="number"
-                                     step="0.10"
-                                     value={quickCalcHourCost}
-                                     onChange={(e) => setQuickCalcHourCost(Number(e.target.value))}
-                                     className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
-                                  />
-                               </div>
-                               <div>
-                                  <label className="text-[7px] text-white/30 uppercase block font-black">M. Lucro %</label>
-                                  <input
-                                     type="number"
-                                     value={quickCalcMargin}
-                                     onChange={(e) => setQuickCalcMargin(Number(e.target.value))}
+                                     min="0"
+                                     step="0.1"
+                                     value={quickCalcRetailMarkup}
+                                     onChange={(e) => setQuickCalcRetailMarkup(Number(e.target.value))}
                                      className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
                                   />
                                </div>
@@ -1541,32 +1676,63 @@ export default function AdminDashboard() {
                          </div>
                       </div>
 
-                      {/* DETALHAMENTO DO CÁLCULO DIRETO + COMPARTILHAMENTO */}
+                      {/* DETALHAMENTO DO CÁLCULO MAKER + COMPARTILHAMENTO */}
                       <div className="space-y-4">
-                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Demonstrativo Detalhado</h4>
+                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Custo Real e Preço</h4>
 
-                         <div className="bg-black/40 border border-white/5 rounded-[24px] p-5 space-y-3">
-                            <div className="flex justify-between text-xs text-white/70">
-                               <span>Custo Filamento ({quickCalcWeight}g × R$ {quickCalcFilamentPrice.toFixed(2)}):</span>
-                               <span className="font-mono text-white">R$ {(quickCalcWeight * quickCalcFilamentPrice).toFixed(2)}</span>
+                         <div className="bg-black/40 border border-white/5 rounded-[24px] p-4 sm:p-5 space-y-3">
+                            <div className="flex justify-between gap-3 text-xs text-white/70">
+                               <span className="min-w-0">Material ({quickCalcResult.realWeight.toFixed(1)}g com purga):</span>
+                               <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.materialCost)}</span>
                             </div>
-                            <div className="flex justify-between text-xs text-white/70">
-                               <span>Custo Máquina ({parseTimeToHours(quickCalcTime).toFixed(2)}h × R$ {quickCalcHourCost.toFixed(2)}):</span>
-                               <span className="font-mono text-white">R$ {(parseTimeToHours(quickCalcTime) * quickCalcHourCost).toFixed(2)}</span>
+                            <div className="flex justify-between gap-3 text-xs text-white/70">
+                               <span className="min-w-0">Energia ({quickCalcResult.energyKwh.toFixed(3)} kWh):</span>
+                               <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.energyCost)}</span>
                             </div>
-                            <div className="flex justify-between text-xs text-white/70">
-                               <span>Taxa Setup:</span>
-                               <span className="font-mono text-white">R$ {quickCalcSetupFee.toFixed(2)}</span>
+                            <div className="flex justify-between gap-3 text-xs text-white/70">
+                               <span className="min-w-0">Hora-máquina ({quickCalcResult.hours.toFixed(2)}h × R$ {quickCalcResult.machineRate.toFixed(2)}):</span>
+                               <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.machineCost)}</span>
                             </div>
-                            <div className="flex justify-between text-xs font-bold text-white/40 border-t border-white/5 pt-2">
-                               <span>Soma dos Custos Diretos:</span>
-                               <span className="font-mono text-white/60">R$ {(quickCalcWeight * quickCalcFilamentPrice + parseTimeToHours(quickCalcTime) * quickCalcHourCost + quickCalcSetupFee).toFixed(2)}</span>
+                            <div className="flex justify-between gap-3 text-xs font-bold text-white/40 border-t border-white/5 pt-2">
+                               <span>Custo real do lote:</span>
+                               <span className="shrink-0 font-mono text-white/80">{formatQuickCurrency(quickCalcResult.totalCost)}</span>
                             </div>
-                            <div className="flex justify-between text-sm font-black text-white border-t border-white/10 pt-3">
-                               <span className="uppercase text-[#2563EB] italic">Preço Sugerido (+{quickCalcMargin}%):</span>
-                               <span className="font-mono text-primary text-base">
-                                  R$ {((quickCalcWeight * quickCalcFilamentPrice + parseTimeToHours(quickCalcTime) * quickCalcHourCost + quickCalcSetupFee) * (1 + quickCalcMargin / 100)).toFixed(2)}
-                                </span>
+                            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 border-t border-white/10 pt-3">
+                               <div className="rounded-2xl border border-[#f59e0b]/20 bg-[#f59e0b]/10 p-3">
+                                  <span className="block text-[8px] uppercase font-black text-[#fbbf24] tracking-wider">Atacado x{quickCalcWholesaleMarkup}</span>
+                                  <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.wholesaleTotal)}</strong>
+                                  <span className="block text-[9px] text-white/50 mt-1">{formatQuickCurrency(quickCalcResult.wholesaleUnit)} / un.</span>
+                               </div>
+                               <div className="rounded-2xl border border-[#38bdf8]/20 bg-[#38bdf8]/10 p-3">
+                                  <span className="block text-[8px] uppercase font-black text-[#38bdf8] tracking-wider">Varejo x{quickCalcRetailMarkup}</span>
+                                  <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.retailTotal)}</strong>
+                                  <span className="block text-[9px] text-white/50 mt-1">{formatQuickCurrency(quickCalcResult.retailUnit)} / un.</span>
+                               </div>
+                            </div>
+                            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+                               <div className="flex items-center justify-between text-[9px] uppercase font-black tracking-wider text-white/35">
+                                  <span>Custo unitário interno</span>
+                                  <span className="font-mono text-white/70">{formatQuickCurrency(quickCalcResult.unitCost)}</span>
+                               </div>
+                               <div className="mt-2 flex h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                  <div
+                                     className="h-full bg-[#38bdf8]"
+                                     style={{ width: `${quickCalcResult.materialShare}%` }}
+                                  />
+                                  <div
+                                     className="h-full bg-[#f97316]"
+                                     style={{ width: `${quickCalcResult.energyShare}%` }}
+                                  />
+                                  <div
+                                     className="h-full bg-[#a78bfa]"
+                                     style={{ width: `${quickCalcResult.machineShare}%` }}
+                                  />
+                               </div>
+                               <div className="mt-2 grid grid-cols-3 gap-1 text-[7px] uppercase font-black text-white/35">
+                                  <span>Mat. {quickCalcResult.materialShare.toFixed(0)}%</span>
+                                  <span>Ener. {quickCalcResult.energyShare.toFixed(0)}%</span>
+                                  <span>Maq. {quickCalcResult.machineShare.toFixed(0)}%</span>
+                               </div>
                             </div>
                          </div>
 
@@ -1574,7 +1740,7 @@ export default function AdminDashboard() {
                             type="button"
                             disabled={!quickCalcPhone.replace(/\D/g, '')}
                             onClick={handleSendQuickWhatsAppQuote}
-                            className="w-full h-11 rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full min-h-11 h-auto rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
                          >
                             <Smartphone className="w-4 h-4" /> Enviar Orçamento por WhatsApp
                          </Button>
@@ -1584,16 +1750,17 @@ export default function AdminDashboard() {
 
                 {/* ESTEIRA DE PRODUÇÃO (KANBAN) DIRETA NA TELA INICIAL */}
                 <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[32px] border border-white/5">
-                     <div>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center bg-white/[0.02] p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-white/5">
+                     <div className="min-w-0">
                         <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2">
-                           <Layers className="w-4 h-4 text-primary" /> Esteira de Produção
+                           <Layers className="w-4 h-4 shrink-0 text-primary" /> Esteira de Produção
                         </h3>
                         <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Controle logístico e manufatura diretamente no dashboard inicial</p>
                      </div>
+                     <span className="w-fit text-[8px] font-black uppercase tracking-widest text-white/30 bg-white/5 border border-white/5 rounded-full px-3 py-1">Arraste para ver etapas</span>
                   </div>
 
-                  <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar">
+                  <div className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
                      {[
                        { id: 'PENDING_PAYMENT', label: 'AGUAR. PAGTO', icon: Wallet },
                        { id: 'PAID', label: 'PAGO', icon: CheckCircle2 },
@@ -1610,19 +1777,19 @@ export default function AdminDashboard() {
                         );
                         const Icon = stage.icon;
                         return (
-                           <div key={stage.id} className="min-w-[260px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[32px] flex flex-col h-[420px]">
+                           <div key={stage.id} className="min-w-[245px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[26px] sm:rounded-[32px] flex flex-col h-[390px] sm:h-[420px]">
                               <div className="p-4 border-b border-white/5 bg-white/[0.01]">
                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                       <Icon className="w-3.5 h-3.5 text-primary" />
-                                       <h4 className="text-[10px] font-black uppercase text-white/70">{stage.label}</h4>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                       <Icon className="w-3.5 h-3.5 shrink-0 text-primary" />
+                                       <h4 className="text-[10px] font-black uppercase text-white/70 truncate">{stage.label}</h4>
                                     </div>
                                     <span className="text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40">{stageOrders.length}</span>
                                  </div>
                               </div>
                               <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
                                  {stageOrders.map(o => (
-                                    <div key={o.id} onClick={() => { setActiveTab('orders'); setSelectedOrder(o); }} className="glass p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)]">
+                                    <div key={o.id} onClick={() => { setActiveTab('orders'); setSelectedOrder(o); }} className="glass p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)]">
                                        <div className="flex justify-between items-start mb-2">
                                           <p className="text-[8px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
                                           <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
@@ -1650,8 +1817,8 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* CHARTS ROW */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <div className="md:col-span-3 glass rounded-[48px] p-6 sm:p-10 border border-white/5 h-[300px] sm:h-[400px]">
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
+                  <div className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]">
                      <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={chartData}>
                           <defs>
@@ -1669,7 +1836,7 @@ export default function AdminDashboard() {
                      </ResponsiveContainer>
                   </div>
                   
-                  <div className="glass rounded-[48px] p-10 border border-white/5 flex flex-col items-center justify-center relative">
+                  <div className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]">
                      <ResponsiveContainer width="100%" height={200}>
                         <PieChart>
                            <Pie data={pieData} innerRadius={60} outerRadius={85} paddingAngle={10} dataKey="value">
@@ -2564,6 +2731,30 @@ export default function AdminDashboard() {
                           placeholder="https://images.unsplash.com/...&#10;https://images.unsplash.com/..."
                           className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-mono outline-none focus:border-primary/50 transition-all resize-y"
                        />
+                       {newProduct.images.filter(Boolean).length > 0 && (
+                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+                           {newProduct.images.filter(Boolean).slice(0, 10).map((imageUrl, index) => (
+                             <a
+                               key={`${imageUrl}-${index}`}
+                               href={imageUrl}
+                               target="_blank"
+                               rel="noreferrer"
+                               className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black"
+                               title={`Abrir imagem ${index + 1}`}
+                             >
+                               <img
+                                 src={imageUrl}
+                                 alt={`Preview ${index + 1}`}
+                                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                 loading="lazy"
+                               />
+                               <span className="absolute left-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/70">
+                                 {index === 0 ? 'Capa' : `#${index + 1}`}
+                               </span>
+                             </a>
+                           ))}
+                         </div>
+                       )}
                        <span className="text-[8px] uppercase tracking-widest text-white/30 block mt-1">O primeiro link é a capa. Insira outros de forma opcional (um por linha) para habilitar o carrossel.</span>
                     </div>
 

@@ -1,5 +1,6 @@
 const DIRECT_MODEL_FILE_PATTERN = /\.(stl|3mf|obj|step|stp|iges|igs|zip)(\?.*)?$/i;
 const DEFAULT_MODEL_IMPORT_HOSTS = ["makerworld.com", "bambulab.com", "bambulab.cn"];
+const BAMBU_API_BASE_URL = "https://api.bambulab.com/v1/design-service/design";
 
 export function getAllowedModelImportHosts() {
   return (process.env.MODEL_IMPORT_ALLOWED_HOSTS || DEFAULT_MODEL_IMPORT_HOSTS.join(","))
@@ -73,6 +74,133 @@ function findDirectModelUrl(html: string, baseUrl: string, originalUrl: string) 
   return match?.[1] ? resolveUrl(match[1], baseUrl) : "";
 }
 
+function stripHtml(value: string) {
+  return decodeHtmlEntities(
+    value
+      .replace(/<boostme>[\s\S]*?<\/boostme>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]+>/g, "")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim(),
+  );
+}
+
+function secondsToPrintTime(seconds?: number) {
+  if (!seconds || seconds <= 0) return "";
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.round((seconds % 3600) / 60);
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
+}
+
+function parseMakerWorldLink(url: URL) {
+  const isMakerWorldHost =
+    url.hostname.toLowerCase() === "makerworld.com" ||
+    url.hostname.toLowerCase().endsWith(".makerworld.com");
+  if (!isMakerWorldHost) return null;
+
+  const designId = url.pathname.match(/\/models\/(\d+)/i)?.[1];
+  if (!designId) return null;
+
+  const profileId = url.hash.match(/profileId-(\d+)/i)?.[1] || "";
+  return { designId, profileId };
+}
+
+function getImageUrlsFromPictures(pictures: unknown) {
+  if (!Array.isArray(pictures)) return [];
+  return pictures
+    .map((picture) => {
+      if (!picture || typeof picture !== "object") return "";
+      const url = (picture as { url?: unknown }).url;
+      return typeof url === "string" ? url : "";
+    })
+    .filter(Boolean);
+}
+
+function pickMakerWorldInstance(instances: unknown, profileId: string) {
+  if (!Array.isArray(instances)) return null;
+  const typedInstances = instances.filter(
+    (instance): instance is Record<string, any> => !!instance && typeof instance === "object",
+  );
+  return (
+    typedInstances.find((instance) => String(instance.id) === profileId) ||
+    typedInstances.find((instance) => String(instance.profileId) === profileId) ||
+    typedInstances.find((instance) => Boolean(instance.isDefault)) ||
+    typedInstances[0] ||
+    null
+  );
+}
+
+function buildMakerWorldSourceUrl(targetUrl: URL, design: Record<string, any>) {
+  const slug = typeof design.slug === "string" && design.slug ? `-${design.slug}` : "";
+  return `${targetUrl.origin}${targetUrl.pathname.includes("/pt/") ? "/pt" : "/en"}/models/${design.id}${slug}`;
+}
+
+async function readMakerWorldMetadata(targetUrl: URL) {
+  const makerWorldLink = parseMakerWorldLink(targetUrl);
+  if (!makerWorldLink) return null;
+
+  const response = await fetch(`${BAMBU_API_BASE_URL}/${makerWorldLink.designId}`, {
+    headers: {
+      "accept": "application/json, text/plain, */*",
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
+      "origin": "https://makerworld.com",
+      "referer": targetUrl.toString(),
+    },
+    redirect: "follow",
+  });
+
+  if (!response.ok) {
+    return null;
+  }
+
+  const design = (await response.json()) as Record<string, any>;
+  const instance = pickMakerWorldInstance(design.instances, makerWorldLink.profileId);
+  const modelInfo = instance?.extention?.modelInfo;
+  const settings = modelInfo?.projectSettings || {};
+  const plates = Array.isArray(modelInfo?.plates) ? modelInfo.plates : [];
+  const firstPlate = plates[0] || {};
+  const images = [
+    ...(typeof instance?.cover === "string" ? [instance.cover] : []),
+    ...getImageUrlsFromPictures(instance?.pictures),
+    ...(typeof design.coverUrl === "string" ? [design.coverUrl] : []),
+    ...getImageUrlsFromPictures(design.designExtension?.design_pictures),
+  ];
+
+  const uniqueImages = Array.from(new Set(images.filter(Boolean)));
+  const tags = Array.isArray(design.tagsTranslated) && design.tagsTranslated.length > 0
+    ? design.tagsTranslated
+    : Array.isArray(design.tags)
+      ? design.tags
+      : [];
+
+  return {
+    status: 200,
+    body: {
+      title: design.titleTranslated || design.title || "Modelo MakerWorld",
+      description: stripHtml(design.summaryTranslated || design.summary || ""),
+      images: uniqueImages,
+      sourceUrl: buildMakerWorldSourceUrl(targetUrl, design),
+      modelUrl: "",
+      sourceHost: targetUrl.hostname,
+      license: design.license || design.licenseDescriptionInfo?.title || "",
+      author: design.designCreator?.name || "",
+      tags,
+      technical: {
+        infill: parseInt(String(settings.sparseInfillDensity || "").replace(/\D/g, ""), 10) || undefined,
+        resolution: settings.layerHeight ? `${settings.layerHeight}mm` : undefined,
+        printTime: secondsToPrintTime(instance?.prediction || firstPlate.prediction),
+        weight: Number(instance?.weight || firstPlate.weight) || undefined,
+      },
+    },
+  };
+}
+
 export async function readModelMetadata(rawUrl: string) {
   const targetUrl = new URL(rawUrl.trim());
   if (!["http:", "https:"].includes(targetUrl.protocol)) {
@@ -88,15 +216,33 @@ export async function readModelMetadata(rawUrl: string) {
     };
   }
 
+  const makerWorldMetadata = await readMakerWorldMetadata(targetUrl);
+  if (makerWorldMetadata) {
+    return makerWorldMetadata;
+  }
+
   const response = await fetch(targetUrl, {
     headers: {
       "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-      "user-agent": "INOVAPRO3D catalog metadata importer",
+      "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+      "cache-control": "no-cache",
+      "pragma": "no-cache",
+      "user-agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
     },
     redirect: "follow",
   });
 
   if (!response.ok) {
+    if (response.status === 403) {
+      return {
+        status: 502,
+        body: {
+          error:
+            "O site bloqueou a leitura automatica deste link. Se for MakerWorld, confira se a URL contem /models/ID.",
+        },
+      };
+    }
     return { status: 502, body: { error: `Nao foi possivel ler o link. Status ${response.status}.` } };
   }
 

@@ -94,9 +94,7 @@ function RouterContent() {
                 <Route 
                   path="/checkout" 
                   element={
-                    <ProtectedRoute>
-                      <PageWrapper><Checkout /></PageWrapper>
-                    </ProtectedRoute>
+                    <PageWrapper><Checkout /></PageWrapper>
                   } 
                 />
                 <Route 

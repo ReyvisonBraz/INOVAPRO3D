@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { 
+  ArrowRight,
   ChevronLeft, 
   Layers, 
   Weight, 
@@ -13,7 +14,8 @@ import {
   Shield,
   Info,
   Maximize2,
-  Box
+  Box,
+  X
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
@@ -25,6 +27,7 @@ import type { Material, Product } from "../../types/domain";
 
 export default function ProductDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const { addItem } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -34,6 +37,7 @@ export default function ProductDetail() {
   const [scale, setScale] = useState(100);
   const [quantity, setQuantity] = useState(1);
   const [activeMediaTab, setActiveMediaTab] = useState<'3d' | number>('3d');
+  const [showAddedModal, setShowAddedModal] = useState(false);
   const hasModelUrl = product?.modelUrl;
 
   // Default to first image tab if available, avoiding 3D viewer crash on invalid models
@@ -98,6 +102,7 @@ export default function ProductDetail() {
     toast.success(`${product.name} adicionado!`, {
       description: `Escala ${scale}% | Material: ${selectedMaterial.name}`,
     });
+    setShowAddedModal(true);
   };
 
   if (loading) return (
@@ -359,7 +364,7 @@ export default function ProductDetail() {
                     isShimmer={product?.stock !== 0}
                   >
                     <ShoppingCart className="w-6 h-6" />
-                    {product?.stock === 0 ? "ENCOMENDAR SOB DEMANDA" : "SOLICITAR IMPRESSÃO"}
+                    {product?.stock === 0 ? "ENCOMENDAR SOB DEMANDA" : "ADICIONAR AO CARRINHO"}
                   </Button>
                </div>
                <div className="flex items-center justify-center px-6 py-4 bg-white/5 border border-white/10 rounded-3xl text-center">
@@ -377,6 +382,75 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      <AnimatePresence>
+        {showAddedModal && product && selectedMaterial && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[120] bg-black/70 backdrop-blur-sm"
+              onClick={() => setShowAddedModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.96 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 24, scale: 0.96 }}
+              className="fixed inset-x-4 top-1/2 z-[121] mx-auto max-w-lg -translate-y-1/2 rounded-[32px] border border-white/10 bg-[#0a0f1d] p-6 shadow-2xl shadow-black/40 sm:p-8"
+            >
+              <button
+                type="button"
+                onClick={() => setShowAddedModal(false)}
+                className="absolute right-4 top-4 rounded-full p-2 text-white/30 transition-colors hover:bg-white/5 hover:text-white"
+                aria-label="Fechar"
+              >
+                <X className="h-5 w-5" />
+              </button>
+
+              <div className="mb-6 flex items-start gap-4 pr-8">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-green-500/15 text-green-400">
+                  <CheckCircle2 className="h-6 w-6" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-black uppercase tracking-tight text-white">Produto no carrinho</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-white/45">
+                    Agora você pode finalizar o pedido ou continuar escolhendo outras peças.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mb-6 rounded-2xl border border-white/5 bg-white/[0.03] p-4">
+                <p className="text-sm font-black uppercase text-white">{product.name}</p>
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/35">
+                  {selectedMaterial.name} | Escala {scale}% | Qtd. {quantity}
+                </p>
+                <p className="mt-3 font-mono text-lg font-black text-primary">
+                  R$ {totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-14 rounded-2xl border-white/10 text-[10px] font-black uppercase tracking-widest"
+                  onClick={() => setShowAddedModal(false)}
+                >
+                  Continuar vendo
+                </Button>
+                <Button
+                  type="button"
+                  className="h-14 rounded-2xl gap-2 text-[10px] font-black uppercase tracking-widest"
+                  onClick={() => navigate('/checkout')}
+                >
+                  Finalizar pedido <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
