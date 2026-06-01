@@ -384,11 +384,13 @@ export default function AdminDashboard() {
   // Dashboard Quick Smart Pricing Calculator states
   const [quickCalcWeight, setQuickCalcWeight] = useState<number>(80);
   const [quickCalcTime, setQuickCalcTime] = useState<string>('2h 30m');
-  const [quickCalcInfill, setQuickCalcInfill] = useState<number>(20);
   const [quickCalcPhone, setQuickCalcPhone] = useState<string>('');
   const [quickCalcCustomerName, setQuickCalcCustomerName] = useState<string>('');
   const [quickCalcPieceName, setQuickCalcPieceName] = useState<string>('');
   const [quickCalcBatchQty, setQuickCalcBatchQty] = useState<number>(1);
+  const [quickCalcMaterial, setQuickCalcMaterial] = useState<'pla' | 'petg'>('pla');
+  const [quickCalcMaterialReserve, setQuickCalcMaterialReserve] = useState<number>(15);
+  const [quickCalcMinPrice, setQuickCalcMinPrice] = useState<number>(35);
   const [quickCalcColorChanges, setQuickCalcColorChanges] = useState<number>(0);
   const [quickCalcAmsPurge, setQuickCalcAmsPurge] = useState<number>(0);
   const [quickCalcPurgePerChange, setQuickCalcPurgePerChange] = useState<number>(0.5);
@@ -422,22 +424,24 @@ export default function AdminDashboard() {
     value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
   const getQuickMachineRate = (hours: number) => {
-    if (hours <= 3) return 8;
-    if (hours <= 6) return 6;
-    return 5;
+    if (hours <= 3) return 3.00;
+    if (hours <= 6) return 2.50;
+    return 2.00;
   };
 
+  const MATERIAL_PRESETS = {
+    pla:  { label: 'PLA',  spoolPrice: 85,  spoolWeight: 1000, steadyPowerWatts: 200 },
+    petg: { label: 'PETG', spoolPrice: 120, spoolWeight: 1000, steadyPowerWatts: 230 },
+  } as const;
+
   const QUICK_CALC_DEFAULTS = {
-    spoolPrice: 100,
-    spoolWeight: 1000,
-    materialReserveMultiplier: 1.5,
-    kwhCost: 1.15,
-    steadyPowerWatts: 200,
+    kwhCost: 1.20,           // Equatorial Pará 2025 (base R$0,96 + ICMS estimado)
     startupPowerWatts: 1000,
-    startupMinutes: 5,
+    startupMinutes: 8,       // P2S: aquecimento da câmara ~8min
   };
 
   const quickCalcResult = (() => {
+    const mat = MATERIAL_PRESETS[quickCalcMaterial];
     const hours = Math.max(0, parseTimeToHours(quickCalcTime));
     const slicerWeight = Math.max(0, Number(quickCalcWeight) || 0);
     const quantity = Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1));
@@ -447,13 +451,14 @@ export default function AdminDashboard() {
     const informedPurge = Math.max(0, Number(quickCalcAmsPurge) || 0);
     const purgeWeight = informedPurge > 0 ? informedPurge : purgeFallback;
     const realWeight = slicerWeight + purgeWeight;
-    const gramCost = QUICK_CALC_DEFAULTS.spoolPrice / QUICK_CALC_DEFAULTS.spoolWeight;
-    const materialCost = realWeight * gramCost * QUICK_CALC_DEFAULTS.materialReserveMultiplier;
+    const reserveMultiplier = 1 + Math.max(0, Number(quickCalcMaterialReserve) || 0) / 100;
+    const gramCost = mat.spoolPrice / mat.spoolWeight;
+    const materialCost = realWeight * gramCost * reserveMultiplier;
     const startupHours = Math.min(hours, QUICK_CALC_DEFAULTS.startupMinutes / 60);
     const steadyHours = Math.max(0, hours - startupHours);
     const energyKwh = (
       (startupHours * QUICK_CALC_DEFAULTS.startupPowerWatts) +
-      (steadyHours * QUICK_CALC_DEFAULTS.steadyPowerWatts)
+      (steadyHours * mat.steadyPowerWatts)
     ) / 1000;
     const energyCost = energyKwh * QUICK_CALC_DEFAULTS.kwhCost;
     const machineRate = getQuickMachineRate(hours);
@@ -461,8 +466,17 @@ export default function AdminDashboard() {
     const totalCost = materialCost + energyCost + machineCost;
     const safeTotal = totalCost > 0 ? totalCost : 1;
     const unitCost = totalCost / quantity;
-    const wholesaleTotal = totalCost * Math.max(0, Number(quickCalcWholesaleMarkup) || 0);
-    const retailTotal = totalCost * Math.max(0, Number(quickCalcRetailMarkup) || 0);
+    const wholesaleMarkup = Math.max(0, Number(quickCalcWholesaleMarkup) || 0);
+    const retailMarkup = Math.max(0, Number(quickCalcRetailMarkup) || 0);
+    const wholesaleRaw = totalCost * wholesaleMarkup;
+    const retailRaw = totalCost * retailMarkup;
+    const minPrice = Math.max(0, Number(quickCalcMinPrice) || 0);
+    const wholesaleTotal = Math.max(wholesaleRaw, minPrice);
+    const retailTotal = Math.max(retailRaw, minPrice);
+    const isBelowMinWholesale = wholesaleRaw < minPrice && minPrice > 0;
+    const isBelowMinRetail = retailRaw < minPrice && minPrice > 0;
+    const profitRetail = retailTotal - totalCost;
+    const profitWholesale = wholesaleTotal - totalCost;
 
     return {
       hours,
@@ -484,6 +498,14 @@ export default function AdminDashboard() {
       wholesaleUnit: wholesaleTotal / quantity,
       retailTotal,
       retailUnit: retailTotal / quantity,
+      profitRetail,
+      profitRetailUnit: profitRetail / quantity,
+      profitRetailPct: (profitRetail / (retailTotal || 1)) * 100,
+      profitWholesale,
+      profitWholesaleUnit: profitWholesale / quantity,
+      profitWholesalePct: (profitWholesale / (wholesaleTotal || 1)) * 100,
+      isBelowMinRetail,
+      isBelowMinWholesale,
     };
   })();
 
@@ -540,7 +562,7 @@ export default function AdminDashboard() {
     const clientName = quickCalcCustomerName || "Cliente";
     const pieceName = quickCalcPieceName || "Peça personalizada";
     
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações simuladas:*\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Preenchimento (infill): ${quickCalcInfill}%\n- Peso do job/lote: ${quickCalcResult.slicerWeight.toFixed(1).replace('.', ',')}g\n- Purga AMS considerada: ${quickCalcResult.purgeWeight.toFixed(1).replace('.', ',')}g\n- Tempo total de impressão: ${quickCalcTime || '0h'} (${quickCalcResult.hours.toFixed(2).replace('.', ',')}h)\n\n*Investimento final varejo:*\nTotal: ${formatQuickCurrency(quickCalcResult.retailTotal)}\nUnitário: ${formatQuickCurrency(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico comercial com material, energia e hora-máquina.`;
+    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Material: ${MATERIAL_PRESETS[quickCalcMaterial].label}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Peso do job/lote: ${quickCalcResult.slicerWeight.toFixed(1).replace('.', ',')}g\n- Purga AMS: ${quickCalcResult.purgeWeight.toFixed(1).replace('.', ',')}g\n- Tempo de impressão: ${quickCalcTime || '0h'} (${quickCalcResult.hours.toFixed(2).replace('.', ',')}h)\n\n*Investimento final (varejo):*\nTotal: ${formatQuickCurrency(quickCalcResult.retailTotal)}\nUnitário: ${formatQuickCurrency(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico com material ${MATERIAL_PRESETS[quickCalcMaterial].label}, energia e hora-máquina P2S.`;
     const encodedText = encodeURIComponent(text);
     const url = `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`;
     window.open(url, '_blank');
@@ -1497,255 +1519,391 @@ export default function AdminDashboard() {
 
                 {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
                 <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 bg-gradient-to-b from-white/[0.01] to-black/40 space-y-5 sm:space-y-6">
-                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4">
-                      <div className="flex items-center gap-3 min-w-0">
-                         <div className="w-9 h-9 rounded-2xl bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0">
-                            <Calculator className="w-4 h-4 text-primary" />
-                         </div>
-                         <div className="min-w-0">
-                            <h3 className="text-xs font-black uppercase tracking-widest italic text-white">Assistente Cálculo Maker Rápido</h3>
-                            <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">P2S + AMS | 110V | custo real com atacado e varejo</p>
-                         </div>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-9 h-9 rounded-2xl bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0">
+                        <Calculator className="w-4 h-4 text-primary" />
                       </div>
-                      <span className="w-fit text-[9px] font-black tracking-wider uppercase text-[#38bdf8] bg-[#38bdf8]/10 px-2.5 py-1 rounded-full border border-[#38bdf8]/10">Maker V4.2</span>
-                   </div>
+                      <div className="min-w-0">
+                        <h3 className="text-xs font-black uppercase tracking-widest italic text-white">Assistente Cálculo Maker Rápido</h3>
+                        <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">P2S + AMS | Equatorial Pará | custo real com atacado e varejo</p>
+                      </div>
+                    </div>
+                    <span className="w-fit text-[9px] font-black tracking-wider uppercase text-[#38bdf8] bg-[#38bdf8]/10 px-2.5 py-1 rounded-full border border-[#38bdf8]/10">Maker V5.0</span>
+                  </div>
 
-                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
-                      {/* INPUTS GERAIS */}
-                      <div className="space-y-4">
-                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
-                         <div>
-                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Nome do Cliente</label>
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
+                    {/* COLUNA 1: DADOS DO CLIENTE */}
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
+                      <div>
+                        <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                          Nome do Cliente
+                          <span title="Nome para personalizar a mensagem de orçamento no WhatsApp">
+                            <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={quickCalcCustomerName}
+                          onChange={(e) => setQuickCalcCustomerName(e.target.value)}
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                          placeholder="Ex: João Silva"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                          WhatsApp (DDD + Número)
+                          <span title="Número usado para abrir o WhatsApp Web com o orçamento já preenchido">
+                            <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={quickCalcPhone}
+                          onChange={(e) => setQuickCalcPhone(e.target.value)}
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          placeholder="Ex: 11999998888"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                          Nome do Modelo 3D
+                          <span title="Nome da peça ou projeto para identificação no orçamento">
+                            <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={quickCalcPieceName}
+                          onChange={(e) => setQuickCalcPieceName(e.target.value)}
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                          placeholder="Ex: Suporte de Headset"
+                        />
+                      </div>
+                    </div>
+
+                    {/* COLUNA 2: ESPECIFICAÇÕES TÉCNICAS */}
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
+
+                      {/* SELETOR DE MATERIAL */}
+                      <div>
+                        <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-2">
+                          Material
+                          <span title="Selecione o filamento. Afeta o preço por grama e o consumo de energia da impressora.">
+                            <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                          </span>
+                        </label>
+                        <div className="flex gap-2">
+                          {(Object.keys(MATERIAL_PRESETS) as Array<keyof typeof MATERIAL_PRESETS>).map((key) => (
+                            <button
+                              key={key}
+                              type="button"
+                              onClick={() => setQuickCalcMaterial(key)}
+                              className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+                                quickCalcMaterial === key
+                                  ? 'bg-primary/20 border-primary/50 text-primary'
+                                  : 'bg-black/40 border-white/10 text-white/40 hover:border-white/20'
+                              }`}
+                            >
+                              {MATERIAL_PRESETS[key].label}
+                              <span className="block text-[8px] font-bold mt-0.5 opacity-70">
+                                R${(MATERIAL_PRESETS[key].spoolPrice / 10).toFixed(0)}/100g
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                            Peso Job/Lote (g)
+                            <span title="Peso total do filamento que o slicer mostra para esta impressão, já incluindo suportes e brim. NÃO é o peso da peça final.">
+                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={quickCalcWeight}
+                            onChange={(e) => setQuickCalcWeight(Number(e.target.value))}
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                            Peças no Lote
+                            <span title="Quantidade de peças individuais nesta impressão. Divide o custo total para calcular o preço unitário.">
+                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={quickCalcBatchQty}
+                            onChange={(e) => setQuickCalcBatchQty(Number(e.target.value))}
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                          Tempo Total
+                          <span title="Tempo de impressão do slicer. Formatos aceitos: '2h 30m', '2.5', '2:30'">
+                            <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                          </span>
+                        </label>
+                        <input
+                          type="text"
+                          value={quickCalcTime}
+                          onChange={(e) => setQuickCalcTime(e.target.value)}
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          placeholder="Ex: 2h 30m"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
+                        <div className="col-span-2 xl:col-span-1">
+                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                            Trocas AMS
+                            <span title="Número de trocas de cor durante a impressão. Cada troca gera desperdício de purga.">
+                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={quickCalcColorChanges}
+                            onChange={(e) => setQuickCalcColorChanges(Number(e.target.value))}
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                            Purga AMS (g)
+                            <span title="Se souber a purga total pelo Bambu Studio, informe aqui. Se deixar 0, calcula automaticamente pelas trocas × g/troca.">
+                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={quickCalcAmsPurge}
+                            onChange={(e) => setQuickCalcAmsPurge(Number(e.target.value))}
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                            g/Troca
+                            <span title="Gramas de filamento desperdiçado por cada troca de cor no AMS. Padrão P2S: ~0,5g por troca.">
+                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.1"
+                            value={quickCalcPurgePerChange}
+                            onChange={(e) => setQuickCalcPurgePerChange(Number(e.target.value))}
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+
+                      {/* PREMISSAS CONFIGURÁVEIS */}
+                      <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-3">
+                        <p className="text-[8px] uppercase font-black text-white/40 tracking-wider">Premissas P2S — Equatorial Pará</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                            <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                              Energia P2S
+                              <span title="Consumo real medido da P2S: ~200W (PLA) ou 230W (PETG) em regime. Pico de 1000W nos primeiros 8 minutos.">
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </span>
+                            <strong className="text-[10px] text-white font-mono">{MATERIAL_PRESETS[quickCalcMaterial].steadyPowerWatts}W + pico 1kW</strong>
+                          </div>
+                          <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                            <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                              Tarifa Pará
+                              <span title="Equatorial Pará 2025: R$0,96/kWh base + ICMS ~25% = R$1,20/kWh estimado na conta.">
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </span>
+                            <strong className="text-[10px] text-white font-mono">{formatQuickCurrency(QUICK_CALC_DEFAULTS.kwhCost)}/kWh</strong>
+                          </div>
+                          <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                            <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                              Hora-Máquina
+                              <span title="Custo real da P2S por hora: depreciação (~R$1,22/h) + bico, correias, cama PEI, PTFE (~R$0,78/h). Impressões longas têm taxa menor.">
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </span>
+                            <strong className="text-[10px] text-white font-mono">R$ {quickCalcResult.machineRate.toFixed(2)}/h</strong>
+                          </div>
+                          <div className="rounded-xl bg-black/50 border border-white/5 p-2">
+                            <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                              Material
+                              <span title={`${MATERIAL_PRESETS[quickCalcMaterial].label}: R$${MATERIAL_PRESETS[quickCalcMaterial].spoolPrice}/kg`}>
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </span>
+                            <strong className="text-[10px] text-white font-mono">R${MATERIAL_PRESETS[quickCalcMaterial].spoolPrice}/kg</strong>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2">
+                          <div>
+                            <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                              Reserva Material %
+                              <span title="Margem de segurança sobre o material para cobrir falhas de impressão e desperdícios. PLA experiente: 10-15%. PETG/difícil: 20-30%.">
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </label>
                             <input
-                               type="text"
-                               value={quickCalcCustomerName}
-                               onChange={(e) => setQuickCalcCustomerName(e.target.value)}
-                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
-                               placeholder="Ex: João Silva"
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="5"
+                              value={quickCalcMaterialReserve}
+                              onChange={(e) => setQuickCalcMaterialReserve(Number(e.target.value))}
+                              className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
-                         </div>
-                         <div>
-                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">WhatsApp (DDD + Número)</label>
+                          </div>
+                          <div>
+                            <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                              Preço Mínimo R$
+                              <span title="Valor mínimo cobrado por qualquer job, independente do cálculo. Cobre setup, atendimento e embalagem.">
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </label>
                             <input
-                               type="text"
-                               value={quickCalcPhone}
-                               onChange={(e) => setQuickCalcPhone(e.target.value)}
-                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               placeholder="Ex: 11999998888"
+                              type="number"
+                              min="0"
+                              step="5"
+                              value={quickCalcMinPrice}
+                              onChange={(e) => setQuickCalcMinPrice(Number(e.target.value))}
+                              className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
-                         </div>
-                         <div>
-                            <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Nome do Modelo 3D</label>
+                          </div>
+                          <div>
+                            <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                              Atacado ×
+                              <span title="Multiplicador sobre o custo real para preço de atacado (B2B). Ex: 1.6 = 60% acima do custo = ~37% de margem.">
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </label>
                             <input
-                               type="text"
-                               value={quickCalcPieceName}
-                               onChange={(e) => setQuickCalcPieceName(e.target.value)}
-                               className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
-                               placeholder="Ex: Suporte de Headset"
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={quickCalcWholesaleMarkup}
+                              onChange={(e) => setQuickCalcWholesaleMarkup(Number(e.target.value))}
+                              className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
-                         </div>
+                          </div>
+                          <div>
+                            <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                              Varejo ×
+                              <span title="Multiplicador sobre o custo real para preço de varejo (cliente final). Ex: 2.5 = 150% acima do custo = 60% de margem.">
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              step="0.1"
+                              value={quickCalcRetailMarkup}
+                              onChange={(e) => setQuickCalcRetailMarkup(Number(e.target.value))}
+                              className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* COLUNA 3: RESULTADO */}
+                    <div className="space-y-4">
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Custo Real e Lucro</h4>
+
+                      <div className="bg-black/40 border border-white/5 rounded-[24px] p-4 sm:p-5 space-y-3">
+                        {/* CUSTO REAL */}
+                        <div className="flex justify-between gap-3 text-xs text-white/70">
+                          <span className="min-w-0">Material ({quickCalcResult.realWeight.toFixed(1)}g c/ purga + {quickCalcMaterialReserve}% res.):</span>
+                          <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.materialCost)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 text-xs text-white/70">
+                          <span className="min-w-0">Energia ({quickCalcResult.energyKwh.toFixed(3)} kWh):</span>
+                          <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.energyCost)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 text-xs text-white/70">
+                          <span className="min-w-0">Hora-máquina ({quickCalcResult.hours.toFixed(2)}h × R$ {quickCalcResult.machineRate.toFixed(2)}):</span>
+                          <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.machineCost)}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 text-xs font-bold text-white/40 border-t border-white/5 pt-2">
+                          <span>Custo real do lote:</span>
+                          <span className="shrink-0 font-mono text-white/80">{formatQuickCurrency(quickCalcResult.totalCost)}</span>
+                        </div>
+
+                        {/* BARRA DE DISTRIBUIÇÃO */}
+                        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
+                          <div className="flex items-center justify-between text-[9px] uppercase font-black tracking-wider text-white/35">
+                            <span>Custo unitário interno</span>
+                            <span className="font-mono text-white/70">{formatQuickCurrency(quickCalcResult.unitCost)}</span>
+                          </div>
+                          <div className="mt-2 flex h-1.5 rounded-full bg-white/5 overflow-hidden">
+                            <div className="h-full bg-[#38bdf8]" style={{ width: `${quickCalcResult.materialShare}%` }} />
+                            <div className="h-full bg-[#f97316]" style={{ width: `${quickCalcResult.energyShare}%` }} />
+                            <div className="h-full bg-[#a78bfa]" style={{ width: `${quickCalcResult.machineShare}%` }} />
+                          </div>
+                          <div className="mt-2 grid grid-cols-3 gap-1 text-[7px] uppercase font-black text-white/35">
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#38bdf8]" />Mat. {quickCalcResult.materialShare.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#f97316]" />Ener. {quickCalcResult.energyShare.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#a78bfa]" />Maq. {quickCalcResult.machineShare.toFixed(0)}%</span>
+                          </div>
+                        </div>
+
+                        {/* PREÇOS ATACADO / VAREJO */}
+                        <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 border-t border-white/10 pt-3">
+                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinWholesale ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-[#f59e0b]/20 bg-[#f59e0b]/10'}`}>
+                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-[#fbbf24] tracking-wider">
+                              Atacado ×{quickCalcWholesaleMarkup}
+                              {quickCalcResult.isBelowMinWholesale && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
+                            </span>
+                            <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.wholesaleTotal)}</strong>
+                            <span className="block text-[9px] text-white/50 mt-0.5">{formatQuickCurrency(quickCalcResult.wholesaleUnit)} / un.</span>
+                            <span className="block text-[8px] text-[#4ade80] font-black mt-1">
+                              Lucro: {formatQuickCurrency(quickCalcResult.profitWholesale)} ({quickCalcResult.profitWholesalePct.toFixed(0)}%)
+                            </span>
+                          </div>
+                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinRetail ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-[#38bdf8]/20 bg-[#38bdf8]/10'}`}>
+                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-[#38bdf8] tracking-wider">
+                              Varejo ×{quickCalcRetailMarkup}
+                              {quickCalcResult.isBelowMinRetail && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
+                            </span>
+                            <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.retailTotal)}</strong>
+                            <span className="block text-[9px] text-white/50 mt-0.5">{formatQuickCurrency(quickCalcResult.retailUnit)} / un.</span>
+                            <span className="block text-[8px] text-[#4ade80] font-black mt-1">
+                              Lucro: {formatQuickCurrency(quickCalcResult.profitRetail)} ({quickCalcResult.profitRetailPct.toFixed(0)}%)
+                            </span>
+                          </div>
+                        </div>
                       </div>
 
-                      {/* INPUTS TÉCNICOS */}
-                      <div className="space-y-4">
-                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
-                         <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
-                            <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Peso Job/Lote (g)</label>
-                               <input
-                                  type="number"
-                                  min="0"
-                                  value={quickCalcWeight}
-                                  onChange={(e) => setQuickCalcWeight(Number(e.target.value))}
-                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               />
-                            </div>
-                            <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Peças no Lote</label>
-                               <input
-                                  type="number"
-                                  min="1"
-                                  value={quickCalcBatchQty}
-                                  onChange={(e) => setQuickCalcBatchQty(Number(e.target.value))}
-                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               />
-                            </div>
-                         </div>
-                         <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
-                            <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Tempo Total</label>
-                               <input
-                                  type="text"
-                                  value={quickCalcTime}
-                                  onChange={(e) => setQuickCalcTime(e.target.value)}
-                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                  placeholder="Ex: 2h 30m"
-                               />
-                            </div>
-                            <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Infill (%)</label>
-                               <input
-                                  type="number"
-                                  min="0"
-                                  max="100"
-                                  value={quickCalcInfill}
-                                  onChange={(e) => setQuickCalcInfill(Number(e.target.value))}
-                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               />
-                            </div>
-                         </div>
-                         <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-                            <div className="col-span-2 xl:col-span-1">
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Trocas AMS</label>
-                               <input
-                                  type="number"
-                                  min="0"
-                                  value={quickCalcColorChanges}
-                                  onChange={(e) => setQuickCalcColorChanges(Number(e.target.value))}
-                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               />
-                            </div>
-                            <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">Purga AMS (g)</label>
-                               <input
-                                  type="number"
-                                  min="0"
-                                  step="0.1"
-                                  value={quickCalcAmsPurge}
-                                  onChange={(e) => setQuickCalcAmsPurge(Number(e.target.value))}
-                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               />
-                            </div>
-                            <div>
-                               <label className="text-[9px] text-white/40 uppercase font-bold block mb-1">g/Troca</label>
-                               <input
-                                  type="number"
-                                  min="0"
-                                  step="0.1"
-                                  value={quickCalcPurgePerChange}
-                                  onChange={(e) => setQuickCalcPurgePerChange(Number(e.target.value))}
-                                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                               />
-                            </div>
-                         </div>
-                         
-                         <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-3">
-                            <p className="text-[8px] uppercase font-black text-white/40 tracking-wider">Premissas Cálculo Maker</p>
-                            <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2">
-                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                                  <span className="block text-[7px] text-white/30 uppercase font-black">Material</span>
-                                  <strong className="text-[10px] text-white font-mono">R$100/kg +50%</strong>
-                               </div>
-                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                                  <span className="block text-[7px] text-white/30 uppercase font-black">Energia</span>
-                                  <strong className="text-[10px] text-white font-mono">200W + pico 1000W</strong>
-                               </div>
-                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                                  <span className="block text-[7px] text-white/30 uppercase font-black">Tarifa</span>
-                                  <strong className="text-[10px] text-white font-mono">{formatQuickCurrency(QUICK_CALC_DEFAULTS.kwhCost)}/kWh</strong>
-                               </div>
-                               <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                                  <span className="block text-[7px] text-white/30 uppercase font-black">Hora Máquina</span>
-                                  <strong className="text-[10px] text-white font-mono">R$ {quickCalcResult.machineRate.toFixed(2)}/h</strong>
-                               </div>
-                            </div>
-                            <div className="grid grid-cols-1 min-[430px]:grid-cols-2 lg:grid-cols-2 gap-2">
-                               <div>
-                                  <label className="text-[7px] text-white/30 uppercase block font-black">Atacado x</label>
-                                  <input
-                                     type="number"
-                                     min="0"
-                                     step="0.1"
-                                     value={quickCalcWholesaleMarkup}
-                                     onChange={(e) => setQuickCalcWholesaleMarkup(Number(e.target.value))}
-                                     className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
-                                  />
-                               </div>
-                               <div>
-                                  <label className="text-[7px] text-white/30 uppercase block font-black">Varejo x</label>
-                                  <input
-                                     type="number"
-                                     min="0"
-                                     step="0.1"
-                                     value={quickCalcRetailMarkup}
-                                     onChange={(e) => setQuickCalcRetailMarkup(Number(e.target.value))}
-                                     className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center"
-                                  />
-                               </div>
-                            </div>
-                         </div>
-                      </div>
-
-                      {/* DETALHAMENTO DO CÁLCULO MAKER + COMPARTILHAMENTO */}
-                      <div className="space-y-4">
-                         <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Custo Real e Preço</h4>
-
-                         <div className="bg-black/40 border border-white/5 rounded-[24px] p-4 sm:p-5 space-y-3">
-                            <div className="flex justify-between gap-3 text-xs text-white/70">
-                               <span className="min-w-0">Material ({quickCalcResult.realWeight.toFixed(1)}g com purga):</span>
-                               <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.materialCost)}</span>
-                            </div>
-                            <div className="flex justify-between gap-3 text-xs text-white/70">
-                               <span className="min-w-0">Energia ({quickCalcResult.energyKwh.toFixed(3)} kWh):</span>
-                               <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.energyCost)}</span>
-                            </div>
-                            <div className="flex justify-between gap-3 text-xs text-white/70">
-                               <span className="min-w-0">Hora-máquina ({quickCalcResult.hours.toFixed(2)}h × R$ {quickCalcResult.machineRate.toFixed(2)}):</span>
-                               <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.machineCost)}</span>
-                            </div>
-                            <div className="flex justify-between gap-3 text-xs font-bold text-white/40 border-t border-white/5 pt-2">
-                               <span>Custo real do lote:</span>
-                               <span className="shrink-0 font-mono text-white/80">{formatQuickCurrency(quickCalcResult.totalCost)}</span>
-                            </div>
-                            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 border-t border-white/10 pt-3">
-                               <div className="rounded-2xl border border-[#f59e0b]/20 bg-[#f59e0b]/10 p-3">
-                                  <span className="block text-[8px] uppercase font-black text-[#fbbf24] tracking-wider">Atacado x{quickCalcWholesaleMarkup}</span>
-                                  <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.wholesaleTotal)}</strong>
-                                  <span className="block text-[9px] text-white/50 mt-1">{formatQuickCurrency(quickCalcResult.wholesaleUnit)} / un.</span>
-                               </div>
-                               <div className="rounded-2xl border border-[#38bdf8]/20 bg-[#38bdf8]/10 p-3">
-                                  <span className="block text-[8px] uppercase font-black text-[#38bdf8] tracking-wider">Varejo x{quickCalcRetailMarkup}</span>
-                                  <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.retailTotal)}</strong>
-                                  <span className="block text-[9px] text-white/50 mt-1">{formatQuickCurrency(quickCalcResult.retailUnit)} / un.</span>
-                               </div>
-                            </div>
-                            <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
-                               <div className="flex items-center justify-between text-[9px] uppercase font-black tracking-wider text-white/35">
-                                  <span>Custo unitário interno</span>
-                                  <span className="font-mono text-white/70">{formatQuickCurrency(quickCalcResult.unitCost)}</span>
-                               </div>
-                               <div className="mt-2 flex h-1.5 rounded-full bg-white/5 overflow-hidden">
-                                  <div
-                                     className="h-full bg-[#38bdf8]"
-                                     style={{ width: `${quickCalcResult.materialShare}%` }}
-                                  />
-                                  <div
-                                     className="h-full bg-[#f97316]"
-                                     style={{ width: `${quickCalcResult.energyShare}%` }}
-                                  />
-                                  <div
-                                     className="h-full bg-[#a78bfa]"
-                                     style={{ width: `${quickCalcResult.machineShare}%` }}
-                                  />
-                               </div>
-                               <div className="mt-2 grid grid-cols-3 gap-1 text-[7px] uppercase font-black text-white/35">
-                                  <span>Mat. {quickCalcResult.materialShare.toFixed(0)}%</span>
-                                  <span>Ener. {quickCalcResult.energyShare.toFixed(0)}%</span>
-                                  <span>Maq. {quickCalcResult.machineShare.toFixed(0)}%</span>
-                               </div>
-                            </div>
-                         </div>
-
-                         <Button
-                            type="button"
-                            disabled={!quickCalcPhone.replace(/\D/g, '')}
-                            onClick={handleSendQuickWhatsAppQuote}
-                            className="w-full min-h-11 h-auto rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                         >
-                            <Smartphone className="w-4 h-4" /> Enviar Orçamento por WhatsApp
-                         </Button>
-                      </div>
-                   </div>
+                      <Button
+                        type="button"
+                        disabled={!quickCalcPhone.replace(/\D/g, '')}
+                        onClick={handleSendQuickWhatsAppQuote}
+                        className="w-full min-h-11 h-auto rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Smartphone className="w-4 h-4" /> Enviar Orçamento por WhatsApp
+                      </Button>
+                    </div>
+                  </div>
                 </div>
 
                 {/* ESTEIRA DE PRODUÇÃO (KANBAN) DIRETA NA TELA INICIAL */}
