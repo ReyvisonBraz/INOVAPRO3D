@@ -45,6 +45,7 @@ type NumberFieldProps = {
   prefix?: string;
   suffix?: string;
   disabled?: boolean;
+  hint?: string;
 };
 
 function NumberField({
@@ -56,6 +57,7 @@ function NumberField({
   prefix,
   suffix,
   disabled,
+  hint,
 }: NumberFieldProps) {
   return (
     <label className={cn("block space-y-2", disabled && "opacity-45")}>
@@ -89,6 +91,9 @@ function NumberField({
           </span>
         )}
       </span>
+      {hint && (
+        <span className="block text-[9px] text-slate-600 leading-snug">{hint}</span>
+      )}
     </label>
   );
 }
@@ -260,9 +265,6 @@ export default function FilamentCalculator() {
   const [spoolPrice, setSpoolPrice] = useState(100);
   const [spoolWeight, setSpoolWeight] = useState(1000);
   const [slicerWeight, setSlicerWeight] = useState(120);
-  const [colorChanges, setColorChanges] = useState(0);
-  const [amsPurgeWeight, setAmsPurgeWeight] = useState(0);
-  const [purgePerColorChange, setPurgePerColorChange] = useState(0.5);
   const [materialReservePercent, setMaterialReservePercent] = useState(50);
   const [batchQuantity, setBatchQuantity] = useState(1);
 
@@ -283,9 +285,7 @@ export default function FilamentCalculator() {
     const quantity = Math.max(1, safeNumber(batchQuantity, 1));
     const nominalWeight = Math.max(1, safeNumber(spoolWeight, 1000));
     const hours = Math.max(0, safeNumber(printTime));
-    const purgeFallback = Math.max(0, colorChanges) * Math.max(0, purgePerColorChange);
-    const purgeWeight = Math.max(0, amsPurgeWeight) > 0 ? Math.max(0, amsPurgeWeight) : purgeFallback;
-    const realWeight = Math.max(0, safeNumber(slicerWeight) + purgeWeight);
+    const realWeight = Math.max(0, safeNumber(slicerWeight));
     const reserveMultiplier = 1 + Math.max(0, materialReservePercent) / 100;
     const materialCost = realWeight * (Math.max(0, spoolPrice) / nominalWeight) * reserveMultiplier;
     const startupHours = Math.min(hours, Math.max(0, startupMinutes) / 60);
@@ -306,7 +306,6 @@ export default function FilamentCalculator() {
 
     return {
       realWeight,
-      purgeWeight,
       reserveMultiplier,
       materialCost,
       energyCost,
@@ -331,9 +330,7 @@ export default function FilamentCalculator() {
       },
     };
   }, [
-    amsPurgeWeight,
     batchQuantity,
-    colorChanges,
     extraSuppliesCost,
     kwhCost,
     machinePower,
@@ -341,7 +338,6 @@ export default function FilamentCalculator() {
     manualWorkHours,
     materialReservePercent,
     printTime,
-    purgePerColorChange,
     requiresPostProcessing,
     retailMarkup,
     slicerWeight,
@@ -395,7 +391,7 @@ export default function FilamentCalculator() {
             <SectionCard
               icon={Package}
               title="Parâmetros de Material"
-              subtitle="Filamento, purga AMS e tamanho do lote"
+              subtitle="Use os dados exibidos pelo Bambu Studio após o fatiamento"
             >
               <div className="grid gap-4 sm:grid-cols-2">
                 <NumberField
@@ -404,12 +400,14 @@ export default function FilamentCalculator() {
                   value={spoolPrice}
                   onChange={setSpoolPrice}
                   step={0.01}
+                  hint="Valor pago pelo carretel. Verifique a nota fiscal."
                 />
                 <NumberField
-                  label="Peso nominal"
+                  label="Peso nominal do carretel"
                   suffix="g"
                   value={spoolWeight}
                   onChange={setSpoolWeight}
+                  hint="Normalmente 1000g (1kg). Verifique o rótulo da embalagem."
                 />
               </div>
 
@@ -421,34 +419,17 @@ export default function FilamentCalculator() {
                   onChange={setSlicerWeight}
                   min={1}
                   step={1}
+                  hint="Copie o campo 'Filamento utilizado' do Bambu Studio. Esse valor já inclui purga e suportes."
                 />
               </div>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <NumberField
-                  label="Quantidade de trocas de cor (AMS)"
-                  value={colorChanges}
-                  onChange={setColorChanges}
-                />
-                <NumberField
                   label="Quantidade de peças no lote"
                   value={batchQuantity}
                   onChange={setBatchQuantity}
                   min={1}
-                />
-                <NumberField
-                  label="Purga AMS informada pelo slicer"
-                  suffix="g"
-                  value={amsPurgeWeight}
-                  onChange={setAmsPurgeWeight}
-                  step={0.1}
-                />
-                <NumberField
-                  label="Purga estimada por troca"
-                  suffix="g"
-                  value={purgePerColorChange}
-                  onChange={setPurgePerColorChange}
-                  step={0.1}
+                  hint="Quantas peças individuais há nesta impressão. Divide o custo total pelo número de unidades."
                 />
                 <NumberField
                   label="Fundo de reposição de estoque"
@@ -456,22 +437,21 @@ export default function FilamentCalculator() {
                   value={materialReservePercent}
                   onChange={setMaterialReservePercent}
                   step={5}
+                  hint="Margem para cobrir falhas de impressão. PLA experiente: 10–15%. Material difícil: 25–30%."
                 />
               </div>
 
               <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs text-slate-500">
-                Peso técnico calculado:{" "}
-                <span className="font-mono font-black text-cyan-300">{decimal.format(result.realWeight)}g</span>{" "}
-                com{" "}
-                <span className="font-mono font-black text-cyan-300">{decimal.format(result.purgeWeight)}g</span>{" "}
-                de purga AMS adicional. Se o peso do slicer já incluir purga, deixe a purga informada em 0g.
+                Peso técnico usado no cálculo:{" "}
+                <span className="font-mono font-black text-cyan-300">{decimal.format(result.realWeight)}g</span>
+                {" "}— valor direto do Bambu Studio. A purga já está incluída nesse peso.
               </div>
             </SectionCard>
 
             <SectionCard
               icon={Zap}
               title="Eficiência Energética"
-              subtitle="Tempo de impressão, tarifa e potência média"
+              subtitle="Configure com os dados da sua P2S e da sua conta de luz"
             >
               <div className="grid gap-4 md:grid-cols-3">
                 <NumberField
@@ -480,6 +460,7 @@ export default function FilamentCalculator() {
                   value={printTime}
                   onChange={setPrintTime}
                   step={0.01}
+                  hint="Tempo de impressão mostrado pelo Bambu Studio. Ex: 3h 28min = 3.47"
                 />
                 <NumberField
                   label="Custo kWh"
@@ -487,18 +468,21 @@ export default function FilamentCalculator() {
                   value={kwhCost}
                   onChange={setKwhCost}
                   step={0.01}
+                  hint="Equatorial Pará 2025: ~R$1,20/kWh. Verifique sua conta de luz."
                 />
                 <NumberField
-                  label="Potência média PLA"
+                  label="Potência média da impressora"
                   suffix="W"
                   value={machinePower}
                   onChange={setMachinePower}
+                  hint="P2S em regime: 200W (PLA) ou 230W (PETG)."
                 />
                 <NumberField
                   label="Pico aquecimento inicial"
                   suffix="W"
                   value={startupPower}
                   onChange={setStartupPower}
+                  hint="Consumo máximo nos primeiros minutos. P2S: ~1000W."
                 />
                 <NumberField
                   label="Duração do pico"
@@ -506,6 +490,7 @@ export default function FilamentCalculator() {
                   value={startupMinutes}
                   onChange={setStartupMinutes}
                   step={0.5}
+                  hint="Tempo que a P2S fica no pico de consumo ao aquecer a câmara. ~8 min."
                 />
               </div>
 
@@ -762,7 +747,6 @@ export default function FilamentCalculator() {
         <section className="maker-report-card">
           <h2>Especificações Técnicas</h2>
           <ReportLine label="Peso técnico estimado" value={`${decimal.format(result.realWeight)}g`} />
-          <ReportLine label="Trocas de cor AMS" value={`${Math.max(0, colorChanges)} troca(s)`} />
           <ReportLine label="Pós-processamento" value={requiresPostProcessing ? "Incluso" : "Não incluso"} />
           <ReportLine label="Validade da proposta" value="7 dias corridos" />
         </section>
@@ -814,7 +798,6 @@ export default function FilamentCalculator() {
         <section className="maker-report-card">
           <h2>Parâmetros do Job</h2>
           <ReportLine label="Peso slicer" value={`${decimal.format(slicerWeight)}g`} />
-          <ReportLine label="Purga AMS adicional" value={`${decimal.format(result.purgeWeight)}g`} />
           <ReportLine label="Peso técnico" value={`${decimal.format(result.realWeight)}g`} />
           <ReportLine label="Peças no lote" value={`${Math.max(1, batchQuantity)} un.`} />
           <ReportLine label="Tempo total" value={`${decimal.format(printTime)}h`} />
