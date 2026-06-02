@@ -27,6 +27,9 @@ import {
   MATERIAL_PRESETS,
   type MaterialKey,
 } from "../../lib/pricing";
+import { BrandMark } from "../../components/brand/BrandLogo";
+import { FloatingBackground } from "../../components/ui/FloatingBackground";
+import { Reveal } from "../../components/ui/Reveal";
 
 const decimal = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 3,
@@ -127,7 +130,7 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-slate-700/70 bg-[#121829] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.25)]">
+    <section className="bg-white/[0.03] border border-white/8 rounded-[28px] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.25)]">
       <div className="mb-5 flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
           <Icon className="h-5 w-5" />
@@ -257,10 +260,10 @@ function PriceBox({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4",
+        "card-glow rounded-xl border p-4",
         tone === "cyan"
-          ? "border-cyan-400/20 bg-cyan-400/10"
-          : "border-violet-400/20 bg-violet-400/10",
+          ? "border-cyan-400/30 bg-cyan-400/10 shadow-[0_0_18px_rgba(37,99,235,0.15)]"
+          : "border-violet-400/30 bg-violet-400/10 shadow-[0_0_18px_rgba(139,92,246,0.15)]",
       )}
     >
       <p
@@ -514,11 +517,13 @@ export default function FilamentCalculator() {
 
   return (
     <>
-    <div className="maker-screen min-h-screen bg-[#0a0f1d] px-4 py-8 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
+    <div className="maker-screen relative overflow-hidden min-h-screen bg-[#0a0f1d] px-4 py-8 text-white sm:px-6 lg:px-8">
+      <FloatingBackground subtle variant="grid" />
+      <div className="relative z-10 mx-auto max-w-7xl">
         <header className="mb-8 flex flex-col gap-5 border-b border-slate-800 pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-3 flex items-center gap-3">
+              <BrandMark className="h-8 w-8" />
               <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-300">
                 <Calculator className="h-5 w-5" />
               </div>
@@ -548,6 +553,7 @@ export default function FilamentCalculator() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)]">
           <div className="space-y-5">
             {/* 1. MÁQUINA & DEPRECIAÇÃO — centerpiece */}
+            <Reveal delay={0}>
             <SectionCard
               icon={Cpu}
               title="Máquina & Depreciação"
@@ -670,8 +676,10 @@ export default function FilamentCalculator() {
                 repor peças.
               </div>
             </SectionCard>
+            </Reveal>
 
             {/* 2. MATERIAL */}
+            <Reveal delay={0.1}>
             <SectionCard
               icon={Package}
               title="Material (Filamento)"
@@ -767,8 +775,10 @@ export default function FilamentCalculator() {
                 {" "}/g
               </div>
             </SectionCard>
+            </Reveal>
 
             {/* 3. ENERGIA */}
+            <Reveal delay={0.2}>
             <SectionCard
               icon={Zap}
               title="Energia"
@@ -832,8 +842,10 @@ export default function FilamentCalculator() {
                 impressão — por isso jobs curtos pesam proporcionalmente mais na conta.
               </div>
             </SectionCard>
+            </Reveal>
 
             {/* 4. MÃO DE OBRA & INSUMOS */}
+            <Reveal delay={0.3}>
             <SectionCard
               icon={Wrench}
               title="Mão de Obra & Insumos"
@@ -880,9 +892,10 @@ export default function FilamentCalculator() {
                 />
               </div>
             </SectionCard>
+            </Reveal>
           </div>
 
-          <aside className="rounded-xl border border-cyan-400/15 bg-[#121829] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] lg:p-6 xl:sticky xl:top-24">
+          <aside className="bg-white/[0.03] border border-white/8 rounded-[28px] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] lg:p-6 xl:sticky xl:top-24">
             <div className="flex flex-col gap-5 border-b border-slate-800 pb-6 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">

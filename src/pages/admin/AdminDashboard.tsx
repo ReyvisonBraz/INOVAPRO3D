@@ -84,6 +84,8 @@ import {
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey } from "../../lib/pricing";
+import { BrandMark } from "../../components/brand/BrandLogo";
+import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import type {
   AuditLog,
   Coupon,
@@ -1263,7 +1265,8 @@ export default function AdminDashboard() {
   );
 
   return (
-    <div className="flex min-h-screen bg-[#050508] text-white">
+    <div className="relative flex min-h-screen bg-[#050508] text-white overflow-hidden">
+      <FloatingBackground subtle />
       {/* SIDEBAR - Responsive Toggle */}
       <AnimatePresence>
         {isSidebarOpen && (
@@ -1283,7 +1286,7 @@ export default function AdminDashboard() {
       )}>
         <div className="p-8 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3">
-            <Zap className="w-6 h-6 text-primary fill-primary" />
+            <BrandMark className="h-6 w-6" />
             <h1 className="text-xl font-black font-display uppercase italic tracking-tighter">INOVAPRO<span className="text-primary truncate">Admin</span></h1>
           </Link>
           <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-white/20 hover:text-white">
@@ -1316,16 +1319,19 @@ export default function AdminDashboard() {
         </div>
       </aside>
 
-      <main className="flex-1 lg:ml-64 min-h-screen min-w-0">
+      <main className="relative z-10 flex-1 lg:ml-64 min-h-screen min-w-0">
         <header className="h-20 border-b border-white/5 bg-[#050508]/80 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => setIsSidebarOpen(true)}
               className="lg:hidden p-2 bg-white/5 rounded-xl border border-white/10 hover:border-primary/50 transition-all"
             >
               <Menu className="w-5 h-5 text-primary" />
             </button>
-            <h2 className="text-[10px] sm:text-sm font-black uppercase tracking-[0.2em] italic truncate">{activeMenuItem?.name || activeTab}</h2>
+            <div className="flex items-center gap-2">
+              <BrandMark className="h-6 w-6 hidden sm:block" />
+              <h2 className="text-[10px] sm:text-sm font-black uppercase tracking-[0.2em] italic truncate">{activeMenuItem?.name || activeTab}</h2>
+            </div>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
@@ -1692,7 +1698,7 @@ export default function AdminDashboard() {
                     <div className="space-y-4">
                       <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Custo Real e Lucro</h4>
 
-                      <div className="bg-black/40 border border-white/5 rounded-[24px] p-4 sm:p-5 space-y-3">
+                      <div className="card-glow bg-white/[0.02] border border-primary/20 rounded-[24px] p-4 sm:p-5 space-y-3 shadow-[0_0_24px_rgba(37,99,235,0.1)]">
                         {/* CUSTO REAL */}
                         <div className="flex justify-between gap-3 text-xs text-white/70">
                           <span className="min-w-0">Material ({quickCalcResult.weightGrams.toFixed(1)}g + {quickCalcMaterialReserve}% reserva):</span>
@@ -1875,7 +1881,7 @@ export default function AdminDashboard() {
 
             {activeTab === 'orders' && (
               <motion.div key="orders" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/5 p-6 rounded-[32px] border border-white/5">
+                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
                     <div>
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Esteira de Produção (Kanban)</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Painel de controle logístico e manufatura</p>
@@ -1945,7 +1951,7 @@ export default function AdminDashboard() {
 
             {activeTab === 'products' && (
               <motion.div key="products" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/5 p-6 rounded-[32px] border border-white/5">
+                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
                     <div>
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Controle de Catálogo</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Gerencie os itens visíveis na loja</p>
@@ -1998,7 +2004,7 @@ export default function AdminDashboard() {
 
             {activeTab === 'materials' && (
               <motion.div key="materials" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/5 p-6 rounded-[32px] border border-white/5">
+                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
                     <div>
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Estoque</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Matéria Prima para Impressão</p>
@@ -2156,7 +2162,7 @@ export default function AdminDashboard() {
 
             {activeTab === 'crm' && (
               <motion.div key="crm" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex flex-col sm:flex-row justify-between items-center bg-white/5 p-6 rounded-[32px] border border-white/5 gap-4">
+                 <div className="flex flex-col sm:flex-row justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5 gap-4">
                     <div>
                        <h3 className="text-sm font-black uppercase tracking-widest italic text-center sm:text-left">Base de Clientes (CRM)</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest text-center sm:text-left">Inteligência de contatos e retenção</p>
@@ -2253,7 +2259,7 @@ export default function AdminDashboard() {
 
             {activeTab === 'faqs' && (
               <motion.div key="faqs" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/5 p-6 rounded-[32px] border border-white/5">
+                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
                     <div>
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Central de Dúvidas</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Base de Conhecimento do Cliente</p>
