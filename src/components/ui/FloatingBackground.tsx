@@ -26,7 +26,7 @@ export function FloatingBackground({
       <div className="aurora-blob aurora-3" />
       {variant === "grid" && <div className="absolute inset-0 brand-grid" />}
       {/* vinheta para fundir os blobs no fundo escuro */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-surface/80" />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#07080d]/90" />
     </div>
   );
 }

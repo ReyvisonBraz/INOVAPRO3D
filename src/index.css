@@ -38,6 +38,7 @@
 
   --color-primary: var(--app-primary);
   --color-primary-dark: var(--app-primary-dark);
+  --color-cyan: #06b6d4;
   --color-surface: var(--app-surface);
   --color-surface-card: var(--app-surface-card);
   --color-foreground: var(--app-foreground);
@@ -157,12 +158,12 @@
 /* BRAND SYSTEM V2 — INOVA PRO 3D (Tecnologia · Precisão · Inovação)      */
 /* ===================================================================== */
 
-/* Wordmark / texto com degradê da marca (azul elétrico → ciano) */
+/* Wordmark / texto com degradê da marca (branco → azul claro → ciano) */
 .brand-gradient-text {
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  background-image: linear-gradient(120deg, #60a5fa 0%, #2563eb 45%, #38bdf8 100%);
+  background-image: linear-gradient(120deg, #ffffff 0%, #93c5fd 60%, #06b6d4 100%);
 }
 
 /* Grade técnica sutil de fundo */
@@ -187,23 +188,23 @@
   position: absolute;
   border-radius: 9999px;
   filter: blur(90px);
-  opacity: 0.75;
+  opacity: 0.65;
   will-change: transform;
   mix-blend-mode: screen;
 }
 .aurora-1 {
   width: 60vw; height: 55vw; top: -15%; left: -10%;
-  background: radial-gradient(circle at 35% 35%, #2563eb 0%, #1d4ed8 40%, transparent 70%);
+  background: radial-gradient(circle at 35% 35%, rgba(37,99,235,0.7) 0%, transparent 70%);
   animation: aurora-a 18s ease-in-out infinite alternate;
 }
 .aurora-2 {
   width: 50vw; height: 50vw; top: 5%; right: -15%;
-  background: radial-gradient(circle at 65% 40%, #06b6d4 0%, #0284c7 40%, transparent 70%);
+  background: radial-gradient(circle at 65% 40%, rgba(6,182,212,0.5) 0%, transparent 70%);
   animation: aurora-b 22s ease-in-out infinite alternate;
 }
 .aurora-3 {
   width: 45vw; height: 45vw; bottom: -20%; left: 25%;
-  background: radial-gradient(circle at 50% 60%, #6366f1 0%, #4f46e5 40%, transparent 70%);
+  background: radial-gradient(circle at 50% 60%, rgba(30,64,175,0.4) 0%, transparent 70%);
   animation: aurora-c 26s ease-in-out infinite alternate;
 }
 @keyframes aurora-a {
@@ -230,7 +231,7 @@
 .card-glow:hover {
   transform: translateY(-6px);
   border-color: var(--app-border-glow);
-  box-shadow: 0 30px 80px -20px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 30px 80px -20px rgba(37, 99, 235, 0.2);
 }
 
 /* Conic shimmer para chips/badges */
@@ -242,6 +243,23 @@
 
 @media (prefers-reduced-motion: reduce) {
   .aurora-1, .aurora-2, .aurora-3, .badge-shine, .text-shimmer { animation: none !important; }
+}
+
+/* Section label utilities */
+.section-label {
+  font-size: 10px; font-weight: 900; text-transform: uppercase;
+  letter-spacing: 0.25em; color: rgba(255,255,255,0.35);
+}
+.section-label-accent {
+  font-size: 10px; font-weight: 900; text-transform: uppercase;
+  letter-spacing: 0.25em; color: #06b6d4;
+}
+
+/* Hero headline — only for h1 in the hero section */
+.hero-headline {
+  font-size: clamp(3.5rem, 8vw, 7rem);
+  font-weight: 900; text-transform: uppercase;
+  line-height: 0.9; letter-spacing: -0.02em;
 }
 
 /* Intelligent Error Marker Styles */

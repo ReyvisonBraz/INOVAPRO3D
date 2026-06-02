@@ -55,7 +55,7 @@ export function ProductCard({
 
           {/* Chip de categoria */}
           {product.category && (
-            <span className="absolute left-4 top-4 rounded-full border border-white/15 bg-black/40 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/80 backdrop-blur-md">
+            <span className="absolute left-4 top-4 rounded-full border border-white/10 bg-black/60 px-3 py-1 text-[9px] font-black uppercase tracking-[0.18em] text-white/70 backdrop-blur-md">
               {product.category}
             </span>
           )}
