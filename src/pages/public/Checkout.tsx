@@ -30,6 +30,7 @@ export default function Checkout() {
   const [authLoading, setAuthLoading] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [shippingRate, setShippingRate] = useState<number>(0);
+  const [needsShipping, setNeedsShipping] = useState(false);
   const [address, setAddress] = useState<ShippingAddress>({
     zipCode: '',
     street: '',
@@ -40,6 +41,8 @@ export default function Checkout() {
   });
 
   const validateAddress = () => {
+    if (!needsShipping) return true;
+
     const requiredFields = [
       address.zipCode,
       address.street,
@@ -118,7 +121,7 @@ export default function Checkout() {
         userEmail: checkoutUser.email,
         items: items,
         total: total + shippingRate,
-        shippingAddress: address,
+        shippingAddress: needsShipping ? address : null,
         status: "PENDING_PAYMENT",
         createdAt: serverTimestamp()
       });
@@ -190,71 +193,116 @@ export default function Checkout() {
               >
                  <section className="space-y-6 sm:space-y-8">
                     <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-primary flex items-center gap-3">
-                       <MapPin className="w-4 h-4" /> Endereço de entrega
+                       <MapPin className="w-4 h-4" /> Forma de entrega
                     </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-                       <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">CEP</label>
-                          <input 
-                            placeholder="00000-000" 
-                            inputMode="numeric"
-                            autoComplete="postal-code"
-                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none" 
-                            value={address.zipCode}
-                            onChange={(e) => setAddress({...address, zipCode: e.target.value})}
-                          />
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Endereço Completo</label>
-                          <input 
-                            placeholder="Rua, Av, etc." 
-                            autoComplete="street-address"
-                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none" 
-                            value={address.street}
-                            onChange={(e) => setAddress({...address, street: e.target.value})}
-                          />
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número</label>
-                          <input 
-                            placeholder="Ex: 123" 
-                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none" 
-                            value={address.number}
-                            onChange={(e) => setAddress({...address, number: e.target.value})}
-                          />
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Cidade</label>
-                          <input 
-                            placeholder="São Paulo - SP" 
-                            autoComplete="address-level2"
-                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none" 
-                            value={address.city}
-                            onChange={(e) => setAddress({...address, city: e.target.value})}
-                          />
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Bairro</label>
-                          <input 
-                            placeholder="Ex: Centro" 
-                            autoComplete="address-level3"
-                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none" 
-                            value={address.neighborhood}
-                            onChange={(e) => setAddress({...address, neighborhood: e.target.value})}
-                          />
-                       </div>
-                       <div className="space-y-3">
-                          <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">UF</label>
-                          <input 
-                            placeholder="SP" 
-                            maxLength={2}
-                            autoComplete="address-level1"
-                            className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none" 
-                            value={address.state}
-                            onChange={(e) => setAddress({...address, state: e.target.value.toUpperCase()})}
-                          />
-                       </div>
+
+                    {/* Toggle Retirada / Entrega */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setNeedsShipping(false)}
+                        className={`flex flex-col items-center gap-2 p-4 sm:p-5 rounded-2xl border-2 transition-all text-left ${
+                          !needsShipping
+                            ? 'border-primary bg-primary/10 text-white'
+                            : 'border-white/5 bg-white/[0.02] text-white/40 hover:border-white/15'
+                        }`}
+                      >
+                        <MapPin className={`w-5 h-5 ${!needsShipping ? 'text-primary' : 'text-white/20'}`} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Retirada</span>
+                        <span className="text-[9px] font-medium opacity-70">Busco no local / Sem frete</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNeedsShipping(true)}
+                        className={`flex flex-col items-center gap-2 p-4 sm:p-5 rounded-2xl border-2 transition-all text-left ${
+                          needsShipping
+                            ? 'border-primary bg-primary/10 text-white'
+                            : 'border-white/5 bg-white/[0.02] text-white/40 hover:border-white/15'
+                        }`}
+                      >
+                        <ArrowRight className={`w-5 h-5 ${needsShipping ? 'text-primary' : 'text-white/20'}`} />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Entrega</span>
+                        <span className="text-[9px] font-medium opacity-70">Recebo no endereço</span>
+                      </button>
                     </div>
+
+                    {/* Formulário de endereço — só aparece se escolher Entrega */}
+                    <AnimatePresence>
+                      {needsShipping && (
+                        <motion.div
+                          key="address-form"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-2">
+                             <div className="space-y-3">
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">CEP</label>
+                                <input
+                                  placeholder="00000-000"
+                                  inputMode="numeric"
+                                  autoComplete="postal-code"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  value={address.zipCode}
+                                  onChange={(e) => setAddress({...address, zipCode: e.target.value})}
+                                />
+                             </div>
+                             <div className="space-y-3">
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Endereço Completo</label>
+                                <input
+                                  placeholder="Rua, Av, etc."
+                                  autoComplete="street-address"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  value={address.street}
+                                  onChange={(e) => setAddress({...address, street: e.target.value})}
+                                />
+                             </div>
+                             <div className="space-y-3">
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número</label>
+                                <input
+                                  placeholder="Ex: 123"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  value={address.number}
+                                  onChange={(e) => setAddress({...address, number: e.target.value})}
+                                />
+                             </div>
+                             <div className="space-y-3">
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Cidade</label>
+                                <input
+                                  placeholder="São Paulo - SP"
+                                  autoComplete="address-level2"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  value={address.city}
+                                  onChange={(e) => setAddress({...address, city: e.target.value})}
+                                />
+                             </div>
+                             <div className="space-y-3">
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Bairro</label>
+                                <input
+                                  placeholder="Ex: Centro"
+                                  autoComplete="address-level3"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  value={address.neighborhood}
+                                  onChange={(e) => setAddress({...address, neighborhood: e.target.value})}
+                                />
+                             </div>
+                             <div className="space-y-3">
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">UF</label>
+                                <input
+                                  placeholder="SP"
+                                  maxLength={2}
+                                  autoComplete="address-level1"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  value={address.state}
+                                  onChange={(e) => setAddress({...address, state: e.target.value.toUpperCase()})}
+                                />
+                             </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                  </section>
 
                  <Button size="lg" className="h-16 sm:h-20 w-full rounded-2xl sm:rounded-3xl gap-4 text-lg sm:text-xl font-display font-black uppercase tracking-tight" onClick={goToPayment}>
