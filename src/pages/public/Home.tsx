@@ -155,13 +155,6 @@ export default function Home() {
           className="container-section relative z-10 grid min-h-[calc(100svh-6rem)] items-center gap-12 py-10 lg:grid-cols-[1.02fr_0.98fr] lg:py-16"
         >
           <div className="max-w-3xl">
-            <Reveal direction="up" delay={0.02}>
-              <div className="mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/55 shadow-2xl shadow-black/20 backdrop-blur-xl sm:px-4">
-                <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
-                Modelos prontos e pedidos sob medida
-              </div>
-            </Reveal>
-
             <Reveal direction="up" delay={0.08}>
               <AnimatedHeroCopy />
             </Reveal>
@@ -557,7 +550,11 @@ function AnimatedHeroCopy() {
 
   return (
     <div>
-      <div className="relative min-h-[21rem] sm:min-h-[24rem] lg:min-h-[30rem]">
+      <motion.div
+        layout
+        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+        className="relative min-h-[10rem] sm:min-h-[12rem] lg:min-h-[15rem]"
+      >
         <AnimatePresence mode="wait">
           <motion.h1
             key={activeCopy}
@@ -565,7 +562,7 @@ function AnimatedHeroCopy() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -22, filter: "blur(14px)" }}
             transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 max-w-4xl text-[clamp(2.85rem,6.8vw,6.45rem)] font-display font-black uppercase leading-[0.88] tracking-tight text-white"
+            className="max-w-4xl text-[clamp(2.55rem,6.2vw,6.25rem)] font-display font-black uppercase leading-[0.9] tracking-tight text-white [text-wrap:balance]"
           >
             {copy.lines.map((line, index) => (
               <motion.span
@@ -573,14 +570,14 @@ function AnimatedHeroCopy() {
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.62, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                className={`block ${line.accent ? "brand-gradient-text" : ""}`}
+                className={`block max-w-full text-balance ${line.accent ? "brand-gradient-text" : ""}`}
               >
                 {line.text}
               </motion.span>
             ))}
           </motion.h1>
         </AnimatePresence>
-      </div>
+      </motion.div>
 
       <div className="relative mt-7 min-h-[7.5rem] max-w-2xl sm:min-h-[5rem]">
         <AnimatePresence mode="wait">
@@ -595,6 +592,14 @@ function AnimatedHeroCopy() {
             {copy.body}
           </motion.p>
         </AnimatePresence>
+      </div>
+
+      <div className="mt-5 flex max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 border-l border-cyan-300/45 pl-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">
+        <span>Catálogo</span>
+        <span className="hidden h-px w-8 bg-white/16 sm:inline-block" />
+        <span>STL sob medida</span>
+        <span className="hidden h-px w-8 bg-white/16 sm:inline-block" />
+        <span>Envio Brasil</span>
       </div>
     </div>
   );
