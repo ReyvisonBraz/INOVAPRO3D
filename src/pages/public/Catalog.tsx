@@ -1,39 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
-import { Search, Filter, ShoppingCart, Box, Check, Sparkles, TrendingUp, Zap, ChevronRight, Heart } from "lucide-react";
+import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft, SlidersHorizontal } from "lucide-react";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { modelCache } from "../../lib/modelCache";
-import { Button } from "../../components/ui/Button";
-import { motion, AnimatePresence, Variants } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { FloatingBackground } from "../../components/ui/FloatingBackground";
+import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
+import { ProductCard } from "../../components/ui/ProductCard";
 import type { Product, ShowcaseItem } from "../../types/domain";
-
-const containerVariants: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1
-    }
-  }
-};
-
-const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 30, scale: 0.95 },
-  show: { 
-    opacity: 1, 
-    y: 0, 
-    scale: 1,
-    transition: { duration: 0.5, ease: "easeOut" }
-  }
-};
-
-const SHOWCASE_ITEMS = [
-  { id: 1, image: "https://images.unsplash.com/photo-1631551351111-209f8742d131?q=80&w=2070", title: "Dragão Flexível", category: "DECORAÇÃO" },
-  { id: 2, image: "https://images.unsplash.com/photo-1616803689943-5601631c7fec?q=80&w=2070", title: "Vasos Geométricos", category: "UTILITÁRIOS" },
-];
 
 export default function Catalog() {
   const { addItem } = useCart();
@@ -59,7 +35,7 @@ export default function Catalog() {
         .map(d => ({ id: d.id, ...d.data() } as Product))
         .filter(product => product.active !== false)
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-      
+
       setProducts(newProducts);
 
       // Prefetch models
@@ -69,7 +45,7 @@ export default function Catalog() {
       if (modelUrls.length > 0) {
         modelCache.prefetch(modelUrls);
       }
-      
+
     } catch (err) {
       console.error("Catalog Initial Fetch Error:", err);
       handleFirestoreError(err, OperationType.LIST, "products/showcase");
@@ -92,9 +68,7 @@ export default function Catalog() {
 
   const categories = ["TODOS", "DECORAÇÃO", "FANTASIA", "TOOLING", "UTILITÁRIOS"];
 
-  const handleAddToCart = (e: React.MouseEvent, product: Product) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddToCart = (product: Product) => {
     addItem({
       id: product.id,
       name: product.name,
@@ -117,244 +91,269 @@ export default function Catalog() {
   });
 
   return (
-    <div className="container-section py-8 min-h-screen">
-      {/* SHOWCASE SECTION */}
-      {showcase.length > 0 && (
-        <section className="mb-12 sm:mb-16 overflow-hidden" aria-label="Produtos em Destaque">
-          <div className="relative h-[220px] sm:h-[300px] lg:h-[400px] rounded-[24px] sm:rounded-[32px] overflow-hidden group">
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={activeSlide}
-                initial={{ opacity: 0, scale: 1.05 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.8 }}
-                className="absolute inset-0"
-              >
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
-                <img 
-                  src={showcase[activeSlide].image} 
-                  className="w-full h-full object-cover"
-                  alt={showcase[activeSlide].title} 
-                />
-                <div className="absolute bottom-6 left-6 lg:bottom-12 lg:left-12 z-20 max-w-xl">
-                  <motion.div
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.4 }}
-                  >
-                    <span className="inline-block px-2 py-0.5 sm:px-2.5 sm:py-1 bg-primary text-white text-[6px] sm:text-[7px] font-black uppercase tracking-widest rounded-md mb-2 sm:mb-3">
-                      {showcase[activeSlide].category}
-                    </span>
-                    <h2 className="text-xl sm:text-2xl lg:text-4xl font-black font-display uppercase tracking-tight text-white mb-1 leading-none">
-                      {showcase[activeSlide].title}
-                    </h2>
-                    <p className="text-white/60 text-[10px] sm:text-xs font-medium italic">Trabalho real • INOVAPRO3D</p>
-                  </motion.div>
-                </div>
-              </motion.div>
-            </AnimatePresence>
+    <div className="min-h-screen bg-surface">
 
-            <div className="absolute bottom-6 right-6 lg:bottom-8 lg:right-8 z-20 flex gap-2">
-               <button 
-                onClick={(e) => { e.stopPropagation(); setActiveSlide(prev => (prev - 1 + showcase.length) % showcase.length); }}
-                className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10"
-                aria-label="Slide anterior"
-               >
-                 <ChevronRight className="w-4 h-4 rotate-180" />
-               </button>
-               <button 
-                onClick={(e) => { e.stopPropagation(); setActiveSlide(prev => (prev + 1) % showcase.length); }}
-                className="w-8 h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10"
-                aria-label="Próximo slide"
-               >
-                 <ChevronRight className="w-4 h-4" />
-               </button>
-            </div>
-            
-            <div className="absolute top-8 right-8 z-20 flex gap-1">
-              {showcase.map((_, i) => (
-                <div 
-                  key={i} 
-                  className={`h-1 rounded-full transition-all duration-300 ${activeSlide === i ? 'w-6 bg-primary' : 'w-1.5 bg-white/10'}`} 
-                />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
+      {/* ================================================================ */}
+      {/* PAGE HEADER — aurora bg + reveal text                            */}
+      {/* ================================================================ */}
+      <div className="relative overflow-hidden pt-20 pb-14 sm:pt-28 sm:pb-16">
+        <FloatingBackground variant="grid" subtle />
 
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-10 relative">
-        <header>
-          <div className="flex items-center gap-2 mb-2">
-             <div className="w-1 h-1 rounded-full bg-primary animate-pulse" />
-             <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary">Projetos em Destaque</span>
-          </div>
-          <h1 className="heading-md sm:heading-lg uppercase mb-1">
-            Catálogo <span className="text-shimmer italic">INOVAPRO3D.</span>
-          </h1>
-          <p className="text-xs text-white/40 font-medium max-w-sm italic">Modelos exclusivos otimizados para PLA.</p>
-        </header>
-        
-        <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-          <nav className="flex gap-2 overflow-x-auto pb-4 md:pb-0 no-scrollbar w-full md:w-auto" aria-label="Categorias">
-            {categories.map(cat => (
-              <button 
-                key={cat}
-                onClick={() => setSelectedCategory(cat)}
-                className={`px-4 py-2.5 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${selectedCategory === cat ? 'bg-primary text-white' : 'bg-white/5 text-white/40 hover:bg-white/10'}`}
-              >
-                {cat}
-              </button>
-            ))}
-          </nav>
-          <div className="relative w-full md:w-72">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" />
-            <input 
-              type="text"
-              placeholder="Buscar modelos..."
-              aria-label="Buscar modelos"
-              className="w-full bg-white/5 border border-white/10 rounded-2xl py-3.5 pl-12 pr-4 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+        <div className="container-section relative z-10">
+          {/* Eyebrow */}
+          <Reveal direction="up" delay={0}>
+            <div className="flex items-center gap-2 mb-4">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[9px] font-black uppercase tracking-[0.35em] text-primary">
+                Catálogo Oficial
+              </span>
+            </div>
+          </Reveal>
+
+          {/* Main headline */}
+          <RevealText
+            text="Inventário 3D"
+            highlightFrom={1}
+            as="h1"
+            className="heading-xl mb-4 gap-x-3"
+          />
+
+          <Reveal direction="up" delay={0.25}>
+            <p className="text-sm sm:text-base text-white/45 max-w-lg leading-relaxed font-medium">
+              Modelos exclusivos otimizados para PLA · impressos na Bambu Lab P2S
+              com a precisão que o seu projeto merece.
+            </p>
+          </Reveal>
+
+          {/* Stats row */}
+          <Reveal direction="up" delay={0.38}>
+            <div className="mt-8 flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-white/25">
+              <span>{products.length} modelos</span>
+              <span className="w-1 h-1 rounded-full bg-white/15" />
+              <span>{categories.length - 1} categorias</span>
+              <span className="w-1 h-1 rounded-full bg-white/15" />
+              <span>Pará · Brasil</span>
+            </div>
+          </Reveal>
         </div>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-          {[1,2,3].map(i => (
-            <div key={i} className="h-96 rounded-3xl bg-white/5 animate-pulse" />
-          ))}
-        </div>
-      ) : (
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8"
-        >
-          {filteredProducts.map((product, index) => (
-            <Link 
-              key={product.id} 
-              to={`/produto/${product.id}`}
-            >
-              <motion.div 
-                variants={itemVariants}
-                whileHover={{ y: -10, scale: 1.02 }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="glass-card rounded-[40px] overflow-hidden group cursor-pointer border border-white/5 hover:border-primary/20 transition-all shadow-xl hover:shadow-primary/5"
-              >
-                <div className="relative aspect-square overflow-hidden bg-black/20">
-                  <img 
-                    src={product.images[0]} 
-                    alt={product.name}
-                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-                  />
-                  <div className="absolute top-4 left-4 flex flex-col items-start gap-1.5 z-10">
-                    <span className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md text-[10px] font-bold tracking-widest uppercase text-white/80">
-                      {product.category}
-                    </span>
-                    {product.stock === 0 ? (
-                      <span className="px-2 py-0.5 rounded-full bg-red-500 text-white text-[8px] font-black uppercase tracking-widest shadow-lg shadow-red-500/20">
-                        Esgotado
-                      </span>
-                    ) : (typeof product.stock === 'number' && product.stock <= 3 && product.stock > 0) ? (
-                      <span className="px-2 py-0.5 rounded-full bg-amber-500 text-black text-[8px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 animate-pulse-subtle">
-                        Poucas Unidades ({product.stock})
-                      </span>
-                    ) : null}
-                  </div>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toast.success("Adicionado aos favoritos!");
-                    }}
-                    className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center justify-center text-white/40 hover:text-red-500 hover:border-red-500/50 transition-all z-10"
+      <div className="container-section pb-24">
+
+        {/* ============================================================== */}
+        {/* SHOWCASE CAROUSEL                                               */}
+        {/* ============================================================== */}
+        {showcase.length > 0 && (
+          <section className="mb-14 sm:mb-20" aria-label="Produtos em Destaque">
+            <Reveal direction="up" delay={0}>
+              <div className="relative h-[200px] sm:h-[300px] lg:h-[400px] rounded-[24px] sm:rounded-[32px] overflow-hidden border border-white/8">
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={activeSlide}
+                    initial={{ opacity: 0, scale: 1.05 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.8 }}
+                    className="absolute inset-0"
                   >
-                    <Heart className="w-4 h-4" />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
+                    <img
+                      src={showcase[activeSlide].image}
+                      className="w-full h-full object-cover"
+                      alt={showcase[activeSlide].title}
+                    />
+                    <div className="absolute bottom-6 left-6 lg:bottom-12 lg:left-12 z-20 max-w-xl">
+                      <motion.div
+                        initial={{ opacity: 0, y: 15 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.4 }}
+                      >
+                        <span className="inline-block px-2.5 py-1 bg-primary text-white text-[8px] font-black uppercase tracking-widest rounded-md mb-3 shadow-lg shadow-primary/30">
+                          {showcase[activeSlide].category}
+                        </span>
+                        <h2 className="text-xl sm:text-2xl lg:text-4xl font-black font-display uppercase tracking-tight text-white mb-1 leading-none">
+                          {showcase[activeSlide].title}
+                        </h2>
+                        <p className="text-white/50 text-[10px] sm:text-xs font-medium">
+                          Trabalho real · INOVAPRO3D
+                        </p>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+
+                {/* Dot indicators */}
+                <div className="absolute top-5 right-5 z-20 flex gap-1.5">
+                  {showcase.map((_, i) => (
+                    <button
+                      key={i}
+                      aria-label={`Slide ${i + 1}`}
+                      onClick={() => setActiveSlide(i)}
+                      className={`h-1 rounded-full transition-all duration-300 ${
+                        activeSlide === i ? "w-6 bg-primary" : "w-2 bg-white/20 hover:bg-white/40"
+                      }`}
+                    />
+                  ))}
+                </div>
+
+                {/* Nav arrows */}
+                <div className="absolute bottom-6 right-6 lg:bottom-8 lg:right-8 z-20 flex gap-2">
+                  <button
+                    onClick={() => setActiveSlide(prev => (prev - 1 + showcase.length) % showcase.length)}
+                    className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10"
+                    aria-label="Slide anterior"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setActiveSlide(prev => (prev + 1) % showcase.length)}
+                    className="w-9 h-9 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10"
+                    aria-label="Próximo slide"
+                  >
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
-                
-                <div className="p-6">
-                  <h3 className="text-xl font-display font-bold mb-2 group-hover:text-primary transition-colors">
-                    {product.name}
-                  </h3>
-                  <p className="text-xs text-white/50 mb-6 line-clamp-2 leading-relaxed">
-                    {product.description}
-                  </p>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-[10px] text-white/30 uppercase font-bold tracking-wider">A partir de</p>
-                      <p className="text-xl font-display font-bold">R$ {product.basePrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+              </div>
+            </Reveal>
+          </section>
+        )}
+
+        {/* ============================================================== */}
+        {/* SEARCH + CATEGORY FILTER BAR                                   */}
+        {/* ============================================================== */}
+        <Reveal direction="up" delay={0}>
+          <div className="flex flex-col gap-4 mb-10">
+            {/* Search row */}
+            <div className="flex items-center gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Buscar modelos…"
+                  aria-label="Buscar modelos"
+                  className="w-full bg-white/5 border border-white/8 rounded-2xl px-5 py-3 pl-12 text-sm outline-none focus:border-primary/50 transition-all placeholder:text-white/25 text-white"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+              {/* Filter icon button */}
+              <button
+                type="button"
+                className="flex items-center gap-2 px-4 py-3 bg-white/5 border border-white/8 rounded-2xl text-white/40 hover:text-white hover:border-white/15 transition-all text-[10px] font-black uppercase tracking-widest whitespace-nowrap"
+                aria-label="Filtros adicionais"
+              >
+                <SlidersHorizontal className="w-4 h-4" />
+                <span className="hidden sm:inline">Filtrar</span>
+              </button>
+            </div>
+
+            {/* Category chips */}
+            <nav
+              className="flex gap-2 overflow-x-auto pb-1 no-scrollbar"
+              aria-label="Filtrar por categoria"
+            >
+              {categories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setSelectedCategory(cat)}
+                  className={`px-4 py-2 rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
+                    selectedCategory === cat
+                      ? "bg-primary border-primary text-white shadow-lg shadow-primary/25"
+                      : "bg-white/5 border-white/8 text-white/40 hover:bg-white/10 hover:text-white/70 hover:border-white/15"
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+              {/* Result count */}
+              {!loading && (
+                <span className="ml-auto flex-shrink-0 px-3 py-2 text-[9px] font-black uppercase tracking-widest text-white/20 self-center">
+                  {filteredProducts.length} resultado{filteredProducts.length !== 1 ? "s" : ""}
+                </span>
+              )}
+            </nav>
+          </div>
+        </Reveal>
+
+        {/* ============================================================== */}
+        {/* LOADING — skeleton grid                                         */}
+        {/* ============================================================== */}
+        {loading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div
+                key={i}
+                className="rounded-[28px] overflow-hidden border border-white/5 bg-white/[0.02] animate-pulse"
+              >
+                <div className="aspect-[4/5] bg-white/5" />
+                <div className="p-5 space-y-3">
+                  <div className="h-4 bg-white/5 rounded-lg w-3/4" />
+                  <div className="h-3 bg-white/5 rounded-lg w-full" />
+                  <div className="h-3 bg-white/5 rounded-lg w-2/3" />
+                  <div className="pt-2 flex items-end justify-between border-t border-white/5">
+                    <div className="space-y-1.5">
+                      <div className="h-2.5 bg-white/5 rounded w-16" />
+                      <div className="h-6 bg-white/5 rounded w-24" />
                     </div>
-                    
-                    {product.stock === 0 ? (
-                      <Button 
-                        size="sm" 
-                        variant="ghost"
-                        className="gap-2 rounded-xl border border-white/5 bg-white/5 text-white/30 cursor-not-allowed hover:bg-white/5 hover:text-white/30"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toast.error("Este produto encontra-se temporariamente esgotado.", {
-                            description: "Disponível sob encomenda na tela de detalhes."
-                          });
-                        }}
-                      >
-                        Indisponível
-                      </Button>
-                    ) : (
-                      <Button 
-                        size="sm" 
-                        className="gap-2 rounded-xl transition-all"
-                        onClick={(e) => handleAddToCart(e, product)}
-                      >
-                        <AnimatePresence mode="wait">
-                          {addedId === product.id ? (
-                            <motion.div
-                              key="check"
-                              initial={{ scale: 0.5, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0.5, opacity: 0 }}
-                              className="flex items-center gap-2"
-                            >
-                              <Check className="w-4 h-4 text-green-400" />
-                              <span>Ok</span>
-                            </motion.div>
-                          ) : (
-                            <motion.div
-                              key="cart"
-                              initial={{ scale: 0.5, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              exit={{ scale: 0.5, opacity: 0 }}
-                              className="flex items-center gap-2"
-                            >
-                              <ShoppingCart className="w-4 h-4" />
-                              <span>Adicionar</span>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </Button>
-                    )}
+                    <div className="h-11 w-28 bg-white/5 rounded-2xl" />
                   </div>
                 </div>
-              </motion.div>
-            </Link>
-          ))}
-        </motion.div>
-      )}
+              </div>
+            ))}
+          </div>
+        )}
 
-      {/* ... footer ... */}
-      {!loading && filteredProducts.length === 0 && (
-        <div className="py-32 text-center">
-          <Box className="w-12 h-12 text-white/10 mx-auto mb-4" />
-          <p className="text-white/30 italic">Nenhum modelo encontrado para sua busca.</p>
-        </div>
-      )}
+        {/* ============================================================== */}
+        {/* PRODUCTS GRID                                                   */}
+        {/* ============================================================== */}
+        {!loading && filteredProducts.length > 0 && (
+          <RevealGroup
+            className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+            stagger={0.07}
+          >
+            {filteredProducts.map(product => (
+              <RevealItem key={product.id}>
+                <ProductCard
+                  product={product}
+                  onAdd={handleAddToCart}
+                />
+              </RevealItem>
+            ))}
+          </RevealGroup>
+        )}
+
+        {/* ============================================================== */}
+        {/* EMPTY STATE                                                     */}
+        {/* ============================================================== */}
+        {!loading && filteredProducts.length === 0 && (
+          <Reveal direction="up" delay={0.1}>
+            <div className="flex flex-col items-center justify-center py-32 text-center">
+              <div className="relative mb-6">
+                <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl scale-150" />
+                <div className="relative w-20 h-20 rounded-full border border-white/8 bg-white/[0.03] flex items-center justify-center">
+                  <Box className="w-8 h-8 text-white/20" />
+                </div>
+              </div>
+              <h3 className="text-lg font-black font-display uppercase tracking-tight text-white/50 mb-2">
+                Nenhum modelo encontrado
+              </h3>
+              <p className="text-sm text-white/25 max-w-xs leading-relaxed">
+                Tente ajustar os filtros ou a busca para encontrar o que procura.
+              </p>
+              {(searchTerm || selectedCategory !== "TODOS") && (
+                <button
+                  type="button"
+                  onClick={() => { setSearchTerm(""); setSelectedCategory("TODOS"); }}
+                  className="mt-6 px-5 py-2.5 rounded-xl bg-white/5 border border-white/8 text-[10px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white/80 transition-all"
+                >
+                  Limpar filtros
+                </button>
+              )}
+            </div>
+          </Reveal>
+        )}
+
+      </div>
     </div>
   );
 }
