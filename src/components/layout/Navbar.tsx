@@ -4,7 +4,7 @@ import { Button } from "../ui/Button";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { CartSheet } from "./CartSheet";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 export function Navbar() {
@@ -21,6 +21,8 @@ export function Navbar() {
   const [phoneInput, setPhoneInput] = useState("");
   const [isSavingPhone, setIsSavingPhone] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -31,6 +33,16 @@ export function Navbar() {
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location]);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (user && profile && !profile.phone && !isDismissed) {
@@ -163,40 +175,52 @@ export function Navbar() {
           <div className="h-8 w-px bg-white/10 hidden sm:block" />
 
           {user ? (
-            <div className="flex items-center gap-4 group/user relative">
+            <div ref={profileMenuRef} className="flex items-center gap-4 relative">
               <div className="hidden sm:flex flex-col items-end">
                 <span className="text-[10px] font-black text-white/90 uppercase tracking-widest truncate max-w-[120px]">{user.displayName}</span>
                 <span className="text-[8px] font-black text-primary uppercase tracking-[0.2em]">{profile?.role || 'OPERATOR'}</span>
               </div>
               <div className="relative">
-                <img 
-                  src={user.photoURL || ''} 
-                  alt="Profile" 
-                  className="w-10 h-10 rounded-[14px] border-2 border-white/5 group-hover/user:border-primary/50 transition-all cursor-pointer object-cover"
+                <img
+                  src={user.photoURL || ''}
+                  alt="Profile"
+                  onClick={() => setIsProfileMenuOpen(v => !v)}
+                  className={`w-10 h-10 rounded-[14px] border-2 transition-all cursor-pointer object-cover ${isProfileMenuOpen ? 'border-primary/50' : 'border-white/5 hover:border-primary/30'}`}
                 />
-                
+
                 {/* Desktop Dropdown */}
-                <div className="absolute top-full right-0 mt-4 w-56 opacity-0 translate-y-2 group-hover/user:opacity-100 group-hover/user:translate-y-0 transition-all pointer-events-none group-hover/user:pointer-events-auto origin-top-right">
-                   <div className="bg-surface/90 backdrop-blur-2xl p-3 rounded-2xl border border-white/10 shadow-2xl">
-                      <div className="px-4 py-3 border-b border-white/5 mb-2">
-                        <p className="text-[8px] text-white/20 font-black uppercase tracking-widest truncate">{user.email}</p>
+                <AnimatePresence>
+                  {isProfileMenuOpen && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute top-full right-0 mt-2 w-56 z-50 origin-top-right"
+                    >
+                      <div className="bg-surface/90 backdrop-blur-2xl p-3 rounded-2xl border border-white/10 shadow-2xl">
+                        <div className="px-4 py-3 border-b border-white/5 mb-2">
+                          <p className="text-[8px] text-white/20 font-black uppercase tracking-widest truncate">{user.email}</p>
+                        </div>
+                        <Link
+                          to="/meus-pedidos"
+                          onClick={() => setIsProfileMenuOpen(false)}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          <UserIcon className="w-4 h-4 text-primary" />
+                          Meus Pedidos
+                        </Link>
+                        <button
+                          onClick={() => { logout(); setIsProfileMenuOpen(false); }}
+                          className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-all"
+                        >
+                          <LogOut className="w-4 h-4" />
+                          Sair da Conta
+                        </button>
                       </div>
-                      <Link 
-                        to="/meus-pedidos"
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
-                      >
-                        <UserIcon className="w-4 h-4 text-primary" />
-                        Meus Pedidos
-                      </Link>
-                      <button 
-                        onClick={() => logout()}
-                        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-red-500/10 rounded-xl text-[10px] font-black uppercase tracking-widest text-red-400 transition-all"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Sair da Conta
-                      </button>
-                   </div>
-                </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           ) : (
