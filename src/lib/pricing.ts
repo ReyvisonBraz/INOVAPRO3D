@@ -1,0 +1,391 @@
+// ============================================================================
+// MOTOR DE PRECIFICAÇÃO INOVAPRO3D
+// ----------------------------------------------------------------------------
+// Fonte ÚNICA de verdade para o custo e o preço de qualquer impressão 3D.
+// As duas calculadoras (pública /calculadora e admin "Cálculo Maker Rápido")
+// importam daqui, garantindo que o mesmo job gere SEMPRE o mesmo número.
+//
+// Foco: Bambu Lab P2S + AMS, operação B2B/varejo no Pará (tarifa Equatorial).
+// ============================================================================
+
+export type MaterialKey = "pla" | "petg";
+
+export interface MaterialPreset {
+  key: MaterialKey;
+  label: string;
+  /** Preço pago por 1 rolo (carretel) em R$. */
+  spoolPrice: number;
+  /** Peso líquido do rolo em gramas. */
+  spoolWeight: number;
+  /** Potência média da P2S imprimindo este material (W). */
+  steadyPowerWatts: number;
+  /** Reserva de falha sugerida (%) — PETG falha mais que PLA. */
+  defaultReservePct: number;
+  /** Temperatura típica de bico (°C) — apenas informativo. */
+  printTempC: number;
+}
+
+/**
+ * Presets de material com dados reais de mercado (Pará, 2025).
+ * O foco é PLA (principal) e PETG (secundário).
+ */
+export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
+  pla: {
+    key: "pla",
+    label: "PLA",
+    spoolPrice: 85,
+    spoolWeight: 1000,
+    steadyPowerWatts: 200,
+    defaultReservePct: 12,
+    printTempC: 215,
+  },
+  petg: {
+    key: "petg",
+    label: "PETG",
+    spoolPrice: 120,
+    spoolWeight: 1000,
+    steadyPowerWatts: 230,
+    defaultReservePct: 20,
+    printTempC: 245,
+  },
+};
+
+// ----------------------------------------------------------------------------
+// MÁQUINA & DEPRECIAÇÃO
+// ----------------------------------------------------------------------------
+
+export interface MachineConfig {
+  /** Quanto você pagou na impressora + AMS (R$). */
+  price: number;
+  /** Horas de impressão que a máquina deve durar antes de troca/overhaul. */
+  lifespanHours: number;
+  /** Bico (nozzle): preço e vida útil em horas. */
+  nozzlePrice: number;
+  nozzleLifeHours: number;
+  /** Placa de impressão / PEI: preço e vida útil em horas. */
+  platePrice: number;
+  plateLifeHours: number;
+  /** Correias (par): preço e vida útil em horas. */
+  beltsPrice: number;
+  beltsLifeHours: number;
+  /** Manutenção geral por hora (graxa, PTFE, limpeza, imprevistos) em R$/h. */
+  maintPerHour: number;
+}
+
+/**
+ * Configuração padrão da Bambu Lab P2S + AMS no Brasil.
+ * Valores conservadores — você pode editar todos na calculadora detalhada.
+ */
+export const DEFAULT_MACHINE: MachineConfig = {
+  price: 5500,
+  lifespanHours: 6000,
+  nozzlePrice: 70,
+  nozzleLifeHours: 600,
+  platePrice: 130,
+  plateLifeHours: 1500,
+  beltsPrice: 90,
+  beltsLifeHours: 2500,
+  maintPerHour: 0.1,
+};
+
+export interface MachineHourBreakdown {
+  /** Depreciação da máquina por hora (preço ÷ vida útil). */
+  depreciation: number;
+  nozzle: number;
+  plate: number;
+  belts: number;
+  maint: number;
+  /** Soma do fundo de reposição de peças por hora. */
+  replacement: number;
+  /** Custo-máquina real por hora (depreciação + reposição). */
+  total: number;
+}
+
+/**
+ * Quebra o custo da máquina por hora em partes transparentes.
+ * É isto que responde "quanto a P2S me custa por hora de uso?".
+ */
+export function machineHourBreakdown(m: MachineConfig): MachineHourBreakdown {
+  const depreciation = m.price / Math.max(1, m.lifespanHours);
+  const nozzle = m.nozzlePrice / Math.max(1, m.nozzleLifeHours);
+  const plate = m.platePrice / Math.max(1, m.plateLifeHours);
+  const belts = m.beltsPrice / Math.max(1, m.beltsLifeHours);
+  const maint = Math.max(0, m.maintPerHour);
+  const replacement = nozzle + plate + belts + maint;
+  return {
+    depreciation,
+    nozzle,
+    plate,
+    belts,
+    maint,
+    replacement,
+    total: depreciation + replacement,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// ENERGIA (tarifa Pará)
+// ----------------------------------------------------------------------------
+
+export const DEFAULT_ENERGY = {
+  /** Equatorial Pará 2025: ~R$0,96 base + ICMS ≈ R$1,20/kWh na conta. */
+  kwhCost: 1.2,
+  /** Pico de aquecimento da câmara P2S. */
+  startupPowerWatts: 1000,
+  /** Tempo no pico (aquecimento). */
+  startupMinutes: 8,
+};
+
+// ----------------------------------------------------------------------------
+// CÁLCULO PRINCIPAL
+// ----------------------------------------------------------------------------
+
+export interface PricingInputs {
+  material: MaterialKey;
+  /** Sobrescreve o preço do rolo do preset (opcional). */
+  spoolPrice?: number;
+  spoolWeight?: number;
+  /** Sobrescreve a potência média do preset (opcional). */
+  steadyPowerWatts?: number;
+
+  /** Peso do filamento do slicer (g) — já inclui purga/suportes. */
+  weightGrams: number;
+  /** Tempo de impressão em horas decimais. */
+  hours: number;
+  /** Peças no lote. */
+  quantity: number;
+  /** Reserva de material para falhas (%). */
+  reservePct: number;
+
+  /** Tarifa de energia (R$/kWh). */
+  kwhCost: number;
+  startupPowerWatts: number;
+  startupMinutes: number;
+
+  machine: MachineConfig;
+
+  /** Mão de obra: horas de trabalho manual (modelagem, pós, embalagem). */
+  laborHours: number;
+  /** Valor da sua hora de trabalho (R$). */
+  laborRate: number;
+  /** Insumos extras do job (parafusos, tinta, ímã) em R$. */
+  extraSupplies: number;
+
+  /** Multiplicador de atacado (B2B) sobre o custo. */
+  wholesaleMarkup: number;
+  /** Multiplicador de varejo (cliente final) sobre o custo. */
+  retailMarkup: number;
+  /** Preço mínimo por pedido (R$). */
+  minPrice: number;
+}
+
+export interface PricingResult {
+  hours: number;
+  quantity: number;
+  weightGrams: number;
+  gramCost: number;
+
+  materialCost: number;
+  energyKwh: number;
+  energyCost: number;
+  machineHourCost: number;
+  machineCost: number;
+  laborCost: number;
+  extraSupplies: number;
+  totalCost: number;
+  unitCost: number;
+  costPerGram: number;
+
+  shares: {
+    material: number;
+    energy: number;
+    machine: number;
+    labor: number;
+  };
+
+  wholesaleTotal: number;
+  wholesaleUnit: number;
+  retailTotal: number;
+  retailUnit: number;
+  isBelowMinWholesale: boolean;
+  isBelowMinRetail: boolean;
+
+  profitWholesale: number;
+  profitWholesaleUnit: number;
+  profitWholesalePct: number;
+  profitRetail: number;
+  profitRetailUnit: number;
+  profitRetailPct: number;
+}
+
+const num = (v: number, fallback = 0) =>
+  Number.isFinite(v) ? v : fallback;
+
+export function computePricing(input: PricingInputs): PricingResult {
+  const preset = MATERIAL_PRESETS[input.material];
+  const spoolPrice = Math.max(0, num(input.spoolPrice ?? preset.spoolPrice));
+  const spoolWeight = Math.max(1, num(input.spoolWeight ?? preset.spoolWeight, 1000));
+  const steadyPower = Math.max(0, num(input.steadyPowerWatts ?? preset.steadyPowerWatts));
+
+  const hours = Math.max(0, num(input.hours));
+  const quantity = Math.max(1, Math.floor(num(input.quantity, 1)));
+  const weightGrams = Math.max(0, num(input.weightGrams));
+  const reserveMultiplier = 1 + Math.max(0, num(input.reservePct)) / 100;
+
+  // --- Material ---
+  const gramCost = spoolPrice / spoolWeight;
+  const materialCost = weightGrams * gramCost * reserveMultiplier;
+
+  // --- Energia (pico de aquecimento + regime estável) ---
+  const startupHours = Math.min(hours, Math.max(0, num(input.startupMinutes)) / 60);
+  const steadyHours = Math.max(0, hours - startupHours);
+  const energyKwh =
+    (startupHours * Math.max(0, num(input.startupPowerWatts)) +
+      steadyHours * steadyPower) /
+    1000;
+  const energyCost = energyKwh * Math.max(0, num(input.kwhCost));
+
+  // --- Máquina (depreciação + reposição) ---
+  const machineHourCost = machineHourBreakdown(input.machine).total;
+  const machineCost = hours * machineHourCost;
+
+  // --- Mão de obra + insumos ---
+  const laborCost = Math.max(0, num(input.laborHours)) * Math.max(0, num(input.laborRate));
+  const extraSupplies = Math.max(0, num(input.extraSupplies));
+
+  const totalCost = materialCost + energyCost + machineCost + laborCost + extraSupplies;
+  const safe = totalCost > 0 ? totalCost : 1;
+  const unitCost = totalCost / quantity;
+  const costPerGram = weightGrams > 0 ? totalCost / weightGrams : 0;
+
+  // --- Preços (com piso mínimo) ---
+  const minPrice = Math.max(0, num(input.minPrice));
+  const wholesaleRaw = totalCost * Math.max(0, num(input.wholesaleMarkup));
+  const retailRaw = totalCost * Math.max(0, num(input.retailMarkup));
+  const wholesaleTotal = Math.max(wholesaleRaw, minPrice);
+  const retailTotal = Math.max(retailRaw, minPrice);
+
+  const profitWholesale = wholesaleTotal - totalCost;
+  const profitRetail = retailTotal - totalCost;
+
+  return {
+    hours,
+    quantity,
+    weightGrams,
+    gramCost,
+    materialCost,
+    energyKwh,
+    energyCost,
+    machineHourCost,
+    machineCost,
+    laborCost,
+    extraSupplies,
+    totalCost,
+    unitCost,
+    costPerGram,
+    shares: {
+      material: (materialCost / safe) * 100,
+      energy: (energyCost / safe) * 100,
+      machine: (machineCost / safe) * 100,
+      labor: ((laborCost + extraSupplies) / safe) * 100,
+    },
+    wholesaleTotal,
+    wholesaleUnit: wholesaleTotal / quantity,
+    retailTotal,
+    retailUnit: retailTotal / quantity,
+    isBelowMinWholesale: wholesaleRaw < minPrice && minPrice > 0,
+    isBelowMinRetail: retailRaw < minPrice && minPrice > 0,
+    profitWholesale,
+    profitWholesaleUnit: profitWholesale / quantity,
+    profitWholesalePct: (profitWholesale / (wholesaleTotal || 1)) * 100,
+    profitRetail,
+    profitRetailUnit: profitRetail / quantity,
+    profitRetailPct: (profitRetail / (retailTotal || 1)) * 100,
+  };
+}
+
+// ----------------------------------------------------------------------------
+// HELPERS
+// ----------------------------------------------------------------------------
+
+export const formatBRL = (value: number) =>
+  (Number.isFinite(value) ? value : 0).toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+
+/** Converte "2h 30m", "2.5" ou "2:30" em horas decimais. */
+export function parseTimeToHours(timeStr: string): number {
+  if (!timeStr) return 0;
+  const hMatch = timeStr.match(/(\d+)\s*h/i);
+  const mMatch = timeStr.match(/(\d+)\s*m/i);
+  const h = hMatch ? parseInt(hMatch[1], 10) : 0;
+  const m = mMatch ? parseInt(mMatch[1], 10) : 0;
+
+  if (!hMatch && !mMatch) {
+    if (timeStr.includes(":")) {
+      const [hp, mp] = timeStr.split(":").map((p) => parseFloat(p));
+      if (!isNaN(hp) && !isNaN(mp)) return hp + mp / 60;
+    }
+    const n = parseFloat(timeStr);
+    return isNaN(n) ? 0 : n;
+  }
+  return h + m / 60;
+}
+
+// ----------------------------------------------------------------------------
+// EXPLICAÇÕES (texto único reaproveitado pelos tooltips "?")
+// ----------------------------------------------------------------------------
+
+export const HELP = {
+  material:
+    "Filamento usado no job. Define o preço por grama e o consumo de energia. PLA é o principal; PETG aquece mais e custa mais.",
+  spoolPrice:
+    "Quanto você pagou em 1 rolo do filamento. Verifique a nota da sua última compra.",
+  spoolWeight:
+    "Peso líquido do rolo. Normalmente 1000 g (1 kg). Está no rótulo da embalagem.",
+  weight:
+    "Copie o campo 'Filamento utilizado' do Bambu Studio após fatiar. Esse número já inclui suportes e purga das trocas de cor.",
+  time:
+    "Tempo total de impressão que o Bambu Studio mostra. Aceita '2h 30m', '2.5' ou '2:30'.",
+  quantity:
+    "Quantas peças saem nesta impressão. O custo total é dividido por aqui para dar o preço por unidade.",
+  reserve:
+    "Margem de segurança sobre o material para cobrir falhas e reimpressões. PLA com perfil bom: 10–15%. PETG ou peça difícil: 20–30%.",
+  kwh:
+    "Preço do kWh na sua conta de luz. Equatorial Pará em 2025 fica perto de R$1,20/kWh com impostos.",
+  steadyPower:
+    "Potência média da P2S imprimindo. Medida real: ~200 W em PLA e ~230 W em PETG.",
+  startupPower:
+    "Pico de consumo nos primeiros minutos, quando a câmara e a mesa aquecem. P2S chega a ~1000 W.",
+  startupMinutes:
+    "Quanto tempo a máquina fica nesse pico de aquecimento antes de estabilizar. Na P2S, cerca de 8 minutos.",
+  machinePrice:
+    "Quanto você pagou na P2S + AMS. É a base da depreciação: esse valor é diluído nas horas de uso.",
+  lifespan:
+    "Quantas horas de impressão você espera tirar da máquina antes de uma reforma grande ou troca. 6000 h é um número conservador (~3 anos de uso intenso).",
+  nozzle:
+    "Bico se desgasta com o uso e perde precisão. Preço da peça e quantas horas ela costuma durar.",
+  plate:
+    "Placa/PEI perde aderência com o tempo. Preço e vida útil em horas de impressão.",
+  belts:
+    "Correias esticam e folgam. Preço do par e horas até a troca.",
+  maint:
+    "Custo por hora de graxa, tubo PTFE, limpeza e pequenos imprevistos. Um fundo para não ser pego de surpresa.",
+  laborHours:
+    "Seu tempo de trabalho HUMANO no job: revisar arquivo, fatiar, tirar suportes, lixar, embalar. Mesmo impressão automática tem seu tempo.",
+  laborRate:
+    "Quanto vale 1 hora do seu trabalho. Não trabalhe de graça: coloque um valor justo para a sua mão de obra.",
+  extraSupplies:
+    "Insumos específicos deste job que não são filamento: parafusos, ímãs, tinta, cola, embalagem especial.",
+  wholesale:
+    "Multiplicador para venda em atacado/B2B (cliente que revende ou fecha lote). Ex: 1.6 = custo + 60%.",
+  retail:
+    "Multiplicador para venda no varejo (cliente final). Ex: 2.5 = custo × 2,5. Cobre seu lucro e o tempo de atendimento.",
+  minPrice:
+    "Valor mínimo que você cobra por qualquer pedido, mesmo peças pequenas. Cobre o custo de parar, atender, embalar e entregar.",
+  depreciation:
+    "Quanto da máquina 'se gasta' a cada hora de impressão. É o preço da P2S diluído na vida útil dela.",
+  replacement:
+    "Fundo de reposição: cada hora separa um valor para repor bico, placa, correias e manutenção quando desgastarem.",
+};
