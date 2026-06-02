@@ -93,52 +93,6 @@ function NumberField({
   );
 }
 
-type RangeFieldProps = {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min: number;
-  max: number;
-  step?: number;
-  suffix?: string;
-};
-
-function RangeField({ label, value, onChange, min, max, step = 1, suffix = "" }: RangeFieldProps) {
-  const progress = ((value - min) / (max - min)) * 100;
-
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between gap-4">
-        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
-          {label}
-        </span>
-        <span className="font-mono text-sm font-black text-cyan-300">
-          {value}
-          {suffix}
-        </span>
-      </div>
-      <div className="rounded-xl border border-slate-700/70 bg-[#0b1020] px-4 py-4">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={value}
-          onChange={(event) => onChange(safeNumber(Number(event.target.value), min))}
-          className="h-2 w-full cursor-pointer appearance-none rounded-full bg-slate-800 accent-white [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-[0_0_18px_rgba(255,255,255,0.75)]"
-          style={{
-            background: `linear-gradient(to right, #22d3ee ${progress}%, #1e293b ${progress}%)`,
-          }}
-        />
-        <div className="mt-3 flex justify-between text-[9px] font-black uppercase tracking-[0.18em] text-slate-700">
-          <span>{min}g</span>
-          <span>{Math.round((max + min) / 2)}g</span>
-          <span>{max}g</span>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SectionCard({
   icon: Icon,
@@ -460,13 +414,13 @@ export default function FilamentCalculator() {
               </div>
 
               <div className="mt-5">
-                <RangeField
+                <NumberField
                   label="Peso total do job/lote no slicer"
+                  suffix="g"
                   value={slicerWeight}
                   onChange={setSlicerWeight}
                   min={1}
-                  max={1000}
-                  suffix="g"
+                  step={1}
                 />
               </div>
 
