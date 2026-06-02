@@ -1,47 +1,92 @@
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
 import {
-  Zap,
-  ShieldCheck,
-  Package,
+  ArrowDown,
   ArrowRight,
-  Plus,
+  BadgeCheck,
+  Box,
   ChevronLeft,
   ChevronRight,
+  Clock3,
+  Layers3,
+  PackageCheck,
+  Plus,
+  Ruler,
+  ShieldCheck,
+  Sparkles,
+  Zap,
 } from "lucide-react";
-import { Button } from "../../components/ui/Button";
 import { Link } from "react-router-dom";
-import { useState, useEffect } from "react";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { db } from "../../services/firebase";
-import type { ShowcaseItem, Product } from "../../types/domain";
-import { FloatingBackground } from "../../components/ui/FloatingBackground";
-import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
-import { ProductCard } from "../../components/ui/ProductCard";
-import { useCart } from "../../contexts/CartContext";
+import { useEffect, useMemo, useState } from "react";
+import { collection, getDocs, orderBy, query } from "firebase/firestore";
 import { toast } from "sonner";
+import { Button } from "../../components/ui/Button";
+import { FloatingBackground } from "../../components/ui/FloatingBackground";
+import { ProductCard } from "../../components/ui/ProductCard";
+import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
+import { useCart } from "../../contexts/CartContext";
+import { db } from "../../services/firebase";
+import type { Product, ShowcaseItem } from "../../types/domain";
+
+const brl = (value: number) =>
+  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+const heroCopyOptions = [
+  {
+    lines: [
+      { text: "Escolha a peça.", accent: false },
+      { text: "A gente imprime.", accent: true },
+      { text: "Você recebe pronta.", accent: true },
+    ],
+    body:
+      "Peças decorativas, utilitárias e colecionáveis feitas com acabamento limpo, medidas confiáveis e cuidado de produto final.",
+  },
+  {
+    lines: [
+      { text: "Não precisa imaginar.", accent: false },
+      { text: "Veja no catálogo.", accent: true },
+    ],
+    body:
+      "Fotos reais, preço inicial e modelos prontos para comprar. Você escolhe com segurança antes de chamar no orçamento.",
+  },
+  {
+    lines: [
+      { text: "Impressão 3D", accent: false },
+      { text: "com cara de loja.", accent: true },
+    ],
+    body:
+      "Para presentear, decorar, revender ou usar no dia a dia. Sem aparência de teste, sem acabamento improvisado.",
+  },
+  {
+    lines: [
+      { text: "Tem uma ideia?", accent: false },
+      { text: "Comece pelo catálogo.", accent: true },
+    ],
+    body:
+      "O catálogo ajuda você a sair da dúvida e encontrar uma peça pronta, ou chegar mais perto do que quer mandar fazer.",
+  },
+];
 
 export default function Home() {
-  /* ── data state (unchanged) ── */
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("ALL");
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-
   const { addItem } = useCart();
+  const { scrollYProgress } = useScroll();
+  const heroY = useTransform(scrollYProgress, [0, 0.22], [0, -90]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0.2]);
 
-  /* ── Firebase fetch (unchanged) ── */
   useEffect(() => {
     const fetchShowcase = async () => {
       try {
         const snap = await getDocs(
-          query(collection(db, "showcase"), orderBy("createdAt", "desc"))
+          query(collection(db, "showcase"), orderBy("createdAt", "desc")),
         );
-        const items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as ShowcaseItem));
+        const items = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ShowcaseItem));
         setShowcase(items);
-        const cats = Array.from(new Set(items.map((i) => i.category).filter(Boolean)));
-        setCategories(cats as string[]);
+        setCategories(Array.from(new Set(items.map((item) => item.category).filter(Boolean))) as string[]);
       } catch (err) {
         console.error("Error fetching showcase:", err);
       }
@@ -51,8 +96,8 @@ export default function Home() {
       try {
         const snap = await getDocs(collection(db, "products"));
         const items = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as Product))
-          .filter((p) => p.active !== false)
+          .map((doc) => ({ id: doc.id, ...doc.data() } as Product))
+          .filter((product) => product.active !== false)
           .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
         setProducts(items);
       } catch (err) {
@@ -63,360 +108,286 @@ export default function Home() {
     Promise.all([fetchShowcase(), fetchProducts()]).finally(() => setLoading(false));
   }, []);
 
-  /* ── derived state (unchanged logic) ── */
-  const filteredItems =
-    filter === "ALL" ? showcase : showcase.filter((i) => i.category === filter);
+  const featuredProducts = products.slice(0, 8);
+  const heroProducts = featuredProducts.slice(0, 5);
+  const filteredItems = filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
 
-  const navigateLightbox = (direction: number) => {
-    if (selectedIndex === null) return;
-    const nextIndex =
-      (selectedIndex + direction + filteredItems.length) % filteredItems.length;
-    setSelectedIndex(nextIndex);
-  };
+  const proofStats = useMemo(
+    () => [
+      { value: "P2S", label: "Bambu Lab calibrada" },
+      { value: "48h", label: "janela média de produção" },
+      { value: "PLA/PETG", label: "materiais para uso real" },
+      { value: "BR", label: "envio nacional" },
+    ],
+    [],
+  );
 
-  /* ── cart handler ── */
-  const handleAdd = (p: Product) => {
+  const handleAdd = (product: Product) => {
     addItem({
-      id: p.id,
-      name: p.name,
-      price: p.basePrice,
+      id: product.id,
+      name: product.name,
+      price: product.basePrice,
       quantity: 1,
-      image: p.images?.[0],
+      image: product.images?.[0],
       type: "PRODUCT",
     });
-    toast.success(`${p.name} adicionado ao carrinho`);
+    toast.success(`${product.name} adicionado ao carrinho`);
   };
 
-  /* ── featured slice (first 8 active products) ── */
-  const featuredProducts = products.slice(0, 8);
+  const navigateLightbox = (direction: number) => {
+    if (selectedIndex === null || filteredItems.length === 0) return;
+    setSelectedIndex((selectedIndex + direction + filteredItems.length) % filteredItems.length);
+  };
+
+  const scrollToCatalog = () => {
+    document.getElementById("catalogo-preview")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <div className="relative overflow-hidden bg-surface">
-
-      {/* ═══════════════════════════════════════════
-          HERO
-      ══════════════════════════════════════════════ */}
-      <section className="relative min-h-[100svh] flex flex-col items-center justify-center pt-28 pb-16 px-6 overflow-hidden">
+      <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden px-4 pb-8 pt-6 sm:px-6 lg:px-8">
         <FloatingBackground variant="grid" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_18%,rgba(255,255,255,0.13),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.15),#020617_88%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-surface to-transparent" />
 
-        {/* Strong radial spotlight behind content */}
-        <div className="absolute inset-0 pointer-events-none z-0">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[600px] bg-primary/10 rounded-full blur-[120px]" />
-        </div>
-
-        <div className="relative z-10 container-section w-full">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-
-            {/* LEFT — Copy */}
-            <div>
-              {/* Badge */}
-              <Reveal direction="up" delay={0}>
-                <div className="mb-8">
-                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/30 text-primary text-[9px] font-black tracking-[0.22em] uppercase">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                    Bambu Lab P2S · Pará · Brasil
-                  </span>
-                </div>
-              </Reveal>
-
-              {/* Headline */}
-              <RevealText
-                text="Impressão 3D de Alta Performance"
-                highlightFrom={3}
-                as="h1"
-                className="text-5xl sm:text-6xl lg:text-7xl font-display font-black uppercase tracking-tight leading-[0.9] justify-start gap-x-[0.2em] mb-6 text-white flex-wrap"
-              />
-
-              {/* Sub-headline */}
-              <Reveal direction="up" delay={0.25}>
-                <p className="text-base sm:text-lg text-white/45 max-w-md mb-10 font-medium leading-relaxed">
-                  Transformamos seus arquivos STL em objetos reais com acabamento premium.
-                  Do protótipo ao produto final — rápido, preciso e confiável.
-                </p>
-              </Reveal>
-
-              {/* CTAs */}
-              <Reveal direction="up" delay={0.4}>
-                <div className="flex flex-col sm:flex-row gap-4 mb-12">
-                  <Link to="/catalogo">
-                    <button className="group w-full sm:w-auto relative px-8 py-4 bg-primary rounded-2xl font-display font-black uppercase tracking-tight text-base text-white flex items-center justify-center gap-3 transition-all duration-300 hover:scale-105 active:scale-95 shadow-[0_20px_60px_-12px_rgba(37,99,235,0.7)]">
-                      Ver Catálogo
-                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                    </button>
-                  </Link>
-                  <Link to="/calculadora">
-                    <button className="group w-full sm:w-auto px-8 py-4 border border-white/15 rounded-2xl font-display font-black uppercase tracking-tight text-base text-white/60 hover:text-white hover:border-white/30 hover:bg-white/5 flex items-center justify-center gap-3 transition-all duration-300">
-                      <Zap className="w-5 h-5 group-hover:text-primary transition-colors" />
-                      Calcular Preço
-                    </button>
-                  </Link>
-                </div>
-              </Reveal>
-
-              {/* Stats chips */}
-              <RevealGroup className="flex flex-wrap gap-3">
-                {["48h Entrega", "PLA & PETG", "B2B + Varejo", "100% Nacional"].map((chip) => (
-                  <RevealItem key={chip}>
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/40">
-                      <span className="w-1 h-1 rounded-full bg-primary/70" />
-                      {chip}
-                    </span>
-                  </RevealItem>
-                ))}
-              </RevealGroup>
-            </div>
-
-            {/* RIGHT — Floating product highlight banners */}
-            <div className="relative hidden lg:flex items-center justify-center min-h-[520px]">
-              {/* Ambient glow */}
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="w-72 h-72 bg-primary/15 rounded-full blur-[100px]" />
+        <motion.div
+          style={{ y: heroY, opacity: heroOpacity }}
+          className="container-section relative z-10 grid min-h-[calc(100svh-6rem)] items-center gap-12 py-10 lg:grid-cols-[1.02fr_0.98fr] lg:py-16"
+        >
+          <div className="max-w-3xl">
+            <Reveal direction="up" delay={0.02}>
+              <div className="mb-6 inline-flex max-w-full items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-3 py-2 text-[9px] font-black uppercase tracking-[0.2em] text-white/55 shadow-2xl shadow-black/20 backdrop-blur-xl sm:px-4">
+                <span className="h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                Modelos prontos e pedidos sob medida
               </div>
+            </Reveal>
 
-              {/* Card 1 — top right */}
-              <FloatingCard
-                product={featuredProducts[0]}
-                loading={loading}
-                style="absolute top-4 right-0"
-                delay={0}
-                amplitude={-14}
-                duration={5.5}
-                badge="Popular"
-                badgeColor="bg-primary/20 text-primary border-primary/30"
-              />
+            <Reveal direction="up" delay={0.08}>
+              <AnimatedHeroCopy />
+            </Reveal>
 
-              {/* Card 2 — center left */}
-              <FloatingCard
-                product={featuredProducts[1]}
-                loading={loading}
-                style="absolute top-1/2 -translate-y-1/2 left-0"
-                delay={1.2}
-                amplitude={12}
-                duration={7}
-                badge="Novo"
-                badgeColor="bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
-              />
+            <Reveal direction="up" delay={0.42}>
+              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+                <Link to="/catalogo" className="w-full sm:w-auto">
+                  <button className="catalog-cta group relative flex h-[3.75rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white px-7 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-[0_24px_80px_-18px_rgba(255,255,255,0.65)] transition-transform duration-300 hover:-translate-y-1 active:translate-y-0 sm:w-auto">
+                    Abrir catálogo agora
+                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </button>
+                </Link>
+                <button
+                  type="button"
+                  onClick={scrollToCatalog}
+                  className="group flex h-[3.25rem] w-fit min-w-[11rem] items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:h-[3.75rem] sm:w-auto sm:px-7"
+                >
+                  Ver prévia
+                  <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+                </button>
+              </div>
+            </Reveal>
 
-              {/* Card 3 — bottom right */}
-              <FloatingCard
-                product={featuredProducts[2]}
-                loading={loading}
-                style="absolute bottom-4 right-8"
-                delay={0.6}
-                amplitude={-10}
-                duration={6.2}
-                badge="Destaque"
-                badgeColor="bg-cyan-500/15 text-cyan-400 border-cyan-500/25"
-              />
-
-              {/* Live indicator pill */}
-              <motion.div
-                animate={{ y: [0, -6, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.05] border border-white/10 backdrop-blur-sm"
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
-                  Impressora Online — P2S
-                </span>
-              </motion.div>
-            </div>
+            <RevealGroup className="mt-9 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+              {proofStats.map((stat) => (
+                <RevealItem key={stat.label}>
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
+                    <p className="font-display text-xl font-black text-white">{stat.value}</p>
+                    <p className="mt-1 text-[9px] font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
+                      {stat.label}
+                    </p>
+                  </div>
+                </RevealItem>
+              ))}
+            </RevealGroup>
           </div>
-        </div>
 
-        {/* Scroll indicator */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 z-10">
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="w-6 h-10 rounded-full border border-white/20 flex items-start justify-center pt-2"
-          >
-            <div className="w-1 h-2.5 rounded-full bg-white/40" />
-          </motion.div>
+          <Reveal direction="left" delay={0.22} className="min-w-0">
+            <HeroProductStage products={heroProducts} loading={loading} />
+          </Reveal>
+        </motion.div>
+      </section>
+
+      <section className="relative border-y border-white/[0.06] bg-white/[0.025] py-4">
+        <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={index} className="flex min-w-full items-center justify-around gap-8">
+              <span>catálogo pronto para comprar</span>
+              <span>orçamento por arquivo STL</span>
+              <span>acabamento premium</span>
+              <span>peças sob medida</span>
+              <span>envio para todo o Brasil</span>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════
-          NUMBERS STRIP
-      ══════════════════════════════════════════════ */}
-      <section className="border-y border-white/[0.06] bg-white/[0.02] py-16 sm:py-20">
-        <div className="container-section">
-          <RevealGroup className="grid grid-cols-2 md:grid-cols-4 gap-8 sm:gap-12">
-            {[
-              { val: "48h", label: "Entrega Rápida" },
-              { val: "20+", label: "Cores Disponíveis" },
-              { val: "P2S", label: "Bambu Lab Tech" },
-              { val: "100%", label: "Made in Pará" },
-            ].map((stat) => (
-              <RevealItem key={stat.label} className="text-center">
-                <p className="text-5xl sm:text-6xl lg:text-7xl font-display font-black mb-2 brand-gradient-text">
-                  {stat.val}
-                </p>
-                <p className="text-[10px] font-black uppercase tracking-[0.25em] text-white/30">
-                  {stat.label}
-                </p>
-              </RevealItem>
-            ))}
-          </RevealGroup>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
-          FEATURED PRODUCTS
-      ══════════════════════════════════════════════ */}
-      <section className="py-24 sm:py-32 container-section">
-        {/* Section header */}
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-12 gap-6">
+      <section className="container-section py-20 sm:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
           <div>
             <Reveal direction="up">
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary mb-3">
-                Produtos em Destaque
-              </p>
+              <p className="section-label-accent mb-4">Por que abrir o catálogo?</p>
             </Reveal>
             <RevealText
-              text="Nosso Catálogo"
-              highlightFrom={1}
+              text="Você vê possibilidades reais antes de pedir qualquer coisa."
+              highlightFrom={4}
               as="h2"
-              className="heading-lg text-white justify-start gap-x-[0.28em]"
+              className="heading-lg justify-start text-white"
             />
           </div>
-          <Reveal direction="up" delay={0.2}>
-            <Link to="/catalogo">
-              <button className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/40 hover:text-white transition-colors">
-                Ver todos
-                <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-              </button>
-            </Link>
+          <Reveal direction="up" delay={0.18}>
+            <p className="max-w-2xl text-sm font-medium leading-relaxed text-white/[0.44] sm:text-base">
+              O catálogo foi pensado para tirar o cliente do "será que dá certo?" e levar direto
+              para escolhas concretas: modelos, valores iniciais, fotos, materiais e compra em poucos
+              cliques. Quando precisar de algo único, o fluxo de orçamento entra no mesmo padrão.
+            </p>
           </Reveal>
         </div>
 
-        {/* Products grid */}
-        {loading ? (
-          <div className="h-64 flex items-center justify-center">
-            <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
-          </div>
-        ) : featuredProducts.length > 0 ? (
-          <RevealGroup className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {featuredProducts.map((p) => (
-              <RevealItem key={p.id}>
-                <ProductCard product={p} onAdd={handleAdd} />
-              </RevealItem>
-            ))}
-          </RevealGroup>
-        ) : (
-          <div className="h-48 flex items-center justify-center rounded-[32px] border border-dashed border-white/10 bg-white/[0.01]">
-            <p className="text-white/20 italic text-sm font-medium">
-              Nenhum produto disponível no momento.
-            </p>
-          </div>
-        )}
+        <RevealGroup className="mt-12 grid gap-4 md:grid-cols-3">
+          {[
+            {
+              icon: Sparkles,
+              title: "Compra sem fricção",
+              text: "Produtos prontos para escolher, comparar e adicionar ao carrinho sem depender de troca longa de mensagens.",
+            },
+            {
+              icon: Ruler,
+              title: "Medida e uso claros",
+              text: "Cada peça comunica preço inicial, categoria e descrição para o cliente entender onde ela se encaixa.",
+            },
+            {
+              icon: ShieldCheck,
+              title: "Acabamento de loja",
+              text: "A produção é ajustada para entregar peças limpas, resistentes e com aparência profissional.",
+            },
+          ].map((item) => (
+            <RevealItem key={item.title}>
+              <div className="spotlight-card group h-full rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-6 transition-all duration-500 hover:-translate-y-1 hover:border-white/[0.16]">
+                <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-cyan-300">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-display text-xl font-black leading-tight text-white">
+                  {item.title}
+                </h3>
+                <p className="mt-4 text-sm font-medium leading-relaxed text-white/40">{item.text}</p>
+              </div>
+            </RevealItem>
+          ))}
+        </RevealGroup>
       </section>
 
-      {/* ═══════════════════════════════════════════
-          TECHNOLOGY / WHY US
-      ══════════════════════════════════════════════ */}
-      <section className="py-24 sm:py-32 bg-white/[0.01] border-t border-white/[0.04]">
+      <section id="catalogo-preview" className="scroll-mt-28 py-20 sm:py-28">
         <div className="container-section">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-14 gap-8">
+          <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <Reveal direction="up">
-                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary mb-3">
-                  Por que a INOVAPRO3D?
-                </p>
+                <p className="section-label-accent mb-4">Prévia do catálogo</p>
               </Reveal>
               <RevealText
-                text="Tecnologia que Faz a Diferença"
+                text="Peças prontas para colocar no carrinho."
                 highlightFrom={3}
                 as="h2"
-                className="heading-lg text-white justify-start gap-x-[0.28em]"
+                className="heading-lg justify-start text-white"
               />
             </div>
-            <Reveal direction="up" delay={0.2}>
-              <p className="text-sm text-white/30 max-w-xs font-medium leading-relaxed italic">
-                Focamos no acabamento final para que sua peça pareça tudo, menos "feita em casa".
-              </p>
+            <Reveal direction="up" delay={0.16}>
+              <Link
+                to="/catalogo"
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.55] transition-all hover:border-white/20 hover:bg-white hover:text-slate-950"
+              >
+                Ver todos os modelos
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
             </Reveal>
           </div>
 
-          <RevealGroup className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
+          {loading ? (
+            <ProductSkeletonGrid />
+          ) : featuredProducts.length > 0 ? (
+            <RevealGroup className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {featuredProducts.map((product) => (
+                <RevealItem key={product.id}>
+                  <ProductCard product={product} onAdd={handleAdd} />
+                </RevealItem>
+              ))}
+            </RevealGroup>
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+              <Box className="mx-auto mb-4 h-9 w-9 text-white/18" />
+              <p className="text-sm font-medium text-white/[0.35]">Nenhum produto disponivel no momento.</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="container-section py-20 sm:py-28">
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <Reveal direction="right" className="min-h-[420px]">
+            <div className="relative h-full overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.03]">
+              <FloatingBackground subtle />
+              <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/70" />
+              <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
+                <div>
+                  <p className="section-label-accent mb-5">Processo sem mistério</p>
+                  <h2 className="max-w-xl font-display text-4xl font-black uppercase leading-[0.92] text-white sm:text-5xl">
+                    Do clique ao pacote, tudo pensado para o cliente confiar.
+                  </h2>
+                </div>
+                <Link to="/upload">
+                  <Button className="h-[3.25rem] rounded-2xl px-6 text-[10px] font-black uppercase tracking-[0.18em]">
+                    Pedir uma peça sob medida
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+
+          <RevealGroup className="grid gap-5">
             {[
-              {
-                icon: Zap,
-                title: "Velocidade",
-                desc: "Seu orçamento é processado quase que instantaneamente. Produção inicia em até 24h após a aprovação.",
-                color: "text-primary",
-                glow: "shadow-primary/10",
-              },
-              {
-                icon: ShieldCheck,
-                title: "Qualidade",
-                desc: "Impressora Bambu Lab P2S com precisão de 0.05mm. Cores vivas, peças resistentes e acabamento premium.",
-                color: "text-cyan-400",
-                glow: "shadow-cyan-400/10",
-              },
-              {
-                icon: Package,
-                title: "Entrega",
-                desc: "Entregamos em todo o Brasil. Embalagem projetada para proteger sua peça durante todo o transporte.",
-                color: "text-indigo-400",
-                glow: "shadow-indigo-400/10",
-              },
-            ].map((f, i) => (
-              <RevealItem key={f.title}>
-                <Reveal direction="up" delay={i * 0.1}>
-                  <div
-                    className={`h-full p-8 rounded-[28px] bg-white/[0.03] border border-white/[0.08] hover:border-white/15 transition-all duration-500 flex flex-col shadow-xl ${f.glow} group`}
-                  >
-                    <div
-                      className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-8 bg-white/[0.04] border border-white/[0.08] group-hover:border-white/15 transition-colors ${f.color}`}
-                    >
-                      <f.icon className="w-5 h-5" />
-                    </div>
-                    <h3
-                      className={`text-xl font-display font-black uppercase tracking-tight mb-4 brand-gradient-text`}
-                    >
-                      {f.title}
-                    </h3>
-                    <p className="text-sm text-white/35 font-medium leading-relaxed flex-1">
-                      {f.desc}
-                    </p>
+              { icon: Layers3, title: "Escolha ou envie", text: "Use o catálogo para comprar rápido ou envie seu STL para uma peça exclusiva." },
+              { icon: Clock3, title: "Validação técnica", text: "Avaliamos material, tempo, resistência e acabamento antes de produzir." },
+              { icon: PackageCheck, title: "Produção e envio", text: "A peça sai protegida, embalada e pronta para uso, presente ou revenda." },
+            ].map((step, index) => (
+              <RevealItem key={step.title}>
+                <div className="grid grid-cols-[auto_1fr] gap-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-950">
+                    <step.icon className="h-5 w-5" />
                   </div>
-                </Reveal>
+                  <div>
+                    <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
+                      Etapa 0{index + 1}
+                    </p>
+                    <h3 className="font-display text-xl font-black leading-tight text-white">{step.title}</h3>
+                    <p className="mt-3 text-sm font-medium leading-relaxed text-white/[0.42]">{step.text}</p>
+                  </div>
+                </div>
               </RevealItem>
             ))}
           </RevealGroup>
         </div>
       </section>
 
-      {/* ═══════════════════════════════════════════
-          SHOWCASE GALLERY
-      ══════════════════════════════════════════════ */}
-      <section className="py-24 sm:py-32 border-t border-white/[0.04]">
+      <section className="py-20 sm:py-28">
         <div className="container-section">
-          {/* Header + filter */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-14 gap-8">
-            <header>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">
-                  Galeria INOVAPRO3D
-                </span>
+          <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+            <div>
+              <div className="mb-4 flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                <span className="section-label-accent">Galeria real</span>
               </div>
               <RevealText
-                text="Nossas Impressões Privadas"
-                highlightFrom={2}
+                text="Imagens que parecem menos IA e mais bancada de produção."
+                highlightFrom={6}
                 as="h2"
-                className="heading-lg text-white justify-start gap-x-[0.28em]"
+                className="heading-lg justify-start text-white"
               />
-            </header>
-
-            <div className="flex flex-wrap gap-3">
+            </div>
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilter("ALL")}
-                className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.15em] border transition-all ${
+                className={`rounded-full border px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                   filter === "ALL"
-                    ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                    : "bg-white/[0.03] border-white/[0.07] text-white/35 hover:text-white hover:border-white/15"
+                    ? "border-white bg-white text-slate-950"
+                    : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
                 }`}
               >
                 Todos
@@ -425,10 +396,10 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setFilter(cat)}
-                  className={`px-5 py-2 rounded-full text-[9px] font-black uppercase tracking-[0.15em] border transition-all ${
+                  className={`rounded-full border px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                     filter === cat
-                      ? "bg-primary border-primary text-white shadow-lg shadow-primary/20"
-                      : "bg-white/[0.03] border-white/[0.07] text-white/35 hover:text-white hover:border-white/15"
+                      ? "border-white bg-white text-slate-950"
+                      : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
                   }`}
                 >
                   {cat}
@@ -437,313 +408,362 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Gallery masonry */}
           {loading ? (
-            <div className="h-96 flex items-center justify-center">
-              <div className="w-10 h-10 border-4 border-primary/20 border-t-primary rounded-full animate-spin" />
+            <div className="flex h-72 items-center justify-center">
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
             </div>
-          ) : (
-            <div className="relative">
-              <motion.div
-                layout
-                className="columns-1 sm:columns-2 lg:columns-3 xl:columns-4 gap-6 space-y-6"
-              >
-                <AnimatePresence mode="popLayout">
-                  {filteredItems.map((item, idx) => (
-                    <motion.div
-                      layout
-                      key={item.id}
-                      initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                      whileInView={{ opacity: 1, scale: 1, y: 0 }}
-                      viewport={{ once: true, margin: "-50px" }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.4, delay: (idx % 4) * 0.08 }}
-                      onClick={() => setSelectedIndex(idx)}
-                      className="break-inside-avoid group relative rounded-[28px] overflow-hidden border border-white/[0.06] bg-surface cursor-pointer shadow-lg hover:shadow-primary/10 hover:border-primary/20 transition-all duration-500"
-                    >
-                      <div className="relative aspect-auto">
-                        <img
-                          src={item.image}
-                          loading="lazy"
-                          decoding="async"
-                          className="w-full h-auto object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700 group-hover:scale-105"
-                          alt={item.title}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                        <div className="absolute inset-x-0 bottom-0 p-6 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500">
-                          {item.category && (
-                            <span className="inline-block px-2 py-0.5 rounded bg-primary/20 text-primary text-[8px] font-black uppercase tracking-widest mb-2">
-                              {item.category}
-                            </span>
-                          )}
-                          <h4 className="text-base font-display font-black uppercase tracking-tight text-white mb-1">
-                            {item.title}
-                          </h4>
-                          {item.description && (
-                            <p className="text-xs text-white/40 font-medium line-clamp-2 italic">
-                              {item.description}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-
-              {/* Lightbox modal (unchanged logic) */}
-              <AnimatePresence>
-                {selectedIndex !== null && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 z-[100] bg-surface/95 backdrop-blur-2xl flex items-center justify-center p-6 sm:p-12"
+          ) : filteredItems.length > 0 ? (
+            <motion.div layout className="columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
+              <AnimatePresence mode="popLayout">
+                {filteredItems.map((item, idx) => (
+                  <motion.button
+                    layout
+                    key={item.id}
+                    type="button"
+                    initial={{ opacity: 0, scale: 0.96, y: 18 }}
+                    whileInView={{ opacity: 1, scale: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    exit={{ opacity: 0, scale: 0.96 }}
+                    transition={{ duration: 0.45, delay: (idx % 3) * 0.06 }}
+                    onClick={() => setSelectedIndex(idx)}
+                    className="group relative w-full break-inside-avoid overflow-hidden rounded-[26px] border border-white/[0.08] bg-white/[0.03] text-left shadow-xl shadow-black/20"
                   >
-                    <button
-                      onClick={() => setSelectedIndex(null)}
-                      className="absolute top-8 right-8 z-[110] p-4 rounded-full bg-white/5 border border-white/10 text-white/40 hover:text-white hover:bg-white/10 transition-all"
-                    >
-                      <Plus className="w-6 h-6 rotate-45" />
-                    </button>
-
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigateLightbox(-1); }}
-                      className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 p-4 sm:p-5 rounded-full bg-white/5 border border-white/10 text-white/20 hover:text-white hover:bg-primary transition-all z-[110]"
-                    >
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-
-                    <button
-                      onClick={(e) => { e.stopPropagation(); navigateLightbox(1); }}
-                      className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 p-4 sm:p-5 rounded-full bg-white/5 border border-white/10 text-white/20 hover:text-white hover:bg-primary transition-all z-[110]"
-                    >
-                      <ChevronRight className="w-6 h-6" />
-                    </button>
-
-                    <motion.div
-                      key={selectedIndex}
-                      initial={{ scale: 0.9, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0.9, opacity: 0 }}
-                      className="relative max-w-5xl w-full aspect-[4/3] sm:aspect-video rounded-[36px] overflow-hidden shadow-2xl border border-white/10"
-                    >
-                      <img
-                        src={filteredItems[selectedIndex].image}
-                        className="w-full h-full object-cover"
-                        alt={filteredItems[selectedIndex].title}
-                      />
-                      <div className="absolute inset-x-0 bottom-0 p-8 sm:p-12 bg-gradient-to-t from-black via-black/40 to-transparent">
-                        <div className="flex items-center gap-3 mb-4">
-                          {filteredItems[selectedIndex].category && (
-                            <span className="px-3 py-1 rounded-full bg-primary text-white text-[9px] font-black uppercase tracking-widest">
-                              {filteredItems[selectedIndex].category}
-                            </span>
-                          )}
-                          <span className="text-white/40 text-[9px] font-black uppercase tracking-widest font-mono">
-                            {selectedIndex + 1} / {filteredItems.length}
-                          </span>
-                        </div>
-                        <h3 className="text-2xl sm:text-4xl font-display font-black uppercase tracking-tight text-white mb-3">
-                          {filteredItems[selectedIndex].title}
-                        </h3>
-                        {filteredItems[selectedIndex].description && (
-                          <p className="text-base text-white/50 font-medium max-w-2xl italic leading-relaxed">
-                            {filteredItems[selectedIndex].description}
-                          </p>
-                        )}
-                      </div>
-                    </motion.div>
-
-                    {/* Indicators */}
-                    <div className="absolute bottom-8 sm:bottom-12 flex justify-center gap-2 z-[110]">
-                      {filteredItems.map((_, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setSelectedIndex(idx)}
-                          className={`h-1.5 transition-all duration-500 rounded-full ${
-                            idx === selectedIndex
-                              ? "w-8 sm:w-10 bg-primary"
-                              : "w-1.5 sm:w-2.5 bg-white/10 hover:bg-white/25"
-                          }`}
-                        />
-                      ))}
+                    <img
+                      src={item.image}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-auto w-full object-cover opacity-75 saturate-[0.85] transition-all duration-700 group-hover:scale-105 group-hover:opacity-100 group-hover:saturate-100"
+                      alt={item.title}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent opacity-80" />
+                    <div className="absolute inset-x-0 bottom-0 p-5">
+                      {item.category && (
+                        <span className="mb-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-slate-950">
+                          {item.category}
+                        </span>
+                      )}
+                      <h3 className="font-display text-lg font-black uppercase leading-tight text-white">{item.title}</h3>
+                      {item.description && (
+                        <p className="mt-1 line-clamp-2 text-xs font-medium leading-relaxed text-white/[0.45]">
+                          {item.description}
+                        </p>
+                      )}
                     </div>
-                  </motion.div>
-                )}
+                  </motion.button>
+                ))}
               </AnimatePresence>
+            </motion.div>
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+              <p className="text-sm font-medium text-white/[0.35]">Nenhuma peça encontrada nesta categoria.</p>
             </div>
           )}
+        </div>
+      </section>
 
-          {filteredItems.length === 0 && !loading && (
-            <div className="text-center py-20 bg-white/[0.02] rounded-[36px] border border-dashed border-white/10">
-              <p className="text-white/20 italic font-medium text-sm">
-                Nenhuma peça encontrada nesta categoria.
+      <section className="container-section pb-28 pt-8 sm:pb-36">
+        <div className="relative overflow-hidden rounded-[36px] border border-white/[0.08] bg-white/[0.04] px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
+          <FloatingBackground subtle />
+          <div className="relative z-10 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <p className="section-label-accent mb-4">Comece pela decisão mais fácil</p>
+              <h2 className="max-w-3xl font-display text-4xl font-black uppercase leading-[0.9] text-white sm:text-6xl">
+                Abra o catálogo. Escolha a peça. A gente imprime direito.
+              </h2>
+              <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.45] sm:text-base">
+                Para produto pronto, vá ao catálogo. Para arquivo próprio, solicite orçamento.
+                Os dois caminhos chegam no mesmo ponto: uma peça bem feita.
               </p>
             </div>
-          )}
-
-          <div className="mt-14 text-center">
-            <Reveal direction="up">
+            <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
               <Link to="/catalogo">
-                <button className="group inline-flex items-center gap-3 px-10 py-4 rounded-2xl bg-white/[0.04] border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/40 hover:bg-white hover:text-surface hover:border-white transition-all duration-300">
-                  Explorar Catálogo Completo
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                <button className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-white px-7 text-[10px] font-black uppercase tracking-[0.18em] text-slate-950 transition-transform hover:-translate-y-1 lg:w-64">
+                  Abrir catálogo
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               </Link>
-            </Reveal>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════════════════════════════════════
-          CTA BANNER
-      ══════════════════════════════════════════════ */}
-      <section className="pb-28 sm:pb-36 container-section">
-        <div className="relative rounded-[48px] sm:rounded-[56px] overflow-hidden border border-white/[0.07]">
-          <FloatingBackground subtle />
-
-          <div className="relative z-10 px-8 sm:px-16 lg:px-24 py-20 sm:py-28 flex flex-col lg:flex-row items-center justify-between gap-12 sm:gap-16">
-            {/* Copy */}
-            <div className="flex-1 text-center lg:text-left">
-              <Reveal direction="up">
-                <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary mb-4">
-                  Pronto para Imprimir?
-                </p>
-              </Reveal>
-              <RevealText
-                text="Transforme Sua Ideia em Realidade"
-                highlightFrom={3}
-                as="h2"
-                className="heading-lg text-white justify-center lg:justify-start gap-x-[0.28em] mb-6"
-              />
-              <Reveal direction="up" delay={0.2}>
-                <p className="text-sm sm:text-base text-white/40 max-w-md font-medium leading-relaxed italic mb-10 mx-auto lg:mx-0">
-                  Faça upload do seu modelo 3D agora e receba um orçamento em minutos.
-                  A melhor tecnologia de impressão do Pará.
-                </p>
-              </Reveal>
-              <Reveal direction="up" delay={0.35}>
-                <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                  <Link to="/upload">
-                    <Button
-                      size="lg"
-                      className="h-14 px-8 rounded-2xl gap-3 font-display font-black uppercase tracking-tight text-sm bg-primary text-white hover:scale-105 transition-transform shadow-2xl shadow-primary/25"
-                    >
-                      Solicitar Orçamento
-                      <ArrowRight className="w-4 h-4" />
-                    </Button>
-                  </Link>
-                  <Link to="/calculadora">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="h-14 px-8 rounded-2xl gap-3 font-display font-black uppercase tracking-tight text-sm border-white/15 text-white/60 hover:text-white hover:border-white/30 transition-all"
-                    >
-                      Calculadora de Filamento
-                    </Button>
-                  </Link>
-                </div>
-              </Reveal>
+              <Link to="/upload">
+                <button className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-7 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.64] transition-all hover:border-white/[0.24] hover:text-white lg:w-64">
+                  Enviar STL
+                  <Zap className="h-4 w-4" />
+                </button>
+              </Link>
             </div>
-
-            {/* Stats block — desktop only */}
-            <Reveal direction="left" delay={0.3} className="relative z-10 hidden lg:block shrink-0">
-              <div className="grid grid-cols-2 gap-4 w-[320px]">
-                {[
-                  { val: "48h", label: "Entrega média" },
-                  { val: "0.05mm", label: "Precisão P2S" },
-                  { val: "PLA + PETG", label: "Materiais" },
-                  { val: "B2B", label: "Atendimento" },
-                ].map((s) => (
-                  <div
-                    key={s.label}
-                    className="p-5 rounded-[20px] bg-white/[0.04] border border-white/[0.07] hover:border-primary/20 transition-colors"
-                  >
-                    <p className="text-xl font-display font-black brand-gradient-text mb-1">{s.val}</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-white/30">{s.label}</p>
-                  </div>
-                ))}
-              </div>
-            </Reveal>
           </div>
         </div>
       </section>
+
+      <Lightbox
+        items={filteredItems}
+        selectedIndex={selectedIndex}
+        onClose={() => setSelectedIndex(null)}
+        onNavigate={navigateLightbox}
+        onSelect={setSelectedIndex}
+      />
     </div>
   );
 }
 
-/* ─── Floating product highlight card ─────────────────────────── */
-function FloatingCard({
+function HeroProductStage({ products, loading }: { products: Product[]; loading: boolean }) {
+  return (
+    <div className="relative mx-auto w-full max-w-[620px] lg:max-w-none">
+      <div className="absolute left-1/2 top-1/2 h-[68%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/12 blur-[110px]" />
+      <div className="relative min-h-[520px] overflow-hidden rounded-[36px] border border-white/10 bg-black/25 p-4 shadow-[0_40px_140px_-60px_rgba(56,189,248,0.8)] backdrop-blur-xl sm:p-6">
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12),transparent_28%,rgba(59,130,246,0.12)_68%,transparent)]" />
+        <div className="absolute inset-x-8 bottom-8 h-36 rounded-[100%] border border-cyan-300/20 bg-cyan-300/8 blur-sm" />
+
+        <div className="relative z-10 grid h-full min-h-[480px] grid-cols-2 gap-4">
+          <div className="flex flex-col gap-4">
+            <CatalogPreviewCard product={products[0]} loading={loading} size="large" badge="Mais visto" />
+            <CatalogPreviewCard product={products[2]} loading={loading} badge="Presenteável" />
+          </div>
+          <div className="flex flex-col gap-4 pt-12">
+            <CatalogPreviewCard product={products[1]} loading={loading} badge="Decoração" />
+            <CatalogPreviewCard product={products[3]} loading={loading} size="large" badge="Sob demanda" />
+          </div>
+        </div>
+
+        <motion.div
+          animate={{ y: [0, -7, 0] }}
+          transition={{ duration: 4.6, repeat: Infinity, ease: "easeInOut" }}
+          className="absolute bottom-5 left-5 right-5 z-20 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-xl"
+        >
+          <div className="flex items-center gap-2">
+            <BadgeCheck className="h-4 w-4 text-cyan-300" />
+            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/[0.55]">
+              Catálogo pronto para compra
+            </span>
+          </div>
+          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/[0.28]">
+            {products.length || "..."} modelos
+          </span>
+        </motion.div>
+      </div>
+    </div>
+  );
+}
+
+function AnimatedHeroCopy() {
+  const [activeCopy, setActiveCopy] = useState(0);
+  const copy = heroCopyOptions[activeCopy];
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setActiveCopy((current) => (current + 1) % heroCopyOptions.length);
+    }, 4200);
+
+    return () => window.clearInterval(interval);
+  }, []);
+
+  return (
+    <div>
+      <div className="relative min-h-[21rem] sm:min-h-[24rem] lg:min-h-[30rem]">
+        <AnimatePresence mode="wait">
+          <motion.h1
+            key={activeCopy}
+            initial={{ opacity: 0, y: 26, filter: "blur(14px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: -22, filter: "blur(14px)" }}
+            transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 max-w-4xl text-[clamp(2.85rem,6.8vw,6.45rem)] font-display font-black uppercase leading-[0.88] tracking-tight text-white"
+          >
+            {copy.lines.map((line, index) => (
+              <motion.span
+                key={`${line.text}-${index}`}
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.62, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
+                className={`block ${line.accent ? "brand-gradient-text" : ""}`}
+              >
+                {line.text}
+              </motion.span>
+            ))}
+          </motion.h1>
+        </AnimatePresence>
+      </div>
+
+      <div className="relative mt-7 min-h-[7.5rem] max-w-2xl sm:min-h-[5rem]">
+        <AnimatePresence mode="wait">
+          <motion.p
+            key={copy.body}
+            initial={{ opacity: 0, y: 14, filter: "blur(8px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            exit={{ opacity: 0, y: -10, filter: "blur(8px)" }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="text-base font-medium leading-relaxed text-white/[0.58] sm:text-lg"
+          >
+            {copy.body}
+          </motion.p>
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}
+
+function CatalogPreviewCard({
   product,
   loading,
-  style,
-  delay,
-  amplitude,
-  duration,
+  size = "default",
   badge,
-  badgeColor,
 }: {
   product?: Product;
   loading: boolean;
-  style: string;
-  delay: number;
-  amplitude: number;
-  duration: number;
+  size?: "default" | "large";
   badge: string;
-  badgeColor: string;
 }) {
-  const brl = (v: number) =>
-    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const image = product?.images?.[0];
 
   return (
     <motion.div
-      animate={{ y: [0, amplitude, 0] }}
-      transition={{ duration, repeat: Infinity, ease: "easeInOut", delay }}
-      className={`${style} z-10 w-[220px]`}
+      animate={{ y: size === "large" ? [0, -10, 0] : [0, 8, 0] }}
+      transition={{ duration: size === "large" ? 5.8 : 6.5, repeat: Infinity, ease: "easeInOut" }}
+      className={`group relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.05] shadow-2xl shadow-black/30 ${
+        size === "large" ? "min-h-[250px]" : "min-h-[180px]"
+      }`}
     >
-      <div className="rounded-[20px] bg-white/[0.06] border border-white/10 backdrop-blur-xl p-3 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.5)] hover:border-white/20 transition-colors duration-300">
-        {loading || !product ? (
-          /* Skeleton */
-          <div className="flex items-center gap-3 animate-pulse">
-            <div className="w-12 h-12 rounded-xl bg-white/10 shrink-0" />
-            <div className="flex-1 space-y-2">
-              <div className="h-2.5 w-24 rounded bg-white/10" />
-              <div className="h-2 w-16 rounded bg-white/[0.07]" />
+      {loading || !product ? (
+        <div className="h-full min-h-[inherit] animate-pulse bg-white/[0.08]" />
+      ) : (
+        <>
+          {image ? (
+            <img
+              src={image}
+              alt={product.name}
+              className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-110"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/10 to-transparent">
+              <Box className="h-10 w-10 text-white/20" />
             </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            {/* Thumbnail */}
-            <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/5 shrink-0">
-              {product.images?.[0] ? (
-                <img
-                  src={product.images[0]}
-                  alt={product.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-white/20 text-lg">
-                  ◻
-                </div>
-              )}
-            </div>
-            {/* Info */}
-            <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-tight text-white leading-tight truncate">
-                {product.name}
-              </p>
-              <p className="text-[10px] font-bold text-white/40 mt-0.5">
-                {brl(product.basePrice)}
-              </p>
-            </div>
-            {/* Badge */}
-            <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wide ${badgeColor}`}>
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-4">
+            <span className="mb-2 inline-flex rounded-full border border-white/[0.12] bg-white/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-white/[0.65] backdrop-blur-md">
               {badge}
             </span>
+            <h3 className="line-clamp-2 font-display text-base font-black uppercase leading-none text-white">
+              {product.name}
+            </h3>
+            <p className="mt-2 text-[11px] font-bold text-white/[0.52]">a partir de {brl(product.basePrice)}</p>
           </div>
-        )}
-      </div>
+        </>
+      )}
     </motion.div>
+  );
+}
+
+function ProductSkeletonGrid() {
+  return (
+    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {Array.from({ length: 8 }).map((_, index) => (
+        <div key={index} className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025]">
+          <div className="aspect-[4/5] animate-pulse bg-white/[0.06]" />
+          <div className="space-y-3 p-5">
+            <div className="h-4 w-2/3 rounded bg-white/[0.08]" />
+            <div className="h-3 w-full rounded bg-white/[0.06]" />
+            <div className="h-3 w-3/4 rounded bg-white/[0.06]" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Lightbox({
+  items,
+  selectedIndex,
+  onClose,
+  onNavigate,
+  onSelect,
+}: {
+  items: ShowcaseItem[];
+  selectedIndex: number | null;
+  onClose: () => void;
+  onNavigate: (direction: number) => void;
+  onSelect: (index: number) => void;
+}) {
+  if (selectedIndex === null || !items[selectedIndex]) return null;
+  const item = items[selectedIndex];
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-surface/96 p-4 backdrop-blur-2xl sm:p-10"
+      >
+        <button
+          onClick={onClose}
+          className="absolute right-5 top-5 z-[110] rounded-full border border-white/10 bg-white/[0.06] p-4 text-white/[0.45] transition-all hover:bg-white/10 hover:text-white"
+          aria-label="Fechar galeria"
+        >
+          <Plus className="h-6 w-6 rotate-45" />
+        </button>
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            onNavigate(-1);
+          }}
+          className="absolute left-4 top-1/2 z-[110] -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.06] p-4 text-white/[0.35] transition-all hover:bg-white hover:text-slate-950 sm:left-8"
+          aria-label="Imagem anterior"
+        >
+          <ChevronLeft className="h-6 w-6" />
+        </button>
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            onNavigate(1);
+          }}
+          className="absolute right-4 top-1/2 z-[110] -translate-y-1/2 rounded-full border border-white/10 bg-white/[0.06] p-4 text-white/[0.35] transition-all hover:bg-white hover:text-slate-950 sm:right-8"
+          aria-label="Proxima imagem"
+        >
+          <ChevronRight className="h-6 w-6" />
+        </button>
+
+        <motion.div
+          key={item.id}
+          initial={{ scale: 0.96, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0.96, opacity: 0 }}
+          className="relative aspect-[4/3] w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/10 shadow-2xl sm:aspect-video"
+        >
+          <img src={item.image} className="h-full w-full object-cover" alt={item.title} />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent p-6 sm:p-10">
+            <div className="mb-3 flex items-center gap-3">
+              {item.category && (
+                <span className="rounded-full bg-white px-3 py-1 text-[9px] font-black uppercase tracking-widest text-slate-950">
+                  {item.category}
+                </span>
+              )}
+              <span className="font-mono text-[9px] font-black uppercase tracking-widest text-white/[0.42]">
+                {selectedIndex + 1} / {items.length}
+              </span>
+            </div>
+            <h3 className="font-display text-2xl font-black uppercase leading-none text-white sm:text-4xl">
+              {item.title}
+            </h3>
+            {item.description && (
+              <p className="mt-3 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.55] sm:text-base">
+                {item.description}
+              </p>
+            )}
+          </div>
+        </motion.div>
+
+        <div className="absolute bottom-6 z-[110] flex justify-center gap-2 sm:bottom-10">
+          {items.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => onSelect(index)}
+              className={`h-1.5 rounded-full transition-all duration-500 ${
+                index === selectedIndex ? "w-9 bg-white" : "w-2 bg-white/[0.16] hover:bg-white/[0.32]"
+              }`}
+              aria-label={`Abrir imagem ${index + 1}`}
+            />
+          ))}
+        </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
