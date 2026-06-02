@@ -391,9 +391,6 @@ export default function AdminDashboard() {
   const [quickCalcMaterial, setQuickCalcMaterial] = useState<'pla' | 'petg'>('pla');
   const [quickCalcMaterialReserve, setQuickCalcMaterialReserve] = useState<number>(15);
   const [quickCalcMinPrice, setQuickCalcMinPrice] = useState<number>(35);
-  const [quickCalcColorChanges, setQuickCalcColorChanges] = useState<number>(0);
-  const [quickCalcAmsPurge, setQuickCalcAmsPurge] = useState<number>(0);
-  const [quickCalcPurgePerChange, setQuickCalcPurgePerChange] = useState<number>(0.5);
   const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState<number>(1.6);
   const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState<number>(2.5);
 
@@ -445,12 +442,8 @@ export default function AdminDashboard() {
     const hours = Math.max(0, parseTimeToHours(quickCalcTime));
     const slicerWeight = Math.max(0, Number(quickCalcWeight) || 0);
     const quantity = Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1));
-    const colorChanges = Math.max(0, Number(quickCalcColorChanges) || 0);
-    const purgePerChange = Math.max(0, Number(quickCalcPurgePerChange) || 0);
-    const purgeFallback = colorChanges * purgePerChange;
-    const informedPurge = Math.max(0, Number(quickCalcAmsPurge) || 0);
-    const purgeWeight = informedPurge > 0 ? informedPurge : purgeFallback;
-    const realWeight = slicerWeight + purgeWeight;
+    const purgeWeight = 0;
+    const realWeight = slicerWeight;
     const reserveMultiplier = 1 + Math.max(0, Number(quickCalcMaterialReserve) || 0) / 100;
     const gramCost = mat.spoolPrice / mat.spoolWeight;
     const materialCost = realWeight * gramCost * reserveMultiplier;
@@ -562,7 +555,7 @@ export default function AdminDashboard() {
     const clientName = quickCalcCustomerName || "Cliente";
     const pieceName = quickCalcPieceName || "Peça personalizada";
     
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Material: ${MATERIAL_PRESETS[quickCalcMaterial].label}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Peso do job/lote: ${quickCalcResult.slicerWeight.toFixed(1).replace('.', ',')}g\n- Purga AMS: ${quickCalcResult.purgeWeight.toFixed(1).replace('.', ',')}g\n- Tempo de impressão: ${quickCalcTime || '0h'} (${quickCalcResult.hours.toFixed(2).replace('.', ',')}h)\n\n*Investimento final (varejo):*\nTotal: ${formatQuickCurrency(quickCalcResult.retailTotal)}\nUnitário: ${formatQuickCurrency(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico com material ${MATERIAL_PRESETS[quickCalcMaterial].label}, energia e hora-máquina P2S.`;
+    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Material: ${MATERIAL_PRESETS[quickCalcMaterial].label}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Peso do job/lote: ${quickCalcResult.slicerWeight.toFixed(1).replace('.', ',')}g\n- Tempo de impressão: ${quickCalcTime || '0h'} (${quickCalcResult.hours.toFixed(2).replace('.', ',')}h)\n\n*Investimento final (varejo):*\nTotal: ${formatQuickCurrency(quickCalcResult.retailTotal)}\nUnitário: ${formatQuickCurrency(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico com material ${MATERIAL_PRESETS[quickCalcMaterial].label}, energia e hora-máquina P2S.`;
     const encodedText = encodeURIComponent(text);
     const url = `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`;
     window.open(url, '_blank');
@@ -1665,56 +1658,6 @@ export default function AdminDashboard() {
                         />
                       </div>
 
-                      <div className="grid grid-cols-2 xl:grid-cols-3 gap-3">
-                        <div className="col-span-2 xl:col-span-1">
-                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                            Trocas AMS
-                            <span title="Número de trocas de cor durante a impressão. Cada troca gera desperdício de purga.">
-                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            value={quickCalcColorChanges}
-                            onChange={(e) => setQuickCalcColorChanges(Number(e.target.value))}
-                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                            Purga AMS (g)
-                            <span title="Se souber a purga total pelo Bambu Studio, informe aqui. Se deixar 0, calcula automaticamente pelas trocas × g/troca.">
-                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={quickCalcAmsPurge}
-                            onChange={(e) => setQuickCalcAmsPurge(Number(e.target.value))}
-                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                          />
-                        </div>
-                        <div>
-                          <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                            g/Troca
-                            <span title="Gramas de filamento desperdiçado por cada troca de cor no AMS. Padrão P2S: ~0,5g por troca.">
-                              <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
-                            </span>
-                          </label>
-                          <input
-                            type="number"
-                            min="0"
-                            step="0.1"
-                            value={quickCalcPurgePerChange}
-                            onChange={(e) => setQuickCalcPurgePerChange(Number(e.target.value))}
-                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                          />
-                        </div>
-                      </div>
-
                       {/* PREMISSAS CONFIGURÁVEIS */}
                       <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-3">
                         <p className="text-[8px] uppercase font-black text-white/40 tracking-wider">Premissas P2S — Equatorial Pará</p>
@@ -1833,7 +1776,7 @@ export default function AdminDashboard() {
                       <div className="bg-black/40 border border-white/5 rounded-[24px] p-4 sm:p-5 space-y-3">
                         {/* CUSTO REAL */}
                         <div className="flex justify-between gap-3 text-xs text-white/70">
-                          <span className="min-w-0">Material ({quickCalcResult.realWeight.toFixed(1)}g c/ purga + {quickCalcMaterialReserve}% res.):</span>
+                          <span className="min-w-0">Material ({quickCalcResult.realWeight.toFixed(1)}g + {quickCalcMaterialReserve}% reserva):</span>
                           <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.materialCost)}</span>
                         </div>
                         <div className="flex justify-between gap-3 text-xs text-white/70">
