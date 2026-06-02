@@ -1,4 +1,5 @@
 import { Cpu, LogOut, User as UserIcon, ShoppingBag, Menu, X, Box, Calculator, Zap, BookOpen } from "lucide-react";
+import { BrandLogo } from "../brand/BrandLogo";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "../ui/Button";
 import { useAuth } from "../../contexts/AuthContext";
@@ -94,13 +95,8 @@ export function Navbar() {
       <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 h-16 flex items-center px-6 lg:px-8 justify-between ${
         scrolled ? 'scrolled bg-surface/60 backdrop-blur-md border-b border-white/10 py-2' : 'bg-transparent py-4'
       }`}>
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center group-hover:rotate-12 transition-all duration-500 shadow-lg shadow-primary/20">
-            <Box className="text-white w-5 h-5" />
-          </div>
-          <span className="font-display font-black text-xl uppercase tracking-tighter text-shimmer">
-            INOVAPRO3D
-          </span>
+        <Link to="/" className="group flex items-center">
+          <BrandLogo markClassName="h-9 w-9" wordmarkClassName="text-lg" />
         </Link>
         
         <div className="hidden lg:flex items-center gap-8">

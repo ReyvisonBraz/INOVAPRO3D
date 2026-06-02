@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Cpu, Github, Instagram, Linkedin, Mail, Twitter, Globe, Shield } from "lucide-react";
+import { BrandLogo } from "../brand/BrandLogo";
 import { motion } from "framer-motion";
 
 export function Footer() {
@@ -13,16 +14,11 @@ export function Footer() {
           
           {/* Brand Identity */}
           <div className="lg:col-span-4 space-y-6">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 bg-primary/20 border border-primary/20 rounded-lg flex items-center justify-center group-hover:rotate-12 transition-all duration-500">
-                <Cpu className="text-primary w-5 h-5" />
-              </div>
-              <span className="font-display font-black text-xl uppercase tracking-tighter text-shimmer">
-                INOVAPRO3D
-              </span>
+            <Link to="/" className="group flex items-center">
+              <BrandLogo markClassName="h-10 w-10" wordmarkClassName="text-xl" />
             </Link>
             <p className="text-base text-white/30 font-medium leading-relaxed max-w-sm italic">
-              Materializando o impossível através da manufatura descentralizada de alta precisão.
+              Tecnologia, precisão e inovação em impressão 3D. Do digital ao objeto real, com acabamento de alta definição.
             </p>
             
             {/* Newsletter Integration */}
