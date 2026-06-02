@@ -166,33 +166,61 @@ export default function Home() {
               </RevealGroup>
             </div>
 
-            {/* RIGHT — Real 3D logo/icon */}
-            <Reveal direction="right" delay={0.2}>
-              <div className="relative flex items-center justify-center">
-                {/* Glow behind icon */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-80 h-80 bg-primary/20 rounded-full blur-[80px]" />
-                </div>
-                {/* Horizontal logo */}
-                <motion.div
-                  animate={{ y: [0, -14, 0] }}
-                  transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                  className="relative z-10"
-                >
-                  <img
-                    src="/logo-inovapro3d.png"
-                    alt="INOVA PRO 3D"
-                    className="w-full max-w-[460px] mx-auto drop-shadow-[0_0_60px_rgba(37,99,235,0.5)] select-none"
-                    draggable={false}
-                  />
-                </motion.div>
-                {/* Decorative ring */}
-                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                  <div className="w-[380px] h-[380px] rounded-full border border-white/[0.05] animate-spin" style={{ animationDuration: "30s" }} />
-                  <div className="absolute w-[280px] h-[280px] rounded-full border border-primary/10 animate-spin" style={{ animationDuration: "20s", animationDirection: "reverse" }} />
-                </div>
+            {/* RIGHT — Floating product highlight banners */}
+            <div className="relative hidden lg:flex items-center justify-center min-h-[520px]">
+              {/* Ambient glow */}
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="w-72 h-72 bg-primary/15 rounded-full blur-[100px]" />
               </div>
-            </Reveal>
+
+              {/* Card 1 — top right */}
+              <FloatingCard
+                product={featuredProducts[0]}
+                loading={loading}
+                style="absolute top-4 right-0"
+                delay={0}
+                amplitude={-14}
+                duration={5.5}
+                badge="Popular"
+                badgeColor="bg-primary/20 text-primary border-primary/30"
+              />
+
+              {/* Card 2 — center left */}
+              <FloatingCard
+                product={featuredProducts[1]}
+                loading={loading}
+                style="absolute top-1/2 -translate-y-1/2 left-0"
+                delay={1.2}
+                amplitude={12}
+                duration={7}
+                badge="Novo"
+                badgeColor="bg-emerald-500/15 text-emerald-400 border-emerald-500/25"
+              />
+
+              {/* Card 3 — bottom right */}
+              <FloatingCard
+                product={featuredProducts[2]}
+                loading={loading}
+                style="absolute bottom-4 right-8"
+                delay={0.6}
+                amplitude={-10}
+                duration={6.2}
+                badge="Destaque"
+                badgeColor="bg-cyan-500/15 text-cyan-400 border-cyan-500/25"
+              />
+
+              {/* Live indicator pill */}
+              <motion.div
+                animate={{ y: [0, -6, 0] }}
+                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 2 }}
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full bg-white/[0.05] border border-white/10 backdrop-blur-sm"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/40">
+                  Impressora Online — P2S
+                </span>
+              </motion.div>
+            </div>
           </div>
         </div>
 
@@ -619,23 +647,103 @@ export default function Home() {
               </Reveal>
             </div>
 
-            {/* Real app icon — desktop only */}
-            <Reveal direction="left" delay={0.3} className="relative z-10 hidden lg:flex items-center justify-center shrink-0">
-              <div className="relative">
-                <div className="absolute inset-0 bg-primary/25 rounded-full blur-[60px]" />
-                <motion.img
-                  src="/app-icon.png"
-                  alt="INOVA PRO 3D"
-                  animate={{ y: [0, -12, 0] }}
-                  transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
-                  className="relative z-10 w-64 h-64 object-contain drop-shadow-[0_0_50px_rgba(37,99,235,0.6)] select-none"
-                  draggable={false}
-                />
+            {/* Stats block — desktop only */}
+            <Reveal direction="left" delay={0.3} className="relative z-10 hidden lg:block shrink-0">
+              <div className="grid grid-cols-2 gap-4 w-[320px]">
+                {[
+                  { val: "48h", label: "Entrega média" },
+                  { val: "0.05mm", label: "Precisão P2S" },
+                  { val: "PLA + PETG", label: "Materiais" },
+                  { val: "B2B", label: "Atendimento" },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className="p-5 rounded-[20px] bg-white/[0.04] border border-white/[0.07] hover:border-primary/20 transition-colors"
+                  >
+                    <p className="text-xl font-display font-black brand-gradient-text mb-1">{s.val}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-white/30">{s.label}</p>
+                  </div>
+                ))}
               </div>
             </Reveal>
           </div>
         </div>
       </section>
     </div>
+  );
+}
+
+/* ─── Floating product highlight card ─────────────────────────── */
+function FloatingCard({
+  product,
+  loading,
+  style,
+  delay,
+  amplitude,
+  duration,
+  badge,
+  badgeColor,
+}: {
+  product?: Product;
+  loading: boolean;
+  style: string;
+  delay: number;
+  amplitude: number;
+  duration: number;
+  badge: string;
+  badgeColor: string;
+}) {
+  const brl = (v: number) =>
+    v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  return (
+    <motion.div
+      animate={{ y: [0, amplitude, 0] }}
+      transition={{ duration, repeat: Infinity, ease: "easeInOut", delay }}
+      className={`${style} z-10 w-[220px]`}
+    >
+      <div className="rounded-[20px] bg-white/[0.06] border border-white/10 backdrop-blur-xl p-3 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.5)] hover:border-white/20 transition-colors duration-300">
+        {loading || !product ? (
+          /* Skeleton */
+          <div className="flex items-center gap-3 animate-pulse">
+            <div className="w-12 h-12 rounded-xl bg-white/10 shrink-0" />
+            <div className="flex-1 space-y-2">
+              <div className="h-2.5 w-24 rounded bg-white/10" />
+              <div className="h-2 w-16 rounded bg-white/[0.07]" />
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            {/* Thumbnail */}
+            <div className="w-12 h-12 rounded-xl overflow-hidden bg-white/5 shrink-0">
+              {product.images?.[0] ? (
+                <img
+                  src={product.images[0]}
+                  alt={product.name}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white/20 text-lg">
+                  ◻
+                </div>
+              )}
+            </div>
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-tight text-white leading-tight truncate">
+                {product.name}
+              </p>
+              <p className="text-[10px] font-bold text-white/40 mt-0.5">
+                {brl(product.basePrice)}
+              </p>
+            </div>
+            {/* Badge */}
+            <span className={`shrink-0 px-2 py-0.5 rounded-full border text-[8px] font-black uppercase tracking-wide ${badgeColor}`}>
+              {badge}
+            </span>
+          </div>
+        )}
+      </div>
+    </motion.div>
   );
 }
