@@ -83,6 +83,7 @@ import {
 } from 'recharts';
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
+import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey } from "../../lib/pricing";
 import type {
   AuditLog,
   Coupon,
@@ -388,119 +389,34 @@ export default function AdminDashboard() {
   const [quickCalcCustomerName, setQuickCalcCustomerName] = useState<string>('');
   const [quickCalcPieceName, setQuickCalcPieceName] = useState<string>('');
   const [quickCalcBatchQty, setQuickCalcBatchQty] = useState<number>(1);
-  const [quickCalcMaterial, setQuickCalcMaterial] = useState<'pla' | 'petg'>('pla');
+  const [quickCalcMaterial, setQuickCalcMaterial] = useState<MaterialKey>('pla');
   const [quickCalcMaterialReserve, setQuickCalcMaterialReserve] = useState<number>(15);
   const [quickCalcMinPrice, setQuickCalcMinPrice] = useState<number>(35);
   const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState<number>(1.6);
   const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState<number>(2.5);
 
-  // Helper to convert time strings (e.g., "2h 30m" or "5.5" or "5:30") to decimal hours
-  const parseTimeToHours = (timeStr: string): number => {
-    if (!timeStr) return 0;
-    const hMatch = timeStr.match(/(\d+)\s*h/i);
-    const mMatch = timeStr.match(/(\d+)\s*m/i);
-    const h = hMatch ? parseInt(hMatch[1], 10) : 0;
-    const m = mMatch ? parseInt(mMatch[1], 10) : 0;
-    
-    if (!hMatch && !mMatch) {
-      if (timeStr.includes(':')) {
-        const parts = timeStr.split(':');
-        const hp = parseFloat(parts[0]);
-        const mp = parseFloat(parts[1]);
-        if (!isNaN(hp) && !isNaN(mp)) {
-          return hp + (mp / 60);
-        }
-      }
-      const num = parseFloat(timeStr);
-      return isNaN(num) ? 0 : num;
-    }
-    return h + (m / 60);
-  };
-
-  const formatQuickCurrency = (value: number) =>
-    value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-
-  const getQuickMachineRate = (hours: number) => {
-    if (hours <= 3) return 3.00;
-    if (hours <= 6) return 2.50;
-    return 2.00;
-  };
-
-  const MATERIAL_PRESETS = {
-    pla:  { label: 'PLA',  spoolPrice: 85,  spoolWeight: 1000, steadyPowerWatts: 200 },
-    petg: { label: 'PETG', spoolPrice: 120, spoolWeight: 1000, steadyPowerWatts: 230 },
-  } as const;
-
-  const QUICK_CALC_DEFAULTS = {
-    kwhCost: 1.20,           // Equatorial Pará 2025 (base R$0,96 + ICMS estimado)
-    startupPowerWatts: 1000,
-    startupMinutes: 8,       // P2S: aquecimento da câmara ~8min
-  };
-
-  const quickCalcResult = (() => {
-    const mat = MATERIAL_PRESETS[quickCalcMaterial];
-    const hours = Math.max(0, parseTimeToHours(quickCalcTime));
-    const slicerWeight = Math.max(0, Number(quickCalcWeight) || 0);
-    const quantity = Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1));
-    const purgeWeight = 0;
-    const realWeight = slicerWeight;
-    const reserveMultiplier = 1 + Math.max(0, Number(quickCalcMaterialReserve) || 0) / 100;
-    const gramCost = mat.spoolPrice / mat.spoolWeight;
-    const materialCost = realWeight * gramCost * reserveMultiplier;
-    const startupHours = Math.min(hours, QUICK_CALC_DEFAULTS.startupMinutes / 60);
-    const steadyHours = Math.max(0, hours - startupHours);
-    const energyKwh = (
-      (startupHours * QUICK_CALC_DEFAULTS.startupPowerWatts) +
-      (steadyHours * mat.steadyPowerWatts)
-    ) / 1000;
-    const energyCost = energyKwh * QUICK_CALC_DEFAULTS.kwhCost;
-    const machineRate = getQuickMachineRate(hours);
-    const machineCost = hours * machineRate;
-    const totalCost = materialCost + energyCost + machineCost;
-    const safeTotal = totalCost > 0 ? totalCost : 1;
-    const unitCost = totalCost / quantity;
-    const wholesaleMarkup = Math.max(0, Number(quickCalcWholesaleMarkup) || 0);
-    const retailMarkup = Math.max(0, Number(quickCalcRetailMarkup) || 0);
-    const wholesaleRaw = totalCost * wholesaleMarkup;
-    const retailRaw = totalCost * retailMarkup;
-    const minPrice = Math.max(0, Number(quickCalcMinPrice) || 0);
-    const wholesaleTotal = Math.max(wholesaleRaw, minPrice);
-    const retailTotal = Math.max(retailRaw, minPrice);
-    const isBelowMinWholesale = wholesaleRaw < minPrice && minPrice > 0;
-    const isBelowMinRetail = retailRaw < minPrice && minPrice > 0;
-    const profitRetail = retailTotal - totalCost;
-    const profitWholesale = wholesaleTotal - totalCost;
-
-    return {
-      hours,
-      slicerWeight,
-      quantity,
-      purgeWeight,
-      realWeight,
-      energyKwh,
-      materialCost,
-      energyCost,
-      machineRate,
-      machineCost,
-      totalCost,
-      materialShare: (materialCost / safeTotal) * 100,
-      energyShare: (energyCost / safeTotal) * 100,
-      machineShare: (machineCost / safeTotal) * 100,
-      unitCost,
-      wholesaleTotal,
-      wholesaleUnit: wholesaleTotal / quantity,
-      retailTotal,
-      retailUnit: retailTotal / quantity,
-      profitRetail,
-      profitRetailUnit: profitRetail / quantity,
-      profitRetailPct: (profitRetail / (retailTotal || 1)) * 100,
-      profitWholesale,
-      profitWholesaleUnit: profitWholesale / quantity,
-      profitWholesalePct: (profitWholesale / (wholesaleTotal || 1)) * 100,
-      isBelowMinRetail,
-      isBelowMinWholesale,
-    };
-  })();
+  // Calculadora rápida do admin agora consome o motor de precificação compartilhado
+  // (src/lib/pricing.ts), garantindo que ela SEMPRE concorde com a calculadora pública.
+  // A depreciação da máquina usa DEFAULT_MACHINE silenciosamente (apenas exibida como readout).
+  const quickMachine = DEFAULT_MACHINE;
+  const quickCalcResult = computePricing({
+    material: quickCalcMaterial,
+    weightGrams: Math.max(0, Number(quickCalcWeight) || 0),
+    hours: Math.max(0, parseTimeToHours(quickCalcTime)),
+    quantity: Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1)),
+    reservePct: Math.max(0, Number(quickCalcMaterialReserve) || 0),
+    kwhCost: DEFAULT_ENERGY.kwhCost,
+    startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts,
+    startupMinutes: DEFAULT_ENERGY.startupMinutes,
+    machine: quickMachine,
+    laborHours: 0,
+    laborRate: 0,
+    extraSupplies: 0,
+    wholesaleMarkup: Math.max(0, Number(quickCalcWholesaleMarkup) || 0),
+    retailMarkup: Math.max(0, Number(quickCalcRetailMarkup) || 0),
+    minPrice: Math.max(0, Number(quickCalcMinPrice) || 0),
+  });
+  const quickMachineBreak = machineHourBreakdown(quickMachine);
 
   const [approvalStatus, setApprovalStatus] = useState<{ 
     success: boolean; 
@@ -555,7 +471,7 @@ export default function AdminDashboard() {
     const clientName = quickCalcCustomerName || "Cliente";
     const pieceName = quickCalcPieceName || "Peça personalizada";
     
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Material: ${MATERIAL_PRESETS[quickCalcMaterial].label}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Peso do job/lote: ${quickCalcResult.slicerWeight.toFixed(1).replace('.', ',')}g\n- Tempo de impressão: ${quickCalcTime || '0h'} (${quickCalcResult.hours.toFixed(2).replace('.', ',')}h)\n\n*Investimento final (varejo):*\nTotal: ${formatQuickCurrency(quickCalcResult.retailTotal)}\nUnitário: ${formatQuickCurrency(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico com material ${MATERIAL_PRESETS[quickCalcMaterial].label}, energia e hora-máquina P2S.`;
+    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Material: ${MATERIAL_PRESETS[quickCalcMaterial].label}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Peso do job/lote: ${quickCalcResult.weightGrams.toFixed(1).replace('.', ',')}g\n- Tempo de impressão: ${quickCalcTime || '0h'} (${quickCalcResult.hours.toFixed(2).replace('.', ',')}h)\n\n*Investimento final (varejo):*\nTotal: ${formatBRL(quickCalcResult.retailTotal)}\nUnitário: ${formatBRL(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico com material ${MATERIAL_PRESETS[quickCalcMaterial].label}, energia e hora-máquina P2S.`;
     const encodedText = encodeURIComponent(text);
     const url = `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodedText}`;
     window.open(url, '_blank');
@@ -1522,7 +1438,7 @@ export default function AdminDashboard() {
                         <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">P2S + AMS | Equatorial Pará | custo real com atacado e varejo</p>
                       </div>
                     </div>
-                    <span className="w-fit text-[9px] font-black tracking-wider uppercase text-[#38bdf8] bg-[#38bdf8]/10 px-2.5 py-1 rounded-full border border-[#38bdf8]/10">Maker V5.0</span>
+                    <span className="w-fit text-[9px] font-black tracking-wider uppercase text-[#38bdf8] bg-[#38bdf8]/10 px-2.5 py-1 rounded-full border border-[#38bdf8]/10">Maker V6.0</span>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
@@ -1584,7 +1500,7 @@ export default function AdminDashboard() {
                       <div>
                         <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-2">
                           Material
-                          <span title="Selecione o filamento. Afeta o preço por grama e o consumo de energia da impressora.">
+                          <span title={HELP.material}>
                             <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                           </span>
                         </label>
@@ -1613,7 +1529,7 @@ export default function AdminDashboard() {
                         <div>
                           <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                             Peso Job/Lote (g)
-                            <span title="Peso total do filamento que o slicer mostra para esta impressão, já incluindo suportes e brim. NÃO é o peso da peça final.">
+                            <span title={HELP.weight}>
                               <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                             </span>
                           </label>
@@ -1628,7 +1544,7 @@ export default function AdminDashboard() {
                         <div>
                           <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                             Peças no Lote
-                            <span title="Quantidade de peças individuais nesta impressão. Divide o custo total para calcular o preço unitário.">
+                            <span title={HELP.quantity}>
                               <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                             </span>
                           </label>
@@ -1645,7 +1561,7 @@ export default function AdminDashboard() {
                       <div>
                         <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                           Tempo Total
-                          <span title="Tempo de impressão do slicer. Formatos aceitos: '2h 30m', '2.5', '2:30'">
+                          <span title={HELP.time}>
                             <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                           </span>
                         </label>
@@ -1665,7 +1581,7 @@ export default function AdminDashboard() {
                           <div className="rounded-xl bg-black/50 border border-white/5 p-2">
                             <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
                               Energia P2S
-                              <span title="Consumo real medido da P2S: ~200W (PLA) ou 230W (PETG) em regime. Pico de 1000W nos primeiros 8 minutos.">
+                              <span title={`${HELP.steadyPower} ${HELP.startupPower}`}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </span>
@@ -1674,20 +1590,23 @@ export default function AdminDashboard() {
                           <div className="rounded-xl bg-black/50 border border-white/5 p-2">
                             <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
                               Tarifa Pará
-                              <span title="Equatorial Pará 2025: R$0,96/kWh base + ICMS ~25% = R$1,20/kWh estimado na conta.">
+                              <span title={HELP.kwh}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </span>
-                            <strong className="text-[10px] text-white font-mono">{formatQuickCurrency(QUICK_CALC_DEFAULTS.kwhCost)}/kWh</strong>
+                            <strong className="text-[10px] text-white font-mono">{formatBRL(DEFAULT_ENERGY.kwhCost)}/kWh</strong>
                           </div>
                           <div className="rounded-xl bg-black/50 border border-white/5 p-2">
                             <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
                               Hora-Máquina
-                              <span title="Custo real da P2S por hora: depreciação (~R$1,22/h) + bico, correias, cama PEI, PTFE (~R$0,78/h). Impressões longas têm taxa menor.">
+                              <span title={`${HELP.depreciation} ${HELP.replacement}`}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </span>
-                            <strong className="text-[10px] text-white font-mono">R$ {quickCalcResult.machineRate.toFixed(2)}/h</strong>
+                            <strong className="text-[10px] text-white font-mono">{formatBRL(quickCalcResult.machineHourCost)}/h</strong>
+                            <span className="block text-[7px] text-white/40 font-mono leading-tight mt-0.5">
+                              Deprec. {formatBRL(quickMachineBreak.depreciation)}/h · Reposição {formatBRL(quickMachineBreak.replacement)}/h
+                            </span>
                           </div>
                           <div className="rounded-xl bg-black/50 border border-white/5 p-2">
                             <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
@@ -1703,7 +1622,7 @@ export default function AdminDashboard() {
                           <div>
                             <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
                               Reserva Material %
-                              <span title="Margem de segurança sobre o material para cobrir falhas de impressão e desperdícios. PLA experiente: 10-15%. PETG/difícil: 20-30%.">
+                              <span title={HELP.reserve}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
@@ -1720,7 +1639,7 @@ export default function AdminDashboard() {
                           <div>
                             <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
                               Preço Mínimo R$
-                              <span title="Valor mínimo cobrado por qualquer job, independente do cálculo. Cobre setup, atendimento e embalagem.">
+                              <span title={HELP.minPrice}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
@@ -1736,7 +1655,7 @@ export default function AdminDashboard() {
                           <div>
                             <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
                               Atacado ×
-                              <span title="Multiplicador sobre o custo real para preço de atacado (B2B). Ex: 1.6 = 60% acima do custo = ~37% de margem.">
+                              <span title={HELP.wholesale}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
@@ -1752,7 +1671,7 @@ export default function AdminDashboard() {
                           <div>
                             <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
                               Varejo ×
-                              <span title="Multiplicador sobre o custo real para preço de varejo (cliente final). Ex: 2.5 = 150% acima do custo = 60% de margem.">
+                              <span title={HELP.retail}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
@@ -1776,37 +1695,37 @@ export default function AdminDashboard() {
                       <div className="bg-black/40 border border-white/5 rounded-[24px] p-4 sm:p-5 space-y-3">
                         {/* CUSTO REAL */}
                         <div className="flex justify-between gap-3 text-xs text-white/70">
-                          <span className="min-w-0">Material ({quickCalcResult.realWeight.toFixed(1)}g + {quickCalcMaterialReserve}% reserva):</span>
-                          <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.materialCost)}</span>
+                          <span className="min-w-0">Material ({quickCalcResult.weightGrams.toFixed(1)}g + {quickCalcMaterialReserve}% reserva):</span>
+                          <span className="shrink-0 font-mono text-white">{formatBRL(quickCalcResult.materialCost)}</span>
                         </div>
                         <div className="flex justify-between gap-3 text-xs text-white/70">
                           <span className="min-w-0">Energia ({quickCalcResult.energyKwh.toFixed(3)} kWh):</span>
-                          <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.energyCost)}</span>
+                          <span className="shrink-0 font-mono text-white">{formatBRL(quickCalcResult.energyCost)}</span>
                         </div>
                         <div className="flex justify-between gap-3 text-xs text-white/70">
-                          <span className="min-w-0">Hora-máquina ({quickCalcResult.hours.toFixed(2)}h × R$ {quickCalcResult.machineRate.toFixed(2)}):</span>
-                          <span className="shrink-0 font-mono text-white">{formatQuickCurrency(quickCalcResult.machineCost)}</span>
+                          <span className="min-w-0">Hora-máquina ({quickCalcResult.hours.toFixed(2)}h × {formatBRL(quickCalcResult.machineHourCost)}):</span>
+                          <span className="shrink-0 font-mono text-white">{formatBRL(quickCalcResult.machineCost)}</span>
                         </div>
                         <div className="flex justify-between gap-3 text-xs font-bold text-white/40 border-t border-white/5 pt-2">
                           <span>Custo real do lote:</span>
-                          <span className="shrink-0 font-mono text-white/80">{formatQuickCurrency(quickCalcResult.totalCost)}</span>
+                          <span className="shrink-0 font-mono text-white/80">{formatBRL(quickCalcResult.totalCost)}</span>
                         </div>
 
                         {/* BARRA DE DISTRIBUIÇÃO */}
                         <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
                           <div className="flex items-center justify-between text-[9px] uppercase font-black tracking-wider text-white/35">
                             <span>Custo unitário interno</span>
-                            <span className="font-mono text-white/70">{formatQuickCurrency(quickCalcResult.unitCost)}</span>
+                            <span className="font-mono text-white/70">{formatBRL(quickCalcResult.unitCost)}</span>
                           </div>
                           <div className="mt-2 flex h-1.5 rounded-full bg-white/5 overflow-hidden">
-                            <div className="h-full bg-[#38bdf8]" style={{ width: `${quickCalcResult.materialShare}%` }} />
-                            <div className="h-full bg-[#f97316]" style={{ width: `${quickCalcResult.energyShare}%` }} />
-                            <div className="h-full bg-[#a78bfa]" style={{ width: `${quickCalcResult.machineShare}%` }} />
+                            <div className="h-full bg-[#38bdf8]" style={{ width: `${quickCalcResult.shares.material}%` }} />
+                            <div className="h-full bg-[#f97316]" style={{ width: `${quickCalcResult.shares.energy}%` }} />
+                            <div className="h-full bg-[#a78bfa]" style={{ width: `${quickCalcResult.shares.machine}%` }} />
                           </div>
                           <div className="mt-2 grid grid-cols-3 gap-1 text-[7px] uppercase font-black text-white/35">
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#38bdf8]" />Mat. {quickCalcResult.materialShare.toFixed(0)}%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#f97316]" />Ener. {quickCalcResult.energyShare.toFixed(0)}%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#a78bfa]" />Maq. {quickCalcResult.machineShare.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#38bdf8]" />Mat. {quickCalcResult.shares.material.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#f97316]" />Ener. {quickCalcResult.shares.energy.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#a78bfa]" />Maq. {quickCalcResult.shares.machine.toFixed(0)}%</span>
                           </div>
                         </div>
 
@@ -1817,10 +1736,10 @@ export default function AdminDashboard() {
                               Atacado ×{quickCalcWholesaleMarkup}
                               {quickCalcResult.isBelowMinWholesale && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
                             </span>
-                            <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.wholesaleTotal)}</strong>
-                            <span className="block text-[9px] text-white/50 mt-0.5">{formatQuickCurrency(quickCalcResult.wholesaleUnit)} / un.</span>
+                            <strong className="block text-sm font-mono text-white mt-1 break-words">{formatBRL(quickCalcResult.wholesaleTotal)}</strong>
+                            <span className="block text-[9px] text-white/50 mt-0.5">{formatBRL(quickCalcResult.wholesaleUnit)} / un.</span>
                             <span className="block text-[8px] text-[#4ade80] font-black mt-1">
-                              Lucro: {formatQuickCurrency(quickCalcResult.profitWholesale)} ({quickCalcResult.profitWholesalePct.toFixed(0)}%)
+                              Lucro: {formatBRL(quickCalcResult.profitWholesale)} ({quickCalcResult.profitWholesalePct.toFixed(0)}%)
                             </span>
                           </div>
                           <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinRetail ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-[#38bdf8]/20 bg-[#38bdf8]/10'}`}>
@@ -1828,10 +1747,10 @@ export default function AdminDashboard() {
                               Varejo ×{quickCalcRetailMarkup}
                               {quickCalcResult.isBelowMinRetail && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
                             </span>
-                            <strong className="block text-sm font-mono text-white mt-1 break-words">{formatQuickCurrency(quickCalcResult.retailTotal)}</strong>
-                            <span className="block text-[9px] text-white/50 mt-0.5">{formatQuickCurrency(quickCalcResult.retailUnit)} / un.</span>
+                            <strong className="block text-sm font-mono text-white mt-1 break-words">{formatBRL(quickCalcResult.retailTotal)}</strong>
+                            <span className="block text-[9px] text-white/50 mt-0.5">{formatBRL(quickCalcResult.retailUnit)} / un.</span>
                             <span className="block text-[8px] text-[#4ade80] font-black mt-1">
-                              Lucro: {formatQuickCurrency(quickCalcResult.profitRetail)} ({quickCalcResult.profitRetailPct.toFixed(0)}%)
+                              Lucro: {formatBRL(quickCalcResult.profitRetail)} ({quickCalcResult.profitRetailPct.toFixed(0)}%)
                             </span>
                           </div>
                         </div>

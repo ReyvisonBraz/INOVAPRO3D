@@ -1,25 +1,32 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Calculator,
+  Coins,
+  Cpu,
   Download,
   Factory,
   Gauge,
   Hash,
+  HelpCircle,
   Layers3,
-  Paintbrush,
   Package,
   Settings2,
-  Sparkles,
+  Wrench,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
-
-const currency = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
+import {
+  computePricing,
+  DEFAULT_ENERGY,
+  DEFAULT_MACHINE,
+  formatBRL,
+  HELP,
+  machineHourBreakdown,
+  MATERIAL_PRESETS,
+  type MaterialKey,
+} from "../../lib/pricing";
 
 const decimal = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 3,
@@ -30,10 +37,17 @@ function safeNumber(value: number, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-function getMachineRate(hours: number) {
-  if (hours <= 3) return 8;
-  if (hours <= 6) return 6;
-  return 5;
+const CONFIG_KEY = "inovapro3d:calc-config";
+
+function HelpTip({ text }: { text: string }) {
+  return (
+    <span className="group/tip relative inline-flex">
+      <HelpCircle className="h-3 w-3 cursor-help text-slate-600 transition-colors hover:text-cyan-300" />
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg border border-slate-700 bg-[#0b1020] px-3 py-2 text-[10px] font-medium leading-snug text-slate-300 opacity-0 shadow-xl transition-opacity duration-150 group-hover/tip:opacity-100">
+        {text}
+      </span>
+    </span>
+  );
 }
 
 type NumberFieldProps = {
@@ -46,6 +60,7 @@ type NumberFieldProps = {
   suffix?: string;
   disabled?: boolean;
   hint?: string;
+  help?: string;
 };
 
 function NumberField({
@@ -58,11 +73,13 @@ function NumberField({
   suffix,
   disabled,
   hint,
+  help,
 }: NumberFieldProps) {
   return (
     <label className={cn("block space-y-2", disabled && "opacity-45")}>
-      <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
         {label}
+        {help && <HelpTip text={help} />}
       </span>
       <span className="relative block">
         {prefix && (
@@ -97,7 +114,6 @@ function NumberField({
     </label>
   );
 }
-
 
 function SectionCard({
   icon: Icon,
@@ -175,7 +191,7 @@ function CostBar({
           </span>
         </div>
         <div className="text-right">
-          <span className="font-mono text-xs font-black text-slate-200">{currency.format(value)}</span>
+          <span className="font-mono text-xs font-black text-slate-200">{formatBRL(value)}</span>
           <span className="ml-2 font-mono text-[10px] font-bold text-slate-600">{percent.toFixed(1)}%</span>
         </div>
       </div>
@@ -189,20 +205,38 @@ function CostBar({
   );
 }
 
-function ImpactBadge({
+function MachineStat({
   label,
-  percent,
-  color,
+  value,
+  help,
+  highlight,
 }: {
   label: string;
-  percent: number;
-  color: string;
+  value: string;
+  help?: string;
+  highlight?: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-slate-700/70 bg-[#0b1020] p-3 text-center">
-      <div className={cn("mx-auto mb-2 h-2 w-8 rounded-full", color)} />
-      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">{label}</p>
-      <p className="mt-1 font-mono text-sm font-black text-white">{percent.toFixed(0)}%</p>
+    <div
+      className={cn(
+        "rounded-xl border p-3 text-center",
+        highlight
+          ? "border-cyan-400/30 bg-cyan-400/10"
+          : "border-slate-700/70 bg-[#0b1020]",
+      )}
+    >
+      <p className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+        {label}
+        {help && <HelpTip text={help} />}
+      </p>
+      <p
+        className={cn(
+          "mt-1 font-mono text-sm font-black",
+          highlight ? "text-cyan-300" : "text-white",
+        )}
+      >
+        {value}
+      </p>
     </div>
   );
 }
@@ -241,11 +275,11 @@ function PriceBox({
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Total do lote</p>
-          <p className="mt-1 text-lg font-black text-white">{currency.format(total)}</p>
+          <p className="mt-1 text-lg font-black text-white">{formatBRL(total)}</p>
         </div>
         <div>
           <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Unitário</p>
-          <p className="mt-1 text-lg font-black text-white">{currency.format(unit)}</p>
+          <p className="mt-1 text-lg font-black text-white">{formatBRL(unit)}</p>
         </div>
       </div>
     </div>
@@ -262,91 +296,216 @@ function ReportLine({ label, value }: { label: string; value: React.ReactNode })
 }
 
 export default function FilamentCalculator() {
-  const [spoolPrice, setSpoolPrice] = useState(100);
+  // --- Material / job ---
+  const [material, setMaterial] = useState<MaterialKey>("pla");
+  const [spoolPrice, setSpoolPrice] = useState(MATERIAL_PRESETS.pla.spoolPrice);
   const [spoolWeight, setSpoolWeight] = useState(1000);
   const [slicerWeight, setSlicerWeight] = useState(120);
-  const [materialReservePercent, setMaterialReservePercent] = useState(50);
+  const [reservePct, setReservePct] = useState(MATERIAL_PRESETS.pla.defaultReservePct);
   const [batchQuantity, setBatchQuantity] = useState(1);
 
-  const [printTime, setPrintTime] = useState(3.47);
-  const [kwhCost, setKwhCost] = useState(1.15);
-  const [machinePower, setMachinePower] = useState(200);
-  const [startupPower, setStartupPower] = useState(1000);
-  const [startupMinutes, setStartupMinutes] = useState(5);
+  // --- Machine ---
+  const [machinePrice, setMachinePrice] = useState(DEFAULT_MACHINE.price);
+  const [lifespanHours, setLifespanHours] = useState(DEFAULT_MACHINE.lifespanHours);
+  const [nozzlePrice, setNozzlePrice] = useState(DEFAULT_MACHINE.nozzlePrice);
+  const [nozzleLifeHours, setNozzleLifeHours] = useState(DEFAULT_MACHINE.nozzleLifeHours);
+  const [platePrice, setPlatePrice] = useState(DEFAULT_MACHINE.platePrice);
+  const [plateLifeHours, setPlateLifeHours] = useState(DEFAULT_MACHINE.plateLifeHours);
+  const [beltsPrice, setBeltsPrice] = useState(DEFAULT_MACHINE.beltsPrice);
+  const [beltsLifeHours, setBeltsLifeHours] = useState(DEFAULT_MACHINE.beltsLifeHours);
+  const [maintPerHour, setMaintPerHour] = useState(DEFAULT_MACHINE.maintPerHour);
 
-  const [requiresPostProcessing, setRequiresPostProcessing] = useState(false);
-  const [manualWorkHours, setManualWorkHours] = useState(0);
-  const [manualHourlyRate, setManualHourlyRate] = useState(15);
-  const [extraSuppliesCost, setExtraSuppliesCost] = useState(0);
+  // --- Energy ---
+  const [printTime, setPrintTime] = useState(3.47);
+  const [kwhCost, setKwhCost] = useState(DEFAULT_ENERGY.kwhCost);
+  const [steadyPower, setSteadyPower] = useState(MATERIAL_PRESETS.pla.steadyPowerWatts);
+  const [startupPower, setStartupPower] = useState(1000);
+  const [startupMinutes, setStartupMinutes] = useState(8);
+
+  // --- Labor ---
+  const [requiresLabor, setRequiresLabor] = useState(false);
+  const [laborHours, setLaborHours] = useState(0);
+  const [laborRate, setLaborRate] = useState(25);
+  const [extraSupplies, setExtraSupplies] = useState(0);
+
+  // --- Pricing ---
   const [wholesaleMarkup, setWholesaleMarkup] = useState(1.6);
   const [retailMarkup, setRetailMarkup] = useState(2.5);
+  const [minPrice, setMinPrice] = useState(35);
 
-  const result = useMemo(() => {
-    const quantity = Math.max(1, safeNumber(batchQuantity, 1));
-    const nominalWeight = Math.max(1, safeNumber(spoolWeight, 1000));
-    const hours = Math.max(0, safeNumber(printTime));
-    const realWeight = Math.max(0, safeNumber(slicerWeight));
-    const reserveMultiplier = 1 + Math.max(0, materialReservePercent) / 100;
-    const materialCost = realWeight * (Math.max(0, spoolPrice) / nominalWeight) * reserveMultiplier;
-    const startupHours = Math.min(hours, Math.max(0, startupMinutes) / 60);
-    const steadyHours = Math.max(0, hours - startupHours);
-    const energyKwh =
-      (startupHours * Math.max(0, startupPower) + steadyHours * Math.max(0, machinePower)) / 1000;
-    const energyCost = energyKwh * Math.max(0, kwhCost);
-    const machineRate = getMachineRate(hours);
-    const machineCost = hours * machineRate;
-    const laborCost = requiresPostProcessing ? Math.max(0, manualWorkHours) * Math.max(0, manualHourlyRate) : 0;
-    const postProcessingCost = requiresPostProcessing ? laborCost + Math.max(0, extraSuppliesCost) : 0;
-    const totalCost = materialCost + energyCost + machineCost + postProcessingCost;
-    const unitCost = totalCost / quantity;
-    const wholesaleTotal = totalCost * Math.max(0, wholesaleMarkup);
-    const retailTotal = totalCost * Math.max(0, retailMarkup);
-    const costPerGram = realWeight > 0 ? totalCost / realWeight : 0;
-    const percent = (value: number) => (totalCost > 0 ? (value / totalCost) * 100 : 0);
+  function selectMaterial(key: MaterialKey) {
+    const preset = MATERIAL_PRESETS[key];
+    setMaterial(key);
+    setSpoolPrice(preset.spoolPrice);
+    setSpoolWeight(preset.spoolWeight);
+    setSteadyPower(preset.steadyPowerWatts);
+    setReservePct(preset.defaultReservePct);
+  }
 
-    return {
-      realWeight,
-      reserveMultiplier,
-      materialCost,
-      energyCost,
-      machineRate,
-      machineCost,
-      energyKwh,
-      startupHours,
-      steadyHours,
-      postProcessingCost,
-      totalCost,
-      unitCost,
-      costPerGram,
-      wholesaleTotal,
-      wholesaleUnit: wholesaleTotal / quantity,
-      retailTotal,
-      retailUnit: retailTotal / quantity,
-      percents: {
-        material: percent(materialCost),
-        energy: percent(energyCost),
-        machine: percent(machineCost),
-        postProcessing: percent(postProcessingCost),
-      },
-    };
+  // --- Load persisted business config on mount ---
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(CONFIG_KEY);
+      if (!raw) return;
+      const cfg = JSON.parse(raw);
+      if (typeof cfg !== "object" || cfg === null) return;
+      if (cfg.material === "pla" || cfg.material === "petg") setMaterial(cfg.material);
+      if (Number.isFinite(cfg.spoolPrice)) setSpoolPrice(cfg.spoolPrice);
+      if (Number.isFinite(cfg.spoolWeight)) setSpoolWeight(cfg.spoolWeight);
+      if (Number.isFinite(cfg.reservePct)) setReservePct(cfg.reservePct);
+      if (Number.isFinite(cfg.machinePrice)) setMachinePrice(cfg.machinePrice);
+      if (Number.isFinite(cfg.lifespanHours)) setLifespanHours(cfg.lifespanHours);
+      if (Number.isFinite(cfg.nozzlePrice)) setNozzlePrice(cfg.nozzlePrice);
+      if (Number.isFinite(cfg.nozzleLifeHours)) setNozzleLifeHours(cfg.nozzleLifeHours);
+      if (Number.isFinite(cfg.platePrice)) setPlatePrice(cfg.platePrice);
+      if (Number.isFinite(cfg.plateLifeHours)) setPlateLifeHours(cfg.plateLifeHours);
+      if (Number.isFinite(cfg.beltsPrice)) setBeltsPrice(cfg.beltsPrice);
+      if (Number.isFinite(cfg.beltsLifeHours)) setBeltsLifeHours(cfg.beltsLifeHours);
+      if (Number.isFinite(cfg.maintPerHour)) setMaintPerHour(cfg.maintPerHour);
+      if (Number.isFinite(cfg.kwhCost)) setKwhCost(cfg.kwhCost);
+      if (Number.isFinite(cfg.steadyPower)) setSteadyPower(cfg.steadyPower);
+      if (Number.isFinite(cfg.startupPower)) setStartupPower(cfg.startupPower);
+      if (Number.isFinite(cfg.startupMinutes)) setStartupMinutes(cfg.startupMinutes);
+      if (Number.isFinite(cfg.laborRate)) setLaborRate(cfg.laborRate);
+      if (Number.isFinite(cfg.wholesaleMarkup)) setWholesaleMarkup(cfg.wholesaleMarkup);
+      if (Number.isFinite(cfg.retailMarkup)) setRetailMarkup(cfg.retailMarkup);
+      if (Number.isFinite(cfg.minPrice)) setMinPrice(cfg.minPrice);
+    } catch {
+      // ignore corrupt config
+    }
+  }, []);
+
+  // --- Persist business config (NOT per-job fields) ---
+  useEffect(() => {
+    try {
+      const cfg = {
+        material,
+        spoolPrice,
+        spoolWeight,
+        reservePct,
+        machinePrice,
+        lifespanHours,
+        nozzlePrice,
+        nozzleLifeHours,
+        platePrice,
+        plateLifeHours,
+        beltsPrice,
+        beltsLifeHours,
+        maintPerHour,
+        kwhCost,
+        steadyPower,
+        startupPower,
+        startupMinutes,
+        laborRate,
+        wholesaleMarkup,
+        retailMarkup,
+        minPrice,
+      };
+      localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
+    } catch {
+      // ignore storage failures (private mode, quota)
+    }
   }, [
-    batchQuantity,
-    extraSuppliesCost,
-    kwhCost,
-    machinePower,
-    manualHourlyRate,
-    manualWorkHours,
-    materialReservePercent,
-    printTime,
-    requiresPostProcessing,
-    retailMarkup,
-    slicerWeight,
+    material,
     spoolPrice,
     spoolWeight,
-    startupMinutes,
+    reservePct,
+    machinePrice,
+    lifespanHours,
+    nozzlePrice,
+    nozzleLifeHours,
+    platePrice,
+    plateLifeHours,
+    beltsPrice,
+    beltsLifeHours,
+    maintPerHour,
+    kwhCost,
+    steadyPower,
     startupPower,
+    startupMinutes,
+    laborRate,
     wholesaleMarkup,
+    retailMarkup,
+    minPrice,
   ]);
+
+  const machineBreak = machineHourBreakdown({
+    price: machinePrice,
+    lifespanHours,
+    nozzlePrice,
+    nozzleLifeHours,
+    platePrice,
+    plateLifeHours,
+    beltsPrice,
+    beltsLifeHours,
+    maintPerHour,
+  });
+
+  const result = useMemo(
+    () =>
+      computePricing({
+        material,
+        spoolPrice,
+        spoolWeight,
+        steadyPowerWatts: steadyPower,
+        weightGrams: slicerWeight,
+        hours: printTime,
+        quantity: batchQuantity,
+        reservePct,
+        kwhCost,
+        startupPowerWatts: startupPower,
+        startupMinutes,
+        machine: {
+          price: machinePrice,
+          lifespanHours,
+          nozzlePrice,
+          nozzleLifeHours,
+          platePrice,
+          plateLifeHours,
+          beltsPrice,
+          beltsLifeHours,
+          maintPerHour,
+        },
+        laborHours: requiresLabor ? laborHours : 0,
+        laborRate,
+        extraSupplies: requiresLabor ? extraSupplies : 0,
+        wholesaleMarkup,
+        retailMarkup,
+        minPrice,
+      }),
+    [
+      material,
+      spoolPrice,
+      spoolWeight,
+      steadyPower,
+      slicerWeight,
+      printTime,
+      batchQuantity,
+      reservePct,
+      kwhCost,
+      startupPower,
+      startupMinutes,
+      machinePrice,
+      lifespanHours,
+      nozzlePrice,
+      nozzleLifeHours,
+      platePrice,
+      plateLifeHours,
+      beltsPrice,
+      beltsLifeHours,
+      maintPerHour,
+      requiresLabor,
+      laborHours,
+      laborRate,
+      extraSupplies,
+      wholesaleMarkup,
+      retailMarkup,
+      minPrice,
+    ],
+  );
+
+  const reserveMultiplier = 1 + Math.max(0, reservePct) / 100;
+  const laborTotal = result.laborCost + result.extraSupplies;
 
   const generatedAt = new Date().toLocaleString("pt-BR", {
     dateStyle: "short",
@@ -368,14 +527,14 @@ export default function FilamentCalculator() {
               </h1>
             </div>
             <p className="text-sm text-slate-500">
-              Projetado para precisão — custo real da manufatura aditiva
+              Entenda cada centavo: material, energia, depreciação da máquina e seu lucro real
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-[0.24em] text-slate-600">
             <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#121829] px-3 py-2">
               <Settings2 className="h-3 w-3" />
-              NIST-SPEC V4.2
+              MOTOR V6.0
             </span>
             <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#121829] px-3 py-2">
               <Hash className="h-3 w-3" /># MOTOR DE PRECISÃO
@@ -388,11 +547,168 @@ export default function FilamentCalculator() {
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)]">
           <div className="space-y-5">
+            {/* 1. MÁQUINA & DEPRECIAÇÃO — centerpiece */}
+            <SectionCard
+              icon={Cpu}
+              title="Máquina & Depreciação"
+              subtitle="Entenda quanto a sua P2S custa por hora de uso"
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <NumberField
+                  label="Preço da máquina (P2S + AMS)"
+                  prefix="R$"
+                  value={machinePrice}
+                  onChange={setMachinePrice}
+                  step={1}
+                  help={HELP.machinePrice}
+                />
+                <NumberField
+                  label="Vida útil da máquina"
+                  suffix="h"
+                  value={lifespanHours}
+                  onChange={setLifespanHours}
+                  min={1}
+                  step={100}
+                  help={HELP.lifespan}
+                />
+              </div>
+
+              <p className="mt-5 mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">
+                <Wrench className="h-3 w-3" /> Fundo de reposição de peças
+              </p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <NumberField
+                  label="Bico — preço"
+                  prefix="R$"
+                  value={nozzlePrice}
+                  onChange={setNozzlePrice}
+                  step={1}
+                  help={HELP.nozzle}
+                />
+                <NumberField
+                  label="Bico — vida útil"
+                  suffix="h"
+                  value={nozzleLifeHours}
+                  onChange={setNozzleLifeHours}
+                  min={1}
+                  step={50}
+                  help={HELP.nozzle}
+                />
+                <NumberField
+                  label="Placa / PEI — preço"
+                  prefix="R$"
+                  value={platePrice}
+                  onChange={setPlatePrice}
+                  step={1}
+                  help={HELP.plate}
+                />
+                <NumberField
+                  label="Placa / PEI — vida útil"
+                  suffix="h"
+                  value={plateLifeHours}
+                  onChange={setPlateLifeHours}
+                  min={1}
+                  step={50}
+                  help={HELP.plate}
+                />
+                <NumberField
+                  label="Correias (par) — preço"
+                  prefix="R$"
+                  value={beltsPrice}
+                  onChange={setBeltsPrice}
+                  step={1}
+                  help={HELP.belts}
+                />
+                <NumberField
+                  label="Correias — vida útil"
+                  suffix="h"
+                  value={beltsLifeHours}
+                  onChange={setBeltsLifeHours}
+                  min={1}
+                  step={50}
+                  help={HELP.belts}
+                />
+              </div>
+
+              <div className="mt-4">
+                <NumberField
+                  label="Manutenção geral"
+                  prefix="R$"
+                  suffix="/h"
+                  value={maintPerHour}
+                  onChange={setMaintPerHour}
+                  step={0.01}
+                  help={HELP.maint}
+                />
+              </div>
+
+              {/* Live readout */}
+              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <MachineStat
+                  label="Depreciação"
+                  value={`${formatBRL(machineBreak.depreciation)}/h`}
+                  help={HELP.depreciation}
+                />
+                <MachineStat
+                  label="Reposição de peças"
+                  value={`${formatBRL(machineBreak.replacement)}/h`}
+                  help={HELP.replacement}
+                />
+                <MachineStat
+                  label="Custo-máquina total"
+                  value={`${formatBRL(machineBreak.total)}/h`}
+                  highlight
+                />
+              </div>
+
+              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs leading-relaxed text-slate-400">
+                Cada hora de impressão consome{" "}
+                <span className="font-black text-cyan-300">{formatBRL(machineBreak.total)}/h</span> da sua máquina —{" "}
+                <span className="font-black text-slate-200">{formatBRL(machineBreak.depreciation)}</span> de desgaste do
+                equipamento +{" "}
+                <span className="font-black text-slate-200">{formatBRL(machineBreak.replacement)}</span> reservado para
+                repor peças.
+              </div>
+            </SectionCard>
+
+            {/* 2. MATERIAL */}
             <SectionCard
               icon={Package}
-              title="Parâmetros de Material"
-              subtitle="Use os dados exibidos pelo Bambu Studio após o fatiamento"
+              title="Material (Filamento)"
+              subtitle="Escolha o filamento e ajuste com os dados do Bambu Studio"
             >
+              <div className="mb-5 grid grid-cols-2 gap-3">
+                {(Object.keys(MATERIAL_PRESETS) as MaterialKey[]).map((key) => {
+                  const preset = MATERIAL_PRESETS[key];
+                  const active = material === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => selectMaterial(key)}
+                      className={cn(
+                        "rounded-xl border px-4 py-3 text-left transition",
+                        active
+                          ? "border-cyan-300/60 bg-cyan-400/15 shadow-[0_0_24px_rgba(34,211,238,0.12)]"
+                          : "border-slate-700/70 bg-[#0b1020] hover:border-slate-600",
+                      )}
+                    >
+                      <p
+                        className={cn(
+                          "text-sm font-black uppercase tracking-[0.18em]",
+                          active ? "text-cyan-200" : "text-slate-200",
+                        )}
+                      >
+                        {preset.label}
+                      </p>
+                      <p className="mt-1 text-[10px] font-bold text-slate-500">
+                        R${preset.spoolPrice}/kg
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <NumberField
                   label="Preço do carretel"
@@ -400,89 +716,94 @@ export default function FilamentCalculator() {
                   value={spoolPrice}
                   onChange={setSpoolPrice}
                   step={0.01}
-                  hint="Valor pago pelo carretel. Verifique a nota fiscal."
+                  help={HELP.spoolPrice}
                 />
                 <NumberField
-                  label="Peso nominal do carretel"
+                  label="Peso do carretel"
                   suffix="g"
                   value={spoolWeight}
                   onChange={setSpoolWeight}
-                  hint="Normalmente 1000g (1kg). Verifique o rótulo da embalagem."
+                  min={1}
+                  help={HELP.spoolWeight}
                 />
               </div>
 
               <div className="mt-5">
                 <NumberField
-                  label="Peso total do job/lote no slicer"
+                  label="Filamento utilizado (slicer)"
                   suffix="g"
                   value={slicerWeight}
                   onChange={setSlicerWeight}
                   min={1}
                   step={1}
-                  hint="Copie o campo 'Filamento utilizado' do Bambu Studio. Esse valor já inclui purga e suportes."
+                  help={HELP.weight}
+                  hint="Campo 'Filamento utilizado' do Bambu Studio"
                 />
               </div>
 
               <div className="mt-5 grid gap-4 sm:grid-cols-2">
                 <NumberField
-                  label="Quantidade de peças no lote"
+                  label="Reserva para falhas"
+                  suffix="%"
+                  value={reservePct}
+                  onChange={setReservePct}
+                  step={5}
+                  help={HELP.reserve}
+                />
+                <NumberField
+                  label="Peças no lote"
                   value={batchQuantity}
                   onChange={setBatchQuantity}
                   min={1}
-                  hint="Quantas peças individuais há nesta impressão. Divide o custo total pelo número de unidades."
-                />
-                <NumberField
-                  label="Fundo de reposição de estoque"
-                  suffix="%"
-                  value={materialReservePercent}
-                  onChange={setMaterialReservePercent}
-                  step={5}
-                  hint="Margem para cobrir falhas de impressão. PLA experiente: 10–15%. Material difícil: 25–30%."
+                  help={HELP.quantity}
                 />
               </div>
 
               <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs text-slate-500">
-                Peso técnico usado no cálculo:{" "}
-                <span className="font-mono font-black text-cyan-300">{decimal.format(result.realWeight)}g</span>
-                {" "}— valor direto do Bambu Studio. A purga já está incluída nesse peso.
+                Custo por grama (com reserva de {reservePct}%):{" "}
+                <span className="font-mono font-black text-cyan-300">
+                  R$ {decimal.format(result.gramCost * reserveMultiplier)}
+                </span>
+                {" "}/g
               </div>
             </SectionCard>
 
+            {/* 3. ENERGIA */}
             <SectionCard
               icon={Zap}
-              title="Eficiência Energética"
-              subtitle="Configure com os dados da sua P2S e da sua conta de luz"
+              title="Energia"
+              subtitle="Tarifa da sua conta de luz e consumo real da P2S"
             >
               <div className="grid gap-4 md:grid-cols-3">
                 <NumberField
-                  label="Tempo total do job/lote"
+                  label="Tempo de impressão"
                   suffix="h"
                   value={printTime}
                   onChange={setPrintTime}
                   step={0.01}
-                  hint="Tempo de impressão mostrado pelo Bambu Studio. Ex: 3h 28min = 3.47"
+                  help={HELP.time}
                 />
                 <NumberField
-                  label="Custo kWh"
+                  label="Custo do kWh"
                   prefix="R$"
                   value={kwhCost}
                   onChange={setKwhCost}
                   step={0.01}
-                  hint="Equatorial Pará 2025: ~R$1,20/kWh. Verifique sua conta de luz."
+                  help={HELP.kwh}
                 />
                 <NumberField
-                  label="Potência média da impressora"
+                  label="Potência média"
                   suffix="W"
-                  value={machinePower}
-                  onChange={setMachinePower}
-                  hint="P2S em regime: 200W (PLA) ou 230W (PETG)."
+                  value={steadyPower}
+                  onChange={setSteadyPower}
+                  help={HELP.steadyPower}
                 />
                 <NumberField
-                  label="Pico aquecimento inicial"
+                  label="Pico de aquecimento"
                   suffix="W"
                   value={startupPower}
                   onChange={setStartupPower}
-                  hint="Consumo máximo nos primeiros minutos. P2S: ~1000W."
+                  help={HELP.startupPower}
                 />
                 <NumberField
                   label="Duração do pico"
@@ -490,82 +811,72 @@ export default function FilamentCalculator() {
                   value={startupMinutes}
                   onChange={setStartupMinutes}
                   step={0.5}
-                  hint="Tempo que a P2S fica no pico de consumo ao aquecer a câmara. ~8 min."
+                  help={HELP.startupMinutes}
                 />
-              </div>
-
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-xl border border-orange-400/15 bg-orange-400/5 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">Taxa aplicada</p>
-                  <p className="mt-1 font-mono text-lg font-black text-orange-300">
-                    {currency.format(result.machineRate)}/h
-                  </p>
-                </div>
-                <div className="rounded-xl border border-violet-400/15 bg-violet-400/5 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">
-                    Depreciação
-                  </p>
-                  <p className="mt-1 font-mono text-lg font-black text-violet-300">
-                    {currency.format(result.machineCost)}
-                  </p>
-                </div>
                 <div className="rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
-                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">
-                    Energia estimada
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">
+                    Consumo estimado
                   </p>
                   <p className="mt-1 font-mono text-lg font-black text-cyan-300">
                     {decimal.format(result.energyKwh)} kWh
+                  </p>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    = {formatBRL(result.energyCost)}
                   </p>
                 </div>
               </div>
 
               <div className="mt-4 rounded-xl border border-slate-700/70 bg-[#0b1020] px-4 py-3 text-xs leading-relaxed text-slate-500">
-                Padrão Bambu Lab P2S em rede 110 V: <span className="font-black text-slate-200">200 W</span> em
-                PLA estável, com pico de <span className="font-black text-slate-200">1000 W</span> por cerca de 3 a
-                5 min no aquecimento da mesa. Em rede 220 V, use 1200 W no pico.
+                A energia soma o <span className="font-black text-slate-200">pico de aquecimento</span> nos primeiros
+                minutos com o <span className="font-black text-slate-200">regime estável</span> pelo resto da
+                impressão — por isso jobs curtos pesam proporcionalmente mais na conta.
               </div>
             </SectionCard>
 
+            {/* 4. MÃO DE OBRA & INSUMOS */}
             <SectionCard
-              icon={Paintbrush}
-              title="Pós-processamento & Acessórios"
-              subtitle="Mão de obra técnica, pintura e insumos extras"
+              icon={Wrench}
+              title="Mão de Obra & Insumos"
+              subtitle="Seu tempo de trabalho e materiais extras do job"
             >
               <div className="flex flex-col gap-4 rounded-xl border border-slate-700/70 bg-[#0b1020] p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p className="text-sm font-black text-slate-100">
-                    Requer Acabamento Manual / Pintura Básica?
+                    Tem trabalho manual / pós-processamento?
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Ative para computar lixamento, pintura, ferragens, chaveiros ou sprays.
+                    Ative para computar fatiar, tirar suportes, lixar, pintar, montar e embalar.
                   </p>
                 </div>
-                <Toggle checked={requiresPostProcessing} onChange={setRequiresPostProcessing} />
+                <Toggle checked={requiresLabor} onChange={setRequiresLabor} />
               </div>
 
               <div className="mt-5 grid gap-4 md:grid-cols-3">
                 <NumberField
-                  label="Tempo de trabalho manual"
+                  label="Horas de trabalho"
                   suffix="h"
-                  value={manualWorkHours}
-                  onChange={setManualWorkHours}
+                  value={laborHours}
+                  onChange={setLaborHours}
                   step={0.25}
-                  disabled={!requiresPostProcessing}
+                  disabled={!requiresLabor}
+                  help={HELP.laborHours}
                 />
                 <NumberField
-                  label="Valor da hora técnica"
+                  label="Valor da sua hora"
                   prefix="R$"
-                  value={manualHourlyRate}
-                  onChange={setManualHourlyRate}
+                  value={laborRate}
+                  onChange={setLaborRate}
                   step={1}
+                  help={HELP.laborRate}
                 />
                 <NumberField
-                  label="Custo de insumos extras"
+                  label="Insumos extras"
                   prefix="R$"
-                  value={extraSuppliesCost}
-                  onChange={setExtraSuppliesCost}
+                  value={extraSupplies}
+                  onChange={setExtraSupplies}
                   step={0.01}
-                  disabled={!requiresPostProcessing}
+                  disabled={!requiresLabor}
+                  help={HELP.extraSupplies}
                 />
               </div>
             </SectionCard>
@@ -597,72 +908,95 @@ export default function FilamentCalculator() {
               <CostBar
                 label="Material"
                 value={result.materialCost}
-                percent={result.percents.material}
+                percent={result.shares.material}
                 color="bg-cyan-400"
               />
               <CostBar
                 label="Energia"
                 value={result.energyCost}
-                percent={result.percents.energy}
+                percent={result.shares.energy}
                 color="bg-orange-400"
               />
               <CostBar
-                label="Taxa de máquina / Depreciação"
+                label="Máquina"
                 value={result.machineCost}
-                percent={result.percents.machine}
+                percent={result.shares.machine}
                 color="bg-violet-400"
               />
               <CostBar
-                label="Pós-processamento"
-                value={result.postProcessingCost}
-                percent={result.percents.postProcessing}
+                label="Mão de obra"
+                value={laborTotal}
+                percent={result.shares.labor}
                 color="bg-rose-400"
               />
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <ImpactBadge label="Material" percent={result.percents.material} color="bg-cyan-400" />
-              <ImpactBadge label="Energia" percent={result.percents.energy} color="bg-orange-400" />
-              <ImpactBadge label="Máquina" percent={result.percents.machine} color="bg-violet-400" />
-              <ImpactBadge label="Pós" percent={result.percents.postProcessing} color="bg-rose-400" />
-            </div>
-
             <div className="mt-6 rounded-xl border border-slate-700/70 bg-[#0b1020] p-4">
               <div className="mb-4 flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-cyan-300" />
+                <Coins className="h-4 w-4 text-cyan-300" />
                 <h3 className="text-xs font-black uppercase tracking-[0.22em] text-slate-100">
-                  Sugestão de venda comercial
+                  Preço de venda & lucro
                 </h3>
               </div>
-              <div className="mb-4 grid gap-3 sm:grid-cols-2">
+              <div className="mb-4 grid gap-3 sm:grid-cols-3">
                 <NumberField
-                  label="Multiplicador atacado"
+                  label="Atacado ×"
                   value={wholesaleMarkup}
                   onChange={setWholesaleMarkup}
                   step={0.1}
+                  help={HELP.wholesale}
                 />
                 <NumberField
-                  label="Multiplicador varejo"
+                  label="Varejo ×"
                   value={retailMarkup}
                   onChange={setRetailMarkup}
                   step={0.1}
+                  help={HELP.retail}
+                />
+                <NumberField
+                  label="Preço mínimo"
+                  prefix="R$"
+                  value={minPrice}
+                  onChange={setMinPrice}
+                  step={1}
+                  help={HELP.minPrice}
                 />
               </div>
               <div className="grid gap-4">
-                <PriceBox
-                  title={`Preço Sugerido Atacado (${wholesaleMarkup.toFixed(1)}x)`}
-                  description="Ideal para cliente que vai revender ou fechar lote recorrente."
-                  total={result.wholesaleTotal}
-                  unit={result.wholesaleUnit}
-                  tone="cyan"
-                />
-                <PriceBox
-                  title={`Preço Sugerido Varejo (${retailMarkup.toFixed(1)}x)`}
-                  description="Ideal para venda normal direta no site ou pedido sob demanda."
-                  total={result.retailTotal}
-                  unit={result.retailUnit}
-                  tone="violet"
-                />
+                <div>
+                  <PriceBox
+                    title={`Atacado (${wholesaleMarkup.toFixed(1)}x)`}
+                    description="Ideal para cliente que revende ou fecha lote recorrente."
+                    total={result.wholesaleTotal}
+                    unit={result.wholesaleUnit}
+                    tone="cyan"
+                  />
+                  <p className="mt-2 px-1 text-xs font-black text-emerald-400">
+                    Lucro: {formatBRL(result.profitWholesale)} ({result.profitWholesalePct.toFixed(0)}%)
+                  </p>
+                  {result.isBelowMinWholesale && (
+                    <p className="mt-1 px-1 text-[10px] font-bold text-yellow-300">
+                      preço mínimo aplicado
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <PriceBox
+                    title={`Varejo (${retailMarkup.toFixed(1)}x)`}
+                    description="Ideal para venda direta ao cliente final, sob demanda."
+                    total={result.retailTotal}
+                    unit={result.retailUnit}
+                    tone="violet"
+                  />
+                  <p className="mt-2 px-1 text-xs font-black text-emerald-400">
+                    Lucro: {formatBRL(result.profitRetail)} ({result.profitRetailPct.toFixed(0)}%)
+                  </p>
+                  {result.isBelowMinRetail && (
+                    <p className="mt-1 px-1 text-[10px] font-bold text-yellow-300">
+                      preço mínimo aplicado
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -670,8 +1004,9 @@ export default function FilamentCalculator() {
               <div className="flex gap-3">
                 <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-yellow-300" />
                 <p className="text-xs font-semibold leading-relaxed text-yellow-100/80">
-                  Cálculo técnico comercial avançado. Computa depreciação de máquina em faixas regressivas,
-                  fundo de reposição de estoque ajustável, purga de filamento AMS e custo de insumos manuais.
+                  Cálculo transparente: depreciação real da máquina diluída na vida útil, fundo de reposição de bico,
+                  placa e correias, energia com pico de aquecimento e sua mão de obra. Passe o mouse nos "?" para
+                  entender cada campo.
                 </p>
               </div>
             </div>
@@ -694,7 +1029,7 @@ export default function FilamentCalculator() {
               <div className="rounded-xl border border-slate-800 bg-[#0b1020] p-3">
                 <Layers3 className="mx-auto mb-2 h-4 w-4 text-cyan-300" />
                 <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">Unitário</p>
-                <p className="font-mono text-sm font-black text-white">{currency.format(result.unitCost)}</p>
+                <p className="font-mono text-sm font-black text-white">{formatBRL(result.unitCost)}</p>
               </div>
               <div className="rounded-xl border border-slate-800 bg-[#0b1020] p-3">
                 <Gauge className="mx-auto mb-2 h-4 w-4 text-orange-300" />
@@ -723,11 +1058,11 @@ export default function FilamentCalculator() {
       <div className="maker-report-highlight maker-report-highlight-client">
         <div>
           <span>Preço varejo total</span>
-          <strong>{currency.format(result.retailTotal)}</strong>
+          <strong>{formatBRL(result.retailTotal)}</strong>
         </div>
         <div>
           <span>Preço unitário</span>
-          <strong>{currency.format(result.retailUnit)}</strong>
+          <strong>{formatBRL(result.retailUnit)}</strong>
         </div>
         <div>
           <span>Quantidade</span>
@@ -746,17 +1081,18 @@ export default function FilamentCalculator() {
 
         <section className="maker-report-card">
           <h2>Especificações Técnicas</h2>
-          <ReportLine label="Peso técnico estimado" value={`${decimal.format(result.realWeight)}g`} />
-          <ReportLine label="Pós-processamento" value={requiresPostProcessing ? "Incluso" : "Não incluso"} />
+          <ReportLine label="Peso técnico estimado" value={`${decimal.format(result.weightGrams)}g`} />
+          <ReportLine label="Material" value={MATERIAL_PRESETS[material].label} />
+          <ReportLine label="Pós-processamento" value={requiresLabor ? "Incluso" : "Não incluso"} />
           <ReportLine label="Validade da proposta" value="7 dias corridos" />
         </section>
 
         <section className="maker-report-card maker-report-wide-card">
           <h2>Condições Comerciais</h2>
-          <ReportLine label="Preço sugerido para venda direta" value={currency.format(result.retailTotal)} />
-          <ReportLine label="Preço por unidade" value={currency.format(result.retailUnit)} />
-          <ReportLine label="Preço para lote/revenda" value={currency.format(result.wholesaleTotal)} />
-          <ReportLine label="Unitário lote/revenda" value={currency.format(result.wholesaleUnit)} />
+          <ReportLine label="Preço sugerido para venda direta" value={formatBRL(result.retailTotal)} />
+          <ReportLine label="Preço por unidade" value={formatBRL(result.retailUnit)} />
+          <ReportLine label="Preço para lote/revenda" value={formatBRL(result.wholesaleTotal)} />
+          <ReportLine label="Unitário lote/revenda" value={formatBRL(result.wholesaleUnit)} />
         </section>
       </div>
 
@@ -782,11 +1118,11 @@ export default function FilamentCalculator() {
       <div className="maker-report-highlight">
         <div>
           <span>Custo real de produção</span>
-          <strong>{currency.format(result.totalCost)}</strong>
+          <strong>{formatBRL(result.totalCost)}</strong>
         </div>
         <div>
           <span>Custo unitário</span>
-          <strong>{currency.format(result.unitCost)}</strong>
+          <strong>{formatBRL(result.unitCost)}</strong>
         </div>
         <div>
           <span>Custo por grama</span>
@@ -797,39 +1133,42 @@ export default function FilamentCalculator() {
       <div className="maker-report-grid maker-report-compact-grid">
         <section className="maker-report-card">
           <h2>Parâmetros do Job</h2>
-          <ReportLine label="Peso slicer" value={`${decimal.format(slicerWeight)}g`} />
-          <ReportLine label="Peso técnico" value={`${decimal.format(result.realWeight)}g`} />
+          <ReportLine label="Filamento utilizado" value={`${decimal.format(slicerWeight)}g`} />
+          <ReportLine label="Peso técnico" value={`${decimal.format(result.weightGrams)}g`} />
           <ReportLine label="Peças no lote" value={`${Math.max(1, batchQuantity)} un.`} />
           <ReportLine label="Tempo total" value={`${decimal.format(printTime)}h`} />
         </section>
 
         <section className="maker-report-card">
           <h2>Material e Energia</h2>
-          <ReportLine label="Carretel" value={currency.format(spoolPrice)} />
+          <ReportLine label="Material" value={MATERIAL_PRESETS[material].label} />
+          <ReportLine label="Carretel" value={formatBRL(spoolPrice)} />
           <ReportLine label="Peso nominal" value={`${decimal.format(spoolWeight)}g`} />
-          <ReportLine label="Fundo reposição" value={`${materialReservePercent}%`} />
+          <ReportLine label="Reserva falhas" value={`${reservePct}%`} />
           <ReportLine label="Consumo" value={`${decimal.format(result.energyKwh)} kWh`} />
-          <ReportLine label="Tarifa kWh" value={currency.format(kwhCost)} />
+          <ReportLine label="Tarifa kWh" value={formatBRL(kwhCost)} />
         </section>
 
         <section className="maker-report-card">
-          <h2>Máquina e Pós</h2>
-          <ReportLine label="Potência PLA" value={`${machinePower} W`} />
+          <h2>Máquina e Mão de Obra</h2>
+          <ReportLine label="Potência média" value={`${steadyPower} W`} />
           <ReportLine label="Pico inicial" value={`${startupPower} W / ${startupMinutes} min`} />
-          <ReportLine label="Taxa máquina" value={`${currency.format(result.machineRate)}/h`} />
-          <ReportLine label="Hora técnica" value={`${currency.format(manualHourlyRate)}/h`} />
+          <ReportLine label="Custo-máquina/h" value={`${formatBRL(result.machineHourCost)}/h`} />
+          <ReportLine label="Depreciação/h" value={`${formatBRL(machineBreak.depreciation)}/h`} />
+          <ReportLine label="Reposição/h" value={`${formatBRL(machineBreak.replacement)}/h`} />
+          <ReportLine label="Hora de trabalho" value={`${formatBRL(laborRate)}/h`} />
           <ReportLine
-            label="Pós-processamento"
-            value={requiresPostProcessing ? currency.format(result.postProcessingCost) : "Não aplicado"}
+            label="Mão de obra + insumos"
+            value={requiresLabor ? formatBRL(laborTotal) : "Não aplicado"}
           />
         </section>
 
         <section className="maker-report-card">
           <h2>Comercial Interno</h2>
-          <ReportLine label={`Atacado ${wholesaleMarkup.toFixed(1)}x total`} value={currency.format(result.wholesaleTotal)} />
-          <ReportLine label="Atacado unitário" value={currency.format(result.wholesaleUnit)} />
-          <ReportLine label={`Varejo ${retailMarkup.toFixed(1)}x total`} value={currency.format(result.retailTotal)} />
-          <ReportLine label="Varejo unitário" value={currency.format(result.retailUnit)} />
+          <ReportLine label={`Atacado ${wholesaleMarkup.toFixed(1)}x total`} value={formatBRL(result.wholesaleTotal)} />
+          <ReportLine label="Lucro atacado" value={`${formatBRL(result.profitWholesale)} (${result.profitWholesalePct.toFixed(0)}%)`} />
+          <ReportLine label={`Varejo ${retailMarkup.toFixed(1)}x total`} value={formatBRL(result.retailTotal)} />
+          <ReportLine label="Lucro varejo" value={`${formatBRL(result.profitRetail)} (${result.profitRetailPct.toFixed(0)}%)`} />
         </section>
       </div>
 
@@ -846,31 +1185,31 @@ export default function FilamentCalculator() {
           <tbody>
             <tr>
               <td>Material</td>
-              <td>{currency.format(result.materialCost)}</td>
-              <td>{result.percents.material.toFixed(1)}%</td>
+              <td>{formatBRL(result.materialCost)}</td>
+              <td>{result.shares.material.toFixed(1)}%</td>
             </tr>
             <tr>
               <td>Energia</td>
-              <td>{currency.format(result.energyCost)}</td>
-              <td>{result.percents.energy.toFixed(1)}%</td>
+              <td>{formatBRL(result.energyCost)}</td>
+              <td>{result.shares.energy.toFixed(1)}%</td>
             </tr>
             <tr>
-              <td>Taxa de máquina / depreciação</td>
-              <td>{currency.format(result.machineCost)}</td>
-              <td>{result.percents.machine.toFixed(1)}%</td>
+              <td>Máquina (depreciação + reposição)</td>
+              <td>{formatBRL(result.machineCost)}</td>
+              <td>{result.shares.machine.toFixed(1)}%</td>
             </tr>
             <tr>
-              <td>Pós-processamento</td>
-              <td>{currency.format(result.postProcessingCost)}</td>
-              <td>{result.percents.postProcessing.toFixed(1)}%</td>
+              <td>Mão de obra + insumos</td>
+              <td>{formatBRL(laborTotal)}</td>
+              <td>{result.shares.labor.toFixed(1)}%</td>
             </tr>
           </tbody>
         </table>
       </section>
 
       <footer className="maker-report-footer">
-        <strong>Nota interna:</strong> cálculo com potência da P2S em 110 V, pico de aquecimento, purga AMS,
-        fundo de reposição, hora-máquina regressiva e custos manuais quando aplicáveis.
+        <strong>Nota interna:</strong> cálculo pelo motor unificado INOVAPRO3D — depreciação da máquina diluída na
+        vida útil, fundo de reposição de peças, energia com pico de aquecimento da P2S e mão de obra quando aplicável.
       </footer>
       </article>
     </section>
