@@ -136,6 +136,9 @@ export const DEFAULT_ENERGY = {
   startupMinutes: 8,
 };
 
+/** Taxa de falha padrão sugerida (%) — perfil estável de PLA. */
+export const DEFAULT_FAILURE_RATE = 5;
+
 // ----------------------------------------------------------------------------
 // CÁLCULO PRINCIPAL
 // ----------------------------------------------------------------------------
@@ -171,6 +174,13 @@ export interface PricingInputs {
   /** Insumos extras do job (parafusos, tinta, ímã) em R$. */
   extraSupplies: number;
 
+  /**
+   * Taxa de falha de impressão (%). Captura o tempo de máquina + energia
+   * PERDIDOS quando uma impressão falha e precisa ser refeita. NÃO mexe no
+   * material — esse desperdício já é coberto por `reservePct`.
+   */
+  failureRatePct?: number;
+
   /** Multiplicador de atacado (B2B) sobre o custo. */
   wholesaleMarkup: number;
   /** Multiplicador de varejo (cliente final) sobre o custo. */
@@ -192,6 +202,9 @@ export interface PricingResult {
   machineCost: number;
   laborCost: number;
   extraSupplies: number;
+  /** Custo do tempo de máquina + energia perdidos em falhas de impressão. */
+  failureLoss: number;
+  failureRatePct: number;
   totalCost: number;
   unitCost: number;
   costPerGram: number;
@@ -201,6 +214,7 @@ export interface PricingResult {
     energy: number;
     machine: number;
     labor: number;
+    failure: number;
   };
 
   wholesaleTotal: number;
@@ -253,7 +267,13 @@ export function computePricing(input: PricingInputs): PricingResult {
   const laborCost = Math.max(0, num(input.laborHours)) * Math.max(0, num(input.laborRate));
   const extraSupplies = Math.max(0, num(input.extraSupplies));
 
-  const totalCost = materialCost + energyCost + machineCost + laborCost + extraSupplies;
+  // --- Taxa de falha: tempo de máquina + energia perdidos numa reimpressão ---
+  // (o material desperdiçado já está coberto por reservePct)
+  const failureRatePct = Math.max(0, num(input.failureRatePct));
+  const failureLoss = (machineCost + energyCost) * (failureRatePct / 100);
+
+  const totalCost =
+    materialCost + energyCost + machineCost + laborCost + extraSupplies + failureLoss;
   const safe = totalCost > 0 ? totalCost : 1;
   const unitCost = totalCost / quantity;
   const costPerGram = weightGrams > 0 ? totalCost / weightGrams : 0;
@@ -280,6 +300,8 @@ export function computePricing(input: PricingInputs): PricingResult {
     machineCost,
     laborCost,
     extraSupplies,
+    failureLoss,
+    failureRatePct,
     totalCost,
     unitCost,
     costPerGram,
@@ -288,6 +310,7 @@ export function computePricing(input: PricingInputs): PricingResult {
       energy: (energyCost / safe) * 100,
       machine: (machineCost / safe) * 100,
       labor: ((laborCost + extraSupplies) / safe) * 100,
+      failure: (failureLoss / safe) * 100,
     },
     wholesaleTotal,
     wholesaleUnit: wholesaleTotal / quantity,
@@ -313,6 +336,17 @@ export const formatBRL = (value: number) =>
     style: "currency",
     currency: "BRL",
   });
+
+/** Converte horas decimais (3.47) em "3h 28min" para exibição amigável. */
+export function formatHoursToHHMM(hours: number): string {
+  const h = Math.max(0, Number.isFinite(hours) ? hours : 0);
+  const totalMinutes = Math.round(h * 60);
+  const hh = Math.floor(totalMinutes / 60);
+  const mm = totalMinutes % 60;
+  if (hh === 0) return `${mm}min`;
+  if (mm === 0) return `${hh}h`;
+  return `${hh}h ${mm}min`;
+}
 
 /** Converte "2h 30m", "2.5" ou "2:30" em horas decimais. */
 export function parseTimeToHours(timeStr: string): number {
@@ -352,6 +386,8 @@ export const HELP = {
     "Quantas peças saem nesta impressão. O custo total é dividido por aqui para dar o preço por unidade.",
   reserve:
     "Margem de segurança sobre o material para cobrir falhas e reimpressões. PLA com perfil bom: 10–15%. PETG ou peça difícil: 20–30%.",
+  failureRate:
+    "Quantas impressões, em média, falham e precisam ser refeitas (%). Aqui entra o tempo de máquina e a energia perdidos — o material já está na 'reserva'. Perfil estável: 3–8%. Peça difícil ou nova: 10–20%.",
   kwh:
     "Preço do kWh na sua conta de luz. Equatorial Pará em 2025 fica perto de R$1,20/kWh com impostos.",
   steadyPower:
