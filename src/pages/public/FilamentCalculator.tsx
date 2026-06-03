@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Calculator,
+  ChevronDown,
   Coins,
   Cpu,
   Download,
@@ -20,11 +22,14 @@ import { cn } from "../../lib/utils";
 import {
   computePricing,
   DEFAULT_ENERGY,
+  DEFAULT_FAILURE_RATE,
   DEFAULT_MACHINE,
   formatBRL,
+  formatHoursToHHMM,
   HELP,
   machineHourBreakdown,
   MATERIAL_PRESETS,
+  parseTimeToHours,
   type MaterialKey,
 } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
@@ -45,8 +50,8 @@ const CONFIG_KEY = "inovapro3d:calc-config";
 function HelpTip({ text }: { text: string }) {
   return (
     <span className="group/tip relative inline-flex">
-      <HelpCircle className="h-3 w-3 cursor-help text-slate-600 transition-colors hover:text-cyan-300" />
-      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg border border-slate-700 bg-[#0b1020] px-3 py-2 text-[10px] font-medium leading-snug text-slate-300 opacity-0 shadow-xl transition-opacity duration-150 group-hover/tip:opacity-100">
+      <HelpCircle className="h-3 w-3 cursor-help text-white/30 transition-colors hover:text-white/70" />
+      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg border border-white/10 bg-[#0b0d14] px-3 py-2 text-[10px] font-medium leading-snug text-white/70 opacity-0 shadow-xl transition-opacity duration-150 group-hover/tip:opacity-100">
         {text}
       </span>
     </span>
@@ -80,13 +85,13 @@ function NumberField({
 }: NumberFieldProps) {
   return (
     <label className={cn("block space-y-2", disabled && "opacity-45")}>
-      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500">
+      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
         {label}
         {help && <HelpTip text={help} />}
       </span>
       <span className="relative block">
         {prefix && (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-600">
+          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40">
             {prefix}
           </span>
         )}
@@ -98,21 +103,54 @@ function NumberField({
           disabled={disabled}
           onChange={(event) => onChange(safeNumber(Number(event.target.value)))}
           className={cn(
-            "h-12 w-full rounded-xl border border-slate-700/70 bg-[#0b1020] px-3 text-sm font-black text-white outline-none transition",
-            "focus:border-cyan-400/70 focus:bg-[#0d1428] focus:ring-2 focus:ring-cyan-400/10",
+            "h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-black text-white outline-none transition",
+            "focus:border-white/30 focus:ring-2 focus:ring-white/5",
             prefix && "pl-9",
             suffix && "pr-11",
             disabled && "cursor-not-allowed",
           )}
         />
         {suffix && (
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-600">
+          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40">
             {suffix}
           </span>
         )}
       </span>
       {hint && (
-        <span className="block text-[9px] text-slate-600 leading-snug">{hint}</span>
+        <span className="block text-[9px] text-white/30 leading-snug">{hint}</span>
+      )}
+    </label>
+  );
+}
+
+type TextFieldProps = {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  hint?: string;
+  help?: string;
+};
+
+function TextField({ label, value, onChange, hint, help }: TextFieldProps) {
+  return (
+    <label className="block space-y-2">
+      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+        {label}
+        {help && <HelpTip text={help} />}
+      </span>
+      <span className="relative block">
+        <input
+          type="text"
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          className={cn(
+            "h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-black text-white outline-none transition",
+            "focus:border-white/30 focus:ring-2 focus:ring-white/5",
+          )}
+        />
+      </span>
+      {hint && (
+        <span className="block text-[9px] text-white/30 leading-snug">{hint}</span>
       )}
     </label>
   );
@@ -130,18 +168,64 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <section className="bg-white/[0.03] border border-white/8 rounded-[28px] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.25)]">
+    <section className="bg-white/[0.03] border border-white/[0.08] rounded-[28px] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.25)]">
       <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-white/70">
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <h2 className="text-xs font-black uppercase tracking-[0.22em] text-slate-100">{title}</h2>
-          <p className="mt-1 text-xs text-slate-500">{subtitle}</p>
+          <h2 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">{title}</h2>
+          <p className="mt-1 text-xs text-white/40">{subtitle}</p>
         </div>
       </div>
       {children}
     </section>
+  );
+}
+
+function AdvancedPanel({
+  open,
+  onToggle,
+  label,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="mt-5">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
+      >
+        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
+          <Settings2 className="h-3.5 w-3.5" />
+          {label}
+        </span>
+        <ChevronDown
+          className={cn(
+            "h-4 w-4 text-white/40 transition-transform duration-300",
+            open && "rotate-180",
+          )}
+        />
+      </button>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.28, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="pt-4">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 
@@ -160,12 +244,12 @@ function Toggle({
       onClick={() => onChange(!checked)}
       className={cn(
         "relative h-7 w-12 rounded-full border transition",
-        checked ? "border-cyan-300/60 bg-cyan-400/25" : "border-slate-700 bg-[#0b1020]",
+        checked ? "border-white/40 bg-white/25" : "border-white/10 bg-white/[0.04]",
       )}
     >
       <span
         className={cn(
-          "absolute top-1 h-5 w-5 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.65)] transition",
+          "absolute top-1 h-5 w-5 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.55)] transition",
           checked ? "left-6" : "left-1",
         )}
       />
@@ -189,16 +273,16 @@ function CostBar({
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className={cn("h-2.5 w-2.5 rounded-full", color)} />
-          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">
             {label}
           </span>
         </div>
         <div className="text-right">
-          <span className="font-mono text-xs font-black text-slate-200">{formatBRL(value)}</span>
-          <span className="ml-2 font-mono text-[10px] font-bold text-slate-600">{percent.toFixed(1)}%</span>
+          <span className="font-mono text-xs font-black text-white/80">{formatBRL(value)}</span>
+          <span className="ml-2 font-mono text-[10px] font-bold text-white/30">{percent.toFixed(1)}%</span>
         </div>
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+      <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
         <div
           className={cn("h-full rounded-full transition-all duration-500", color)}
           style={{ width: `${Math.min(percent, 100)}%` }}
@@ -225,10 +309,10 @@ function MachineStat({
         "rounded-xl border p-3 text-center",
         highlight
           ? "border-cyan-400/30 bg-cyan-400/10"
-          : "border-slate-700/70 bg-[#0b1020]",
+          : "border-white/10 bg-white/[0.04]",
       )}
     >
-      <p className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-slate-500">
+      <p className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
         {label}
         {help && <HelpTip text={help} />}
       </p>
@@ -255,33 +339,33 @@ function PriceBox({
   description: string;
   total: number;
   unit: number;
-  tone: "cyan" | "violet";
+  tone: "wholesale" | "retail";
 }) {
   return (
     <div
       className={cn(
         "card-glow rounded-xl border p-4",
-        tone === "cyan"
-          ? "border-cyan-400/30 bg-cyan-400/10 shadow-[0_0_18px_rgba(37,99,235,0.15)]"
-          : "border-violet-400/30 bg-violet-400/10 shadow-[0_0_18px_rgba(139,92,246,0.15)]",
+        tone === "retail"
+          ? "border-primary/30 bg-primary/10 shadow-[0_0_18px_rgba(37,99,235,0.15)]"
+          : "border-amber-400/30 bg-amber-400/10 shadow-[0_0_18px_rgba(245,158,11,0.12)]",
       )}
     >
       <p
         className={cn(
           "text-[10px] font-black uppercase tracking-[0.2em]",
-          tone === "cyan" ? "text-cyan-200" : "text-violet-200",
+          tone === "retail" ? "text-primary" : "text-amber-200",
         )}
       >
         {title}
       </p>
-      <p className="mt-1 min-h-8 text-xs leading-relaxed text-slate-500">{description}</p>
+      <p className="mt-1 min-h-8 text-xs leading-relaxed text-white/40">{description}</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Total do lote</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Total do lote</p>
           <p className="mt-1 text-lg font-black text-white">{formatBRL(total)}</p>
         </div>
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-slate-600">Unitário</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Unitário</p>
           <p className="mt-1 text-lg font-black text-white">{formatBRL(unit)}</p>
         </div>
       </div>
@@ -305,6 +389,7 @@ export default function FilamentCalculator() {
   const [spoolWeight, setSpoolWeight] = useState(1000);
   const [slicerWeight, setSlicerWeight] = useState(120);
   const [reservePct, setReservePct] = useState(MATERIAL_PRESETS.pla.defaultReservePct);
+  const [failureRatePct, setFailureRatePct] = useState(DEFAULT_FAILURE_RATE);
   const [batchQuantity, setBatchQuantity] = useState(1);
 
   // --- Machine ---
@@ -319,7 +404,8 @@ export default function FilamentCalculator() {
   const [maintPerHour, setMaintPerHour] = useState(DEFAULT_MACHINE.maintPerHour);
 
   // --- Energy ---
-  const [printTime, setPrintTime] = useState(3.47);
+  const [printTimeStr, setPrintTimeStr] = useState("3h 28min");
+  const printTime = parseTimeToHours(printTimeStr);
   const [kwhCost, setKwhCost] = useState(DEFAULT_ENERGY.kwhCost);
   const [steadyPower, setSteadyPower] = useState(MATERIAL_PRESETS.pla.steadyPowerWatts);
   const [startupPower, setStartupPower] = useState(1000);
@@ -335,6 +421,10 @@ export default function FilamentCalculator() {
   const [wholesaleMarkup, setWholesaleMarkup] = useState(1.6);
   const [retailMarkup, setRetailMarkup] = useState(2.5);
   const [minPrice, setMinPrice] = useState(35);
+
+  // --- Advanced panels ---
+  const [showAdvancedMachine, setShowAdvancedMachine] = useState(false);
+  const [showAdvancedEnergy, setShowAdvancedEnergy] = useState(false);
 
   function selectMaterial(key: MaterialKey) {
     const preset = MATERIAL_PRESETS[key];
@@ -356,6 +446,7 @@ export default function FilamentCalculator() {
       if (Number.isFinite(cfg.spoolPrice)) setSpoolPrice(cfg.spoolPrice);
       if (Number.isFinite(cfg.spoolWeight)) setSpoolWeight(cfg.spoolWeight);
       if (Number.isFinite(cfg.reservePct)) setReservePct(cfg.reservePct);
+      if (Number.isFinite(cfg.failureRatePct)) setFailureRatePct(cfg.failureRatePct);
       if (Number.isFinite(cfg.machinePrice)) setMachinePrice(cfg.machinePrice);
       if (Number.isFinite(cfg.lifespanHours)) setLifespanHours(cfg.lifespanHours);
       if (Number.isFinite(cfg.nozzlePrice)) setNozzlePrice(cfg.nozzlePrice);
@@ -386,6 +477,7 @@ export default function FilamentCalculator() {
         spoolPrice,
         spoolWeight,
         reservePct,
+        failureRatePct,
         machinePrice,
         lifespanHours,
         nozzlePrice,
@@ -413,6 +505,7 @@ export default function FilamentCalculator() {
     spoolPrice,
     spoolWeight,
     reservePct,
+    failureRatePct,
     machinePrice,
     lifespanHours,
     nozzlePrice,
@@ -455,6 +548,7 @@ export default function FilamentCalculator() {
         hours: printTime,
         quantity: batchQuantity,
         reservePct,
+        failureRatePct,
         kwhCost,
         startupPowerWatts: startupPower,
         startupMinutes,
@@ -485,6 +579,7 @@ export default function FilamentCalculator() {
       printTime,
       batchQuantity,
       reservePct,
+      failureRatePct,
       kwhCost,
       startupPower,
       startupMinutes,
@@ -517,34 +612,34 @@ export default function FilamentCalculator() {
 
   return (
     <>
-    <div className="maker-screen relative overflow-hidden min-h-screen bg-[#0a0f1d] px-4 py-8 text-white sm:px-6 lg:px-8">
+    <div className="maker-screen relative overflow-hidden min-h-screen bg-[#07080d] px-4 py-8 text-white sm:px-6 lg:px-8">
       <FloatingBackground subtle variant="grid" />
       <div className="relative z-10 mx-auto max-w-7xl">
-        <header className="mb-8 flex flex-col gap-5 border-b border-slate-800 pb-6 lg:flex-row lg:items-end lg:justify-between">
+        <header className="mb-8 flex flex-col gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="mb-3 flex items-center gap-3">
               <BrandMark className="h-8 w-8" />
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-400/25 bg-cyan-400/10 text-cyan-300">
+              <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-white/70">
                 <Calculator className="h-5 w-5" />
               </div>
               <h1 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">
-                CÁLCULO <span className="text-cyan-300">MAKER</span>
+                CÁLCULO <span className="text-white">MAKER</span>
               </h1>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-sm text-white/40">
               Entenda cada centavo: material, energia, depreciação da máquina e seu lucro real
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-[0.24em] text-slate-600">
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#121829] px-3 py-2">
+          <div className="flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/40">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
               <Settings2 className="h-3 w-3" />
               MOTOR V6.0
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-slate-800 bg-[#121829] px-3 py-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
               <Hash className="h-3 w-3" /># MOTOR DE PRECISÃO
             </span>
-            <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/5 px-3 py-2 text-cyan-300/70">
+            <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-cyan-300">
               Bambu Lab P2S + AMS
             </span>
           </div>
@@ -559,97 +654,8 @@ export default function FilamentCalculator() {
               title="Máquina & Depreciação"
               subtitle="Entenda quanto a sua P2S custa por hora de uso"
             >
-              <div className="grid gap-4 sm:grid-cols-2">
-                <NumberField
-                  label="Preço da máquina (P2S + AMS)"
-                  prefix="R$"
-                  value={machinePrice}
-                  onChange={setMachinePrice}
-                  step={1}
-                  help={HELP.machinePrice}
-                />
-                <NumberField
-                  label="Vida útil da máquina"
-                  suffix="h"
-                  value={lifespanHours}
-                  onChange={setLifespanHours}
-                  min={1}
-                  step={100}
-                  help={HELP.lifespan}
-                />
-              </div>
-
-              <p className="mt-5 mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-slate-600">
-                <Wrench className="h-3 w-3" /> Fundo de reposição de peças
-              </p>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <NumberField
-                  label="Bico — preço"
-                  prefix="R$"
-                  value={nozzlePrice}
-                  onChange={setNozzlePrice}
-                  step={1}
-                  help={HELP.nozzle}
-                />
-                <NumberField
-                  label="Bico — vida útil"
-                  suffix="h"
-                  value={nozzleLifeHours}
-                  onChange={setNozzleLifeHours}
-                  min={1}
-                  step={50}
-                  help={HELP.nozzle}
-                />
-                <NumberField
-                  label="Placa / PEI — preço"
-                  prefix="R$"
-                  value={platePrice}
-                  onChange={setPlatePrice}
-                  step={1}
-                  help={HELP.plate}
-                />
-                <NumberField
-                  label="Placa / PEI — vida útil"
-                  suffix="h"
-                  value={plateLifeHours}
-                  onChange={setPlateLifeHours}
-                  min={1}
-                  step={50}
-                  help={HELP.plate}
-                />
-                <NumberField
-                  label="Correias (par) — preço"
-                  prefix="R$"
-                  value={beltsPrice}
-                  onChange={setBeltsPrice}
-                  step={1}
-                  help={HELP.belts}
-                />
-                <NumberField
-                  label="Correias — vida útil"
-                  suffix="h"
-                  value={beltsLifeHours}
-                  onChange={setBeltsLifeHours}
-                  min={1}
-                  step={50}
-                  help={HELP.belts}
-                />
-              </div>
-
-              <div className="mt-4">
-                <NumberField
-                  label="Manutenção geral"
-                  prefix="R$"
-                  suffix="/h"
-                  value={maintPerHour}
-                  onChange={setMaintPerHour}
-                  step={0.01}
-                  help={HELP.maint}
-                />
-              </div>
-
               {/* Live readout */}
-              <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-3">
                 <MachineStat
                   label="Depreciação"
                   value={`${formatBRL(machineBreak.depreciation)}/h`}
@@ -667,14 +673,109 @@ export default function FilamentCalculator() {
                 />
               </div>
 
-              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs leading-relaxed text-slate-400">
+              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs leading-relaxed text-white/50">
                 Cada hora de impressão consome{" "}
                 <span className="font-black text-cyan-300">{formatBRL(machineBreak.total)}/h</span> da sua máquina —{" "}
-                <span className="font-black text-slate-200">{formatBRL(machineBreak.depreciation)}</span> de desgaste do
+                <span className="font-black text-white/80">{formatBRL(machineBreak.depreciation)}</span> de desgaste do
                 equipamento +{" "}
-                <span className="font-black text-slate-200">{formatBRL(machineBreak.replacement)}</span> reservado para
+                <span className="font-black text-white/80">{formatBRL(machineBreak.replacement)}</span> reservado para
                 repor peças.
               </div>
+
+              <AdvancedPanel
+                open={showAdvancedMachine}
+                onToggle={() => setShowAdvancedMachine((v) => !v)}
+                label="Ajustar máquina e depreciação (avançado)"
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <NumberField
+                    label="Preço da máquina (P2S + AMS)"
+                    prefix="R$"
+                    value={machinePrice}
+                    onChange={setMachinePrice}
+                    step={1}
+                    help={HELP.machinePrice}
+                  />
+                  <NumberField
+                    label="Vida útil da máquina"
+                    suffix="h"
+                    value={lifespanHours}
+                    onChange={setLifespanHours}
+                    min={1}
+                    step={100}
+                    help={HELP.lifespan}
+                  />
+                </div>
+
+                <p className="mt-5 mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+                  <Wrench className="h-3 w-3" /> Fundo de reposição de peças
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <NumberField
+                    label="Bico — preço"
+                    prefix="R$"
+                    value={nozzlePrice}
+                    onChange={setNozzlePrice}
+                    step={1}
+                    help={HELP.nozzle}
+                  />
+                  <NumberField
+                    label="Bico — vida útil"
+                    suffix="h"
+                    value={nozzleLifeHours}
+                    onChange={setNozzleLifeHours}
+                    min={1}
+                    step={50}
+                    help={HELP.nozzle}
+                  />
+                  <NumberField
+                    label="Placa / PEI — preço"
+                    prefix="R$"
+                    value={platePrice}
+                    onChange={setPlatePrice}
+                    step={1}
+                    help={HELP.plate}
+                  />
+                  <NumberField
+                    label="Placa / PEI — vida útil"
+                    suffix="h"
+                    value={plateLifeHours}
+                    onChange={setPlateLifeHours}
+                    min={1}
+                    step={50}
+                    help={HELP.plate}
+                  />
+                  <NumberField
+                    label="Correias (par) — preço"
+                    prefix="R$"
+                    value={beltsPrice}
+                    onChange={setBeltsPrice}
+                    step={1}
+                    help={HELP.belts}
+                  />
+                  <NumberField
+                    label="Correias — vida útil"
+                    suffix="h"
+                    value={beltsLifeHours}
+                    onChange={setBeltsLifeHours}
+                    min={1}
+                    step={50}
+                    help={HELP.belts}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <NumberField
+                    label="Manutenção geral"
+                    prefix="R$"
+                    suffix="/h"
+                    value={maintPerHour}
+                    onChange={setMaintPerHour}
+                    step={0.01}
+                    help={HELP.maint}
+                  />
+                </div>
+              </AdvancedPanel>
             </SectionCard>
             </Reveal>
 
@@ -697,19 +798,24 @@ export default function FilamentCalculator() {
                       className={cn(
                         "rounded-xl border px-4 py-3 text-left transition",
                         active
-                          ? "border-cyan-300/60 bg-cyan-400/15 shadow-[0_0_24px_rgba(34,211,238,0.12)]"
-                          : "border-slate-700/70 bg-[#0b1020] hover:border-slate-600",
+                          ? "border-white bg-white text-[#07080d]"
+                          : "border-white/10 bg-white/[0.04] hover:border-white/20",
                       )}
                     >
                       <p
                         className={cn(
                           "text-sm font-black uppercase tracking-[0.18em]",
-                          active ? "text-cyan-200" : "text-slate-200",
+                          active ? "text-[#07080d]" : "text-white/80",
                         )}
                       >
                         {preset.label}
                       </p>
-                      <p className="mt-1 text-[10px] font-bold text-slate-500">
+                      <p
+                        className={cn(
+                          "mt-1 text-[10px] font-bold",
+                          active ? "text-[#07080d]/60" : "text-white/40",
+                        )}
+                      >
                         R${preset.spoolPrice}/kg
                       </p>
                     </button>
@@ -759,6 +865,17 @@ export default function FilamentCalculator() {
                   help={HELP.reserve}
                 />
                 <NumberField
+                  label="Taxa de falha"
+                  suffix="%"
+                  value={failureRatePct}
+                  onChange={setFailureRatePct}
+                  step={1}
+                  help={HELP.failureRate}
+                />
+              </div>
+
+              <div className="mt-5">
+                <NumberField
                   label="Peças no lote"
                   value={batchQuantity}
                   onChange={setBatchQuantity}
@@ -767,7 +884,7 @@ export default function FilamentCalculator() {
                 />
               </div>
 
-              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs text-slate-500">
+              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs text-white/40">
                 Custo por grama (com reserva de {reservePct}%):{" "}
                 <span className="font-mono font-black text-cyan-300">
                   R$ {decimal.format(result.gramCost * reserveMultiplier)}
@@ -784,15 +901,19 @@ export default function FilamentCalculator() {
               title="Energia"
               subtitle="Tarifa da sua conta de luz e consumo real da P2S"
             >
-              <div className="grid gap-4 md:grid-cols-3">
-                <NumberField
-                  label="Tempo de impressão"
-                  suffix="h"
-                  value={printTime}
-                  onChange={setPrintTime}
-                  step={0.01}
-                  help={HELP.time}
-                />
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <TextField
+                    label="Tempo de impressão"
+                    value={printTimeStr}
+                    onChange={setPrintTimeStr}
+                    help={HELP.time}
+                    hint="Aceita 2h 30m, 2:30 ou 2.5"
+                  />
+                  <p className="mt-2 text-[10px] font-bold text-cyan-300">
+                    = {formatHoursToHHMM(printTime)}
+                  </p>
+                </div>
                 <NumberField
                   label="Custo do kWh"
                   prefix="R$"
@@ -801,44 +922,54 @@ export default function FilamentCalculator() {
                   step={0.01}
                   help={HELP.kwh}
                 />
-                <NumberField
-                  label="Potência média"
-                  suffix="W"
-                  value={steadyPower}
-                  onChange={setSteadyPower}
-                  help={HELP.steadyPower}
-                />
-                <NumberField
-                  label="Pico de aquecimento"
-                  suffix="W"
-                  value={startupPower}
-                  onChange={setStartupPower}
-                  help={HELP.startupPower}
-                />
-                <NumberField
-                  label="Duração do pico"
-                  suffix="min"
-                  value={startupMinutes}
-                  onChange={setStartupMinutes}
-                  step={0.5}
-                  help={HELP.startupMinutes}
-                />
-                <div className="rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
-                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">
-                    Consumo estimado
-                  </p>
-                  <p className="mt-1 font-mono text-lg font-black text-cyan-300">
-                    {decimal.format(result.energyKwh)} kWh
-                  </p>
-                  <p className="mt-1 text-[10px] text-slate-500">
-                    = {formatBRL(result.energyCost)}
-                  </p>
-                </div>
               </div>
 
-              <div className="mt-4 rounded-xl border border-slate-700/70 bg-[#0b1020] px-4 py-3 text-xs leading-relaxed text-slate-500">
-                A energia soma o <span className="font-black text-slate-200">pico de aquecimento</span> nos primeiros
-                minutos com o <span className="font-black text-slate-200">regime estável</span> pelo resto da
+              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
+                  Consumo estimado
+                </p>
+                <p className="mt-1 font-mono text-lg font-black text-cyan-300">
+                  {decimal.format(result.energyKwh)} kWh
+                </p>
+                <p className="mt-1 text-[10px] text-white/40">
+                  = {formatBRL(result.energyCost)}
+                </p>
+              </div>
+
+              <AdvancedPanel
+                open={showAdvancedEnergy}
+                onToggle={() => setShowAdvancedEnergy((v) => !v)}
+                label="Ajustes avançados de energia"
+              >
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <NumberField
+                    label="Potência média"
+                    suffix="W"
+                    value={steadyPower}
+                    onChange={setSteadyPower}
+                    help={HELP.steadyPower}
+                  />
+                  <NumberField
+                    label="Pico de aquecimento"
+                    suffix="W"
+                    value={startupPower}
+                    onChange={setStartupPower}
+                    help={HELP.startupPower}
+                  />
+                  <NumberField
+                    label="Duração do pico"
+                    suffix="min"
+                    value={startupMinutes}
+                    onChange={setStartupMinutes}
+                    step={0.5}
+                    help={HELP.startupMinutes}
+                  />
+                </div>
+              </AdvancedPanel>
+
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-white/40">
+                A energia soma o <span className="font-black text-white/80">pico de aquecimento</span> nos primeiros
+                minutos com o <span className="font-black text-white/80">regime estável</span> pelo resto da
                 impressão — por isso jobs curtos pesam proporcionalmente mais na conta.
               </div>
             </SectionCard>
@@ -851,12 +982,12 @@ export default function FilamentCalculator() {
               title="Mão de Obra & Insumos"
               subtitle="Seu tempo de trabalho e materiais extras do job"
             >
-              <div className="flex flex-col gap-4 rounded-xl border border-slate-700/70 bg-[#0b1020] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-black text-slate-100">
+                  <p className="text-sm font-black text-white/90">
                     Tem trabalho manual / pós-processamento?
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">
+                  <p className="mt-1 text-xs text-white/40">
                     Ative para computar fatiar, tirar suportes, lixar, pintar, montar e embalar.
                   </p>
                 </div>
@@ -895,14 +1026,14 @@ export default function FilamentCalculator() {
             </Reveal>
           </div>
 
-          <aside className="bg-white/[0.03] border border-white/8 rounded-[28px] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] lg:p-6 xl:sticky xl:top-24">
-            <div className="flex flex-col gap-5 border-b border-slate-800 pb-6 sm:flex-row sm:items-start sm:justify-between">
+          <aside className="bg-white/[0.03] border border-white/[0.08] rounded-[28px] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] lg:p-6 xl:sticky xl:top-24">
+            <div className="flex flex-col gap-5 border-b border-white/[0.08] pb-6 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-500">
+                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/40">
                   Custo real de produção
                 </p>
                 <div className="mt-3 flex items-start gap-2">
-                  <span className="mt-2 text-xl font-black text-slate-500">R$</span>
+                  <span className="mt-2 text-xl font-black text-white/40">R$</span>
                   <span className="text-5xl font-black tracking-tight text-white sm:text-6xl">
                     {result.totalCost.toFixed(2).replace(".", ",")}
                   </span>
@@ -934,20 +1065,28 @@ export default function FilamentCalculator() {
                 label="Máquina"
                 value={result.machineCost}
                 percent={result.shares.machine}
-                color="bg-violet-400"
+                color="bg-primary"
               />
               <CostBar
                 label="Mão de obra"
                 value={laborTotal}
                 percent={result.shares.labor}
-                color="bg-rose-400"
+                color="bg-white/40"
               />
+              {result.failureLoss > 0 && (
+                <CostBar
+                  label="Falhas"
+                  value={result.failureLoss}
+                  percent={result.shares.failure}
+                  color="bg-amber-400"
+                />
+              )}
             </div>
 
-            <div className="mt-6 rounded-xl border border-slate-700/70 bg-[#0b1020] p-4">
+            <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4">
               <div className="mb-4 flex items-center gap-2">
                 <Coins className="h-4 w-4 text-cyan-300" />
-                <h3 className="text-xs font-black uppercase tracking-[0.22em] text-slate-100">
+                <h3 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">
                   Preço de venda & lucro
                 </h3>
               </div>
@@ -982,7 +1121,7 @@ export default function FilamentCalculator() {
                     description="Ideal para cliente que revende ou fecha lote recorrente."
                     total={result.wholesaleTotal}
                     unit={result.wholesaleUnit}
-                    tone="cyan"
+                    tone="wholesale"
                   />
                   <p className="mt-2 px-1 text-xs font-black text-emerald-400">
                     Lucro: {formatBRL(result.profitWholesale)} ({result.profitWholesalePct.toFixed(0)}%)
@@ -999,7 +1138,7 @@ export default function FilamentCalculator() {
                     description="Ideal para venda direta ao cliente final, sob demanda."
                     total={result.retailTotal}
                     unit={result.retailUnit}
-                    tone="violet"
+                    tone="retail"
                   />
                   <p className="mt-2 px-1 text-xs font-black text-emerald-400">
                     Lucro: {formatBRL(result.profitRetail)} ({result.profitRetailPct.toFixed(0)}%)
@@ -1027,27 +1166,27 @@ export default function FilamentCalculator() {
             <button
               type="button"
               onClick={() => window.print()}
-              className="mt-5 inline-flex h-14 w-full items-center justify-center gap-3 rounded-xl border border-cyan-400/30 bg-cyan-300 px-5 text-xs font-black uppercase tracking-[0.18em] text-[#07111f] transition hover:bg-white hover:shadow-[0_0_30px_rgba(34,211,238,0.18)] active:scale-[0.99]"
+              className="mt-5 inline-flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-primary-dark hover:shadow-[0_0_30px_rgba(37,99,235,0.25)] active:scale-[0.99]"
             >
               <Download className="h-4 w-4" />
               Gerar relatório PDF
             </button>
 
             <div className="mt-5 grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-xl border border-slate-800 bg-[#0b1020] p-3">
-                <Factory className="mx-auto mb-2 h-4 w-4 text-violet-300" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">Lote</p>
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
+                <Factory className="mx-auto mb-2 h-4 w-4 text-primary" />
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Lote</p>
                 <p className="font-mono text-sm font-black text-white">{Math.max(1, batchQuantity)} un.</p>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-[#0b1020] p-3">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Layers3 className="mx-auto mb-2 h-4 w-4 text-cyan-300" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">Unitário</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Unitário</p>
                 <p className="font-mono text-sm font-black text-white">{formatBRL(result.unitCost)}</p>
               </div>
-              <div className="rounded-xl border border-slate-800 bg-[#0b1020] p-3">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Gauge className="mx-auto mb-2 h-4 w-4 text-orange-300" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-slate-600">Horas</p>
-                <p className="font-mono text-sm font-black text-white">{decimal.format(printTime)}h</p>
+                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Horas</p>
+                <p className="font-mono text-sm font-black text-white">{formatHoursToHHMM(printTime)}</p>
               </div>
             </div>
           </aside>
@@ -1089,7 +1228,7 @@ export default function FilamentCalculator() {
           <ReportLine label="Processo" value="Impressão 3D FDM" />
           <ReportLine label="Equipamento" value="Bambu Lab P2S + AMS" />
           <ReportLine label="Quantidade no lote" value={`${Math.max(1, batchQuantity)} un.`} />
-          <ReportLine label="Tempo estimado de produção" value={`${decimal.format(printTime)}h`} />
+          <ReportLine label="Tempo estimado de produção" value={formatHoursToHHMM(printTime)} />
         </section>
 
         <section className="maker-report-card">
@@ -1149,7 +1288,7 @@ export default function FilamentCalculator() {
           <ReportLine label="Filamento utilizado" value={`${decimal.format(slicerWeight)}g`} />
           <ReportLine label="Peso técnico" value={`${decimal.format(result.weightGrams)}g`} />
           <ReportLine label="Peças no lote" value={`${Math.max(1, batchQuantity)} un.`} />
-          <ReportLine label="Tempo total" value={`${decimal.format(printTime)}h`} />
+          <ReportLine label="Tempo total" value={formatHoursToHHMM(printTime)} />
         </section>
 
         <section className="maker-report-card">
@@ -1158,6 +1297,7 @@ export default function FilamentCalculator() {
           <ReportLine label="Carretel" value={formatBRL(spoolPrice)} />
           <ReportLine label="Peso nominal" value={`${decimal.format(spoolWeight)}g`} />
           <ReportLine label="Reserva falhas" value={`${reservePct}%`} />
+          <ReportLine label="Taxa de falha" value={`${failureRatePct}%`} />
           <ReportLine label="Consumo" value={`${decimal.format(result.energyKwh)} kWh`} />
           <ReportLine label="Tarifa kWh" value={formatBRL(kwhCost)} />
         </section>
@@ -1216,6 +1356,13 @@ export default function FilamentCalculator() {
               <td>{formatBRL(laborTotal)}</td>
               <td>{result.shares.labor.toFixed(1)}%</td>
             </tr>
+            {result.failureLoss > 0 && (
+              <tr>
+                <td>Falhas (tempo + energia)</td>
+                <td>{formatBRL(result.failureLoss)}</td>
+                <td>{result.shares.failure.toFixed(1)}%</td>
+              </tr>
+            )}
           </tbody>
         </table>
       </section>

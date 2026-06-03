@@ -83,7 +83,7 @@ import {
 } from 'recharts';
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
-import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey } from "../../lib/pricing";
+import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, DEFAULT_FAILURE_RATE, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import type {
@@ -393,6 +393,7 @@ export default function AdminDashboard() {
   const [quickCalcBatchQty, setQuickCalcBatchQty] = useState<number>(1);
   const [quickCalcMaterial, setQuickCalcMaterial] = useState<MaterialKey>('pla');
   const [quickCalcMaterialReserve, setQuickCalcMaterialReserve] = useState<number>(15);
+  const [quickCalcFailureRate, setQuickCalcFailureRate] = useState<number>(DEFAULT_FAILURE_RATE);
   const [quickCalcMinPrice, setQuickCalcMinPrice] = useState<number>(35);
   const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState<number>(1.6);
   const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState<number>(2.5);
@@ -407,6 +408,7 @@ export default function AdminDashboard() {
     hours: Math.max(0, parseTimeToHours(quickCalcTime)),
     quantity: Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1)),
     reservePct: Math.max(0, Number(quickCalcMaterialReserve) || 0),
+    failureRatePct: Math.max(0, Number(quickCalcFailureRate) || 0),
     kwhCost: DEFAULT_ENERGY.kwhCost,
     startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts,
     startupMinutes: DEFAULT_ENERGY.startupMinutes,
@@ -1444,13 +1446,13 @@ export default function AdminDashboard() {
                         <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">P2S + AMS | Equatorial Pará | custo real com atacado e varejo</p>
                       </div>
                     </div>
-                    <span className="w-fit text-[9px] font-black tracking-wider uppercase text-[#38bdf8] bg-[#38bdf8]/10 px-2.5 py-1 rounded-full border border-[#38bdf8]/10">Maker V6.0</span>
+                    <span className="w-fit text-[9px] font-black tracking-wider uppercase text-white/50 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">Maker V6.0</span>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
                     {/* COLUNA 1: DADOS DO CLIENTE */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
                       <div>
                         <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                           Nome do Cliente
@@ -1462,7 +1464,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcCustomerName}
                           onChange={(e) => setQuickCalcCustomerName(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-bold"
                           placeholder="Ex: João Silva"
                         />
                       </div>
@@ -1477,7 +1479,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcPhone}
                           onChange={(e) => setQuickCalcPhone(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           placeholder="Ex: 11999998888"
                         />
                       </div>
@@ -1492,7 +1494,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcPieceName}
                           onChange={(e) => setQuickCalcPieceName(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-bold"
                           placeholder="Ex: Suporte de Headset"
                         />
                       </div>
@@ -1500,7 +1502,7 @@ export default function AdminDashboard() {
 
                     {/* COLUNA 2: ESPECIFICAÇÕES TÉCNICAS */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
 
                       {/* SELETOR DE MATERIAL */}
                       <div>
@@ -1518,8 +1520,8 @@ export default function AdminDashboard() {
                               onClick={() => setQuickCalcMaterial(key)}
                               className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
                                 quickCalcMaterial === key
-                                  ? 'bg-primary/20 border-primary/50 text-primary'
-                                  : 'bg-black/40 border-white/10 text-white/40 hover:border-white/20'
+                                  ? 'bg-white text-[#07080d] border-white'
+                                  : 'bg-white/[0.03] border-white/10 text-white/40 hover:border-white/20'
                               }`}
                             >
                               {MATERIAL_PRESETS[key].label}
@@ -1544,7 +1546,7 @@ export default function AdminDashboard() {
                             min="0"
                             value={quickCalcWeight}
                             onChange={(e) => setQuickCalcWeight(Number(e.target.value))}
-                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           />
                         </div>
                         <div>
@@ -1559,7 +1561,7 @@ export default function AdminDashboard() {
                             min="1"
                             value={quickCalcBatchQty}
                             onChange={(e) => setQuickCalcBatchQty(Number(e.target.value))}
-                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -1575,7 +1577,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcTime}
                           onChange={(e) => setQuickCalcTime(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           placeholder="Ex: 2h 30m"
                         />
                       </div>
@@ -1644,6 +1646,23 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                             <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                              Taxa de Falha %
+                              <span title={HELP.failureRate}>
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value={quickCalcFailureRate}
+                              onChange={(e) => setQuickCalcFailureRate(Number(e.target.value))}
+                              className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
                               Preço Mínimo R$
                               <span title={HELP.minPrice}>
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
@@ -1696,9 +1715,9 @@ export default function AdminDashboard() {
 
                     {/* COLUNA 3: RESULTADO */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Custo Real e Lucro</h4>
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">3. Custo Real e Lucro</h4>
 
-                      <div className="card-glow bg-white/[0.02] border border-primary/20 rounded-[24px] p-4 sm:p-5 space-y-3 shadow-[0_0_24px_rgba(37,99,235,0.1)]">
+                      <div className="card-glow bg-white/[0.02] border border-white/10 rounded-[24px] p-4 sm:p-5 space-y-3 shadow-[0_0_24px_rgba(37,99,235,0.08)]">
                         {/* CUSTO REAL */}
                         <div className="flex justify-between gap-3 text-xs text-white/70">
                           <span className="min-w-0">Material ({quickCalcResult.weightGrams.toFixed(1)}g + {quickCalcMaterialReserve}% reserva):</span>
@@ -1712,6 +1731,12 @@ export default function AdminDashboard() {
                           <span className="min-w-0">Hora-máquina ({quickCalcResult.hours.toFixed(2)}h × {formatBRL(quickCalcResult.machineHourCost)}):</span>
                           <span className="shrink-0 font-mono text-white">{formatBRL(quickCalcResult.machineCost)}</span>
                         </div>
+                        {quickCalcResult.failureLoss > 0 && (
+                          <div className="flex justify-between gap-3 text-xs text-white/70">
+                            <span className="min-w-0">Falhas ({quickCalcFailureRate}% de retrabalho):</span>
+                            <span className="shrink-0 font-mono text-white">{formatBRL(quickCalcResult.failureLoss)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between gap-3 text-xs font-bold text-white/40 border-t border-white/5 pt-2">
                           <span>Custo real do lote:</span>
                           <span className="shrink-0 font-mono text-white/80">{formatBRL(quickCalcResult.totalCost)}</span>
@@ -1724,38 +1749,40 @@ export default function AdminDashboard() {
                             <span className="font-mono text-white/70">{formatBRL(quickCalcResult.unitCost)}</span>
                           </div>
                           <div className="mt-2 flex h-1.5 rounded-full bg-white/5 overflow-hidden">
-                            <div className="h-full bg-[#38bdf8]" style={{ width: `${quickCalcResult.shares.material}%` }} />
-                            <div className="h-full bg-[#f97316]" style={{ width: `${quickCalcResult.shares.energy}%` }} />
-                            <div className="h-full bg-[#a78bfa]" style={{ width: `${quickCalcResult.shares.machine}%` }} />
+                            <div className="h-full bg-cyan-400" style={{ width: `${quickCalcResult.shares.material}%` }} />
+                            <div className="h-full bg-amber-400" style={{ width: `${quickCalcResult.shares.energy}%` }} />
+                            <div className="h-full bg-primary" style={{ width: `${quickCalcResult.shares.machine}%` }} />
+                            <div className="h-full bg-orange-500" style={{ width: `${quickCalcResult.shares.failure}%` }} />
                           </div>
-                          <div className="mt-2 grid grid-cols-3 gap-1 text-[7px] uppercase font-black text-white/35">
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#38bdf8]" />Mat. {quickCalcResult.shares.material.toFixed(0)}%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#f97316]" />Ener. {quickCalcResult.shares.energy.toFixed(0)}%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#a78bfa]" />Maq. {quickCalcResult.shares.machine.toFixed(0)}%</span>
+                          <div className="mt-2 grid grid-cols-2 min-[430px]:grid-cols-4 gap-1 text-[7px] uppercase font-black text-white/35">
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-cyan-400" />Mat. {quickCalcResult.shares.material.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-amber-400" />Ener. {quickCalcResult.shares.energy.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-primary" />Maq. {quickCalcResult.shares.machine.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-orange-500" />Falha {quickCalcResult.shares.failure.toFixed(0)}%</span>
                           </div>
                         </div>
 
                         {/* PREÇOS ATACADO / VAREJO */}
                         <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 border-t border-white/10 pt-3">
-                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinWholesale ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-[#f59e0b]/20 bg-[#f59e0b]/10'}`}>
-                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-[#fbbf24] tracking-wider">
+                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinWholesale ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-amber-400/20 bg-amber-400/[0.06]'}`}>
+                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-amber-300 tracking-wider">
                               Atacado ×{quickCalcWholesaleMarkup}
                               {quickCalcResult.isBelowMinWholesale && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
                             </span>
                             <strong className="block text-sm font-mono text-white mt-1 break-words">{formatBRL(quickCalcResult.wholesaleTotal)}</strong>
                             <span className="block text-[9px] text-white/50 mt-0.5">{formatBRL(quickCalcResult.wholesaleUnit)} / un.</span>
-                            <span className="block text-[8px] text-[#4ade80] font-black mt-1">
+                            <span className="block text-[8px] text-emerald-400 font-black mt-1">
                               Lucro: {formatBRL(quickCalcResult.profitWholesale)} ({quickCalcResult.profitWholesalePct.toFixed(0)}%)
                             </span>
                           </div>
-                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinRetail ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-[#38bdf8]/20 bg-[#38bdf8]/10'}`}>
-                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-[#38bdf8] tracking-wider">
+                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinRetail ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-primary/30 bg-primary/10'}`}>
+                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-primary tracking-wider">
                               Varejo ×{quickCalcRetailMarkup}
                               {quickCalcResult.isBelowMinRetail && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
                             </span>
                             <strong className="block text-sm font-mono text-white mt-1 break-words">{formatBRL(quickCalcResult.retailTotal)}</strong>
                             <span className="block text-[9px] text-white/50 mt-0.5">{formatBRL(quickCalcResult.retailUnit)} / un.</span>
-                            <span className="block text-[8px] text-[#4ade80] font-black mt-1">
+                            <span className="block text-[8px] text-emerald-400 font-black mt-1">
                               Lucro: {formatBRL(quickCalcResult.profitRetail)} ({quickCalcResult.profitRetailPct.toFixed(0)}%)
                             </span>
                           </div>
