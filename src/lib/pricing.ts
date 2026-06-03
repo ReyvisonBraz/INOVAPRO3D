@@ -5,7 +5,7 @@
 // As duas calculadoras (pública /calculadora e admin "Cálculo Maker Rápido")
 // importam daqui, garantindo que o mesmo job gere SEMPRE o mesmo número.
 //
-// Foco: Bambu Lab P2S + AMS, operação B2B/varejo no Pará (tarifa Equatorial).
+// Foco: Bambu Lab P1S + AMS, operação B2B/varejo no Pará (tarifa Equatorial).
 // ============================================================================
 
 export type MaterialKey = "pla" | "petg";
@@ -73,17 +73,18 @@ export interface MachineConfig {
 }
 
 /**
- * Configuração padrão da Bambu Lab P2S + AMS no Brasil.
- * Valores conservadores — você pode editar todos na calculadora detalhada.
+ * Configuração padrão da Bambu Lab P1S + AMS no Brasil.
+ * Fonte: 3D Prime (jun/2026) R$5.999 · Beehive PEI R$190 · mercado BR jun/2026.
+ * Você pode editar todos os campos na calculadora detalhada.
  */
 export const DEFAULT_MACHINE: MachineConfig = {
-  price: 5500,
+  price: 5999,
   lifespanHours: 6000,
-  nozzlePrice: 70,
+  nozzlePrice: 89,
   nozzleLifeHours: 600,
-  platePrice: 130,
+  platePrice: 190,
   plateLifeHours: 1500,
-  beltsPrice: 90,
+  beltsPrice: 100,
   beltsLifeHours: 2500,
   maintPerHour: 0.1,
 };
@@ -128,9 +129,13 @@ export function machineHourBreakdown(m: MachineConfig): MachineHourBreakdown {
 // ----------------------------------------------------------------------------
 
 export const DEFAULT_ENERGY = {
-  /** Equatorial Pará 2025: ~R$0,96 base + ICMS ≈ R$1,20/kWh na conta. */
-  kwhCost: 1.2,
-  /** Pico de aquecimento da câmara P2S. */
+  /**
+   * Equatorial Pará (CELPA) — RH ANEEL nº 3.507 (ago/2025→ago/2026).
+   * Tarifa residencial B1 com ICMS 25% + PIS/COFINS: R$0,97/kWh.
+   * Sem bandeira tarifária (verde). Ajuste se estiver em bandeira amarela/vermelha.
+   */
+  kwhCost: 0.97,
+  /** Pico de aquecimento — P1S câmara fechada, medido ~1000 W por ~8 min. */
   startupPowerWatts: 1000,
   /** Tempo no pico (aquecimento). */
   startupMinutes: 8,
