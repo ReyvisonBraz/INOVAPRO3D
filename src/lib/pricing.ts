@@ -5,7 +5,7 @@
 // As duas calculadoras (pública /calculadora e admin "Cálculo Maker Rápido")
 // importam daqui, garantindo que o mesmo job gere SEMPRE o mesmo número.
 //
-// Foco: Bambu Lab P1S + AMS, operação B2B/varejo no Pará (tarifa Equatorial).
+// Foco: Bambu Lab P2S + AMS, operação B2B/varejo no Pará (tarifa Equatorial).
 // ============================================================================
 
 export type MaterialKey = "pla" | "petg";
@@ -73,8 +73,8 @@ export interface MachineConfig {
 }
 
 /**
- * Configuração padrão da Bambu Lab P1S + AMS no Brasil.
- * Fonte: 3D Prime (jun/2026) R$5.999 · Beehive PEI R$190 · mercado BR jun/2026.
+ * Configuração padrão da Bambu Lab P2S + AMS no Brasil.
+ * Fonte: mercado BR jun/2026 (revendedores autorizados).
  * Você pode editar todos os campos na calculadora detalhada.
  */
 export const DEFAULT_MACHINE: MachineConfig = {
@@ -135,7 +135,7 @@ export const DEFAULT_ENERGY = {
    * Sem bandeira tarifária (verde). Ajuste se estiver em bandeira amarela/vermelha.
    */
   kwhCost: 0.97,
-  /** Pico de aquecimento — P1S câmara fechada, medido ~1000 W por ~8 min. */
+  /** Pico de aquecimento — P2S câmara fechada, medido ~1000 W por ~8 min. */
   startupPowerWatts: 1000,
   /** Tempo no pico (aquecimento). */
   startupMinutes: 8,
