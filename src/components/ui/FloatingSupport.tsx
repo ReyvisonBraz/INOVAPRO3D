@@ -1,26 +1,28 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Phone, Mail, HelpCircle, ArrowUpRight } from "lucide-react";
+import { MessageCircle, X, Mail, HelpCircle, ArrowUpRight } from "lucide-react";
 
 export default function FloatingSupport() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="fixed bottom-8 right-8 z-[100]">
+    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100]">
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="absolute bottom-20 right-0 w-72 glass-card rounded-[32px] p-6 border-white/10 shadow-2xl overflow-hidden"
+            className="absolute bottom-14 right-0 w-60 sm:w-72 glass-card rounded-[24px] p-5 border-white/10 shadow-2xl overflow-hidden"
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
-            <h4 className="text-sm font-black uppercase tracking-widest mb-6">Central de Atendimento</h4>
-            
-            <div className="space-y-4">
-              <a 
-                href="#" 
+            <h4 className="text-sm font-black uppercase tracking-widest mb-5">Central de Atendimento</h4>
+
+            <div className="space-y-3">
+              <a
+                href="https://wa.me/5591999999999"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-primary/10 hover:text-primary transition-all group border border-white/5"
               >
                 <div className="flex items-center gap-3">
@@ -29,9 +31,9 @@ export default function FloatingSupport() {
                 </div>
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </a>
-              
-              <a 
-                href="#" 
+
+              <a
+                href="mailto:contato@inovapro3d.com.br"
                 className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all group border border-white/5"
               >
                 <div className="flex items-center gap-3">
@@ -41,12 +43,16 @@ export default function FloatingSupport() {
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </a>
 
-              <div className="pt-4 border-t border-white/5 mt-2">
-                <div className="flex items-center gap-3 text-white/30 px-3">
-                  <HelpCircle className="w-4 h-4" />
+              <a
+                href="/faq"
+                className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all group border border-white/5"
+              >
+                <div className="flex items-center gap-3">
+                  <HelpCircle className="w-4 h-4 text-white/30" />
                   <span className="text-[10px] font-black uppercase tracking-widest">FAQ / Ajuda</span>
                 </div>
-              </div>
+                <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </a>
             </div>
           </motion.div>
         )}
@@ -56,7 +62,7 @@ export default function FloatingSupport() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 border border-white/10 backdrop-blur-xl ${
+        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 border border-white/10 backdrop-blur-xl ${
           isOpen ? 'bg-white text-surface' : 'bg-primary text-white'
         }`}
       >
@@ -68,7 +74,7 @@ export default function FloatingSupport() {
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: 90, opacity: 0 }}
             >
-              <X className="w-6 h-6" />
+              <X className="w-4 h-4" />
             </motion.div>
           ) : (
             <motion.div
@@ -77,7 +83,7 @@ export default function FloatingSupport() {
               animate={{ rotate: 0, opacity: 1 }}
               exit={{ rotate: -90, opacity: 0 }}
             >
-              <MessageCircle className="w-6 h-6" />
+              <MessageCircle className="w-4 h-4" />
             </motion.div>
           )}
         </AnimatePresence>

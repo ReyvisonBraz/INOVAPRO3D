@@ -185,9 +185,9 @@ export default function CustomQuote() {
   };
 
   return (
-    <div className="container-section py-8 min-h-[80vh]">
-      <header className="max-w-md mx-auto mb-8 text-center">
-        <h1 className="heading-md uppercase mb-2">
+    <div className="container-section py-6 sm:py-8 min-h-[80vh]">
+      <header className="max-w-md mx-auto mb-6 text-center">
+        <h1 className="text-2xl sm:text-3xl font-black font-display uppercase tracking-tight mb-2">
           Orçamento <span className="text-shimmer italic">3D.</span>
         </h1>
         <p className="text-xs text-white/40 font-medium italic">
@@ -236,11 +236,11 @@ export default function CustomQuote() {
                         accept=".stl,.obj,.step,.stp,.iges,.igs" 
                         onChange={handleFileChange} 
                       />
-                      <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4 border border-white/5 group-hover:scale-110 group-hover:bg-primary/20 transition-all">
-                        <Upload className="w-8 h-8 text-primary" />
+                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-3 border border-white/5 group-hover:scale-110 group-hover:bg-primary/20 transition-all">
+                        <Upload className="w-6 h-6 text-primary" />
                       </div>
-                      <h3 className="text-xl font-black font-display uppercase tracking-tight mb-2">Envie seu Modelo</h3>
-                      <p className="text-white/40 font-medium text-xs italic">Clique ou arraste seu arquivo (STL/OBJ/STEP/IGES)</p>
+                      <h3 className="text-sm font-black font-display uppercase tracking-tight mb-1">Envie seu Modelo</h3>
+                      <p className="text-white/40 font-medium text-[10px] italic">Clique ou arraste (STL / OBJ / STEP / IGES)</p>
                     </div>
                   ) : (
                     <div className="w-full aspect-[21/6] flex flex-col items-center justify-center gap-6">
@@ -259,16 +259,16 @@ export default function CustomQuote() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 w-full">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-8 w-full">
                     {[
                       { icon: Zap, title: "Cálculo Real", desc: "Estimativa baseada em peso e tempo real de impressão." },
-                      { icon: ShieldCheck, title: "Acabamento PLA", desc: "Opções de acabamento específicos para sua necessidade." },
+                      { icon: ShieldCheck, title: "Acabamento PLA", desc: "Opções de acabamento para sua necessidade." },
                       { icon: AlertCircle, title: "Análise de Malha", desc: "Verificação básica de integridade do arquivo." }
                     ].map((feat, i) => (
-                      <div key={i} className="p-6 rounded-2xl bg-white/[0.03] border border-white/5">
-                        <feat.icon className="w-5 h-5 text-primary mb-3" />
-                        <h4 className="font-bold uppercase tracking-tight mb-1 text-xs">{feat.title}</h4>
-                        <p className="text-[10px] text-white/30 leading-relaxed font-medium italic">{feat.desc}</p>
+                      <div key={i} className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                        <feat.icon className="w-4 h-4 text-primary mb-2" />
+                        <h4 className="font-bold uppercase tracking-tight mb-0.5 text-[10px]">{feat.title}</h4>
+                        <p className="text-[9px] text-white/30 leading-relaxed font-medium italic">{feat.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -297,7 +297,7 @@ export default function CustomQuote() {
                   <div className="lg:col-span-2 flex flex-col pt-4">
                       <div className="mb-4">
                          <span className="text-[9px] font-black uppercase tracking-widest text-primary mb-1 block">Arquivo Validado</span>
-                         <h3 className="text-xl font-black font-display uppercase tracking-tight mb-0.5 truncate">{file?.name}</h3>
+                         <h3 className="text-sm font-black font-display uppercase tracking-tight mb-0.5 truncate">{file?.name}</h3>
                       </div>
   
                       <div className="space-y-5 flex-1">

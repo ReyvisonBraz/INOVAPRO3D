@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { 
   collection, 
   query, 
@@ -565,6 +565,13 @@ export default function AdminDashboard() {
     modelUrl: '',
     baseDimensions: { x: 120, y: 120, z: 150 }
   });
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+
+  const STATIC_CATEGORIES = ["DECORAÇÃO", "UTILITÁRIOS", "ACTION FIGURES", "ORGANIZADORES", "MODA", "GAMES", "PERSONALIZADO", "OUTROS"];
+  const allCategories = useMemo(
+    () => Array.from(new Set([...STATIC_CATEGORIES, ...customCategories])).sort(),
+    [customCategories]
+  );
 
   const resetNewProduct = () => {
     setNewProduct({
@@ -647,6 +654,37 @@ export default function AdminDashboard() {
         },
       }));
 
+      // Auto-sugerir preço se dados técnicos disponíveis
+      const importedTech = { ...(data.technical || {}) };
+      const weightG = Number(importedTech.weight) || 0;
+      const printTimeH = (() => {
+        const t = importedTech.printTime || "";
+        const hMatch = t.match(/(\d+)\s*h/i);
+        const mMatch = t.match(/(\d+)\s*m/i);
+        return (hMatch ? Number(hMatch[1]) : 0) + (mMatch ? Number(mMatch[1]) / 60 : 0);
+      })();
+      if (weightG > 0 && printTimeH > 0) {
+        try {
+          const suggested = computePricing({
+            material: "pla",
+            weightGrams: weightG,
+            hours: printTimeH,
+            quantity: 1,
+            reservePct: MATERIAL_PRESETS.pla.defaultReservePct,
+            failureRatePct: DEFAULT_FAILURE_RATE,
+            machineConfig: DEFAULT_MACHINE,
+            kwhCost: DEFAULT_ENERGY.kwhCost,
+            startupWatts: DEFAULT_ENERGY.startupPowerWatts,
+            startupMinutes: DEFAULT_ENERGY.startupMinutes,
+            wholesaleMarkup: 1.8,
+            retailMarkup: 2.5,
+            minPrice: 15,
+          });
+          setNewProduct(p => ({ ...p, basePrice: parseFloat(suggested.retailUnit.toFixed(2)) }));
+          toast.info(`Preço sugerido: R$ ${suggested.retailUnit.toFixed(2)} (varejo unitário)`, { duration: 5000 });
+        } catch { /* silently skip */ }
+      }
+
       toast.success("Metadados importados. Revise o preco antes de salvar.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao importar metadados.");
@@ -721,7 +759,9 @@ export default function AdminDashboard() {
       
       setOrders(ordersSnap.docs.map(o => ({ id: o.id, ...o.data() } as Order)));
       setQuotes(quotesSnap.docs.map(q => ({ id: q.id, ...q.data() } as Quote)));
-      setProducts(productsSnap.docs.map(p => ({ id: p.id, ...p.data() } as Product)));
+      const loadedProducts = productsSnap.docs.map(p => ({ id: p.id, ...p.data() } as Product));
+      setProducts(loadedProducts);
+      setCustomCategories(Array.from(new Set(loadedProducts.map(p => p.category).filter(Boolean))) as string[]);
       setShowcase(showcaseSnap.docs.map(s => ({ id: s.id, ...s.data() } as ShowcaseItem)));
       setMaterials(materialsSnap.docs.map(m => ({ id: m.id, ...m.data() } as Material)));
       setCoupons(couponsSnap.docs.map(c => ({ id: c.id, ...c.data() } as Coupon)));
@@ -2763,19 +2803,33 @@ export default function AdminDashboard() {
                       </div>
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Setor / Categoria</label>
-                          <select 
+                          <select
                              value={newProduct.category}
                              onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
                              className="w-full bg-[#050508] border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-display text-[11px]"
                           >
-                             <option value="DECORAÇÃO">DECORAÇÃO</option>
-                             <option value="UTILITÁRIOS">UTILITÁRIOS</option>
-                             <option value="ACTION FIGURES">ACTION FIGURES</option>
-                             <option value="ORGANIZADORES">ORGANIZADORES</option>
-                             <option value="MODA">MODA</option>
-                             <option value="GAMES">GAMES</option>
-                             <option value="OUTROS">OUTROS</option>
+                             {allCategories.map(cat => (
+                               <option key={cat} value={cat}>{cat}</option>
+                             ))}
                           </select>
+                          <div className="mt-2">
+                            <input
+                              type="text"
+                              placeholder="+ Nova categoria (Enter para adicionar)"
+                              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 transition-all text-white placeholder:text-white/20"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const val = (e.target as HTMLInputElement).value.trim().toUpperCase();
+                                  if (val && !allCategories.includes(val)) {
+                                    setCustomCategories(prev => [...prev, val]);
+                                    setNewProduct(p => ({...p, category: val}));
+                                    (e.target as HTMLInputElement).value = "";
+                                  }
+                                }
+                              }}
+                            />
+                          </div>
                        </div>
                    </div>
 

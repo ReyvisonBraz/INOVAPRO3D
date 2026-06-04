@@ -170,7 +170,7 @@ export default function Home() {
                 <button
                   type="button"
                   onClick={scrollToCatalog}
-                  className="group flex h-[3.25rem] w-fit min-w-[11rem] items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:h-[3.75rem] sm:w-auto sm:px-7"
+                  className="group flex h-[3.25rem] w-full items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:h-[3.75rem] sm:w-auto sm:px-7"
                 >
                   Ver prévia
                   <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
