@@ -83,6 +83,12 @@ function NumberField({
   hint,
   help,
 }: NumberFieldProps) {
+  const [draft, setDraft] = useState(String(value));
+
+  useEffect(() => {
+    setDraft(String(value));
+  }, [value]);
+
   return (
     <label className={cn("block space-y-2", disabled && "opacity-45")}>
       <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
@@ -99,9 +105,23 @@ function NumberField({
           type="number"
           min={min}
           step={step}
-          value={value}
+          value={draft}
           disabled={disabled}
-          onChange={(event) => onChange(safeNumber(Number(event.target.value)))}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            const n = Number(e.target.value);
+            if (e.target.value !== "" && Number.isFinite(n)) {
+              onChange(safeNumber(n));
+            }
+          }}
+          onBlur={() => {
+            const n = Number(draft);
+            if (draft === "" || !Number.isFinite(n)) {
+              const fallback = min ?? 0;
+              setDraft(String(fallback));
+              onChange(fallback);
+            }
+          }}
           className={cn(
             "h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-black text-white outline-none transition",
             "focus:border-white/30 focus:ring-2 focus:ring-white/5",

@@ -103,6 +103,48 @@ import type {
 
 type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'materials' | 'showcase' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs';
 
+function NumInput({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  className,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  className?: string;
+}) {
+  const [draft, setDraft] = React.useState(String(value));
+  React.useEffect(() => { setDraft(String(value)); }, [value]);
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step={step}
+      value={draft}
+      className={className}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const n = Number(e.target.value);
+        if (e.target.value !== "" && Number.isFinite(n)) onChange(n);
+      }}
+      onBlur={() => {
+        const n = Number(draft);
+        if (draft === "" || !Number.isFinite(n)) {
+          const fallback = min ?? 0;
+          setDraft(String(fallback));
+          onChange(fallback);
+        }
+      }}
+    />
+  );
+}
+
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -1541,11 +1583,10 @@ export default function AdminDashboard() {
                               <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                             </span>
                           </label>
-                          <input
-                            type="number"
-                            min="0"
+                          <NumInput
+                            min={0}
                             value={quickCalcWeight}
-                            onChange={(e) => setQuickCalcWeight(Number(e.target.value))}
+                            onChange={setQuickCalcWeight}
                             className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           />
                         </div>
@@ -1556,11 +1597,10 @@ export default function AdminDashboard() {
                               <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                             </span>
                           </label>
-                          <input
-                            type="number"
-                            min="1"
+                          <NumInput
+                            min={1}
                             value={quickCalcBatchQty}
-                            onChange={(e) => setQuickCalcBatchQty(Number(e.target.value))}
+                            onChange={setQuickCalcBatchQty}
                             className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           />
                         </div>
@@ -1634,13 +1674,12 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="5"
+                            <NumInput
+                              min={0}
+                              max={100}
+                              step={5}
                               value={quickCalcMaterialReserve}
-                              onChange={(e) => setQuickCalcMaterialReserve(Number(e.target.value))}
+                              onChange={setQuickCalcMaterialReserve}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1651,13 +1690,12 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="1"
+                            <NumInput
+                              min={0}
+                              max={100}
+                              step={1}
                               value={quickCalcFailureRate}
-                              onChange={(e) => setQuickCalcFailureRate(Number(e.target.value))}
+                              onChange={setQuickCalcFailureRate}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1668,12 +1706,11 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="5"
+                            <NumInput
+                              min={0}
+                              step={5}
                               value={quickCalcMinPrice}
-                              onChange={(e) => setQuickCalcMinPrice(Number(e.target.value))}
+                              onChange={setQuickCalcMinPrice}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1684,12 +1721,11 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.1"
+                            <NumInput
+                              min={0}
+                              step={0.1}
                               value={quickCalcWholesaleMarkup}
-                              onChange={(e) => setQuickCalcWholesaleMarkup(Number(e.target.value))}
+                              onChange={setQuickCalcWholesaleMarkup}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1700,12 +1736,11 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.1"
+                            <NumInput
+                              min={0}
+                              step={0.1}
                               value={quickCalcRetailMarkup}
-                              onChange={(e) => setQuickCalcRetailMarkup(Number(e.target.value))}
+                              onChange={setQuickCalcRetailMarkup}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -2413,11 +2448,11 @@ export default function AdminDashboard() {
                        </div>
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase text-white/20">Valor Mínimo para Orçamento (R$)</label>
-                          <input 
-                            type="number" 
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50" 
+                          <NumInput
+                            min={0}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50"
                             value={globalSettings.minOrderValue}
-                            onChange={(e) => setGlobalSettings({...globalSettings, minOrderValue: parseFloat(e.target.value)})}
+                            onChange={(v) => setGlobalSettings({...globalSettings, minOrderValue: v})}
                           />
                        </div>
                        <Button className="w-full h-14 rounded-2xl" onClick={handleSaveSettings}>Salvar Alterações Globais</Button>
@@ -2704,10 +2739,10 @@ export default function AdminDashboard() {
                              <div className="h-6 w-px bg-white/10" />
                              <div className="flex items-center gap-2 flex-1">
                                 <label className="text-[9px] font-black uppercase text-white/20">Estoque:</label>
-                                <input 
-                                   type="number"
+                                <NumInput
+                                   min={0}
                                    value={newProduct.stock || 0}
-                                   onChange={(e) => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})}
+                                   onChange={(v) => setNewProduct({...newProduct, stock: Math.round(v)})}
                                    className="bg-transparent border-none outline-none text-xs font-bold text-white w-12"
                                 />
                              </div>
@@ -2718,12 +2753,11 @@ export default function AdminDashboard() {
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Preço Base (R$)</label>
-                         <input 
-                            required
-                            type="number"
-                            step="0.01"
+                         <NumInput
+                            min={0}
+                            step={0.01}
                             value={newProduct.basePrice}
-                            onChange={(e) => setNewProduct({...newProduct, basePrice: parseFloat(e.target.value)})}
+                            onChange={(v) => setNewProduct({...newProduct, basePrice: v})}
                             className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all"
                          />
                       </div>
@@ -2839,45 +2873,36 @@ export default function AdminDashboard() {
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase text-white/40">Eixo X (Largura)</label>
-                          <input 
-                             type="number"
+                          <NumInput
+                             min={0}
                              value={newProduct.baseDimensions?.x || 120}
-                             onChange={(e) => setNewProduct({
-                               ...newProduct, 
-                               baseDimensions: { 
-                                 ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), 
-                                 x: parseInt(e.target.value) || 0 
-                               }
+                             onChange={(v) => setNewProduct({
+                               ...newProduct,
+                               baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), x: Math.round(v) }
                              })}
                              className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center"
                           />
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase text-white/40">Eixo Y (Comprimento)</label>
-                          <input 
-                             type="number"
+                          <NumInput
+                             min={0}
                              value={newProduct.baseDimensions?.y || 120}
-                             onChange={(e) => setNewProduct({
-                               ...newProduct, 
-                               baseDimensions: { 
-                                 ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), 
-                                 y: parseInt(e.target.value) || 0 
-                               }
+                             onChange={(v) => setNewProduct({
+                               ...newProduct,
+                               baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), y: Math.round(v) }
                              })}
                              className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center"
                           />
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase text-white/40">Eixo Z (Altura)</label>
-                          <input 
-                             type="number"
+                          <NumInput
+                             min={0}
                              value={newProduct.baseDimensions?.z || 150}
-                             onChange={(e) => setNewProduct({
-                               ...newProduct, 
-                               baseDimensions: { 
-                                 ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), 
-                                 z: parseInt(e.target.value) || 0 
-                               }
+                             onChange={(v) => setNewProduct({
+                               ...newProduct,
+                               baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), z: Math.round(v) }
                              })}
                              className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center"
                           />
@@ -2896,10 +2921,11 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase text-white/20">Infill (%)</label>
-                         <input 
-                            type="number"
+                         <NumInput
+                            min={0}
+                            max={100}
                             value={newProduct.technical.infill}
-                            onChange={(e) => setNewProduct({...newProduct, technical: {...newProduct.technical, infill: parseInt(e.target.value)}})}
+                            onChange={(v) => setNewProduct({...newProduct, technical: {...newProduct.technical, infill: Math.round(v)}})}
                             className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none"
                          />
                       </div>
@@ -2914,11 +2940,10 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase text-white/20">Peso Base (g)</label>
-                         <input 
-                            type="number"
+                         <NumInput
+                            min={0}
                             value={newProduct.technical.weight || 80}
-                            onChange={(e) => setNewProduct({...newProduct, technical: {...newProduct.technical, weight: parseInt(e.target.value) || 0}})}
-                            placeholder="80"
+                            onChange={(v) => setNewProduct({...newProduct, technical: {...newProduct.technical, weight: Math.round(v)}})}
                             className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none"
                          />
                       </div>
@@ -3095,44 +3120,41 @@ export default function AdminDashboard() {
                                  <div className="grid grid-cols-2 gap-3">
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase font-black block mb-1">Filamento (R$/g)</label>
-                                       <input
-                                          type="number"
-                                          step="0.01"
+                                       <NumInput
+                                          min={0}
+                                          step={0.01}
                                           value={calcFilamentPrice}
-                                          onChange={(e) => setCalcFilamentPrice(Number(e.target.value))}
+                                          onChange={setCalcFilamentPrice}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 0.15"
                                        />
                                     </div>
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase block mb-1 font-black">Hora Máquina (R$)</label>
-                                       <input
-                                          type="number"
-                                          step="0.10"
+                                       <NumInput
+                                          min={0}
+                                          step={0.10}
                                           value={calcHourCost}
-                                          onChange={(e) => setCalcHourCost(Number(e.target.value))}
+                                          onChange={setCalcHourCost}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 4.50"
                                        />
                                     </div>
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase font-black block mb-1">Taxa Setup (R$)</label>
-                                       <input
-                                          type="number"
+                                       <NumInput
+                                          min={0}
                                           value={calcSetupFee}
-                                          onChange={(e) => setCalcSetupFee(Number(e.target.value))}
+                                          onChange={setCalcSetupFee}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 10.00"
                                        />
                                     </div>
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase font-black block mb-1">Margem de Lucro (%)</label>
-                                       <input
-                                          type="number"
+                                       <NumInput
+                                          min={0}
+                                          max={100}
                                           value={calcMargin}
-                                          onChange={(e) => setCalcMargin(Number(e.target.value))}
+                                          onChange={setCalcMargin}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 50"
                                        />
                                     </div>
                                  </div>
@@ -3180,11 +3202,11 @@ export default function AdminDashboard() {
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                              <label className="text-[10px] font-black uppercase tracking-wider text-white/40 mb-1 block">Valor Final Aprovado (R$)</label>
-                             <input 
-                                type="number" 
-                                step="0.01"
+                             <NumInput
+                                min={0}
+                                step={0.01}
                                 value={editingQuoteTotal}
-                                onChange={(e) => setEditingQuoteTotal(Number(e.target.value))}
+                                onChange={setEditingQuoteTotal}
                                 className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm text-primary font-bold outline-none focus:border-primary/50 transition-all font-mono"
                              />
                           </div>
@@ -3210,10 +3232,10 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                              <label className="text-[10px] font-black uppercase tracking-wider text-[#2563EB] mb-1 block font-bold">Peso Estimado (g)</label>
-                             <input 
-                                type="number" 
+                             <NumInput
+                                min={0}
                                 value={editingQuoteWeight}
-                                onChange={(e) => setEditingQuoteWeight(Number(e.target.value))}
+                                onChange={setEditingQuoteWeight}
                                 className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-primary/50 transition-all font-mono"
                              />
                           </div>
@@ -3448,10 +3470,11 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase text-white/20">Custo p/ Kg</label>
-                         <input 
-                            type="number"
+                         <NumInput
+                            min={0}
+                            step={0.01}
                             value={newMaterial.pricePerKg}
-                            onChange={(e) => setNewMaterial({...newMaterial, pricePerKg: parseFloat(e.target.value)})}
+                            onChange={(v) => setNewMaterial({...newMaterial, pricePerKg: v})}
                             className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
                          />
                       </div>
