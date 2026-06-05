@@ -180,7 +180,7 @@ export default function Catalog() {
               </button>
             </div>
 
-            <nav className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar" aria-label="Filtrar por categoria">
+            <nav className="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar" aria-label="Filtrar por categoria">
               {categories.map(cat => (
                 <button
                   key={cat}

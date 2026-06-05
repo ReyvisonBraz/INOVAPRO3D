@@ -212,62 +212,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container-section py-20 sm:py-28">
-        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-          <div>
-            <Reveal direction="up">
-              <p className="section-label-accent mb-4">Por que abrir o catálogo?</p>
-            </Reveal>
-            <RevealText
-              text="Você vê possibilidades reais antes de pedir qualquer coisa."
-              highlightFrom={4}
-              as="h2"
-              className="heading-lg justify-start text-white"
-            />
-          </div>
-          <Reveal direction="up" delay={0.18}>
-            <p className="max-w-2xl text-sm font-medium leading-relaxed text-white/[0.44] sm:text-base">
-              O catálogo foi pensado para tirar o cliente do "será que dá certo?" e levar direto
-              para escolhas concretas: modelos, valores iniciais, fotos, materiais e compra em poucos
-              cliques. Quando precisar de algo único, o fluxo de orçamento entra no mesmo padrão.
-            </p>
-          </Reveal>
-        </div>
-
-        <RevealGroup className="mt-12 grid gap-4 md:grid-cols-3">
-          {[
-            {
-              icon: Sparkles,
-              title: "Compra sem fricção",
-              text: "Produtos prontos para escolher, comparar e adicionar ao carrinho sem depender de troca longa de mensagens.",
-            },
-            {
-              icon: Ruler,
-              title: "Medida e uso claros",
-              text: "Cada peça comunica preço inicial, categoria e descrição para o cliente entender onde ela se encaixa.",
-            },
-            {
-              icon: ShieldCheck,
-              title: "Acabamento de loja",
-              text: "A produção é ajustada para entregar peças limpas, resistentes e com aparência profissional.",
-            },
-          ].map((item) => (
-            <RevealItem key={item.title}>
-              <div className="spotlight-card group h-full rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-6 transition-all duration-500 hover:-translate-y-1 hover:border-white/[0.16]">
-                <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-cyan-300">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <h3 className="font-display text-xl font-black leading-tight text-white">
-                  {item.title}
-                </h3>
-                <p className="mt-4 text-sm font-medium leading-relaxed text-white/40">{item.text}</p>
-              </div>
-            </RevealItem>
-          ))}
-        </RevealGroup>
-      </section>
-
-      <section id="catalogo-preview" className="scroll-mt-28 py-20 sm:py-28">
+      <section id="catalogo-preview" className="scroll-mt-28 py-14 sm:py-20">
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -311,55 +256,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container-section py-20 sm:py-28">
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-          <Reveal direction="right" className="min-h-[420px]">
-            <div className="relative h-full overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.03]">
-              <FloatingBackground subtle />
-              <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/70" />
-              <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
-                <div>
-                  <p className="section-label-accent mb-5">Processo sem mistério</p>
-                  <h2 className="max-w-xl font-display text-4xl font-black uppercase leading-[0.92] text-white sm:text-5xl">
-                    Do clique ao pacote, tudo pensado para o cliente confiar.
-                  </h2>
-                </div>
-                <Link to="/upload">
-                  <Button className="h-[3.25rem] rounded-2xl px-6 text-[10px] font-black uppercase tracking-[0.18em]">
-                    Pedir uma peça sob medida
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Reveal>
-
-          <RevealGroup className="grid gap-5">
-            {[
-              { icon: Layers3, title: "Escolha ou envie", text: "Use o catálogo para comprar rápido ou envie seu STL para uma peça exclusiva." },
-              { icon: Clock3, title: "Validação técnica", text: "Avaliamos material, tempo, resistência e acabamento antes de produzir." },
-              { icon: PackageCheck, title: "Produção e envio", text: "A peça sai protegida, embalada e pronta para uso, presente ou revenda." },
-            ].map((step, index) => (
-              <RevealItem key={step.title}>
-                <div className="grid grid-cols-[auto_1fr] gap-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-950">
-                    <step.icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
-                      Etapa 0{index + 1}
-                    </p>
-                    <h3 className="font-display text-xl font-black leading-tight text-white">{step.title}</h3>
-                    <p className="mt-3 text-sm font-medium leading-relaxed text-white/[0.42]">{step.text}</p>
-                  </div>
-                </div>
-              </RevealItem>
-            ))}
-          </RevealGroup>
-        </div>
-      </section>
-
-      <section className="py-20 sm:py-28">
+      <section className="py-14 sm:py-20">
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
@@ -451,6 +348,109 @@ export default function Home() {
               <p className="text-sm font-medium text-white/[0.35]">Nenhuma peça encontrada nesta categoria.</p>
             </div>
           )}
+        </div>
+      </section>
+
+      <section className="container-section py-20 sm:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div>
+            <Reveal direction="up">
+              <p className="section-label-accent mb-4">Por que abrir o catálogo?</p>
+            </Reveal>
+            <RevealText
+              text="Você vê possibilidades reais antes de pedir qualquer coisa."
+              highlightFrom={4}
+              as="h2"
+              className="heading-lg justify-start text-white"
+            />
+          </div>
+          <Reveal direction="up" delay={0.18}>
+            <p className="max-w-2xl text-sm font-medium leading-relaxed text-white/[0.44] sm:text-base">
+              O catálogo foi pensado para tirar o cliente do "será que dá certo?" e levar direto
+              para escolhas concretas: modelos, valores iniciais, fotos, materiais e compra em poucos
+              cliques. Quando precisar de algo único, o fluxo de orçamento entra no mesmo padrão.
+            </p>
+          </Reveal>
+        </div>
+
+        <RevealGroup className="mt-12 grid gap-4 md:grid-cols-3">
+          {[
+            {
+              icon: Sparkles,
+              title: "Compra sem fricção",
+              text: "Produtos prontos para escolher, comparar e adicionar ao carrinho sem depender de troca longa de mensagens.",
+            },
+            {
+              icon: Ruler,
+              title: "Medida e uso claros",
+              text: "Cada peça comunica preço inicial, categoria e descrição para o cliente entender onde ela se encaixa.",
+            },
+            {
+              icon: ShieldCheck,
+              title: "Acabamento de loja",
+              text: "A produção é ajustada para entregar peças limpas, resistentes e com aparência profissional.",
+            },
+          ].map((item) => (
+            <RevealItem key={item.title}>
+              <div className="spotlight-card group h-full rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-6 transition-all duration-500 hover:-translate-y-1 hover:border-white/[0.16]">
+                <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-cyan-300">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-display text-xl font-black leading-tight text-white">
+                  {item.title}
+                </h3>
+                <p className="mt-4 text-sm font-medium leading-relaxed text-white/40">{item.text}</p>
+              </div>
+            </RevealItem>
+          ))}
+        </RevealGroup>
+      </section>
+
+      <section className="container-section py-20 sm:py-28">
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <Reveal direction="right" className="min-h-[420px]">
+            <div className="relative h-full overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.03]">
+              <FloatingBackground subtle />
+              <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/70" />
+              <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
+                <div>
+                  <p className="section-label-accent mb-5">Processo sem mistério</p>
+                  <h2 className="max-w-xl font-display text-4xl font-black uppercase leading-[0.92] text-white sm:text-5xl">
+                    Do clique ao pacote, tudo pensado para o cliente confiar.
+                  </h2>
+                </div>
+                <Link to="/upload">
+                  <Button className="h-[3.25rem] rounded-2xl px-6 text-[10px] font-black uppercase tracking-[0.18em]">
+                    Pedir uma peça sob medida
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+
+          <RevealGroup className="grid gap-5">
+            {[
+              { icon: Layers3, title: "Escolha ou envie", text: "Use o catálogo para comprar rápido ou envie seu STL para uma peça exclusiva." },
+              { icon: Clock3, title: "Validação técnica", text: "Avaliamos material, tempo, resistência e acabamento antes de produzir." },
+              { icon: PackageCheck, title: "Produção e envio", text: "A peça sai protegida, embalada e pronta para uso, presente ou revenda." },
+            ].map((step, index) => (
+              <RevealItem key={step.title}>
+                <div className="grid grid-cols-[auto_1fr] gap-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-950">
+                    <step.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
+                      Etapa 0{index + 1}
+                    </p>
+                    <h3 className="font-display text-xl font-black leading-tight text-white">{step.title}</h3>
+                    <p className="mt-3 text-sm font-medium leading-relaxed text-white/[0.42]">{step.text}</p>
+                  </div>
+                </div>
+              </RevealItem>
+            ))}
+          </RevealGroup>
         </div>
       </section>
 
