@@ -24,6 +24,7 @@ import { Button } from "../../components/ui/Button";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
 import type { Material, Product } from "../../types/domain";
+import { waLink } from "../../lib/config";
 
 export default function ProductDetail() {
   const { id } = useParams();
@@ -310,7 +311,7 @@ export default function ProductDetail() {
                 ))}
               </div>
               <a
-                href={`https://wa.me/55999999999?text=${encodeURIComponent("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}`}
+                href={waLink("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
@@ -359,8 +360,7 @@ export default function ProductDetail() {
                     }`}
                     onClick={() => {
                        if (product?.stock === 0) {
-                          const msg = encodeURIComponent(`Olá INOVAPRO3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`);
-                          window.open(`https://wa.me/55999999999?text=${msg}`);
+                          window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`));
                        } else {
                           handleAddToCart();
                        }
@@ -488,8 +488,7 @@ export default function ProductDetail() {
                 disabled={product.stock === 0 && false}
                 onClick={() => {
                   if (product.stock === 0) {
-                    const msg = encodeURIComponent(`Olá INOVAPRO3D! Tenho interesse em encomendar: ${product.name}.`);
-                    window.open(`https://wa.me/55999999999?text=${msg}`);
+                    window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar: ${product.name}.`));
                   } else {
                     handleAddToCart();
                   }

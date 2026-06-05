@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, Mail, HelpCircle, ArrowUpRight } from "lucide-react";
+import { waLink } from "../../lib/config";
 
 export default function FloatingSupport() {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,7 +25,7 @@ export default function FloatingSupport() {
 
             <div className="space-y-3">
               <a
-                href="https://wa.me/5591999999999"
+                href={waLink("Olá INOVAPRO3D!")}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-primary/10 hover:text-primary transition-all group border border-white/5"

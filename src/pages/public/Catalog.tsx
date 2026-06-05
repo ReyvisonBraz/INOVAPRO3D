@@ -18,6 +18,7 @@ export default function Catalog() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
+  const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc" | "newest">("name");
   const [addedId, setAddedId] = useState<string | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -65,11 +66,18 @@ export default function Catalog() {
     setTimeout(() => setAddedId(null), 2000);
   };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = selectedCategory === "TODOS" || p.category === selectedCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filteredProducts = useMemo(() => {
+    let list = products
+      .filter(p => selectedCategory === "TODOS" || p.category === selectedCategory)
+      .filter(p => !searchTerm || p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.description?.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    if (sortBy === "price-asc") list = [...list].sort((a, b) => (a.basePrice || 0) - (b.basePrice || 0));
+    else if (sortBy === "price-desc") list = [...list].sort((a, b) => (b.basePrice || 0) - (a.basePrice || 0));
+    else if (sortBy === "newest") list = [...list]; // keep Firestore order (already sorted desc by createdAt)
+    else list = [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+    return list;
+  }, [products, selectedCategory, searchTerm, sortBy]);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -194,8 +202,18 @@ export default function Catalog() {
                   {cat}
                 </button>
               ))}
+              <select
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as typeof sortBy)}
+                className="ml-auto shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-widest text-white/50 focus:border-primary outline-none cursor-pointer"
+              >
+                <option value="name">A–Z</option>
+                <option value="price-asc">Menor preço</option>
+                <option value="price-desc">Maior preço</option>
+                <option value="newest">Mais recentes</option>
+              </select>
               {!loading && (
-                <span className="ml-auto flex-shrink-0 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-white/20 self-center">
+                <span className="flex-shrink-0 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-white/20 self-center">
                   {filteredProducts.length} resultado{filteredProducts.length !== 1 ? "s" : ""}
                 </span>
               )}
