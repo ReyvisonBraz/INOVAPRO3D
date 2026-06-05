@@ -34,7 +34,6 @@ export default function ProductDetail() {
   const [productionTime, setProductionTime] = useState<number>(7);
   const [loading, setLoading] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
-  const [scale, setScale] = useState(100);
   const [quantity, setQuantity] = useState(1);
   const [activeMediaTab, setActiveMediaTab] = useState<'3d' | number>('3d');
   const [showAddedModal, setShowAddedModal] = useState(false);
@@ -101,20 +100,20 @@ export default function ProductDetail() {
     fetchData();
   }, [id]);
 
-  const totalPrice = product && selectedMaterial ? (product.basePrice * (selectedMaterial.priceMult ?? 1) * (scale / 100) * quantity) : 0;
+  const totalPrice = product && selectedMaterial ? (product.basePrice * (selectedMaterial.priceMult ?? 1) * quantity) : 0;
 
   const handleAddToCart = () => {
     if (!product || !selectedMaterial) return;
     addItem({
-      id: `${product.id}-${selectedMaterial.id}-${scale}`,
-      name: `${product.name} (${selectedMaterial.name}) - ${scale}%`,
+      id: `${product.id}-${selectedMaterial.id}`,
+      name: `${product.name} (${selectedMaterial.name})`,
       price: totalPrice / quantity,
       quantity: quantity,
       image: product.images[0],
       type: 'PRODUCT'
     });
     toast.success(`${product.name} adicionado!`, {
-      description: `Escala ${scale}% | Material: ${selectedMaterial.name}`,
+      description: `Material: ${selectedMaterial.name}`,
     });
     setShowAddedModal(true);
   };
@@ -148,7 +147,7 @@ export default function ProductDetail() {
         <div className="lg:sticky lg:top-28 space-y-6">
           <div className="aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25">
             {activeMediaTab === '3d' && hasModelUrl ? (
-              <STLViewer url={hasModelUrl} color={selectedMaterial?.color || '#2563EB'} scale={scale/100} />
+              <STLViewer url={hasModelUrl} color={selectedMaterial?.color || '#2563EB'} scale={1} />
             ) : activeMediaTab === '3d' ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center px-6">
@@ -228,7 +227,7 @@ export default function ProductDetail() {
              <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
                 <Weight className="w-4 h-4 text-primary mb-2" />
                 <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Peso Est.</p>
-                <p className="text-[10px] sm:text-xs font-mono font-bold">~{Math.round((product.technical?.weight || 80) * Math.pow(scale / 100, 3))}g</p>
+                <p className="text-[10px] sm:text-xs font-mono font-bold">~{product.technical?.weight || 80}g</p>
              </div>
           </div>
         </div>
@@ -253,7 +252,7 @@ export default function ProductDetail() {
                 </span>
               ) : null}
             </div>
-            <h1 className="heading-lg mb-6 leading-none">
+            <h1 className="heading-lg mb-6 leading-none break-words">
               {product.name}
             </h1>
             <p className="text-lg sm:text-xl text-white/50 leading-relaxed max-w-lg font-medium italic">
@@ -294,40 +293,30 @@ export default function ProductDetail() {
               </div>
             </div>
 
-            {/* SCALE SETTINGS */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Escala do Modelo</p>
-                <span className="text-sm font-mono text-primary font-black">{scale}%</span>
-              </div>
-              <div className="p-8 pb-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
-                <div>
-                  <input 
-                    type="range" 
-                    min="50" 
-                    max="200" 
-                    step="5"
-                    value={scale}
-                    onChange={(e) => setScale(Number(e.target.value))}
-                    className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary mb-2"
-                  />
-                  <div className="flex justify-between text-[8px] text-white/20 uppercase font-black tracking-widest pb-4 border-b border-white/5">
-                    <span>Mínimo (50%)</span>
-                    <span>Padrão (100%)</span>
-                    <span>Máximo (200%)</span>
+            {/* Dimensões fixas do produto */}
+            <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-5 space-y-3">
+              <p className="text-[10px] text-white/30 uppercase font-black tracking-widest">Dimensões do Modelo</p>
+              <div className="flex items-center gap-3 flex-wrap">
+                {[
+                  { label: "L", value: product.baseDimensions?.x || 120 },
+                  { label: "C", value: product.baseDimensions?.y || 120 },
+                  { label: "A", value: product.baseDimensions?.z || 150 },
+                ].map(dim => (
+                  <div key={dim.label} className="flex items-baseline gap-1 rounded-xl bg-white/[0.04] border border-white/[0.05] px-3 py-2">
+                    <span className="text-[8px] font-black uppercase text-white/30">{dim.label}</span>
+                    <span className="text-sm font-mono font-black text-white">{dim.value}</span>
+                    <span className="text-[8px] text-white/30">mm</span>
                   </div>
-                </div>
-                
-                {/* REAL DIMENSIONER */}
-                <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center justify-between text-xs font-mono text-white/50 pt-1">
-                  <span className="text-[10px] text-white/30 uppercase font-black tracking-wider">Dimensões Estimadas:</span>
-                  <span className="text-primary font-bold">
-                    {Math.round((product.baseDimensions?.x || 120) * (scale / 100))} x{" "}
-                    {Math.round((product.baseDimensions?.y || 120) * (scale / 100))} x{" "}
-                    {Math.round((product.baseDimensions?.z || 150) * (scale / 100))} mm
-                  </span>
-                </div>
+                ))}
               </div>
+              <a
+                href={`https://wa.me/55999999999?text=${encodeURIComponent("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
+              >
+                Precisa de outro tamanho? Solicite orçamento →
+              </a>
             </div>
 
             <div className="flex flex-col md:flex-row md:items-center justify-between py-10 border-y border-white/5 gap-6">
@@ -335,13 +324,13 @@ export default function ProductDetail() {
                 <p className="text-[10px] text-white/30 uppercase font-black mb-2 tracking-widest">Orçamento Estimado</p>
                 <div className="flex items-baseline gap-2">
                    <span className="text-lg font-mono text-white/40">R$</span>
-                   <p className="text-6xl font-display font-black text-shimmer leading-none">
+                   <p className="text-5xl sm:text-6xl font-display font-black text-shimmer leading-none">
                      {(product?.stock === 0 ? 0 : totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                    </p>
                 </div>
               </div>
               
-              <div className={`flex items-center bg-white/5 rounded-2xl border border-white/10 overflow-hidden h-16 w-full md:w-auto ${product?.stock === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}>
+              <div className={`flex items-center bg-white/5 rounded-2xl border border-white/10 overflow-hidden h-14 sm:h-16 w-full md:w-auto ${product?.stock === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}>
                 <button 
                   disabled={product?.stock === 0}
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
@@ -438,7 +427,7 @@ export default function ProductDetail() {
               <div className="mb-6 rounded-2xl border border-white/5 bg-white/[0.03] p-4">
                 <p className="text-sm font-black uppercase text-white">{product.name}</p>
                 <p className="mt-1 text-[10px] font-bold uppercase tracking-widest text-white/35">
-                  {selectedMaterial.name} | Escala {scale}% | Qtd. {quantity}
+                  {selectedMaterial.name} | Qtd. {quantity}
                 </p>
                 <p className="mt-3 font-mono text-lg font-black text-primary">
                   R$ {totalPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
