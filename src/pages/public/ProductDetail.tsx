@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { 
@@ -38,6 +38,20 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [activeMediaTab, setActiveMediaTab] = useState<'3d' | number>('3d');
   const [showAddedModal, setShowAddedModal] = useState(false);
+  const addToCartRef = useRef<HTMLButtonElement>(null);
+  const [showStickyBar, setShowStickyBar] = useState(false);
+
+  useEffect(() => {
+    const el = addToCartRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setShowStickyBar(!entry.isIntersecting),
+      { threshold: 0.5 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [product]);
+
   const hasModelUrl = product?.modelUrl;
 
   // Default to first image tab if available, avoiding 3D viewer crash on invalid models
@@ -348,8 +362,9 @@ export default function ProductDetail() {
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                <div className="md:col-span-3">
-                 <Button 
-                    size="lg" 
+                 <Button
+                    ref={addToCartRef}
+                    size="lg"
                     className={`w-full h-20 rounded-3xl gap-4 text-xl font-display font-black uppercase tracking-tight ${
                       product?.stock === 0 ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20' : ''
                     }`}
@@ -449,6 +464,53 @@ export default function ProductDetail() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Sticky buy bar ── */}
+      <AnimatePresence>
+        {showStickyBar && product && (
+          <motion.div
+            initial={{ y: 72, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 72, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 340, damping: 32 }}
+            className="fixed bottom-0 inset-x-0 z-50 border-t border-white/[0.07] bg-black/90 backdrop-blur-xl pb-safe"
+          >
+            <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
+              {product.images?.[0] && (
+                <img
+                  src={product.images[0]}
+                  alt=""
+                  className="h-10 w-10 shrink-0 rounded-xl border border-white/10 object-cover"
+                />
+              )}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[11px] font-black uppercase tracking-tight text-white">
+                  {product.name}
+                </p>
+                <p className="font-mono text-sm font-black text-primary">
+                  R$ {(product.stock === 0 ? 0 : totalPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="h-11 shrink-0 gap-2 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest"
+                disabled={product.stock === 0 && false}
+                onClick={() => {
+                  if (product.stock === 0) {
+                    const msg = encodeURIComponent(`Olá INOVAPRO3D! Tenho interesse em encomendar: ${product.name}.`);
+                    window.open(`https://wa.me/55999999999?text=${msg}`);
+                  } else {
+                    handleAddToCart();
+                  }
+                }}
+              >
+                <ShoppingCart className="h-4 w-4" />
+                {product.stock === 0 ? "Encomendar" : "Adicionar"}
+              </Button>
+            </div>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

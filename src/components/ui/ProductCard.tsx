@@ -73,7 +73,7 @@ function ProductModal({
         animate={{ y: 0, opacity: 1, scale: 1 }}
         exit={{ y: 50, opacity: 0, scale: 0.97 }}
         transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className="relative w-full sm:max-w-3xl max-h-[92dvh] sm:max-h-[88vh] overflow-y-auto rounded-t-[28px] sm:rounded-[24px] bg-[#0b0c15] border border-white/10 shadow-2xl"
+        className="relative w-full sm:max-w-2xl max-h-[88dvh] sm:max-h-[85vh] overflow-y-auto rounded-t-[28px] sm:rounded-[24px] bg-[#0b0c15] border border-white/10 shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         {/* Botão fechar */}
@@ -258,7 +258,7 @@ function ProductModal({
               )}
               <button
                 type="button"
-                onClick={() => navigate(`/produto/${product.id}`)}
+                onClick={() => { onClose(); window.scrollTo({ top: 0, behavior: 'instant' }); navigate(`/produto/${product.id}`); }}
                 className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.03] text-white/60 font-black text-[11px] uppercase tracking-widest hover:bg-white/[0.07] hover:text-white transition-all"
               >
                 Ver produto completo

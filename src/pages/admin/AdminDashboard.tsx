@@ -2082,12 +2082,12 @@ export default function AdminDashboard() {
 
             {activeTab === 'products' && (
               <motion.div key="products" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Controle de Catálogo</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Gerencie os itens visíveis na loja</p>
                     </div>
-                    <Button onClick={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }} className="rounded-2xl gap-2 h-11 px-6">
+                    <Button onClick={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Novo Produto
                     </Button>
                  </div>
@@ -2135,12 +2135,12 @@ export default function AdminDashboard() {
 
             {activeTab === 'materials' && (
               <motion.div key="materials" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Estoque</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Matéria Prima para Impressão</p>
                     </div>
-                    <Button onClick={() => setIsAddingMaterial(true)} className="rounded-2xl gap-2 h-11 px-6">
+                    <Button onClick={() => setIsAddingMaterial(true)} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Novo Filamento
                     </Button>
                  </div>
@@ -2390,12 +2390,12 @@ export default function AdminDashboard() {
 
             {activeTab === 'faqs' && (
               <motion.div key="faqs" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Central de Dúvidas</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Base de Conhecimento do Cliente</p>
                     </div>
-                    <Button onClick={() => setIsAddingFAQ(true)} className="rounded-2xl gap-2 h-11 px-6">
+                    <Button onClick={() => setIsAddingFAQ(true)} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Nova Resposta
                     </Button>
                  </div>
@@ -2421,14 +2421,14 @@ export default function AdminDashboard() {
 
             {activeTab === 'showcase' && (
               <motion.div key="showcase" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
-                 <div className="flex justify-between items-center bg-white/5 p-8 rounded-[40px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/5 p-8 rounded-[40px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2 text-primary">
                           <Eye className="w-4 h-4" /> Gestão de Vitrine
                        </h3>
                        <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em] mt-1">Banners e Destaques da Landing Page</p>
                     </div>
-                    <Button onClick={() => setIsAddingShowcase(true)} className="rounded-3xl gap-2 h-12 px-8 bg-white text-black hover:bg-white/90">
+                    <Button onClick={() => setIsAddingShowcase(true)} className="rounded-2xl gap-2 h-9 px-4 bg-white text-black hover:bg-white/90 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Novo Destaque
                     </Button>
                  </div>
