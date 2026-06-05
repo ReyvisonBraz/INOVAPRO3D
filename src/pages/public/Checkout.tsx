@@ -31,6 +31,7 @@ export default function Checkout() {
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [shippingRate, setShippingRate] = useState<number>(0);
   const [needsShipping, setNeedsShipping] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const [address, setAddress] = useState<ShippingAddress>({
     zipCode: '',
     street: '',
@@ -39,6 +40,27 @@ export default function Checkout() {
     city: '',
     state: ''
   });
+
+  const fetchCep = async (cep: string) => {
+    try {
+      setCepLoading(true);
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await res.json();
+      if (data.erro) { toast.error("CEP não encontrado. Verifique e tente novamente."); return; }
+      setAddress(prev => ({
+        ...prev,
+        street: data.logradouro || prev.street,
+        neighborhood: data.bairro || prev.neighborhood,
+        city: data.localidade || prev.city,
+        state: data.uf || prev.state,
+      }));
+      toast.success("Endereço preenchido automaticamente!");
+    } catch {
+      // silent — user fills manually
+    } finally {
+      setCepLoading(false);
+    }
+  };
 
   const validateAddress = () => {
     if (!needsShipping) return true;
@@ -54,6 +76,12 @@ export default function Checkout() {
 
     if (requiredFields.some(field => !field.trim())) {
       toast.error("Endereco incompleto", { description: "Preencha CEP, rua, numero, bairro, cidade e UF antes de continuar." });
+      return false;
+    }
+
+    const cepClean = address.zipCode.replace(/\D/g, "");
+    if (cepClean.length !== 8) {
+      toast.error("CEP inválido", { description: "O CEP deve ter 8 dígitos no formato 00000-000." });
       return false;
     }
 
@@ -239,14 +267,19 @@ export default function Checkout() {
                         >
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-2">
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">CEP</label>
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2 flex items-center gap-2">CEP {cepLoading && <span className="text-[9px] text-primary animate-pulse">buscando...</span>}</label>
                                 <input
                                   placeholder="00000-000"
                                   inputMode="numeric"
                                   autoComplete="postal-code"
                                   className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.zipCode}
-                                  onChange={(e) => setAddress({...address, zipCode: e.target.value})}
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
+                                    const masked = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw;
+                                    setAddress({ ...address, zipCode: masked });
+                                    if (raw.length === 8) fetchCep(raw);
+                                  }}
                                 />
                              </div>
                              <div className="space-y-3">
