@@ -1,12 +1,16 @@
 import React, { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, Mail, HelpCircle, ArrowUpRight } from "lucide-react";
 
 export default function FloatingSupport() {
   const [isOpen, setIsOpen] = useState(false);
+  const { pathname } = useLocation();
+  // Pages with a sticky bottom bar need extra vertical offset
+  const hasStickyBar = ["/checkout", "/produto/"].some(p => pathname.startsWith(p));
 
   return (
-    <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[100]">
+    <div className={`fixed right-4 z-[100] transition-all duration-300 ${hasStickyBar ? "bottom-20 sm:bottom-24" : "bottom-4 sm:bottom-6"}`}>
       <AnimatePresence>
         {isOpen && (
           <motion.div

@@ -126,7 +126,7 @@ function RouterContent() {
           )}
           
           <FloatingSupport />
-          <Toaster position="top-right" richColors expand theme={theme} />
+          <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
           <DebugMarker />
         </div>
       </CartProvider>
