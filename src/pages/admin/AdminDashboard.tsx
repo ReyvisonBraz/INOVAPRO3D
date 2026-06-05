@@ -103,6 +103,35 @@ import type {
 
 type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'materials' | 'showcase' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs';
 
+const PT_LOWERCASE_WORDS = new Set(["de", "da", "do", "dos", "das", "a", "o", "as", "os", "e", "ou", "em", "com", "para", "por", "sem", "sob", "sobre", "num", "numa", "no", "na", "nos", "nas"]);
+
+function formatCatalogTitle(raw: string): string {
+  if (!raw) return raw;
+  const cleaned = raw
+    .replace(/\s*[|\-–—]\s*(Thingiverse|Printables|MakerWorld|Cults3D|MyMiniFactory|GrabCAD|Free 3D Models?|3D Models?|STL Files?|Free Download).*$/i, "")
+    .replace(/^(3D Printed?|Printable|FDM)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned
+    .toLowerCase()
+    .split(" ")
+    .map((word, i) => (i === 0 || !PT_LOWERCASE_WORDS.has(word)) ? word.charAt(0).toUpperCase() + word.slice(1) : word)
+    .join(" ");
+}
+
+function formatCatalogDescription(raw: string): string {
+  if (!raw) return raw;
+  const cleaned = raw
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (cleaned.length <= 500) return cleaned;
+  const truncated = cleaned.slice(0, 500);
+  const lastBreak = Math.max(truncated.lastIndexOf(". "), truncated.lastIndexOf(".\n"), truncated.lastIndexOf("! "), truncated.lastIndexOf("? "));
+  return (lastBreak > 200 ? truncated.slice(0, lastBreak + 1) : truncated + "...").trim();
+}
+
 function NumInput({
   value,
   onChange,
@@ -636,8 +665,8 @@ export default function AdminDashboard() {
 
       setNewProduct((current) => ({
         ...current,
-        name: data.title || current.name,
-        description: data.description || current.description,
+        name: formatCatalogTitle(data.title || current.name),
+        description: formatCatalogDescription(data.description || current.description),
         images: importedImages.length > 0 ? importedImages : current.images,
         sourceUrl: data.sourceUrl || url,
         modelUrl: data.modelUrl || current.modelUrl,

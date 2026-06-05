@@ -88,6 +88,39 @@ function stripHtml(value: string) {
   );
 }
 
+// Common English words used to detect non-Portuguese text
+const EN_WORD_RE = /\b(the|and|with|for|this|that|from|your|print(?:ed|able)?|model|file|design|object|thing|remix|base|stand|holder|bracket|wall|ring|box|clip)\b/gi;
+
+function looksEnglish(text: string): boolean {
+  const m = text.match(EN_WORD_RE);
+  return (m?.length ?? 0) >= 2;
+}
+
+async function translateToPtBR(text: string): Promise<string> {
+  if (!text.trim() || !looksEnglish(text)) return text;
+  try {
+    const chunk = text.slice(0, 500);
+    const res = await fetch(
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|pt-BR`,
+    );
+    if (!res.ok) return text;
+    const data = (await res.json()) as { responseStatus?: number; responseData?: { translatedText?: string } };
+    if (data.responseStatus === 200 && data.responseData?.translatedText) {
+      return data.responseData.translatedText.trim();
+    }
+  } catch { /* silent fallback */ }
+  return text;
+}
+
+// Strips common site-name suffixes and noisy 3D-printing prefixes from titles
+function cleanRawTitle(title: string): string {
+  return title
+    .replace(/\s*[|\-–—]\s*(Thingiverse|Printables|MakerWorld|Cults3D|MyMiniFactory|GrabCAD|Free 3D Models?|3D Models?|STL Files?|Free Download).*$/i, "")
+    .replace(/^(3D Printed?|Printable|FDM)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function secondsToPrintTime(seconds?: number) {
   if (!seconds || seconds <= 0) return "";
   const hours = Math.floor(seconds / 3600);
@@ -179,11 +212,18 @@ async function readMakerWorldMetadata(targetUrl: URL) {
       ? design.tags
       : [];
 
+  const rawTitle = cleanRawTitle(design.titleTranslated || design.title || "Modelo MakerWorld");
+  const rawDesc = stripHtml(design.summaryTranslated || design.summary || "");
+  const [translatedTitle, translatedDesc] = await Promise.all([
+    translateToPtBR(rawTitle),
+    translateToPtBR(rawDesc),
+  ]);
+
   return {
     status: 200,
     body: {
-      title: design.titleTranslated || design.title || "Modelo MakerWorld",
-      description: stripHtml(design.summaryTranslated || design.summary || ""),
+      title: translatedTitle || rawTitle,
+      description: translatedDesc || rawDesc,
       images: uniqueImages,
       sourceUrl: buildMakerWorldSourceUrl(targetUrl, design),
       modelUrl: "",
@@ -265,15 +305,20 @@ export async function readModelMetadata(rawUrl: string) {
 
   const html = await response.text();
   const image = findMetaContent(html, ["og:image", "twitter:image", "image"]);
-  const description = findMetaContent(html, ["og:description", "twitter:description", "description"]);
-  const title = findTitle(html);
+  const rawDescription = stripHtml(findMetaContent(html, ["og:description", "twitter:description", "description"]));
+  const rawTitle = cleanRawTitle(findTitle(html));
   const canonical = findMetaContent(html, ["og:url"]) || finalUrl;
+
+  const [translatedTitle, translatedDesc] = await Promise.all([
+    translateToPtBR(rawTitle),
+    translateToPtBR(rawDescription),
+  ]);
 
   return {
     status: 200,
     body: {
-      title,
-      description,
+      title: translatedTitle || rawTitle,
+      description: translatedDesc || rawDescription,
       images: image ? [resolveUrl(image, finalUrl)] : [],
       sourceUrl: canonical,
       modelUrl: findDirectModelUrl(html, finalUrl, finalUrl),
