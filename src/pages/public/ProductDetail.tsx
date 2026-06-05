@@ -3,7 +3,8 @@ import { useNavigate, useParams, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { 
   ArrowRight,
-  ChevronLeft, 
+  ChevronLeft,
+  ChevronRight,
   Layers, 
   Weight, 
   Clock, 
@@ -40,6 +41,7 @@ export default function ProductDetail() {
   const [showAddedModal, setShowAddedModal] = useState(false);
   const addToCartRef = useRef<HTMLButtonElement>(null);
   const [showStickyBar, setShowStickyBar] = useState(false);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   useEffect(() => {
     const el = addToCartRef.current;
@@ -146,7 +148,22 @@ export default function ProductDetail() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 sm:gap-16 items-start">
         {/* VIEW AREA */}
         <div className="lg:sticky lg:top-28 space-y-6">
-          <div className="aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25">
+          {/* MAIN IMAGE / 3D — with swipe support */}
+          <div
+            className="aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25 select-none"
+            onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
+            onTouchEnd={e => {
+              if (touchStartX === null || typeof activeMediaTab !== 'number') return;
+              const dx = e.changedTouches[0].clientX - touchStartX;
+              if (Math.abs(dx) > 44) {
+                const imgs = product.images?.filter(Boolean) ?? [];
+                setActiveMediaTab(dx < 0
+                  ? Math.min(activeMediaTab + 1, imgs.length - 1)
+                  : Math.max(activeMediaTab - 1, 0));
+              }
+              setTouchStartX(null);
+            }}
+          >
             {activeMediaTab === '3d' && hasModelUrl ? (
               <STLViewer url={hasModelUrl} color={selectedMaterial?.color || '#2563EB'} scale={1} />
             ) : activeMediaTab === '3d' ? (
@@ -161,49 +178,83 @@ export default function ProductDetail() {
               </div>
             ) : (
               <AnimatePresence mode="wait">
-                <motion.img 
+                <motion.img
                   key={activeMediaTab}
-                  src={product.images[activeMediaTab as number]} 
+                  src={product.images[activeMediaTab as number]}
                   alt={`${product.name} - Foto Real ${(activeMediaTab as number) + 1}`}
                   className="w-full h-full object-cover"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.05 }}
-                  transition={{ duration: 0.4, ease: "easeOut" }}
+                  initial={{ opacity: 0, x: 24 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -24 }}
+                  transition={{ duration: 0.25, ease: "easeOut" }}
                 />
               </AnimatePresence>
             )}
+
+            {/* Arrow navigation — visible on desktop, complements swipe on mobile */}
+            {typeof activeMediaTab === 'number' && (product.images?.length ?? 0) > 1 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Foto anterior"
+                  disabled={activeMediaTab === 0}
+                  onClick={() => setActiveMediaTab(Math.max(0, (activeMediaTab as number) - 1))}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-all disabled:opacity-0"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Próxima foto"
+                  disabled={activeMediaTab === (product.images?.length ?? 1) - 1}
+                  onClick={() => setActiveMediaTab(Math.min((product.images?.length ?? 1) - 1, (activeMediaTab as number) + 1))}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-all disabled:opacity-0"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+                {/* Dot indicators */}
+                <div className="absolute bottom-3 inset-x-0 flex justify-center gap-1.5 pointer-events-none">
+                  {product.images.filter(Boolean).map((_: string, i: number) => (
+                    <span
+                      key={i}
+                      className={`block rounded-full transition-all duration-300 ${
+                        i === activeMediaTab ? "w-4 h-1.5 bg-white" : "w-1.5 h-1.5 bg-white/35"
+                      }`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          {/* MEDIA HUB SELECTION TABS */}
-          {(product.images && product.images.length > 0 || hasModelUrl) && (
-            <div className="flex gap-2 justify-center overflow-x-auto py-1 no-scrollbar">
+          {/* THUMBNAIL STRIP — square click targets, scrollable */}
+          {((product.images?.length ?? 0) > 0 || hasModelUrl) && (
+            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
               {hasModelUrl && (
-              <button
-                type="button"
-                onClick={() => setActiveMediaTab('3d')}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all whitespace-nowrap flex items-center gap-1.5 ${
-                  activeMediaTab === '3d'
-                    ? 'bg-primary border-primary text-white shadow-lg shadow-primary/10 animate-pulse-subtle'
-                    : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white'
-                }`}
-              >
-                📐 MODELO 3D
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveMediaTab('3d')}
+                  className={`flex-shrink-0 w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center text-[9px] font-black uppercase tracking-widest ${
+                    activeMediaTab === '3d'
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-white/10 bg-white/[0.04] text-white/30 hover:border-white/25 hover:bg-white/[0.08]'
+                  }`}
+                >
+                  3D
+                </button>
               )}
-              {product.images.map((img: string, idx: number) => (
+              {product.images.filter(Boolean).map((img: string, idx: number) => (
                 <button
                   key={idx}
                   type="button"
                   onClick={() => setActiveMediaTab(idx)}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`flex-shrink-0 w-14 h-14 rounded-2xl overflow-hidden border-2 transition-all ${
                     activeMediaTab === idx
-                      ? 'bg-primary border-primary text-white shadow-lg shadow-primary/10'
-                      : 'bg-white/5 border-white/5 text-white/40 hover:bg-white/10 hover:text-white'
+                      ? 'border-primary shadow-md shadow-primary/20 opacity-100'
+                      : 'border-white/10 opacity-50 hover:opacity-80 hover:border-white/25'
                   }`}
                 >
-                  <img src={img} className="w-4 h-4 rounded-md object-cover border border-white/10 shrink-0" alt="" referrerPolicy="no-referrer" />
-                  FOTO {idx + 1}
+                  <img src={img} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                 </button>
               ))}
             </div>
