@@ -485,7 +485,7 @@ export default function ProductDetail() {
               <Button
                 type="button"
                 className="h-11 shrink-0 gap-2 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest"
-                disabled={product.stock === 0 && false}
+                disabled={false}
                 onClick={() => {
                   if (product.stock === 0) {
                     window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar: ${product.name}.`));

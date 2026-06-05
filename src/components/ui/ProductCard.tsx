@@ -13,9 +13,7 @@ import {
 } from "lucide-react";
 import type { Product } from "../../types/domain";
 import { cn } from "../../lib/utils";
-
-const brl = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL as brl } from "../../lib/pricing";
 
 // ─────────────────────────────────────────────────────────────
 // MODAL DE PRÉVIA DO PRODUTO
@@ -53,10 +51,16 @@ function ProductModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [images.length]);
 
-  // Bloqueia scroll do body
+  // Ref-counted scroll lock so concurrent overlays (CartSheet + ProductModal) don't fight each other
   useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
+    const prev = parseInt(document.body.dataset.overflowLocks ?? "0", 10);
+    document.body.dataset.overflowLocks = String(prev + 1);
+    if (prev === 0) document.body.style.overflow = "hidden";
+    return () => {
+      const next = Math.max(0, parseInt(document.body.dataset.overflowLocks ?? "1", 10) - 1);
+      document.body.dataset.overflowLocks = String(next);
+      if (next === 0) document.body.style.overflow = "";
+    };
   }, []);
 
   return createPortal(

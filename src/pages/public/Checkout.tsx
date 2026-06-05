@@ -45,6 +45,7 @@ export default function Checkout() {
     try {
       setCepLoading(true);
       const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      if (!res.ok) { toast.error("Serviço de CEP indisponível. Preencha o endereço manualmente."); return; }
       const data = await res.json();
       if (data.erro) { toast.error("CEP não encontrado. Verifique e tente novamente."); return; }
       setAddress(prev => ({

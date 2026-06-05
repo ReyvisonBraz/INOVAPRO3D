@@ -29,10 +29,11 @@ export default function Catalog() {
       setShowcase(sSnap.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem)));
 
       const pSnap = await getDocs(collection(db, "products"));
+      // Keep Firestore insertion order here so "newest" sort works correctly.
+      // Alphabetical sort happens inside filteredProducts useMemo.
       const newProducts = pSnap.docs
         .map(d => ({ id: d.id, ...d.data() } as Product))
-        .filter(product => product.active !== false)
-        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+        .filter(product => product.active !== false);
 
       setProducts(newProducts);
 
@@ -73,7 +74,7 @@ export default function Catalog() {
 
     if (sortBy === "price-asc") list = [...list].sort((a, b) => (a.basePrice || 0) - (b.basePrice || 0));
     else if (sortBy === "price-desc") list = [...list].sort((a, b) => (b.basePrice || 0) - (a.basePrice || 0));
-    else if (sortBy === "newest") list = [...list]; // keep Firestore order (already sorted desc by createdAt)
+    else if (sortBy === "newest") list = [...list]; // Firestore insertion order — not re-sorted
     else list = [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
 
     return list;

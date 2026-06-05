@@ -4,14 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { Button } from "../ui/Button";
+import { formatBRL as brl } from "../../lib/pricing";
 
 interface CartSheetProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-const brl = (v: number) =>
-  v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function CartSheet({ isOpen, onClose }: CartSheetProps) {
   const { items, removeItem, updateQuantity, total } = useCart();

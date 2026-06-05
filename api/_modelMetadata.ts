@@ -88,20 +88,18 @@ function stripHtml(value: string) {
   );
 }
 
-// Common English words used to detect non-Portuguese text
-const EN_WORD_RE = /\b(the|and|with|for|this|that|from|your|print(?:ed|able)?|model|file|design|object|thing|remix|base|stand|holder|bracket|wall|ring|box|clip)\b/gi;
-
 function looksEnglish(text: string): boolean {
-  const m = text.match(EN_WORD_RE);
+  const m = text.match(/\b(the|and|with|for|this|that|from|your|print(?:ed|able)?|model|file|design|object|thing|remix|base|stand|holder|bracket|wall|ring|box|clip)\b/gi);
   return (m?.length ?? 0) >= 2;
 }
 
 async function translateToPtBR(text: string): Promise<string> {
   if (!text.trim() || !looksEnglish(text)) return text;
+  // Skip translation for long texts — MyMemory caps at 500 chars; truncating would silently drop content
+  if (text.length > 500) return text;
   try {
-    const chunk = text.slice(0, 500);
     const res = await fetch(
-      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|pt-BR`,
+      `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|pt-BR`,
     );
     if (!res.ok) return text;
     const data = (await res.json()) as { responseStatus?: number; responseData?: { translatedText?: string } };
