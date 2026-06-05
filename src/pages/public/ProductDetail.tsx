@@ -89,7 +89,6 @@ export default function ProductDetail() {
         } else {
           const fallback = [
             { id: 'pla', name: 'PLA Pro', color: '#2563EB', priceMult: 1, desc: 'Superior estético.' },
-            { id: 'petg', name: 'PETG', color: '#0066FF', priceMult: 1.3, desc: 'Resistente.' }
           ];
           setMaterials(fallback);
           setSelectedMaterial(fallback[0]);
@@ -145,7 +144,7 @@ export default function ProductDetail() {
         </Link>
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 sm:gap-16 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-start">
         {/* VIEW AREA */}
         <div className="lg:sticky lg:top-28 space-y-6">
           {/* MAIN IMAGE / 3D — with swipe support */}
@@ -260,180 +259,155 @@ export default function ProductDetail() {
             </div>
           )}
           
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
-             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
-                <Layers className="w-4 h-4 text-primary mb-2" />
-                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Camada</p>
-                <p className="text-[10px] sm:text-xs font-mono font-bold">{product.technical?.resolution || '0.12mm'}</p>
-             </div>
-             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
-                <Zap className="w-4 h-4 text-primary mb-2" />
-                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Infill</p>
-                <p className="text-[10px] sm:text-xs font-mono font-bold">{product.technical?.infill || 20}%</p>
-             </div>
-             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
-                <Clock className="w-4 h-4 text-primary mb-2" />
-                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Tempo</p>
-                <p className="text-[10px] sm:text-xs font-mono font-bold">{product.technical?.printTime || '2h'}</p>
-             </div>
-             <div className="p-3 sm:p-4 rounded-2xl bg-white/5 border border-white/5 text-center transition-all hover:bg-white/10 flex flex-col items-center justify-center">
-                <Weight className="w-4 h-4 text-primary mb-2" />
-                <p className="text-[8px] sm:text-[10px] text-white/30 uppercase font-bold">Peso Est.</p>
-                <p className="text-[10px] sm:text-xs font-mono font-bold">~{product.technical?.weight || 80}g</p>
-             </div>
-          </div>
         </div>
 
         {/* INFO AREA */}
-        <div className="space-y-10 sm:space-y-12">
-          <header>
-            <div className="flex flex-wrap items-center gap-3 mb-6">
-              <span className="px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-[10px] font-black text-primary uppercase tracking-widest">
+        <div className="space-y-5">
+          {/* HEADER */}
+          <div>
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <span className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-[9px] font-black text-primary uppercase tracking-widest">
                 {product.category}
               </span>
-              <span className="text-[10px] text-white/20 font-mono mr-2">REF: {product.id.slice(0, 8)}</span>
+              <span className="text-[9px] text-white/20 font-mono">REF: {product.id.slice(0, 8)}</span>
               {product.stock === 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[10px] font-black text-red-400 uppercase tracking-widest">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] font-black text-red-400 uppercase tracking-widest">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                   Esgotado • Encomenda sob demanda
                 </span>
               ) : typeof product.stock === 'number' && product.stock <= 3 && product.stock > 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-black text-amber-400 uppercase tracking-widest animate-pulse">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] font-black text-amber-400 uppercase tracking-widest animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   Apenas {product.stock} em estoque!
                 </span>
               ) : null}
             </div>
-            <h1 className="heading-lg mb-6 leading-none break-words">
+            <h1 className="text-2xl sm:text-3xl font-black uppercase leading-tight tracking-tight mb-2 break-words">
               {product.name}
             </h1>
-            <p className="text-lg sm:text-xl text-white/50 leading-relaxed max-w-lg font-medium italic">
+            <p className="text-sm text-white/45 leading-relaxed max-w-md">
               {product.description}
             </p>
-          </header>
+          </div>
 
-          <div className="space-y-10">
-            <h3 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-               <Info className="w-3 h-3" />
-               Configurar Fabricação
-            </h3>
-            
-            {/* MATERIAL SELECTION */}
-            <div className="space-y-4">
-              <p className="text-[10px] text-white/30 uppercase font-bold tracking-widest">Material</p>
-              <div className="grid grid-cols-1 gap-3">
-                {materials.map(m => (
-                  <button
-                    key={m.id}
-                    onClick={() => setSelectedMaterial(m)}
-                    className={`p-5 rounded-2xl border text-left transition-all flex items-center justify-between group ${
-                      selectedMaterial?.id === m.id 
-                        ? 'border-primary bg-primary/5 ring-1 ring-primary/20' 
-                        : 'border-white/5 bg-white/5 hover:border-white/10'
-                    }`}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-4 h-4 rounded-full border border-white/10" style={{ backgroundColor: m.color }} />
-                      <div>
-                        <p className="font-bold text-sm uppercase tracking-tight">{m.name}</p>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide">{m.desc || 'Acabamento de alta qualidade'}</p>
-                      </div>
+          {/* MATERIAL SELECTION */}
+          <div className="space-y-2.5">
+            <p className="text-[9px] text-primary/60 uppercase font-black tracking-widest flex items-center gap-1.5">
+              <Settings2 className="w-3 h-3" />
+              Configurar Fabricação
+            </p>
+            <p className="text-[9px] text-white/25 uppercase font-bold tracking-wider">Material</p>
+            <div className="grid grid-cols-1 gap-2">
+              {materials.map(m => (
+                <button
+                  key={m.id}
+                  onClick={() => setSelectedMaterial(m)}
+                  className={`p-3 rounded-xl border text-left transition-all flex items-center justify-between ${
+                    selectedMaterial?.id === m.id
+                      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+                      : 'border-white/[0.07] bg-white/[0.03] hover:border-white/[0.12] hover:bg-white/[0.06]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-3 h-3 rounded-full border border-white/10 shrink-0" style={{ backgroundColor: m.color }} />
+                    <div>
+                      <p className="font-bold text-xs uppercase tracking-tight">{m.name}</p>
+                      <p className="text-[9px] text-white/30 uppercase tracking-wide">{m.desc || 'Acabamento de alta qualidade'}</p>
                     </div>
-                    {selectedMaterial?.id === m.id && <CheckCircle2 className="w-5 h-5 text-primary" />}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Dimensões fixas do produto */}
-            <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-5 space-y-3">
-              <p className="text-[10px] text-white/30 uppercase font-black tracking-widest">Dimensões do Modelo</p>
-              <div className="flex items-center gap-3 flex-wrap">
-                {[
-                  { label: "L", value: product.baseDimensions?.x || 120 },
-                  { label: "C", value: product.baseDimensions?.y || 120 },
-                  { label: "A", value: product.baseDimensions?.z || 150 },
-                ].map(dim => (
-                  <div key={dim.label} className="flex items-baseline gap-1 rounded-xl bg-white/[0.04] border border-white/[0.05] px-3 py-2">
-                    <span className="text-[8px] font-black uppercase text-white/30">{dim.label}</span>
-                    <span className="text-sm font-mono font-black text-white">{dim.value}</span>
-                    <span className="text-[8px] text-white/30">mm</span>
                   </div>
-                ))}
-              </div>
-              <a
-                href={waLink("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors"
-              >
-                Precisa de outro tamanho? Solicite orçamento →
-              </a>
+                  {selectedMaterial?.id === m.id && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="flex flex-col md:flex-row md:items-center justify-between py-10 border-y border-white/5 gap-6">
-              <div>
-                <p className="text-[10px] text-white/30 uppercase font-black mb-2 tracking-widest">Orçamento Estimado</p>
-                <div className="flex items-baseline gap-2">
-                   <span className="text-lg font-mono text-white/40">R$</span>
-                   <p className="text-5xl sm:text-6xl font-display font-black text-shimmer leading-none">
-                     {(product?.stock === 0 ? 0 : totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                   </p>
-                </div>
+          {/* BUY BLOCK — price + qty + button all together */}
+          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-4">
+            <div>
+              <p className="text-[9px] text-white/25 uppercase font-black tracking-widest">Orçamento estimado</p>
+              <div className="flex items-baseline gap-1.5 mt-1">
+                <span className="text-base font-mono text-white/35">R$</span>
+                <span className="text-3xl sm:text-4xl font-black text-white leading-none">
+                  {(product?.stock === 0 ? 0 : totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </span>
               </div>
-              
-              <div className={`flex items-center bg-white/5 rounded-2xl border border-white/10 overflow-hidden h-14 sm:h-16 w-full md:w-auto ${product?.stock === 0 ? 'opacity-40 cursor-not-allowed' : ''}`}>
-                <button 
+            </div>
+            <div className="flex items-stretch gap-3">
+              <div className={`flex items-center rounded-xl border border-white/10 bg-white/[0.04] shrink-0 ${product?.stock === 0 ? 'opacity-40' : ''}`}>
+                <button
                   disabled={product?.stock === 0}
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-5 sm:px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
-                >
-                  -
-                </button>
-                <span className="w-12 sm:w-16 text-center font-display font-black text-2xl">{product?.stock === 0 ? 0 : quantity}</span>
+                  className="px-3 h-full hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
+                >-</button>
+                <span className="w-9 text-center font-display font-black text-lg">{product?.stock === 0 ? 0 : quantity}</span>
                 <button
                   disabled={product?.stock === 0}
                   onClick={() => setQuantity(quantity + 1)}
-                  className="px-5 sm:px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
-                >
-                  +
-                </button>
+                  className="px-3 h-full hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
+                >+</button>
               </div>
+              <Button
+                ref={addToCartRef}
+                size="lg"
+                className={`flex-1 h-14 rounded-2xl gap-2 text-xs font-black uppercase tracking-tight ${
+                  product?.stock === 0 ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20' : ''
+                }`}
+                onClick={() => {
+                  if (product?.stock === 0) {
+                    window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`));
+                  } else {
+                    handleAddToCart();
+                  }
+                }}
+                isShimmer={product?.stock !== 0}
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {product?.stock === 0 ? "Encomendar sob demanda" : "Adicionar ao carrinho"}
+              </Button>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-               <div className="md:col-span-3">
-                 <Button
-                    ref={addToCartRef}
-                    size="lg"
-                    className={`w-full h-20 rounded-3xl gap-4 text-xl font-display font-black uppercase tracking-tight ${
-                      product?.stock === 0 ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20' : ''
-                    }`}
-                    onClick={() => {
-                       if (product?.stock === 0) {
-                          window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`));
-                       } else {
-                          handleAddToCart();
-                       }
-                    }}
-                    isShimmer={product?.stock !== 0}
-                  >
-                    <ShoppingCart className="w-6 h-6" />
-                    {product?.stock === 0 ? "ENCOMENDAR SOB DEMANDA" : "ADICIONAR AO CARRINHO"}
-                  </Button>
-               </div>
-               <div className="flex items-center justify-center px-6 py-4 bg-white/5 border border-white/10 rounded-3xl text-center">
-                  <div className="text-center">
-                     <p className="text-[8px] text-white/30 uppercase font-bold">Produção</p>
-                     <p className="text-xs font-mono font-bold text-primary">~{productionTime} DIAS</p>
-                  </div>
-               </div>
+          {/* SPEC CHIPS */}
+          <div className="flex gap-2 flex-wrap">
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.05]">
+              <Weight className="w-3 h-3 text-primary/60 shrink-0" />
+              <span className="text-[10px] font-bold text-white/50">~{product.technical?.weight || 80}g</span>
             </div>
-            
-            <div className="flex items-center justify-center gap-3 text-[10px] text-white/20 uppercase font-black tracking-widest py-6 bg-white/[0.01] rounded-[32px] border border-white/[0.02]">
-               <Maximize2 className="w-4 h-4 opacity-50" />
-               Volume Máximo de Trabalho: 300 x 300 x 350 mm
+            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.05]">
+              <Clock className="w-3 h-3 text-primary/60 shrink-0" />
+              <span className="text-[10px] font-bold text-white/50">até 5 dias</span>
             </div>
+          </div>
+
+          {/* DIMENSIONS */}
+          <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
+            <p className="text-[9px] text-white/25 uppercase font-black tracking-widest">Dimensões do Modelo</p>
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { label: "L", value: product.baseDimensions?.x || 120 },
+                { label: "C", value: product.baseDimensions?.y || 120 },
+                { label: "A", value: product.baseDimensions?.z || 150 },
+              ].map(dim => (
+                <div key={dim.label} className="flex items-baseline gap-0.5 rounded-lg bg-white/[0.04] border border-white/[0.04] px-2.5 py-1.5">
+                  <span className="text-[8px] font-black uppercase text-white/30">{dim.label}</span>
+                  <span className="text-sm font-mono font-black text-white ml-0.5">{dim.value}</span>
+                  <span className="text-[8px] text-white/30 ml-0.5">mm</span>
+                </div>
+              ))}
+            </div>
+            <a
+              href={waLink("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-primary/60 hover:text-primary transition-colors"
+            >
+              Tamanho personalizado? Solicite →
+            </a>
+          </div>
+
+          <div className="flex items-center gap-2 text-[9px] text-white/15 uppercase font-black tracking-wider px-3 py-2 bg-white/[0.01] rounded-xl border border-white/[0.02]">
+            <Maximize2 className="w-3 h-3 opacity-50 shrink-0" />
+            Vol. Máx.: 300 × 300 × 350 mm
           </div>
         </div>
       </div>
