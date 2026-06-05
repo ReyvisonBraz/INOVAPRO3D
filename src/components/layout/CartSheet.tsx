@@ -110,7 +110,8 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                           <button
                             onClick={() => updateQuantity(item.id, -1)}
                             aria-label="Diminuir quantidade"
-                            className="w-6 h-6 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.07] transition-all active:scale-90"
+                            disabled={item.quantity <= 1}
+                            className="w-6 h-6 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/[0.07] transition-all active:scale-90 disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-white/50"
                           >
                             <Minus className="w-3 h-3" />
                           </button>

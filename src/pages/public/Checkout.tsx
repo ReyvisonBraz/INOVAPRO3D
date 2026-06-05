@@ -278,7 +278,7 @@ export default function Checkout() {
                                   onChange={(e) => {
                                     const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
                                     const masked = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw;
-                                    setAddress({ ...address, zipCode: masked });
+                                    setAddress(prev => ({ ...prev, zipCode: masked }));
                                     if (raw.length === 8) fetchCep(raw);
                                   }}
                                 />
@@ -290,7 +290,7 @@ export default function Checkout() {
                                   autoComplete="street-address"
                                   className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.street}
-                                  onChange={(e) => setAddress({...address, street: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, street: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -299,7 +299,7 @@ export default function Checkout() {
                                   placeholder="Ex: 123"
                                   className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.number}
-                                  onChange={(e) => setAddress({...address, number: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, number: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -309,7 +309,7 @@ export default function Checkout() {
                                   autoComplete="address-level2"
                                   className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.city}
-                                  onChange={(e) => setAddress({...address, city: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, city: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -319,7 +319,7 @@ export default function Checkout() {
                                   autoComplete="address-level3"
                                   className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.neighborhood}
-                                  onChange={(e) => setAddress({...address, neighborhood: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, neighborhood: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -330,7 +330,7 @@ export default function Checkout() {
                                   autoComplete="address-level1"
                                   className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.state}
-                                  onChange={(e) => setAddress({...address, state: e.target.value.toUpperCase()})}
+                                  onChange={(e) => setAddress(prev => ({...prev, state: e.target.value.toUpperCase()}))}
                                 />
                              </div>
                           </div>

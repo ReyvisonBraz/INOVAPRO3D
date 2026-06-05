@@ -45,9 +45,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const updateQuantity = (id: string, delta: number) => {
     setItems(prev =>
-      prev
-        .map(i => i.id === id ? { ...i, quantity: i.quantity + delta } : i)
-        .filter(i => i.quantity > 0)
+      prev.map(i => i.id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i)
     );
   };
 

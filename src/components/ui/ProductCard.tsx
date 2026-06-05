@@ -49,7 +49,7 @@ function ProductModal({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [images.length]);
+  }, [images.length, onClose]);
 
   // Ref-counted scroll lock so concurrent overlays (CartSheet + ProductModal) don't fight each other
   useEffect(() => {

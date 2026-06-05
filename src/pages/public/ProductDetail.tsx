@@ -110,7 +110,7 @@ export default function ProductDetail() {
       name: `${product.name} (${selectedMaterial.name})`,
       price: totalPrice / quantity,
       quantity: quantity,
-      image: product.images[0],
+      image: product.images?.[0] ?? "",
       type: 'PRODUCT'
     });
     toast.success(`${product.name} adicionado!`, {
