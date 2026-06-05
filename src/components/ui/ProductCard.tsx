@@ -395,9 +395,9 @@ export function ProductCard({
           )}
 
           {/* Overlay "Clique para ver" no hover */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300">
-            <span className="px-3 py-1.5 rounded-full bg-black/70 backdrop-blur-md border border-white/15 text-[8px] font-black uppercase tracking-wider text-white/90">
-              {hasMultiple ? "Alternando fotos · clique para ver" : "Clique para ver"}
+          <div className="absolute inset-0 flex items-end justify-center pb-9 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 pointer-events-none">
+            <span className="px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/15 text-[7px] font-black uppercase tracking-wider text-white/90 whitespace-nowrap">
+              {hasMultiple ? "↔ fotos · toque para ver" : "toque para ver"}
             </span>
           </div>
         </div>

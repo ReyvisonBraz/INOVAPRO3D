@@ -436,7 +436,7 @@ export default function Checkout() {
                            <p className="text-xs sm:text-sm font-bold uppercase truncate tracking-tight">{item.name}</p>
                            <p className="text-[8px] sm:text-[10px] text-white/30 font-mono">QTD: {item.quantity}</p>
                         </div>
-                        <p className="text-xs sm:text-sm font-mono font-black text-white/60 shrink-0">R$ {(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="text-xs sm:text-sm font-mono font-black text-white/60 shrink-0">{(item.price * item.quantity).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                      </div>
                    ))}
                  </div>
@@ -445,7 +445,7 @@ export default function Checkout() {
                     <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
                        <span>Entrega</span>
                        <span className={shippingRate === 0 ? "text-green-500" : ""}>
-                           {shippingRate === 0 ? "Frete Grátis" : `R$ ${shippingRate.toFixed(2)}`}
+                           {shippingRate === 0 ? "Frete Grátis" : shippingRate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                        </span>
                     </div>
                     <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
@@ -458,7 +458,7 @@ export default function Checkout() {
                        <div className="flex items-baseline gap-2">
                           <span className="text-base sm:text-lg text-white/40 font-mono">R$</span>
                           <p className="text-4xl sm:text-5xl font-display font-black text-shimmer leading-none">
-                             {(total + shippingRate).toFixed(2)}
+                             {(total + shippingRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </p>
                        </div>
                     </div>
@@ -477,7 +477,7 @@ export default function Checkout() {
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               <div>
                 <p className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-1">Total</p>
-                <p className="text-2xl font-display font-black text-primary">R$ {(total + shippingRate).toFixed(2)}</p>
+                <p className="text-2xl font-display font-black text-primary">{(total + shippingRate).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
               </div>
               <Button 
                 onClick={() => step === 1 ? goToPayment() : handleCompleteOrder()}
