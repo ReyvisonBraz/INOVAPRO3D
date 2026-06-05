@@ -335,15 +335,15 @@ export default function ProductDetail() {
                 <button 
                   disabled={product?.stock === 0}
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
+                  className="px-5 sm:px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
                 >
                   -
                 </button>
-                <span className="w-16 text-center font-display font-black text-2xl">{product?.stock === 0 ? 0 : quantity}</span>
-                <button 
+                <span className="w-12 sm:w-16 text-center font-display font-black text-2xl">{product?.stock === 0 ? 0 : quantity}</span>
+                <button
                   disabled={product?.stock === 0}
                   onClick={() => setQuantity(quantity + 1)}
-                  className="px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
+                  className="px-5 sm:px-8 hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
                 >
                   +
                 </button>

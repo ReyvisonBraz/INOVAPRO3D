@@ -189,6 +189,7 @@ export default function Catalog() {
               </button>
             </div>
 
+            {/* Category tabs — scroll horizontally; sort + count live outside so they're always visible */}
             <nav className="flex gap-1.5 overflow-x-auto pb-2 no-scrollbar" aria-label="Filtrar por categoria">
               {categories.map(cat => (
                 <button
@@ -203,10 +204,12 @@ export default function Catalog() {
                   {cat}
                 </button>
               ))}
+            </nav>
+            <div className="flex items-center justify-between gap-3">
               <select
                 value={sortBy}
                 onChange={e => setSortBy(e.target.value as typeof sortBy)}
-                className="ml-auto shrink-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-widest text-white/50 focus:border-primary outline-none cursor-pointer"
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[9px] font-black uppercase tracking-widest text-white/50 focus:border-primary outline-none cursor-pointer"
               >
                 <option value="name">A–Z</option>
                 <option value="price-asc">Menor preço</option>
@@ -214,11 +217,11 @@ export default function Catalog() {
                 <option value="newest">Mais recentes</option>
               </select>
               {!loading && (
-                <span className="flex-shrink-0 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-white/20 self-center">
+                <span className="px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-white/20">
                   {filteredProducts.length} resultado{filteredProducts.length !== 1 ? "s" : ""}
                 </span>
               )}
-            </nav>
+            </div>
           </div>
         </Reveal>
 

@@ -2106,7 +2106,7 @@ export default function AdminDashboard() {
                                 <span className="px-3 py-1 bg-primary text-white text-[9px] font-black uppercase rounded-full tracking-widest italic">{p.category}</span>
                              </div>
                           </div>
-                          <h4 className="text-sm font-black uppercase mb-1">{p.name}</h4>
+                          <h4 className="text-sm font-black uppercase mb-1 line-clamp-2 leading-snug">{p.name}</h4>
                           <p className="text-[10px] text-white/20 mb-4 line-clamp-2">{p.description}</p>
                           
                           <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 mb-4">

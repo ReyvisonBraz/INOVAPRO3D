@@ -425,6 +425,7 @@ export function ProductCard({
                   e.stopPropagation();
                   onAdd(product);
                 }}
+                aria-label="Adicionar ao carrinho"
                 className="flex h-8 shrink-0 items-center gap-1 rounded-xl bg-primary px-2.5 text-[9px] font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20 hover:bg-primary/90 active:scale-95 transition-all"
               >
                 <ShoppingBag className="h-3 w-3" />

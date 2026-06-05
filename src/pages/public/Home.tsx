@@ -413,7 +413,7 @@ export default function Home() {
               <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
                 <div>
                   <p className="section-label-accent mb-5">Processo sem mistério</p>
-                  <h2 className="max-w-xl font-display text-4xl font-black uppercase leading-[0.92] text-white sm:text-5xl">
+                  <h2 className="max-w-xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-4xl sm:leading-[0.92] lg:text-5xl">
                     Do clique ao pacote, tudo pensado para o cliente confiar.
                   </h2>
                 </div>
@@ -458,7 +458,7 @@ export default function Home() {
           <div className="relative z-10 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <p className="section-label-accent mb-4">Comece pela decisão mais fácil</p>
-              <h2 className="max-w-3xl font-display text-4xl font-black uppercase leading-[0.9] text-white sm:text-6xl">
+              <h2 className="max-w-3xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-5xl sm:leading-[0.92] lg:text-6xl lg:leading-[0.9]">
                 Abra o catálogo. Escolha a peça. A gente imprime direito.
               </h2>
               <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.45] sm:text-base">

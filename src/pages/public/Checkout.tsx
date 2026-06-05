@@ -173,7 +173,7 @@ export default function Checkout() {
         <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-8">
            <Package className="w-8 h-8 text-white/20" />
         </div>
-        <h2 className="text-4xl font-display font-black mb-4 uppercase tracking-tight">Seu carrinho está vazio</h2>
+        <h2 className="text-2xl sm:text-4xl font-display font-black mb-4 uppercase tracking-tight">Seu carrinho está vazio</h2>
         <p className="text-white/40 mb-12 font-medium">Adicione um produto ao carrinho para finalizar seu pedido.</p>
         <Button onClick={() => navigate('/catalogo')} size="lg" className="h-16 px-10 rounded-2xl gap-2 font-black uppercase">
           EXPLORAR CATÁLOGO <ChevronRight className="w-4 h-4" />
@@ -359,31 +359,31 @@ export default function Checkout() {
                    </h3>
                    
                    <div className="space-y-4">
-                      <button className="w-full p-8 rounded-[32px] border-2 border-primary bg-primary/5 flex items-center justify-between group relative overflow-hidden transition-all">
+                      <button className="w-full p-4 sm:p-8 rounded-[24px] sm:rounded-[32px] border-2 border-primary bg-primary/5 flex items-center justify-between group relative overflow-hidden transition-all">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent pointer-events-none" />
-                        <div className="flex items-center gap-6 relative z-10">
-                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-3 shadow-lg">
+                        <div className="flex items-center gap-3 sm:gap-6 relative z-10 min-w-0">
+                          <div className="w-11 h-11 sm:w-16 sm:h-16 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center p-2 sm:p-3 shadow-lg shrink-0">
                             <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" className="w-full" alt="Pix" />
                           </div>
-                          <div className="text-left">
-                            <p className="text-xl font-black uppercase font-display leading-tight">Pix Instantâneo</p>
-                            <p className="text-xs text-primary font-bold uppercase tracking-widest mt-1">Cashback de 5% aplicado</p>
+                          <div className="text-left min-w-0">
+                            <p className="text-base sm:text-xl font-black uppercase font-display leading-tight">Pix Instantâneo</p>
+                            <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-widest mt-1">Cashback de 5% aplicado</p>
                           </div>
                         </div>
-                        <CheckCircle2 className="text-primary w-8 h-8 relative z-10" />
+                        <CheckCircle2 className="text-primary w-6 h-6 sm:w-8 sm:h-8 relative z-10 shrink-0 ml-2" />
                       </button>
 
-                      <button className="w-full p-8 rounded-[32px] border border-white/5 bg-white/5 flex items-center justify-between opacity-40 cursor-not-allowed group grayscale">
-                        <div className="flex items-center gap-6">
-                          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center">
-                            <PaymentIcon className="w-8 h-8 text-white/20" />
+                      <button className="w-full p-4 sm:p-8 rounded-[24px] sm:rounded-[32px] border border-white/5 bg-white/5 flex items-center justify-between opacity-40 cursor-not-allowed group grayscale">
+                        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+                          <div className="w-11 h-11 sm:w-16 sm:h-16 bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
+                            <PaymentIcon className="w-5 h-5 sm:w-8 sm:h-8 text-white/20" />
                           </div>
-                          <div className="text-left">
-                            <p className="text-xl font-black uppercase font-display leading-tight">Cartão de Crédito</p>
+                          <div className="text-left min-w-0">
+                            <p className="text-base sm:text-xl font-black uppercase font-display leading-tight">Cartão de Crédito</p>
                             <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Em planejamento</p>
                           </div>
                         </div>
-                        <Lock className="w-6 h-6 text-white/10" />
+                        <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-white/10 shrink-0 ml-2" />
                       </button>
                    </div>
                 </section>
