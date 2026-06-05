@@ -35,6 +35,9 @@ import {
 import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { Reveal } from "../../components/ui/Reveal";
+import { db } from "../../services/firebase";
+import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { toast } from "sonner";
 
 const decimal = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 3,
@@ -488,6 +491,61 @@ export default function FilamentCalculator() {
       // ignore corrupt config
     }
   }, []);
+
+  // --- Load machine config from Firestore (overrides localStorage defaults) ---
+  useEffect(() => {
+    getDoc(doc(db, "settings", "machine")).then(snap => {
+      if (!snap.exists()) return;
+      const m = snap.data();
+      if (Number.isFinite(m.price)) setMachinePrice(m.price);
+      if (Number.isFinite(m.lifespanHours)) setLifespanHours(m.lifespanHours);
+      if (Number.isFinite(m.nozzlePrice)) setNozzlePrice(m.nozzlePrice);
+      if (Number.isFinite(m.nozzleLifeHours)) setNozzleLifeHours(m.nozzleLifeHours);
+      if (Number.isFinite(m.platePrice)) setPlatePrice(m.platePrice);
+      if (Number.isFinite(m.plateLifeHours)) setPlateLifeHours(m.plateLifeHours);
+      if (Number.isFinite(m.beltsPrice)) setBeltsPrice(m.beltsPrice);
+      if (Number.isFinite(m.beltsLifeHours)) setBeltsLifeHours(m.beltsLifeHours);
+      if (Number.isFinite(m.maintPerHour)) setMaintPerHour(m.maintPerHour);
+    }).catch(() => { /* silent — use localStorage/DEFAULT_MACHINE values */ });
+  }, []);
+
+  // Save calculation state
+  const [savingCalc, setSavingCalc] = useState(false);
+  const [saveLabel, setSaveLabel] = useState("");
+
+  const handleSaveCalc = async () => {
+    setSavingCalc(true);
+    try {
+      await addDoc(collection(db, "savedCalculations"), {
+        label: saveLabel.trim() || `Orçamento ${new Date().toLocaleDateString("pt-BR")}`,
+        material,
+        weightGrams: slicerWeight,
+        printTimeStr,
+        batchQuantity,
+        reservePct,
+        failureRatePct,
+        machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
+        platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
+        kwhCost, steadyPower, laborHours, laborRate, extraSupplies,
+        wholesaleMarkup, retailMarkup, minPrice,
+        result: {
+          retailUnit: result.retailUnit,
+          retailTotal: result.retailTotal,
+          wholesaleUnit: result.wholesaleUnit,
+          wholesaleTotal: result.wholesaleTotal,
+          totalCost: result.totalCost,
+          unitCost: result.unitCost,
+        },
+        createdAt: serverTimestamp(),
+      });
+      toast.success("Orçamento salvo!", { duration: 2800, position: "bottom-center" });
+      setSaveLabel("");
+    } catch {
+      toast.error("Erro ao salvar orçamento.", { position: "bottom-center" });
+    } finally {
+      setSavingCalc(false);
+    }
+  };
 
   // --- Persist business config (NOT per-job fields) ---
   useEffect(() => {
@@ -1191,6 +1249,25 @@ export default function FilamentCalculator() {
               <Download className="h-4 w-4" />
               Gerar relatório PDF
             </button>
+
+            <div className="mt-3 flex gap-2">
+              <input
+                type="text"
+                placeholder="Nome do orçamento (opcional)"
+                value={saveLabel}
+                onChange={e => setSaveLabel(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && !savingCalc && handleSaveCalc()}
+                className="h-11 flex-1 min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-white/25"
+              />
+              <button
+                type="button"
+                onClick={handleSaveCalc}
+                disabled={savingCalc}
+                className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {savingCalc ? "..." : "Salvar"}
+              </button>
+            </div>
 
             <div className="mt-5 grid grid-cols-3 gap-3 text-center">
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">

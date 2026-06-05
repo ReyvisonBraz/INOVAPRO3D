@@ -83,7 +83,7 @@ import {
 } from 'recharts';
 import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
-import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, DEFAULT_FAILURE_RATE, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey } from "../../lib/pricing";
+import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, DEFAULT_FAILURE_RATE, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey, type MachineConfig } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import type {
@@ -130,6 +130,31 @@ function formatCatalogDescription(raw: string): string {
   const truncated = cleaned.slice(0, 500);
   const lastBreak = Math.max(truncated.lastIndexOf(". "), truncated.lastIndexOf(".\n"), truncated.lastIndexOf("! "), truncated.lastIndexOf("? "));
   return (lastBreak > 200 ? truncated.slice(0, lastBreak + 1) : truncated + "...").trim();
+}
+
+async function translateToBR(text: string): Promise<string> {
+  if (!text.trim()) return text;
+  // Split at sentence boundaries to stay under MyMemory's 500-char limit
+  const sentences: string[] = [];
+  let current = "";
+  for (const part of text.split(/(?<=[.!?])\s+/)) {
+    if ((current + " " + part).length > 490 && current) {
+      sentences.push(current.trim());
+      current = part;
+    } else {
+      current = current ? current + " " + part : part;
+    }
+  }
+  if (current) sentences.push(current.trim());
+
+  const translated = await Promise.all(sentences.map(async chunk => {
+    try {
+      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|pt-BR`);
+      const d = await r.json() as { responseStatus?: number; responseData?: { translatedText?: string } };
+      return (d.responseStatus === 200 && d.responseData?.translatedText) ? d.responseData.translatedText : chunk;
+    } catch { return chunk; }
+  }));
+  return translated.join(" ").trim();
 }
 
 function NumInput({
@@ -200,11 +225,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'global');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setGlobalSettings(docSnap.data() as GlobalSettings);
-        }
+        const [globalSnap, machineSnap] = await Promise.all([
+          getDoc(doc(db, 'settings', 'global')),
+          getDoc(doc(db, 'settings', 'machine')),
+        ]);
+        if (globalSnap.exists()) setGlobalSettings(globalSnap.data() as GlobalSettings);
+        if (machineSnap.exists()) setMachineConfig(machineSnap.data() as MachineConfig);
       } catch (err) {
         console.error("Error fetching settings:", err);
       }
@@ -221,6 +247,18 @@ export default function AdminDashboard() {
       toast.success("Configurações globais atualizadas!");
     } catch (err) {
       toast.error("Erro ao salvar configurações.");
+    }
+  };
+
+  const handleSaveMachineConfig = async () => {
+    try {
+      await setDoc(doc(db, 'settings', 'machine'), {
+        ...machineConfig,
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Config da máquina salva! A calculadora rápida já usa os novos valores.");
+    } catch {
+      toast.error("Erro ao salvar config da máquina.");
     }
   };
 
@@ -469,10 +507,17 @@ export default function AdminDashboard() {
   const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState<number>(1.6);
   const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState<number>(2.5);
 
+  // Photo management helper state
+  const [newImageUrl, setNewImageUrl] = useState('');
+  // Translation loading indicator
+  const [translatingField, setTranslatingField] = useState<'name' | 'description' | null>(null);
+  // Machine config — loaded from Firestore settings/machine, used by quick calc
+  const [machineConfig, setMachineConfig] = useState<MachineConfig>(DEFAULT_MACHINE);
+
   // Calculadora rápida do admin agora consome o motor de precificação compartilhado
   // (src/lib/pricing.ts), garantindo que ela SEMPRE concorde com a calculadora pública.
-  // A depreciação da máquina usa DEFAULT_MACHINE silenciosamente (apenas exibida como readout).
-  const quickMachine = DEFAULT_MACHINE;
+  // A depreciação usa a config da máquina salva em settings/machine (editável em Ajustes).
+  const quickMachine = machineConfig;
   const quickCalcResult = computePricing({
     material: quickCalcMaterial,
     weightGrams: Math.max(0, Number(quickCalcWeight) || 0),
@@ -2527,6 +2572,37 @@ export default function AdminDashboard() {
                        <Button className="w-full h-14 rounded-2xl" onClick={handleSaveSettings}>Salvar Alterações Globais</Button>
                     </div>
                  </div>
+                 <div className="glass rounded-[48px] p-10 border border-white/5 space-y-8 md:col-span-2">
+                    <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2"><Calculator className="w-4 h-4" /> Config da Máquina (Bambu Lab P2S)</h3>
+                    <p className="text-[9px] text-white/30 uppercase tracking-widest -mt-4">Esses valores são usados pela calculadora rápida e pela calculadora pública como padrão inicial.</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {([
+                        { label: "Preço da Máquina (R$)", key: "price", min: 0 },
+                        { label: "Vida útil (horas)", key: "lifespanHours", min: 1 },
+                        { label: "Preço do Bico (R$)", key: "nozzlePrice", min: 0 },
+                        { label: "Vida do Bico (h)", key: "nozzleLifeHours", min: 1 },
+                        { label: "Preço da Placa (R$)", key: "platePrice", min: 0 },
+                        { label: "Vida da Placa (h)", key: "plateLifeHours", min: 1 },
+                        { label: "Preço das Correias (R$)", key: "beltsPrice", min: 0 },
+                        { label: "Vida das Correias (h)", key: "beltsLifeHours", min: 1 },
+                        { label: "Manutenção R$/h", key: "maintPerHour", min: 0 },
+                      ] as { label: string; key: keyof MachineConfig; min: number }[]).map(({ label, key, min }) => (
+                        <div key={key} className="space-y-1.5">
+                          <label className="text-[8px] font-black uppercase tracking-widest text-white/25">{label}</label>
+                          <NumInput
+                            min={min}
+                            value={machineConfig[key]}
+                            onChange={v => setMachineConfig(c => ({...c, [key]: v}))}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs font-mono outline-none focus:border-primary/50 transition-all"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <Button className="h-12 rounded-2xl px-8 text-[10px] font-black uppercase tracking-widest" onClick={handleSaveMachineConfig}>
+                      Salvar Config da Máquina
+                    </Button>
+                 </div>
+
                  <div className="glass rounded-[48px] p-10 border border-white/5">
                     <h3 className="text-sm font-black uppercase tracking-widest italic mb-8">Estado do Sistema</h3>
                     <div className="space-y-4">
@@ -2783,8 +2859,22 @@ export default function AdminDashboard() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Identidade do Item</label>
-                          <input 
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Identidade do Item</label>
+                            <button type="button" disabled={!newProduct.name || translatingField === 'name'}
+                              onClick={async () => {
+                                setTranslatingField('name');
+                                try {
+                                  const t = await translateToBR(newProduct.name);
+                                  setNewProduct(p => ({...p, name: formatCatalogTitle(t)}));
+                                } catch { toast.error("Falha na tradução."); }
+                                finally { setTranslatingField(null); }
+                              }}
+                              className="text-[8px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
+                              {translatingField === 'name' ? '⏳ traduzindo...' : '🌐 Traduzir PT'}
+                            </button>
+                          </div>
+                          <input
                              required
                              value={newProduct.name}
                              onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
@@ -2862,8 +2952,10 @@ export default function AdminDashboard() {
                        </div>
                    </div>
 
-                   <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Carrossel de Imagens (URLs, uma por linha)</label>
+                   <div className="space-y-3">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Fotos do Produto</label>
+
+                       {/* Upload button */}
                        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4">
                          <label className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer">
                            <div className="min-w-0">
@@ -2872,60 +2964,79 @@ export default function AdminDashboard() {
                                Enviar imagem manual
                              </span>
                              <p className="text-[8px] uppercase tracking-widest text-white/30 mt-1">
-                               JPG, PNG ou WEBP. A URL do Firebase Storage entra automaticamente abaixo.
+                               JPG, PNG ou WEBP. A URL entra automaticamente na lista abaixo.
                              </p>
                            </div>
                            <span className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
                              {isUploadingProductImage ? "Enviando..." : "Escolher arquivo"}
                            </span>
-                           <input
-                             type="file"
-                             accept="image/*"
-                             disabled={isUploadingProductImage}
-                             onChange={(e) => {
-                               const file = e.target.files?.[0] || null;
-                               void handleProductImageUpload(file);
-                               e.target.value = "";
-                             }}
+                           <input type="file" accept="image/*" disabled={isUploadingProductImage}
+                             onChange={(e) => { void handleProductImageUpload(e.target.files?.[0] || null); e.target.value = ""; }}
                              className="sr-only"
                            />
                          </label>
                        </div>
-                       <textarea 
-                          rows={3}
-                          value={newProduct.images.join('\n')}
-                          onChange={(e) => {
-                            const lines = e.target.value.split('\n').map(line => line.trim()).filter(Boolean);
-                            setNewProduct({...newProduct, images: lines.length > 0 ? lines : ['']});
-                          }}
-                          placeholder="https://images.unsplash.com/...&#10;https://images.unsplash.com/..."
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-mono outline-none focus:border-primary/50 transition-all resize-y"
-                       />
+
+                       {/* Sortable image list */}
                        {newProduct.images.filter(Boolean).length > 0 && (
-                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                           {newProduct.images.filter(Boolean).slice(0, 10).map((imageUrl, index) => (
-                             <a
-                               key={`${imageUrl}-${index}`}
-                               href={imageUrl}
-                               target="_blank"
-                               rel="noreferrer"
-                               className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black"
-                               title={`Abrir imagem ${index + 1}`}
-                             >
-                               <img
-                                 src={imageUrl}
-                                 alt={`Preview ${index + 1}`}
-                                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                 loading="lazy"
-                               />
-                               <span className="absolute left-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/70">
-                                 {index === 0 ? 'Capa' : `#${index + 1}`}
+                         <div className="space-y-1.5">
+                           {newProduct.images.filter(Boolean).map((url, idx) => (
+                             <div key={`${url}-${idx}`} className="flex items-center gap-2 p-2 rounded-2xl bg-white/[0.03] border border-white/[0.06] group">
+                               <img src={url} alt="" className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0 bg-black/20" loading="lazy" />
+                               <span className="text-[8px] font-black uppercase tracking-widest text-white/30 w-8 shrink-0 text-center">
+                                 {idx === 0 ? 'CAPA' : `#${idx + 1}`}
                                </span>
-                             </a>
+                               <span className="flex-1 min-w-0 text-[9px] font-mono text-white/25 truncate hidden sm:block">{url}</span>
+                               <div className="flex items-center gap-1 shrink-0">
+                                 <button type="button" title="Mover para cima"
+                                   disabled={idx === 0}
+                                   onClick={() => {
+                                     const imgs = [...newProduct.images.filter(Boolean)];
+                                     [imgs[idx - 1], imgs[idx]] = [imgs[idx], imgs[idx - 1]];
+                                     setNewProduct(p => ({...p, images: imgs}));
+                                   }}
+                                   className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↑</button>
+                                 <button type="button" title="Mover para baixo"
+                                   disabled={idx === newProduct.images.filter(Boolean).length - 1}
+                                   onClick={() => {
+                                     const imgs = [...newProduct.images.filter(Boolean)];
+                                     [imgs[idx], imgs[idx + 1]] = [imgs[idx + 1], imgs[idx]];
+                                     setNewProduct(p => ({...p, images: imgs}));
+                                   }}
+                                   className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↓</button>
+                                 <button type="button" title="Remover"
+                                   onClick={() => {
+                                     const imgs = newProduct.images.filter(Boolean).filter((_, i) => i !== idx);
+                                     setNewProduct(p => ({...p, images: imgs.length > 0 ? imgs : ['']}));
+                                   }}
+                                   className="w-7 h-7 flex items-center justify-center rounded-lg text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-all text-xs">✕</button>
+                               </div>
+                             </div>
                            ))}
                          </div>
                        )}
-                       <span className="text-[8px] uppercase tracking-widest text-white/30 block mt-1">O primeiro link é a capa. Insira outros de forma opcional (um por linha) para habilitar o carrossel.</span>
+
+                       {/* Add URL manually */}
+                       <div className="flex gap-2">
+                         <input
+                           type="url"
+                           placeholder="Cole uma URL de imagem aqui..."
+                           value={newImageUrl}
+                           onChange={e => setNewImageUrl(e.target.value)}
+                           onKeyDown={e => {
+                             if (e.key === 'Enter') { e.preventDefault();
+                               if (newImageUrl.trim()) { setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), newImageUrl.trim()]})); setNewImageUrl(''); }
+                             }
+                           }}
+                           className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-primary/50 transition-all"
+                         />
+                         <button type="button"
+                           onClick={() => { if (newImageUrl.trim()) { setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), newImageUrl.trim()]})); setNewImageUrl(''); }}}
+                           className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary/20 transition-all">
+                           + Add
+                         </button>
+                       </div>
+                       <span className="text-[8px] uppercase tracking-widest text-white/25 block">A primeira imagem é a capa. Use ↑↓ para ordenar, ✕ para remover.</span>
                     </div>
 
                     <div className="space-y-2">
@@ -3033,8 +3144,22 @@ export default function AdminDashboard() {
                    </div>
 
                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Descrição Técnica / Marketing</label>
-                      <textarea 
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Descrição Técnica / Marketing</label>
+                        <button type="button" disabled={!newProduct.description || translatingField === 'description'}
+                          onClick={async () => {
+                            setTranslatingField('description');
+                            try {
+                              const t = await translateToBR(newProduct.description);
+                              setNewProduct(p => ({...p, description: formatCatalogDescription(t)}));
+                            } catch { toast.error("Falha na tradução."); }
+                            finally { setTranslatingField(null); }
+                          }}
+                          className="text-[8px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
+                          {translatingField === 'description' ? '⏳ traduzindo...' : '🌐 Traduzir PT'}
+                        </button>
+                      </div>
+                      <textarea
                          rows={3}
                          value={newProduct.description}
                          onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
