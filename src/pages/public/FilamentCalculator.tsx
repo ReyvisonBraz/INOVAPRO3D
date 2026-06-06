@@ -443,7 +443,7 @@ export default function FilamentCalculator() {
   // --- Pricing ---
   const [wholesaleMarkup, setWholesaleMarkup] = useState(1.6);
   const [retailMarkup, setRetailMarkup] = useState(2.5);
-  const [minPrice, setMinPrice] = useState(35);
+  const [minPrice, setMinPrice] = useState(0);
 
   // --- Advanced panels ---
   const [showAdvancedMachine, setShowAdvancedMachine] = useState(false);
