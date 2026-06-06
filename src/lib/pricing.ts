@@ -33,9 +33,9 @@ export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
   pla: {
     key: "pla",
     label: "PLA",
-    // R$100 produto (Slim 3D / Voolt3D, jun/2026) + R$119 frete médio até Pará.
-    // Ajuste spoolPrice se comprar em quantidade (frete diluído).
-    spoolPrice: 219,
+    // R$100 produto + frete R$119 diluído em ~7 rolos (compra típica 5–10 rolos).
+    // Frete/rolo ≈ R$17. Ajuste se comprar menos (5 rolos = R$124) ou mais (10 = R$112).
+    spoolPrice: 117,
     spoolWeight: 1000,
     steadyPowerWatts: 200,
     defaultReservePct: 12,
@@ -44,8 +44,8 @@ export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
   petg: {
     key: "petg",
     label: "PETG",
-    // R$120 produto + R$119 frete médio até Pará.
-    spoolPrice: 239,
+    // R$120 produto + frete R$119 diluído em ~7 rolos ≈ R$17/rolo.
+    spoolPrice: 137,
     spoolWeight: 1000,
     steadyPowerWatts: 230,
     defaultReservePct: 20,
