@@ -33,7 +33,7 @@ export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
   pla: {
     key: "pla",
     label: "PLA",
-    spoolPrice: 85,
+    spoolPrice: 110,
     spoolWeight: 1000,
     steadyPowerWatts: 200,
     defaultReservePct: 12,
@@ -78,15 +78,15 @@ export interface MachineConfig {
  * Você pode editar todos os campos na calculadora detalhada.
  */
 export const DEFAULT_MACHINE: MachineConfig = {
-  price: 5999,
-  lifespanHours: 6000,
-  nozzlePrice: 89,
-  nozzleLifeHours: 600,
+  price: 12000,
+  lifespanHours: 7000,
+  nozzlePrice: 350,
+  nozzleLifeHours: 1300,
   platePrice: 190,
   plateLifeHours: 1500,
   beltsPrice: 100,
   beltsLifeHours: 2500,
-  maintPerHour: 0.1,
+  maintPerHour: 0.2,
 };
 
 export interface MachineHourBreakdown {
