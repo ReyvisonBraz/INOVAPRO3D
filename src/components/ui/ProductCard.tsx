@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Box,
@@ -23,13 +23,14 @@ function ProductModal({
   startIndex,
   onClose,
   onAdd,
+  onViewFull,
 }: {
   product: Product;
   startIndex: number;
   onClose: () => void;
   onAdd?: (p: Product) => void;
+  onViewFull: () => void;
 }) {
-  const navigate = useNavigate();
   const [imgIdx, setImgIdx] = useState(startIndex);
   const images = product.images?.filter(Boolean) ?? [];
   const hasMultiple = images.length > 1;
@@ -263,7 +264,7 @@ function ProductModal({
               )}
               <button
                 type="button"
-                onClick={() => { onClose(); window.scrollTo({ top: 0, behavior: 'instant' }); navigate(`/produto/${product.id}`); }}
+                onClick={onViewFull}
                 className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.03] text-white/60 font-black text-[11px] uppercase tracking-widest hover:bg-white/[0.07] hover:text-white transition-all"
               >
                 Ver produto completo
@@ -296,6 +297,23 @@ export function ProductCard({
   const [hovered, setHovered] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const cycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Trap browser-back inside modal: push a hash entry so back closes modal instead of leaving the page
+  useEffect(() => {
+    if (!modalOpen) return;
+    const base = window.location.pathname + window.location.search;
+    window.history.pushState(null, '', base + '#preview');
+    const handler = () => setModalOpen(false);
+    window.addEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('popstate', handler);
+      if (window.location.hash === '#preview') {
+        window.history.replaceState(null, '', base);
+      }
+    };
+  }, [modalOpen]);
 
   const lowStock =
     typeof product.stock === "number" && product.stock > 0 && product.stock <= 3;
@@ -445,6 +463,15 @@ export function ProductCard({
             startIndex={imgIdx}
             onClose={() => setModalOpen(false)}
             onAdd={onAdd}
+            onViewFull={() => {
+              const base = window.location.pathname + window.location.search;
+              if (window.location.hash === '#preview') {
+                window.history.replaceState(null, '', base);
+              }
+              setModalOpen(false);
+              window.scrollTo({ top: 0, behavior: 'instant' });
+              navigate(`/produto/${product.id}`, { state: { from: location.pathname } });
+            }}
           />
         )}
       </AnimatePresence>

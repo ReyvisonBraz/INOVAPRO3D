@@ -72,6 +72,22 @@ export default function Home() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const { addItem } = useCart();
+
+  // Trap browser-back while lightbox is open
+  const lightboxOpen = selectedIndex !== null;
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const base = window.location.pathname + window.location.search;
+    window.history.pushState(null, '', base + '#preview');
+    const handler = () => setSelectedIndex(null);
+    window.addEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('popstate', handler);
+      if (window.location.hash === '#preview') {
+        window.history.replaceState(null, '', base);
+      }
+    };
+  }, [lightboxOpen]);
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.22], [0, -90]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0.2]);

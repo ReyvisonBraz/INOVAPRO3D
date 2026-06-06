@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import {
   ArrowRight,
@@ -33,6 +33,7 @@ import { waLink } from "../../lib/config";
 export default function ProductDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { addItem } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -177,10 +178,19 @@ export default function ProductDetail() {
   return (
     <div className="container-section py-8 sm:py-12">
       <nav aria-label="Breadcrumb" className="mb-8 sm:mb-12">
-        <Link to="/catalogo" className="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors group">
+        <button
+          type="button"
+          onClick={() => {
+            const from = (location.state as { from?: string } | null)?.from;
+            if (from) navigate(from);
+            else if (window.history.length > 2) navigate(-1);
+            else navigate('/catalogo');
+          }}
+          className="inline-flex items-center gap-2 text-white/40 hover:text-white transition-colors group"
+        >
           <ChevronLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-[#FAFAFA]/40 group-hover:text-white transition-colors">Voltar ao Catálogo</span>
-        </Link>
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#FAFAFA]/40 group-hover:text-white transition-colors">Voltar</span>
+        </button>
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 sm:gap-10 lg:gap-12 items-start">
