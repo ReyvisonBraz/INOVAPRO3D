@@ -437,13 +437,14 @@ export default function FilamentCalculator() {
   // --- Labor ---
   const [requiresLabor, setRequiresLabor] = useState(false);
   const [laborHours, setLaborHours] = useState(0);
-  const [laborRate, setLaborRate] = useState(25);
+  const [laborRate, setLaborRate] = useState(30);
   const [extraSupplies, setExtraSupplies] = useState(0);
 
   // --- Pricing ---
   const [wholesaleMarkup, setWholesaleMarkup] = useState(1.6);
   const [retailMarkup, setRetailMarkup] = useState(2.5);
   const [minPrice, setMinPrice] = useState(0);
+  const [markupMode, setMarkupMode] = useState<'mult' | 'pct'>('mult');
 
   // --- Advanced panels ---
   const [showAdvancedMachine, setShowAdvancedMachine] = useState(false);
@@ -456,6 +457,22 @@ export default function FilamentCalculator() {
     setSpoolWeight(preset.spoolWeight);
     setSteadyPower(preset.steadyPowerWatts);
     setReservePct(preset.defaultReservePct);
+  }
+
+  // --- Markup helpers (mult ↔ % interconversão) ---
+  const markupLabel = (mult: number) =>
+    markupMode === 'pct'
+      ? `${((mult - 1) * 100).toFixed(0)}%`
+      : `${mult.toFixed(1)}×`;
+
+  const wholesaleDisplay = markupMode === 'pct' ? (wholesaleMarkup - 1) * 100 : wholesaleMarkup;
+  const retailDisplay    = markupMode === 'pct' ? (retailMarkup    - 1) * 100 : retailMarkup;
+
+  function handleWholesaleMarkup(val: number) {
+    setWholesaleMarkup(markupMode === 'pct' ? 1 + val / 100 : val);
+  }
+  function handleRetailMarkup(val: number) {
+    setRetailMarkup(markupMode === 'pct' ? 1 + val / 100 : val);
   }
 
   // --- Load persisted business config on mount ---
@@ -487,6 +504,7 @@ export default function FilamentCalculator() {
       if (Number.isFinite(cfg.wholesaleMarkup)) setWholesaleMarkup(cfg.wholesaleMarkup);
       if (Number.isFinite(cfg.retailMarkup)) setRetailMarkup(cfg.retailMarkup);
       if (Number.isFinite(cfg.minPrice)) setMinPrice(cfg.minPrice);
+      if (cfg.markupMode === 'mult' || cfg.markupMode === 'pct') setMarkupMode(cfg.markupMode);
     } catch {
       // ignore corrupt config
     }
@@ -573,6 +591,7 @@ export default function FilamentCalculator() {
         wholesaleMarkup,
         retailMarkup,
         minPrice,
+        markupMode,
       };
       localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
     } catch {
@@ -601,6 +620,7 @@ export default function FilamentCalculator() {
     wholesaleMarkup,
     retailMarkup,
     minPrice,
+    markupMode,
   ]);
 
   const machineBreak = machineHourBreakdown({
@@ -1162,25 +1182,41 @@ export default function FilamentCalculator() {
             </div>
 
             <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.04] p-4">
-              <div className="mb-4 flex items-center gap-2">
-                <Coins className="h-4 w-4 text-cyan-300" />
-                <h3 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">
-                  Preço de venda & lucro
-                </h3>
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Coins className="h-4 w-4 text-cyan-300" />
+                  <h3 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">
+                    Preço de venda & lucro
+                  </h3>
+                </div>
+                <div className="flex items-center gap-0.5 rounded-lg border border-white/15 bg-white/[0.04] p-0.5">
+                  <button
+                    onClick={() => setMarkupMode('mult')}
+                    className={`rounded px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition ${markupMode === 'mult' ? 'bg-cyan-500/30 text-cyan-200' : 'text-white/40 hover:text-white/70'}`}
+                  >
+                    ×
+                  </button>
+                  <button
+                    onClick={() => setMarkupMode('pct')}
+                    className={`rounded px-2.5 py-1 text-[10px] font-black uppercase tracking-wider transition ${markupMode === 'pct' ? 'bg-cyan-500/30 text-cyan-200' : 'text-white/40 hover:text-white/70'}`}
+                  >
+                    %
+                  </button>
+                </div>
               </div>
               <div className="mb-4 grid gap-3 sm:grid-cols-3">
                 <NumberField
-                  label="Atacado ×"
-                  value={wholesaleMarkup}
-                  onChange={setWholesaleMarkup}
-                  step={0.1}
+                  label={markupMode === 'pct' ? 'Atacado %' : 'Atacado ×'}
+                  value={wholesaleDisplay}
+                  onChange={handleWholesaleMarkup}
+                  step={markupMode === 'pct' ? 5 : 0.1}
                   help={HELP.wholesale}
                 />
                 <NumberField
-                  label="Varejo ×"
-                  value={retailMarkup}
-                  onChange={setRetailMarkup}
-                  step={0.1}
+                  label={markupMode === 'pct' ? 'Varejo %' : 'Varejo ×'}
+                  value={retailDisplay}
+                  onChange={handleRetailMarkup}
+                  step={markupMode === 'pct' ? 5 : 0.1}
                   help={HELP.retail}
                 />
                 <NumberField
@@ -1195,7 +1231,7 @@ export default function FilamentCalculator() {
               <div className="grid gap-4">
                 <div>
                   <PriceBox
-                    title={`Atacado (${wholesaleMarkup.toFixed(1)}x)`}
+                    title={`Atacado (${markupLabel(wholesaleMarkup)})`}
                     description="Ideal para cliente que revende ou fecha lote recorrente."
                     total={result.wholesaleTotal}
                     unit={result.wholesaleUnit}
@@ -1212,7 +1248,7 @@ export default function FilamentCalculator() {
                 </div>
                 <div>
                   <PriceBox
-                    title={`Varejo (${retailMarkup.toFixed(1)}x)`}
+                    title={`Varejo (${markupLabel(retailMarkup)})`}
                     description="Ideal para venda direta ao cliente final, sob demanda."
                     total={result.retailTotal}
                     unit={result.retailUnit}
@@ -1415,9 +1451,9 @@ export default function FilamentCalculator() {
 
         <section className="maker-report-card">
           <h2>Comercial Interno</h2>
-          <ReportLine label={`Atacado ${wholesaleMarkup.toFixed(1)}x total`} value={formatBRL(result.wholesaleTotal)} />
+          <ReportLine label={`Atacado ${markupLabel(wholesaleMarkup)} total`} value={formatBRL(result.wholesaleTotal)} />
           <ReportLine label="Lucro atacado" value={`${formatBRL(result.profitWholesale)} (${result.profitWholesalePct.toFixed(0)}%)`} />
-          <ReportLine label={`Varejo ${retailMarkup.toFixed(1)}x total`} value={formatBRL(result.retailTotal)} />
+          <ReportLine label={`Varejo ${markupLabel(retailMarkup)} total`} value={formatBRL(result.retailTotal)} />
           <ReportLine label="Lucro varejo" value={`${formatBRL(result.profitRetail)} (${result.profitRetailPct.toFixed(0)}%)`} />
         </section>
       </div>

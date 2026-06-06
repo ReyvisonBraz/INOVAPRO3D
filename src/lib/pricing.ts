@@ -33,7 +33,9 @@ export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
   pla: {
     key: "pla",
     label: "PLA",
-    spoolPrice: 110,
+    // R$100 produto (Slim 3D / Voolt3D, jun/2026) + R$119 frete médio até Pará.
+    // Ajuste spoolPrice se comprar em quantidade (frete diluído).
+    spoolPrice: 219,
     spoolWeight: 1000,
     steadyPowerWatts: 200,
     defaultReservePct: 12,
@@ -42,7 +44,8 @@ export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
   petg: {
     key: "petg",
     label: "PETG",
-    spoolPrice: 120,
+    // R$120 produto + R$119 frete médio até Pará.
+    spoolPrice: 239,
     spoolWeight: 1000,
     steadyPowerWatts: 230,
     defaultReservePct: 20,
@@ -73,14 +76,15 @@ export interface MachineConfig {
 }
 
 /**
- * Configuração padrão da Bambu Lab P2S + AMS no Brasil.
- * Fonte: mercado BR jun/2026 (revendedores autorizados).
+ * Configuração padrão da Bambu Lab P2S + AMS 2 PRO no Brasil.
+ * Fonte: mercado BR jun/2026 — Fozit R$9.899, Beehive R$10.999.
  * Você pode editar todos os campos na calculadora detalhada.
  */
 export const DEFAULT_MACHINE: MachineConfig = {
-  price: 12000,
+  price: 10999,
   lifespanHours: 7000,
-  nozzlePrice: 350,
+  // Hotend completo 0,4mm aço endurecido P1/P2 series (Tecnocubo jun/2026: R$200–220 + margem).
+  nozzlePrice: 250,
   nozzleLifeHours: 1300,
   platePrice: 190,
   plateLifeHours: 1500,
@@ -420,9 +424,9 @@ export const HELP = {
   extraSupplies:
     "Insumos específicos deste job que não são filamento: parafusos, ímãs, tinta, cola, embalagem especial.",
   wholesale:
-    "Multiplicador para venda em atacado/B2B (cliente que revende ou fecha lote). Ex: 1.6 = custo + 60%.",
+    "Markup de atacado/B2B. No modo ×: insira o multiplicador (ex: 1.6 = custo + 60%). No modo %: insira direto o markup sobre o custo (ex: 60%). Os dois modos dão o mesmo preço.",
   retail:
-    "Multiplicador para venda no varejo (cliente final). Ex: 2.5 = custo × 2,5. Cobre seu lucro e o tempo de atendimento.",
+    "Markup de varejo (cliente final). No modo ×: ex: 2.5 = custo × 2,5. No modo %: ex: 150% = custo + 150%. Cobre seu lucro e o tempo de atendimento.",
   minPrice:
     "Valor mínimo que você cobra por qualquer pedido, mesmo peças pequenas. Cobre o custo de parar, atender, embalar e entregar.",
   depreciation:
