@@ -3,7 +3,6 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { AnimatePresence, motion } from "framer-motion";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
-import { DebugMarker } from "./components/layout/DebugMarker";
 import FloatingSupport from "./components/ui/FloatingSupport";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -132,7 +131,6 @@ function RouterContent() {
           
           <FloatingSupport />
           <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
-          <DebugMarker />
         </div>
       </CartProvider>
     </AuthProvider>

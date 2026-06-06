@@ -85,6 +85,7 @@ import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, DEFAULT_FAILURE_RATE, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey, type MachineConfig } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
+import { DiagnosticWidget } from "../../components/layout/DebugMarker";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import type {
   AuditLog,
@@ -2624,6 +2625,10 @@ export default function AdminDashboard() {
                        <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
                           <p className="text-[10px] font-black uppercase text-white/20 mb-2">Versão do Engine</p>
                           <p className="text-xs font-mono font-bold">INOVAPRO-OS v2.4.8-stable</p>
+                       </div>
+                       <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
+                          <p className="text-[10px] font-black uppercase text-white/20 mb-4">Motor de Diagnóstico</p>
+                          <DiagnosticWidget />
                        </div>
                     </div>
                  </div>
