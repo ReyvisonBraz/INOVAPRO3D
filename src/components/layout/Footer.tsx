@@ -5,12 +5,12 @@ import { motion } from "framer-motion";
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/[0.06] bg-[#07080d] pt-24 pb-12 px-6 lg:px-8 mt-24 relative overflow-hidden">
+    <footer className="border-t border-white/[0.06] bg-[#07080d] pt-12 sm:pt-24 pb-8 sm:pb-12 px-6 lg:px-8 mt-24 relative overflow-hidden">
       {/* Background decoration */}
       <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-primary/2 rounded-full blur-[120px] pointer-events-none" />
       
       <div className="max-w-7xl w-full mx-auto relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-12 mb-16">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-6 sm:gap-8 lg:gap-12 mb-8 sm:mb-16">
           
           {/* Brand Identity */}
           <div className="lg:col-span-4 space-y-6">
@@ -30,7 +30,7 @@ export function Footer() {
                   placeholder="Seu e-mail..."
                   className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-xs outline-none focus:border-white/20 transition-all font-medium text-white placeholder-white/20"
                  />
-                 <button className="px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all">
+                 <button className="h-10 px-6 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all">
                     ENVIAR
                  </button>
                </div>
@@ -67,7 +67,7 @@ export function Footer() {
           {/* Factory Status Pulse */}
           <div className="lg:col-span-4 space-y-8">
             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Status da Rede</h4>
-            <div className="p-8 rounded-[32px] bg-white/[0.03] border border-white/[0.06] space-y-6">
+            <div className="p-5 sm:p-8 rounded-[32px] bg-white/[0.03] border border-white/[0.06] space-y-6">
               <div className="flex justify-between items-center">
                  <div className="flex items-center gap-3">
                     <span className="flex h-2 w-2 relative shrink-0">
@@ -105,7 +105,7 @@ export function Footer() {
           <p className="text-[12px] text-white/20 font-black uppercase tracking-[0.2em] flex items-center gap-2">
              © 2026 INOVAPRO3D <span className="opacity-50">|</span> <span className="text-white/10 italic">Soluções Aditivas de Grau Industrial</span>
           </p>
-          <div className="flex gap-12 text-[10px] text-white/20 font-black uppercase tracking-[0.3em]">
+          <div className="flex flex-wrap gap-4 sm:gap-8 lg:gap-12 text-[10px] text-white/20 font-black uppercase tracking-[0.3em]">
             <a href="#" className="hover:text-white/50 transition-colors">Política de Privacidade</a>
             <a href="#" className="hover:text-white/50 transition-colors">Direitos de PI</a>
             <a href="#" className="hover:text-white/50 transition-colors">Termos de NDA</a>

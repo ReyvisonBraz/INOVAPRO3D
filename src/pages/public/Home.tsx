@@ -176,7 +176,7 @@ export default function Home() {
               </div>
             </Reveal>
 
-            <RevealGroup className="mt-9 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+            <RevealGroup className="mt-9 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
               {proofStats.map((stat) => (
                 <RevealItem key={stat.label}>
                   <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
@@ -272,7 +272,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilter("ALL")}
-                className={`rounded-full border px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                className={`rounded-full border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                   filter === "ALL"
                     ? "border-white bg-white text-slate-950"
                     : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
@@ -284,7 +284,7 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setFilter(cat)}
-                  className={`rounded-full border px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                  className={`rounded-full border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                     filter === cat
                       ? "border-white bg-white text-slate-950"
                       : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
@@ -632,6 +632,8 @@ function CatalogPreviewCard({
             <img
               src={image}
               alt={product.name}
+              loading="lazy"
+              decoding="async"
               className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-110"
             />
           ) : (
@@ -731,7 +733,7 @@ function Lightbox({
           exit={{ scale: 0.96, opacity: 0 }}
           className="relative aspect-[4/3] w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/10 shadow-2xl sm:aspect-video"
         >
-          <img src={item.image} className="h-full w-full object-cover" alt={item.title} />
+          <img src={item.image} loading="lazy" decoding="async" className="h-full w-full object-cover" alt={item.title} />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent p-6 sm:p-10">
             <div className="mb-3 flex items-center gap-3">
               {item.category && (

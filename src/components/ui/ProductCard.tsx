@@ -84,7 +84,7 @@ function ProductModal({
         <button
           onClick={onClose}
           aria-label="Fechar"
-          className="absolute top-3 right-3 z-20 w-8 h-8 flex items-center justify-center rounded-full bg-white/8 hover:bg-white/15 border border-white/10 text-white/50 hover:text-white transition-all"
+          className="absolute top-3 right-3 z-20 w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center rounded-full bg-white/8 hover:bg-white/15 border border-white/10 text-white/50 hover:text-white transition-all"
         >
           <X className="w-4 h-4" />
         </button>
@@ -114,14 +114,14 @@ function ProductModal({
                   <button
                     onClick={prev}
                     aria-label="Foto anterior"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-all hover:scale-105 active:scale-95"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-all hover:scale-105 active:scale-95"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     onClick={next}
                     aria-label="Próxima foto"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-9 h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-all hover:scale-105 active:scale-95"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 z-10 w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/15 text-white transition-all hover:scale-105 active:scale-95"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -139,17 +139,18 @@ function ProductModal({
                 {hasMultiple && (
                   <div className="flex gap-1">
                     {images.map((_, i) => (
-                      <button
-                        key={i}
-                        onClick={() => setImgIdx(i)}
-                        aria-label={`Foto ${i + 1}`}
-                        className={cn(
-                          "h-1 rounded-full transition-all duration-300",
-                          i === imgIdx
-                            ? "w-5 bg-white"
-                            : "w-1.5 bg-white/30 hover:bg-white/60"
-                        )}
-                      />
+                      <div key={i} className="min-h-[32px] min-w-[32px] flex items-center justify-center">
+                        <button
+                          onClick={() => setImgIdx(i)}
+                          aria-label={`Foto ${i + 1}`}
+                          className={cn(
+                            "h-1 rounded-full transition-all duration-300",
+                            i === imgIdx
+                              ? "w-5 bg-white"
+                              : "w-1.5 bg-white/30 hover:bg-white/60"
+                          )}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -170,7 +171,7 @@ function ProductModal({
                         : "border-white/10 opacity-45 hover:opacity-75"
                     )}
                   >
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img src={img} alt="" loading="lazy" decoding="async" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -426,9 +427,9 @@ export function ProductCard({
                   onAdd(product);
                 }}
                 aria-label="Adicionar ao carrinho"
-                className="flex h-8 shrink-0 items-center gap-1 rounded-xl bg-primary px-2.5 text-[9px] font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20 hover:bg-primary/90 active:scale-95 transition-all"
+                className="flex h-10 sm:h-8 shrink-0 items-center gap-1 rounded-xl bg-primary px-2.5 text-[9px] font-black uppercase tracking-widest text-white shadow-lg shadow-primary/20 hover:bg-primary/90 active:scale-95 transition-all"
               >
-                <ShoppingBag className="h-3 w-3" />
+                <ShoppingBag className="h-4 w-4 sm:h-3 sm:w-3" />
                 <span className="hidden sm:inline">Add</span>
               </button>
             )}

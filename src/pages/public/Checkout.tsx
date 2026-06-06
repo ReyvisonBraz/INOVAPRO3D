@@ -196,7 +196,7 @@ export default function Checkout() {
         <div className="flex items-center gap-4 sm:gap-6 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
            {[1, 2, 3].map((s) => (
              <React.Fragment key={s}>
-               <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
+               <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
                  step === s ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20' : 
                  step > s ? 'bg-green-500 text-white' : 'bg-white/5 text-white/20'
                }`}>
@@ -273,7 +273,7 @@ export default function Checkout() {
                                   placeholder="00000-000"
                                   inputMode="numeric"
                                   autoComplete="postal-code"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.zipCode}
                                   onChange={(e) => {
                                     const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
@@ -288,7 +288,7 @@ export default function Checkout() {
                                 <input
                                   placeholder="Rua, Av, etc."
                                   autoComplete="street-address"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.street}
                                   onChange={(e) => setAddress(prev => ({...prev, street: e.target.value}))}
                                 />
@@ -297,7 +297,7 @@ export default function Checkout() {
                                 <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número</label>
                                 <input
                                   placeholder="Ex: 123"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.number}
                                   onChange={(e) => setAddress(prev => ({...prev, number: e.target.value}))}
                                 />
@@ -307,7 +307,7 @@ export default function Checkout() {
                                 <input
                                   placeholder="São Paulo - SP"
                                   autoComplete="address-level2"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.city}
                                   onChange={(e) => setAddress(prev => ({...prev, city: e.target.value}))}
                                 />
@@ -317,7 +317,7 @@ export default function Checkout() {
                                 <input
                                   placeholder="Ex: Centro"
                                   autoComplete="address-level3"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.neighborhood}
                                   onChange={(e) => setAddress(prev => ({...prev, neighborhood: e.target.value}))}
                                 />
@@ -328,7 +328,7 @@ export default function Checkout() {
                                   placeholder="SP"
                                   maxLength={2}
                                   autoComplete="address-level1"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.state}
                                   onChange={(e) => setAddress(prev => ({...prev, state: e.target.value.toUpperCase()}))}
                                 />
@@ -363,7 +363,7 @@ export default function Checkout() {
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent pointer-events-none" />
                         <div className="flex items-center gap-3 sm:gap-6 relative z-10 min-w-0">
                           <div className="w-11 h-11 sm:w-16 sm:h-16 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center p-2 sm:p-3 shadow-lg shrink-0">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" className="w-full" alt="Pix" />
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" loading="lazy" decoding="async" className="w-full" alt="Pix" />
                           </div>
                           <div className="text-left min-w-0">
                             <p className="text-base sm:text-xl font-black uppercase font-display leading-tight">Pix Instantâneo</p>
@@ -388,7 +388,7 @@ export default function Checkout() {
                    </div>
                 </section>
 
-                <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex gap-4">
+                <div className="p-5 sm:p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex gap-4">
                    <ShieldCheck className="w-6 h-6 text-primary shrink-0" />
                    <p className="text-[11px] text-white/40 leading-relaxed italic font-medium">
                      O login só é necessário para salvar seu pedido e liberar o acompanhamento. O pagamento Pix será confirmado pela equipe antes da produção.

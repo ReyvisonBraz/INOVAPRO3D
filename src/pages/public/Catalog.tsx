@@ -129,7 +129,7 @@ export default function Catalog() {
                   className="absolute inset-0"
                 >
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent z-10" />
-                  <img src={showcase[activeSlide].image} className="w-full h-full object-cover" alt={showcase[activeSlide].title} />
+                  <img src={showcase[activeSlide].image} loading="lazy" decoding="async" className="w-full h-full object-cover" alt={showcase[activeSlide].title} />
                   <div className="absolute bottom-4 left-4 sm:bottom-8 sm:left-8 z-20 max-w-xl">
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
                       <span className="inline-block px-2 py-0.5 bg-primary text-white text-[8px] font-black uppercase tracking-widest rounded mb-2">
@@ -152,11 +152,11 @@ export default function Catalog() {
 
               <div className="absolute bottom-3 right-3 sm:bottom-5 sm:right-5 z-20 flex gap-1.5">
                 <button onClick={() => setActiveSlide(prev => (prev - 1 + showcase.length) % showcase.length)}
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10" aria-label="Slide anterior">
+                  className="w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10" aria-label="Slide anterior">
                   <ChevronLeft className="w-3.5 h-3.5" />
                 </button>
                 <button onClick={() => setActiveSlide(prev => (prev + 1) % showcase.length)}
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10" aria-label="Próximo slide">
+                  className="w-10 h-10 sm:w-10 sm:h-10 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center text-white hover:bg-white/20 transition-all border border-white/10" aria-label="Próximo slide">
                   <ChevronRight className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -195,7 +195,7 @@ export default function Catalog() {
                 <button
                   key={cat}
                   onClick={() => setSelectedCategory(cat)}
-                  className={`px-3 py-1.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
+                  className={`px-3 py-2.5 rounded-lg text-[8px] sm:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                     selectedCategory === cat
                       ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
                       : "bg-white/5 border-white/8 text-white/40 hover:bg-white/8 hover:text-white/70"
@@ -261,10 +261,10 @@ export default function Catalog() {
         {/* EMPTY STATE */}
         {!loading && filteredProducts.length === 0 && (
           <Reveal direction="up" delay={0.1}>
-            <div className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center">
               <div className="relative mb-4">
                 <div className="absolute inset-0 rounded-full bg-primary/10 blur-2xl scale-150" />
-                <div className="relative w-16 h-16 rounded-full border border-white/8 bg-white/[0.03] flex items-center justify-center">
+                <div className="relative w-12 h-12 sm:w-16 sm:h-16 rounded-full border border-white/8 bg-white/[0.03] flex items-center justify-center">
                   <Box className="w-6 h-6 text-white/20" />
                 </div>
               </div>

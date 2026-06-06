@@ -98,7 +98,7 @@ export default function MyOrders() {
 
   return (
     <div className="px-6 lg:px-12 py-12 max-w-7xl mx-auto min-h-screen">
-      <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-8">
+      <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-4 sm:gap-8">
         <div>
            <div className="flex items-center gap-3 mb-6">
               <div className="p-3 bg-primary/10 rounded-2xl">
@@ -106,7 +106,7 @@ export default function MyOrders() {
               </div>
               <span className="text-[10px] font-black uppercase tracking-widest text-primary">Controle de Produção</span>
            </div>
-           <h1 className="text-5xl lg:text-7xl font-black font-display uppercase tracking-tight mb-2 leading-none">
+           <h1 className="text-3xl sm:text-5xl lg:text-7xl font-black font-display uppercase tracking-tight mb-2 leading-none">
              Meus <span className="text-shimmer italic">Projetos.</span>
            </h1>
            <p className="text-white/40 font-medium text-lg">Acompanhe o workflow de materialização das suas peças em tempo real.</p>
@@ -131,8 +131,8 @@ export default function MyOrders() {
             animate={{ opacity: 1, scale: 1 }}
             className="p-20 py-32 rounded-[64px] bg-white/[0.02] border border-dashed border-white/10 text-center"
           >
-            <div className="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-10 border border-white/5">
-               <Printer className="w-10 h-10 text-white/10" />
+            <div className="w-16 h-16 sm:w-24 sm:h-24 rounded-full bg-white/5 flex items-center justify-center mx-auto mb-10 border border-white/5">
+               <Printer className="w-8 h-8 sm:w-10 sm:h-10 text-white/10" />
             </div>
             <h3 className="text-3xl font-black font-display uppercase tracking-tight mb-4">Nenhum Projeto Ativo</h3>
             <p className="text-white/30 max-w-sm mx-auto mb-12">Inicie sua jornada de manufatura digital explorando nosso catálogo de protótipos prontos.</p>
@@ -154,7 +154,7 @@ export default function MyOrders() {
               >
                 <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-[100px] -mr-32 -mt-32 pointer-events-none" />
                 
-                <div className="flex flex-col lg:flex-row justify-between gap-12 relative z-10">
+                <div className="flex flex-col md:flex-row justify-between gap-6 lg:gap-12 relative z-10">
                   <div className="flex-1 space-y-10">
                     <div className="flex flex-wrap items-center gap-4">
                       <div className="px-4 py-2 rounded-xl bg-white/5 border border-white/5 text-[10px] font-mono text-white/40 tracking-wider">
@@ -176,9 +176,9 @@ export default function MyOrders() {
 
                     <div className="space-y-4">
                       {order.items.map((item: OrderItem, i: number) => (
-                        <div key={i} className="flex items-center gap-6 p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] group-hover:bg-white/[0.04] transition-colors">
+                        <div key={i} className="flex items-center gap-6 p-3 sm:p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] group-hover:bg-white/[0.04] transition-colors">
                           <div className="w-16 h-16 rounded-xl bg-black/40 overflow-hidden border border-white/5">
-                            <img src={item.image} className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" alt="" />
+                            <img src={item.image} loading="lazy" decoding="async" className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700" alt="" />
                           </div>
                           <div className="flex-1">
                              <p className="text-lg font-black font-display uppercase tracking-tight">{item.name}</p>
@@ -235,7 +235,7 @@ export default function MyOrders() {
                 </div>
 
                 {order.trackingCode && order.status !== 'PENDING_PAYMENT' && (
-                  <div className="mt-8 p-6 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
+                  <div className="mt-8 p-4 sm:p-6 rounded-3xl bg-white/[0.02] border border-white/5 flex items-center justify-between">
                      <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center">
                            <Truck className="w-5 h-5 text-blue-500" />
@@ -256,7 +256,7 @@ export default function MyOrders() {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center p-2 shrink-0 shadow-lg">
-                          <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" className="w-full object-contain" alt="Pix" />
+                          <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" loading="lazy" decoding="async" className="w-full object-contain" alt="Pix" />
                         </div>
                         <div>
                           <h4 className="text-sm font-black uppercase tracking-tight text-white">Pagamento Pendente via Pix</h4>
@@ -271,7 +271,7 @@ export default function MyOrders() {
                             navigator.clipboard.writeText(pixCode);
                             toast.success("Código Pix Copiado!", { description: "Cole no aplicativo do seu banco para pagar." });
                           }}
-                          className="h-10 px-4 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/95 transition-all flex items-center gap-2"
+                          className="h-12 px-4 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:bg-primary/95 transition-all flex items-center gap-2"
                         >
                           Copiar Código Pix
                         </button>
@@ -288,8 +288,10 @@ export default function MyOrders() {
 
                       <div className="md:col-span-4 flex justify-center sm:justify-end">
                         <div className="p-3 bg-white rounded-2xl flex flex-col items-center gap-1.5 w-[140px] shadow-2xl relative group">
-                          <img 
+                          <img
                             src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent("00020101021226830014br.gov.bcb.pix2561api.INOVAPRO3D.com.br/pix/qr/v2/cob/order_" + order.id + "_" + (order.total || 0).toFixed(0))}`}
+                            loading="lazy"
+                            decoding="async"
                             className="w-24 h-24"
                             alt="Pix QR Code"
                           />
