@@ -394,7 +394,7 @@ export const HELP = {
   failureRate:
     "Quantas impressões, em média, falham e precisam ser refeitas (%). Aqui entra o tempo de máquina e a energia perdidos — o material já está na 'reserva'. Perfil estável: 3–8%. Peça difícil ou nova: 10–20%.",
   kwh:
-    "Preço do kWh na sua conta de luz. Equatorial Pará em 2025 fica perto de R$1,20/kWh com impostos.",
+    "Preço do kWh na sua conta de luz. Equatorial Pará (CELPA) 2025→2026: R$0,97/kWh na tarifa residencial B1 com ICMS 25% + PIS/COFINS, sem bandeira tarifária.",
   steadyPower:
     "Potência média da P2S imprimindo. Medida real: ~200 W em PLA e ~230 W em PETG.",
   startupPower:
