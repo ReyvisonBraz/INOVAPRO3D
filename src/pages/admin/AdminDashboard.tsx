@@ -133,6 +133,41 @@ function formatCatalogDescription(raw: string): string {
   return (lastBreak > 200 ? truncated.slice(0, lastBreak + 1) : truncated + "...").trim();
 }
 
+async function importAndConvertImage(
+  url: string,
+  storageBucket: ReturnType<typeof import("firebase/storage").getStorage>
+): Promise<{ url: string; converted: boolean }> {
+  // Try loading with CORS — works if remote CDN sends Access-Control-Allow-Origin
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("cors"));
+    img.src = url;
+  });
+
+  // Resize keeping max 1200px on longest side
+  const MAX = 1200;
+  const scale = Math.min(1, MAX / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round((img.naturalWidth || 1200) * scale);
+  canvas.height = Math.round((img.naturalHeight || 1200) * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise<Blob>((res, rej) =>
+    canvas.toBlob(b => (b ? res(b) : rej(new Error("blob"))), "image/webp", 0.85)
+  );
+
+  const { ref: storageRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  const path = `products/imports/${Date.now()}_${Math.random().toString(36).slice(2)}.webp`;
+  const fileRef = storageRef(storageBucket, path);
+  await uploadBytes(fileRef, blob, { contentType: "image/webp" });
+  const downloadUrl = await getDownloadURL(fileRef);
+  return { url: downloadUrl, converted: true };
+}
+
 async function translateToBR(text: string): Promise<string> {
   if (!text.trim()) return text;
   // Split at sentence boundaries to stay under MyMemory's 500-char limit
@@ -248,6 +283,25 @@ export default function AdminDashboard() {
       toast.success("Configurações globais atualizadas!");
     } catch (err) {
       toast.error("Erro ao salvar configurações.");
+    }
+  };
+
+  const handleImportImageUrl = async (url: string, addFn: (u: string) => void) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setImportingImage(true);
+    try {
+      const { getStorage } = await import("firebase/storage");
+      const result = await importAndConvertImage(trimmed, getStorage());
+      addFn(result.url);
+      toast.success("Imagem convertida para WebP e salva no Storage!", { position: "bottom-center" });
+    } catch {
+      // CORS blocked or canvas error — keep original URL as fallback
+      addFn(trimmed);
+      toast.warning("CORS bloqueou a conversão — URL original mantida.", { position: "bottom-center", duration: 3500 });
+    } finally {
+      setImportingImage(false);
+      setNewImageUrl("");
     }
   };
 
@@ -510,6 +564,7 @@ export default function AdminDashboard() {
 
   // Photo management helper state
   const [newImageUrl, setNewImageUrl] = useState('');
+  const [importingImage, setImportingImage] = useState(false);
   // Translation loading indicator
   const [translatingField, setTranslatingField] = useState<'name' | 'description' | null>(null);
   // Machine config — loaded from Firestore settings/machine, used by quick calc
@@ -3021,24 +3076,24 @@ export default function AdminDashboard() {
                          </div>
                        )}
 
-                       {/* Add URL manually */}
+                       {/* Add URL — with WebP conversion attempt */}
                        <div className="flex gap-2">
                          <input
                            type="url"
-                           placeholder="Cole uma URL de imagem aqui..."
+                           placeholder="Cole uma URL de imagem (Bambu Lab, etc.)..."
                            value={newImageUrl}
                            onChange={e => setNewImageUrl(e.target.value)}
                            onKeyDown={e => {
                              if (e.key === 'Enter') { e.preventDefault();
-                               if (newImageUrl.trim()) { setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), newImageUrl.trim()]})); setNewImageUrl(''); }
+                               handleImportImageUrl(newImageUrl, u => setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), u]})));
                              }
                            }}
                            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-primary/50 transition-all"
                          />
-                         <button type="button"
-                           onClick={() => { if (newImageUrl.trim()) { setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), newImageUrl.trim()]})); setNewImageUrl(''); }}}
-                           className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary/20 transition-all">
-                           + Add
+                         <button type="button" disabled={importingImage}
+                           onClick={() => handleImportImageUrl(newImageUrl, u => setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), u]})))}
+                           className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed min-w-[64px]">
+                           {importingImage ? "..." : "Importar"}
                          </button>
                        </div>
                        <span className="text-[8px] uppercase tracking-widest text-white/25 block">A primeira imagem é a capa. Use ↑↓ para ordenar, ✕ para remover.</span>
