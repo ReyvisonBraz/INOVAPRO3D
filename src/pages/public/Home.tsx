@@ -31,36 +31,36 @@ import { formatBRL as brl } from "../../lib/pricing";
 const heroCopyOptions = [
   {
     lines: [
-      { text: "Escolha a peça.", accent: false },
-      { text: "A gente imprime.", accent: true },
-      { text: "Você recebe pronta.", accent: true },
+      { text: "Feito com precisão.", accent: false },
+      { text: "Entregue com", accent: true },
+      { text: "capricho.", accent: true },
     ],
     body:
-      "Peças decorativas, utilitárias e colecionáveis feitas com acabamento limpo, medidas confiáveis e cuidado de produto final.",
+      "Impressão 3D profissional com acabamento que você não vai querer esconder. Catálogo visual, compra em minutos, entrega nacional.",
   },
   {
     lines: [
-      { text: "Não precisa imaginar.", accent: false },
-      { text: "Veja no catálogo.", accent: true },
+      { text: "Do digital", accent: false },
+      { text: "ao concreto.", accent: true },
     ],
     body:
-      "Fotos reais, preço inicial e modelos prontos para comprar. Você escolhe com segurança antes de chamar no orçamento.",
+      "Escolha no catálogo ou envie seu arquivo STL. Produzimos com Bambu Lab P2S calibrada — 0.2mm de precisão, nenhum detalhe perdido.",
   },
   {
     lines: [
-      { text: "Impressão 3D", accent: false },
-      { text: "com cara de loja.", accent: true },
+      { text: "Não é protótipo.", accent: false },
+      { text: "É produto final.", accent: true },
     ],
     body:
-      "Para presentear, decorar, revender ou usar no dia a dia. Sem aparência de teste, sem acabamento improvisado.",
+      "Cada peça sai calibrada, limpa e pronta para usar, expor ou presentear. Porque capricho não é opcional aqui.",
   },
   {
     lines: [
-      { text: "Tem uma ideia?", accent: false },
-      { text: "Comece pelo catálogo.", accent: true },
+      { text: "Sua ideia", accent: false },
+      { text: "ganha forma agora.", accent: true },
     ],
     body:
-      "O catálogo ajuda você a sair da dúvida e encontrar uma peça pronta, ou chegar mais perto do que quer mandar fazer.",
+      "Do modelo ao objeto em mãos. Orçamento em minutos, produção em 48h, resultado que impressiona quem vê.",
   },
 ];
 
@@ -125,12 +125,13 @@ export default function Home() {
   const featuredProducts = products.slice(0, 8);
   const heroProducts = featuredProducts.slice(0, 5);
   const filteredItems = filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
+  const bgImages = products.flatMap(p => p.images?.filter(Boolean) ?? []).slice(0, 20);
 
   const proofStats = useMemo(
     () => [
-      { value: "P2S", label: "Bambu Lab calibrada" },
-      { value: "48h", label: "janela média de produção" },
-      { value: "PLA/PETG", label: "materiais para uso real" },
+      { value: "±0.2mm", label: "precisão de impressão" },
+      { value: "48h", label: "produção média" },
+      { value: "PLA Pro", label: "filamento premium" },
       { value: "BR", label: "envio nacional" },
     ],
     [],
@@ -161,8 +162,9 @@ export default function Home() {
     <div className="relative overflow-hidden bg-surface">
       <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden px-4 pb-8 pt-6 sm:px-6 lg:px-8">
         <FloatingBackground variant="grid" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_18%,rgba(255,255,255,0.13),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.15),#020617_88%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-surface to-transparent" />
+        <ProductsBgMarquee images={bgImages} />
+        <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_52%_18%,rgba(255,255,255,0.09),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.55),rgba(2,6,23,0.85)_60%,#020617_100%)]" />
+        <div className="absolute inset-x-0 bottom-0 z-[2] h-40 bg-gradient-to-t from-surface to-transparent" />
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
@@ -177,7 +179,7 @@ export default function Home() {
               <div className="mt-9 flex flex-col gap-3 sm:flex-row">
                 <Link to="/catalogo" className="w-full sm:w-auto">
                   <button className="catalog-cta group relative flex h-[3.75rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white px-7 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-[0_24px_80px_-18px_rgba(255,255,255,0.65)] transition-transform duration-300 hover:-translate-y-1 active:translate-y-0 sm:w-auto">
-                    Abrir catálogo agora
+                    Ver o catálogo
                     <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </button>
                 </Link>
@@ -186,7 +188,7 @@ export default function Home() {
                   onClick={scrollToCatalog}
                   className="group flex h-[3.25rem] w-full items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:h-[3.75rem] sm:w-auto sm:px-7"
                 >
-                  Ver prévia
+                  Explorar peças
                   <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
                 </button>
               </div>
@@ -216,11 +218,13 @@ export default function Home() {
         <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
           {Array.from({ length: 2 }).map((_, index) => (
             <div key={index} className="flex min-w-full items-center justify-around gap-8">
-              <span>catálogo pronto para comprar</span>
-              <span>orçamento por arquivo STL</span>
-              <span>acabamento premium</span>
-              <span>peças sob medida</span>
-              <span>envio para todo o Brasil</span>
+              <span>precisão ±0.2mm</span>
+              <span>acabamento profissional</span>
+              <span>Bambu Lab P2S calibrada</span>
+              <span>entrega nacional</span>
+              <span>filamento premium</span>
+              <span>peças únicas</span>
+              <span>qualidade garantida</span>
             </div>
           ))}
         </div>
@@ -231,11 +235,11 @@ export default function Home() {
           <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <Reveal direction="up">
-                <p className="section-label-accent mb-4">Prévia do catálogo</p>
+                <p className="section-label-accent mb-4">Catálogo</p>
               </Reveal>
               <RevealText
-                text="Peças prontas para colocar no carrinho."
-                highlightFrom={3}
+                text="Objetos prontos. Sem esperar."
+                highlightFrom={2}
                 as="h2"
                 className="heading-lg justify-start text-white"
               />
@@ -245,7 +249,7 @@ export default function Home() {
                 to="/catalogo"
                 className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.55] transition-all hover:border-white/20 hover:bg-white hover:text-slate-950"
               >
-                Ver todos os modelos
+                Ver catálogo completo
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </Reveal>
@@ -279,8 +283,8 @@ export default function Home() {
                 <span className="section-label-accent">Galeria real</span>
               </div>
               <RevealText
-                text="Imagens que parecem menos IA e mais bancada de produção."
-                highlightFrom={6}
+                text="Prints reais. Da máquina às suas mãos."
+                highlightFrom={2}
                 as="h2"
                 className="heading-lg justify-start text-white"
               />
@@ -369,20 +373,18 @@ export default function Home() {
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
           <div>
             <Reveal direction="up">
-              <p className="section-label-accent mb-4">Por que abrir o catálogo?</p>
+              <p className="section-label-accent mb-4">Por que a INOVAPRO3D?</p>
             </Reveal>
             <RevealText
-              text="Você vê possibilidades reais antes de pedir qualquer coisa."
-              highlightFrom={4}
+              text="Experiência de loja. Sem a loja física."
+              highlightFrom={2}
               as="h2"
               className="heading-lg justify-start text-white"
             />
           </div>
           <Reveal direction="up" delay={0.18}>
             <p className="max-w-2xl text-sm font-medium leading-relaxed text-white/[0.44] sm:text-base">
-              O catálogo foi pensado para tirar o cliente do "será que dá certo?" e levar direto
-              para escolhas concretas: modelos, valores iniciais, fotos, materiais e compra em poucos
-              cliques. Quando precisar de algo único, o fluxo de orçamento entra no mesmo padrão.
+              Do valor inicial ao acabamento, cada detalhe foi pensado para você escolher com confiança — sem precisar mandar mensagem antes de decidir. Quando precisar de algo único, o orçamento personalizado entra no mesmo padrão de qualidade.
             </p>
           </Reveal>
         </div>
@@ -391,18 +393,18 @@ export default function Home() {
           {[
             {
               icon: Sparkles,
-              title: "Compra sem fricção",
-              text: "Produtos prontos para escolher, comparar e adicionar ao carrinho sem depender de troca longa de mensagens.",
+              title: "Escolha. Pague. Receba.",
+              text: "Catálogo visual com fotos reais, preço inicial e botão de compra. Sem negociação demorada, sem surpresa no final.",
             },
             {
               icon: Ruler,
-              title: "Medida e uso claros",
-              text: "Cada peça comunica preço inicial, categoria e descrição para o cliente entender onde ela se encaixa.",
+              title: "Especificações honestas",
+              text: "Dimensões, peso e material de cada peça exibidos com clareza — para você saber exatamente o que está comprando.",
             },
             {
               icon: ShieldCheck,
-              title: "Acabamento de loja",
-              text: "A produção é ajustada para entregar peças limpas, resistentes e com aparência profissional.",
+              title: "Qualidade que se vê",
+              text: "Bambu Lab P2S calibrada. Filamento premium. Resultado que parece produto de loja — porque é produto de loja.",
             },
           ].map((item) => (
             <RevealItem key={item.title}>
@@ -428,9 +430,9 @@ export default function Home() {
               <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/70" />
               <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
                 <div>
-                  <p className="section-label-accent mb-5">Processo sem mistério</p>
+                  <p className="section-label-accent mb-5">Como funciona</p>
                   <h2 className="max-w-xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-4xl sm:leading-[0.92] lg:text-5xl">
-                    Do clique ao pacote, tudo pensado para o cliente confiar.
+                    Do clique ao objeto real, sem complicação.
                   </h2>
                 </div>
                 <Link to="/upload">
@@ -445,9 +447,9 @@ export default function Home() {
 
           <RevealGroup className="grid gap-5">
             {[
-              { icon: Layers3, title: "Escolha ou envie", text: "Use o catálogo para comprar rápido ou envie seu STL para uma peça exclusiva." },
-              { icon: Clock3, title: "Validação técnica", text: "Avaliamos material, tempo, resistência e acabamento antes de produzir." },
-              { icon: PackageCheck, title: "Produção e envio", text: "A peça sai protegida, embalada e pronta para uso, presente ou revenda." },
+              { icon: Layers3, title: "Escolha ou envie", text: "Compre direto no catálogo ou envie seu STL para um orçamento exclusivo — ambos chegam no mesmo padrão de qualidade." },
+              { icon: Clock3, title: "Validação e produção", text: "Avaliamos material, resistência e acabamento. Sua peça entra em produção calibrada na Bambu Lab P2S." },
+              { icon: PackageCheck, title: "Embalado e entregue", text: "Sai protegida, pronta para usar, presentear ou revender. Entrega nacional com rastreio." },
             ].map((step, index) => (
               <RevealItem key={step.title}>
                 <div className="grid grid-cols-[auto_1fr] gap-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6">
@@ -473,13 +475,12 @@ export default function Home() {
           <FloatingBackground subtle />
           <div className="relative z-10 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
-              <p className="section-label-accent mb-4">Comece pela decisão mais fácil</p>
+              <p className="section-label-accent mb-4">Comece agora</p>
               <h2 className="max-w-3xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-5xl sm:leading-[0.92] lg:text-6xl lg:leading-[0.9]">
-                Abra o catálogo. Escolha a peça. A gente imprime direito.
+                Sua próxima peça está a um clique de distância.
               </h2>
               <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.45] sm:text-base">
-                Para produto pronto, vá ao catálogo. Para arquivo próprio, solicite orçamento.
-                Os dois caminhos chegam no mesmo ponto: uma peça bem feita.
+                Catálogo para comprar agora ou envio de STL para pedir algo exclusivo. Os dois caminhos chegam no mesmo lugar: um objeto feito com capricho de verdade.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -545,6 +546,43 @@ function HeroProductStage({ products, loading }: { products: Product[]; loading:
             {products.length || "..."} modelos
           </span>
         </motion.div>
+      </div>
+    </div>
+  );
+}
+
+function ProductsBgMarquee({ images }: { images: string[] }) {
+  if (images.length === 0) return null;
+  const fill = (arr: string[], n: number): string[] => {
+    const r = [...arr];
+    while (r.length < n) r.push(...arr);
+    return r.slice(0, n);
+  };
+  const row1 = fill(images, 12);
+  const row2 = fill([...images].reverse(), 12);
+  const row3 = fill(images.slice(4).concat(images.slice(0, 4)), 12);
+  const Card = ({ src }: { src: string }) => (
+    <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-white/[0.04] sm:h-36 sm:w-36">
+      <img src={src} alt="" loading="lazy" decoding="async"
+        className="h-full w-full object-cover grayscale-[0.4] saturate-75" />
+    </div>
+  );
+  return (
+    <div className="absolute inset-0 z-[1] overflow-hidden pointer-events-none select-none" aria-hidden>
+      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-surface to-transparent z-10" />
+      <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-surface to-transparent z-10" />
+      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-surface to-transparent z-10" />
+      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-surface to-transparent z-10" />
+      <div className="absolute inset-0 flex flex-col justify-center gap-5 opacity-[0.22]">
+        <div className="homepage-marquee flex gap-5">
+          {[...row1, ...row1].map((src, i) => <Card key={i} src={src} />)}
+        </div>
+        <div className="homepage-marquee-reverse flex gap-5">
+          {[...row2, ...row2].map((src, i) => <Card key={i} src={src} />)}
+        </div>
+        <div className="homepage-marquee flex gap-5" style={{ animationDuration: '40s' }}>
+          {[...row3, ...row3].map((src, i) => <Card key={i} src={src} />)}
+        </div>
       </div>
     </div>
   );
