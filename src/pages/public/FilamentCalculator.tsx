@@ -513,8 +513,8 @@ export default function FilamentCalculator() {
       ? `${((mult - 1) * 100).toFixed(0)}%`
       : `${mult.toFixed(1)}×`;
 
-  const wholesaleDisplay = markupMode === 'pct' ? (wholesaleMarkup - 1) * 100 : wholesaleMarkup;
-  const retailDisplay    = markupMode === 'pct' ? (retailMarkup    - 1) * 100 : retailMarkup;
+  const wholesaleDisplay = markupMode === 'pct' ? Math.round((wholesaleMarkup - 1) * 10000) / 100 : wholesaleMarkup;
+  const retailDisplay    = markupMode === 'pct' ? Math.round((retailMarkup    - 1) * 10000) / 100 : retailMarkup;
 
   function handleWholesaleMarkup(val: number) {
     setWholesaleMarkup(markupMode === 'pct' ? 1 + val / 100 : val);
