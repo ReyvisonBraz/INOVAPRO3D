@@ -312,7 +312,7 @@ export default function Home() {
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
             </div>
           ) : filteredItems.length > 0 ? (
-            <motion.div layout className="columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
+            <motion.div className="columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
               <AnimatePresence mode="popLayout">
                 {filteredItems.map((item, idx) => (
                   <motion.button
@@ -525,9 +525,9 @@ function AnimatedHeroCopy() {
         <AnimatePresence mode="wait">
           <motion.h1
             key={activeCopy}
-            initial={{ opacity: 0, y: 26, filter: "blur(14px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -22, filter: "blur(14px)" }}
+            initial={{ opacity: 0, y: 26 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -22 }}
             transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
             className="max-w-4xl text-[clamp(2.2rem,5.5vw,5.5rem)] font-display font-black uppercase leading-[0.88] tracking-tight text-white [text-wrap:balance]"
           >
@@ -550,9 +550,9 @@ function AnimatedHeroCopy() {
         <AnimatePresence mode="wait">
           <motion.p
             key={copy.body}
-            initial={{ opacity: 0, y: 14, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -10, filter: "blur(8px)" }}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="text-base font-medium leading-relaxed text-white/[0.58] sm:text-lg"
           >

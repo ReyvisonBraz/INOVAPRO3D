@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -70,7 +70,7 @@ function ProductModal({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2 }}
-      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/85 backdrop-blur-xl"
+      className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-6 bg-black/85 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
@@ -296,7 +296,6 @@ export function ProductCard({
   const [imgIdx, setImgIdx] = useState(0);
   const [hovered, setHovered] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
-  const cycleRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -321,17 +320,14 @@ export function ProductCard({
 
   // Cicla imagens automaticamente no hover
   useEffect(() => {
-    if (hovered && hasMultiple) {
-      cycleRef.current = setInterval(() => {
-        setImgIdx(i => (i + 1) % images.length);
-      }, 1400);
-    } else {
-      if (cycleRef.current) clearInterval(cycleRef.current);
+    if (!hovered || !hasMultiple) {
       if (!hovered) setImgIdx(0);
+      return;
     }
-    return () => {
-      if (cycleRef.current) clearInterval(cycleRef.current);
-    };
+    const timer = setInterval(() => {
+      setImgIdx(i => (i + 1) % images.length);
+    }, 1400);
+    return () => clearInterval(timer);
   }, [hovered, hasMultiple, images.length]);
 
   return (

@@ -609,7 +609,7 @@ export default function ProductDetail() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 72, opacity: 0 }}
             transition={{ type: "spring", stiffness: 340, damping: 32 }}
-            className="fixed bottom-0 inset-x-0 z-50 border-t border-white/[0.07] bg-black/90 backdrop-blur-xl pb-safe"
+            className="fixed bottom-0 inset-x-0 z-50 border-t border-white/[0.07] bg-black/90 backdrop-blur-md pb-safe"
           >
             <div className="mx-auto flex max-w-2xl items-center gap-3 px-4 py-3">
               {product.images?.[0] && (

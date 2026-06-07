@@ -98,7 +98,7 @@ export function Navbar() {
       <nav
         className={`fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between px-4 transition-all duration-500 sm:px-6 lg:px-8 ${
           scrolled
-            ? "border-b border-white/[0.08] bg-[#020617]/78 py-2 shadow-2xl shadow-black/20 backdrop-blur-2xl"
+            ? "border-b border-white/[0.08] bg-[#020617]/78 py-2 shadow-2xl shadow-black/20 backdrop-blur-md"
             : "bg-transparent py-4"
         }`}
       >
@@ -135,7 +135,7 @@ export function Navbar() {
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             to="/catalogo"
-            className="group hidden h-10 items-center gap-2 rounded-full bg-white px-4 text-[10px] font-black uppercase tracking-[0.16em] text-slate-950 shadow-xl shadow-white/10 transition-transform hover:-translate-y-0.5 xl:flex"
+            className="group hidden h-10 items-center gap-2 rounded-full bg-white px-4 text-[10px] font-black uppercase tracking-[0.16em] text-slate-950 shadow-xl shadow-white/10 transition-transform hover:-translate-y-0.5 lg:flex"
           >
             Comprar
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
@@ -266,9 +266,9 @@ export function Navbar() {
       <AnimatePresence>
         {showPhoneOnboarding && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ maxHeight: 0, opacity: 0 }}
+            animate={{ maxHeight: 200, opacity: 1 }}
+            exit={{ maxHeight: 0, opacity: 0 }}
             className="relative z-40 w-full overflow-hidden border-b border-white/[0.06] bg-white/[0.03] backdrop-blur-md"
           >
             <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-3 sm:flex-row">

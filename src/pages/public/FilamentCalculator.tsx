@@ -791,7 +791,7 @@ export default function FilamentCalculator() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)]">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
           <div className="space-y-4">
 
             {/* INÍCIO RÁPIDO — sempre visível */}
