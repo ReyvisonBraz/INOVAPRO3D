@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion"
 import {
   ArrowDown,
   ArrowRight,
-  BadgeCheck,
+
   Box,
   ChevronLeft,
   ChevronRight,
@@ -123,9 +123,7 @@ export default function Home() {
   }, []);
 
   const featuredProducts = products.slice(0, 8);
-  const heroProducts = featuredProducts.slice(0, 5);
   const filteredItems = filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
-  const bgImages = products.flatMap(p => p.images?.filter(Boolean) ?? []).slice(0, 20);
 
   const proofStats = useMemo(
     () => [
@@ -160,57 +158,50 @@ export default function Home() {
 
   return (
     <div className="relative overflow-hidden bg-surface">
-      <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden px-4 pb-8 pt-6 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:px-8">
         <FloatingBackground variant="grid" />
-        <ProductsBgMarquee images={bgImages} />
-        <div className="absolute inset-0 z-[2] bg-[radial-gradient(circle_at_52%_18%,rgba(255,255,255,0.09),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.55),rgba(2,6,23,0.85)_60%,#020617_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 z-[2] h-40 bg-gradient-to-t from-surface to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,179,237,0.08),transparent_60%),linear-gradient(180deg,transparent,#020617_90%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-surface to-transparent" />
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
-          className="container-section relative z-10 grid min-h-[calc(100svh-6rem)] items-center gap-12 py-10 lg:grid-cols-[1.02fr_0.98fr] lg:py-16"
+          className="container-section relative z-10 flex flex-col items-start py-10 lg:py-16"
         >
-          <div className="max-w-3xl">
-            <Reveal direction="up" delay={0.08}>
-              <AnimatedHeroCopy />
-            </Reveal>
-
-            <Reveal direction="up" delay={0.42}>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Link to="/catalogo" className="w-full sm:w-auto">
-                  <button className="catalog-cta group relative flex h-[3.75rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white px-7 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-[0_24px_80px_-18px_rgba(255,255,255,0.65)] transition-transform duration-300 hover:-translate-y-1 active:translate-y-0 sm:w-auto">
-                    Ver o catálogo
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </button>
-                </Link>
-                <button
-                  type="button"
-                  onClick={scrollToCatalog}
-                  className="group flex h-[3.25rem] w-full items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:h-[3.75rem] sm:w-auto sm:px-7"
-                >
-                  Explorar peças
-                  <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
-                </button>
-              </div>
-            </Reveal>
-
-            <RevealGroup className="mt-9 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-              {proofStats.map((stat) => (
-                <RevealItem key={stat.label}>
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
-                    <p className="font-display text-xl font-black text-white">{stat.value}</p>
-                    <p className="mt-1 text-[9px] font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
-                      {stat.label}
-                    </p>
-                  </div>
-                </RevealItem>
-              ))}
-            </RevealGroup>
-          </div>
-
-          <Reveal direction="left" delay={0.22} className="min-w-0">
-            <HeroProductStage products={heroProducts} loading={loading} />
+          <Reveal direction="up" delay={0.08}>
+            <AnimatedHeroCopy />
           </Reveal>
+
+          <Reveal direction="up" delay={0.42}>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link to="/catalogo" className="w-full sm:w-auto">
+                <button className="catalog-cta group relative flex h-[3.75rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white px-8 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-[0_24px_80px_-18px_rgba(255,255,255,0.55)] transition-transform duration-300 hover:-translate-y-1 active:translate-y-0 sm:w-auto">
+                  Ver o catálogo
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </button>
+              </Link>
+              <button
+                type="button"
+                onClick={scrollToCatalog}
+                className="group flex h-[3.75rem] w-full items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-7 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:w-auto"
+              >
+                Explorar peças
+                <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+              </button>
+            </div>
+          </Reveal>
+
+          <RevealGroup className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            {proofStats.map((stat) => (
+              <RevealItem key={stat.label}>
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
+                  <p className="font-display text-xl font-black text-white">{stat.value}</p>
+                  <p className="mt-1 text-[9px] font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
+                    {stat.label}
+                  </p>
+                </div>
+              </RevealItem>
+            ))}
+          </RevealGroup>
         </motion.div>
       </section>
 
@@ -512,82 +503,6 @@ export default function Home() {
   );
 }
 
-function HeroProductStage({ products, loading }: { products: Product[]; loading: boolean }) {
-  return (
-    <div className="relative mx-auto w-full max-w-[620px] lg:max-w-none">
-      <div className="absolute left-1/2 top-1/2 h-[68%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/12 blur-[110px]" />
-      <div className="relative min-h-[520px] overflow-hidden rounded-[36px] border border-white/10 bg-black/25 p-4 shadow-[0_40px_140px_-60px_rgba(56,189,248,0.8)] backdrop-blur-xl sm:p-6">
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12),transparent_28%,rgba(59,130,246,0.12)_68%,transparent)]" />
-        <div className="absolute inset-x-8 bottom-8 h-36 rounded-[100%] border border-cyan-300/20 bg-cyan-300/8 blur-sm" />
-
-        <div className="relative z-10 grid h-full min-h-[480px] grid-cols-2 gap-4">
-          <div className="flex flex-col gap-4">
-            <CatalogPreviewCard product={products[0]} loading={loading} size="large" badge="Mais visto" />
-            <CatalogPreviewCard product={products[2]} loading={loading} badge="Presenteável" />
-          </div>
-          <div className="flex flex-col gap-4 pt-12">
-            <CatalogPreviewCard product={products[1]} loading={loading} badge="Decoração" />
-            <CatalogPreviewCard product={products[3]} loading={loading} size="large" badge="Sob demanda" />
-          </div>
-        </div>
-
-        <motion.div
-          animate={{ y: [0, -7, 0] }}
-          transition={{ duration: 4.6, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-5 left-5 right-5 z-20 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-xl"
-        >
-          <div className="flex items-center gap-2">
-            <BadgeCheck className="h-4 w-4 text-cyan-300" />
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/[0.55]">
-              Catálogo pronto para compra
-            </span>
-          </div>
-          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/[0.28]">
-            {products.length || "..."} modelos
-          </span>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
-function ProductsBgMarquee({ images }: { images: string[] }) {
-  if (images.length === 0) return null;
-  const fill = (arr: string[], n: number): string[] => {
-    const r = [...arr];
-    while (r.length < n) r.push(...arr);
-    return r.slice(0, n);
-  };
-  const row1 = fill(images, 12);
-  const row2 = fill([...images].reverse(), 12);
-  const row3 = fill(images.slice(4).concat(images.slice(0, 4)), 12);
-  const Card = ({ src }: { src: string }) => (
-    <div className="h-28 w-28 shrink-0 overflow-hidden rounded-2xl bg-white/[0.04] sm:h-36 sm:w-36">
-      <img src={src} alt="" loading="lazy" decoding="async"
-        className="h-full w-full object-cover grayscale-[0.4] saturate-75" />
-    </div>
-  );
-  return (
-    <div className="absolute inset-0 z-[1] overflow-hidden pointer-events-none select-none" aria-hidden>
-      <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-surface to-transparent z-10" />
-      <div className="absolute inset-x-0 bottom-0 h-36 bg-gradient-to-t from-surface to-transparent z-10" />
-      <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-surface to-transparent z-10" />
-      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-surface to-transparent z-10" />
-      <div className="absolute inset-0 flex flex-col justify-center gap-5 opacity-[0.22]">
-        <div className="homepage-marquee flex gap-5">
-          {[...row1, ...row1].map((src, i) => <Card key={i} src={src} />)}
-        </div>
-        <div className="homepage-marquee-reverse flex gap-5">
-          {[...row2, ...row2].map((src, i) => <Card key={i} src={src} />)}
-        </div>
-        <div className="homepage-marquee flex gap-5" style={{ animationDuration: '40s' }}>
-          {[...row3, ...row3].map((src, i) => <Card key={i} src={src} />)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AnimatedHeroCopy() {
   const [activeCopy, setActiveCopy] = useState(0);
   const copy = heroCopyOptions[activeCopy];
@@ -605,7 +520,7 @@ function AnimatedHeroCopy() {
       <motion.div
         layout
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative min-h-[10rem] sm:min-h-[12rem] lg:min-h-[15rem]"
+        className="relative min-h-[9rem] sm:min-h-[11rem] lg:min-h-[14rem]"
       >
         <AnimatePresence mode="wait">
           <motion.h1
@@ -614,7 +529,7 @@ function AnimatedHeroCopy() {
             animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
             exit={{ opacity: 0, y: -22, filter: "blur(14px)" }}
             transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
-            className="max-w-4xl text-[clamp(2.55rem,6.2vw,6.25rem)] font-display font-black uppercase leading-[0.9] tracking-tight text-white [text-wrap:balance]"
+            className="max-w-4xl text-[clamp(2.2rem,5.5vw,5.5rem)] font-display font-black uppercase leading-[0.88] tracking-tight text-white [text-wrap:balance]"
           >
             {copy.lines.map((line, index) => (
               <motion.span
@@ -654,60 +569,6 @@ function AnimatedHeroCopy() {
         <span>Envio Brasil</span>
       </div>
     </div>
-  );
-}
-
-function CatalogPreviewCard({
-  product,
-  loading,
-  size = "default",
-  badge,
-}: {
-  product?: Product;
-  loading: boolean;
-  size?: "default" | "large";
-  badge: string;
-}) {
-  const image = product?.images?.[0];
-
-  return (
-    <motion.div
-      animate={{ y: size === "large" ? [0, -10, 0] : [0, 8, 0] }}
-      transition={{ duration: size === "large" ? 5.8 : 6.5, repeat: Infinity, ease: "easeInOut" }}
-      className={`group relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.05] shadow-2xl shadow-black/30 ${
-        size === "large" ? "min-h-[250px]" : "min-h-[180px]"
-      }`}
-    >
-      {loading || !product ? (
-        <div className="h-full min-h-[inherit] animate-pulse bg-white/[0.08]" />
-      ) : (
-        <>
-          {image ? (
-            <img
-              src={image}
-              alt={product.name}
-              loading="lazy"
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-110"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/10 to-transparent">
-              <Box className="h-10 w-10 text-white/20" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-4">
-            <span className="mb-2 inline-flex rounded-full border border-white/[0.12] bg-white/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-white/[0.65] backdrop-blur-md">
-              {badge}
-            </span>
-            <h3 className="line-clamp-2 font-display text-base font-black uppercase leading-none text-white">
-              {product.name}
-            </h3>
-            <p className="mt-2 text-[11px] font-bold text-white/[0.52]">a partir de {brl(product.basePrice)}</p>
-          </div>
-        </>
-      )}
-    </motion.div>
   );
 }
 
