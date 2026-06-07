@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
 import {
   ArrowRight,
   ChevronLeft,
@@ -49,6 +49,7 @@ export default function ProductDetail() {
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
 
   // Close share menu when clicking outside
   useEffect(() => {
@@ -115,7 +116,20 @@ export default function ProductDetail() {
         ]);
 
         if (prodSnap.exists()) {
-          setProduct({ id: prodSnap.id, ...prodSnap.data() } as Product);
+          const prod = { id: prodSnap.id, ...prodSnap.data() } as Product;
+          setProduct(prod);
+          // Fetch related products in same category
+          if (prod.category) {
+            const relSnap = await getDocs(
+              query(collection(db, "products"), where("category", "==", prod.category), limit(7))
+            );
+            setRelatedProducts(
+              relSnap.docs
+                .map(d => ({ id: d.id, ...d.data() } as Product))
+                .filter(p => p.id !== prod.id)
+                .slice(0, 6)
+            );
+          }
         }
 
         if (settingsSnap.exists()) {
@@ -531,6 +545,68 @@ export default function ProductDetail() {
           </div>
         </div>
       </div>
+
+      {/* Related products */}
+      {relatedProducts.length > 0 && (
+        <motion.section
+          initial={{ opacity: 0, y: 32 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="mt-16 sm:mt-24"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/60 mb-1">Mesma Categoria</p>
+              <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">Você também pode gostar</h2>
+            </div>
+            <Link
+              to={`/catalogo?categoria=${encodeURIComponent(product.category)}`}
+              className="text-[9px] font-black uppercase tracking-widest text-white/30 hover:text-primary transition-colors flex items-center gap-1"
+            >
+              Ver todos <ChevronRight className="w-3 h-3" />
+            </Link>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            {relatedProducts.map((rel, i) => (
+              <motion.div
+                key={rel.id}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 * i, duration: 0.4, ease: "easeOut" }}
+              >
+                <Link
+                  to={`/produto/${rel.id}`}
+                  state={{ from: location.pathname }}
+                  className="block group rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden hover:border-primary/30 hover:bg-primary/[0.03] transition-all"
+                >
+                  <div className="aspect-square overflow-hidden bg-black/30">
+                    {rel.images?.[0] ? (
+                      <img
+                        src={rel.images[0]}
+                        alt={rel.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Box className="w-8 h-8 text-white/10" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-3">
+                    <p className="text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 text-white/70 group-hover:text-white transition-colors">
+                      {rel.name}
+                    </p>
+                    <p className="text-xs font-mono font-black text-primary mt-1.5">
+                      R$ {rel.basePrice?.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </Link>
+              </motion.div>
+            ))}
+          </div>
+        </motion.section>
+      )}
 
       <AnimatePresence>
         {showAddedModal && product && selectedMaterial && (
