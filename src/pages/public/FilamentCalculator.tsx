@@ -206,6 +206,48 @@ function SectionCard({
   );
 }
 
+function CollapsibleSection({
+  icon: Icon,
+  title,
+  summary,
+  open,
+  onToggle,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  summary?: string;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.03] shadow-[0_18px_70px_rgba(0,0,0,0.25)]">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="flex w-full items-center justify-between gap-3 p-5 text-left transition hover:bg-white/[0.02]"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-white/70">
+            <Icon className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">{title}</h2>
+            {!open && summary && (
+              <p className="mt-0.5 text-[11px] font-bold text-cyan-300/80">{summary}</p>
+            )}
+          </div>
+        </div>
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-white/30 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && <div className="px-5 pb-5">{children}</div>}
+    </section>
+  );
+}
+
 function AdvancedPanel({
   open,
   onToggle,
@@ -446,9 +488,15 @@ export default function FilamentCalculator() {
   const [minPrice, setMinPrice] = useState(0);
   const [markupMode, setMarkupMode] = useState<'mult' | 'pct'>('mult');
 
-  // --- Advanced panels ---
+  // --- Advanced panels (detalhe interno de cada seção) ---
   const [showAdvancedMachine, setShowAdvancedMachine] = useState(false);
   const [showAdvancedEnergy, setShowAdvancedEnergy] = useState(false);
+
+  // --- Seções recolhíveis ---
+  const [showMachineConfig, setShowMachineConfig] = useState(false);
+  const [showMaterialConfig, setShowMaterialConfig] = useState(false);
+  const [showEnergyConfig, setShowEnergyConfig] = useState(false);
+  const [showLaborConfig, setShowLaborConfig] = useState(false);
 
   function selectMaterial(key: MaterialKey) {
     const preset = MATERIAL_PRESETS[key];
@@ -744,145 +792,14 @@ export default function FilamentCalculator() {
         </header>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(420px,0.82fr)]">
-          <div className="space-y-5">
-            {/* 1. MÁQUINA & DEPRECIAÇÃO — centerpiece */}
+          <div className="space-y-4">
+
+            {/* INÍCIO RÁPIDO — sempre visível */}
             <Reveal delay={0}>
             <SectionCard
-              icon={Cpu}
-              title="Máquina & Depreciação"
-              subtitle="Entenda quanto a sua P2S custa por hora de uso"
-            >
-              {/* Live readout */}
-              <div className="grid gap-3 sm:grid-cols-3">
-                <MachineStat
-                  label="Depreciação"
-                  value={`${formatBRL(machineBreak.depreciation)}/h`}
-                  help={HELP.depreciation}
-                />
-                <MachineStat
-                  label="Reposição de peças"
-                  value={`${formatBRL(machineBreak.replacement)}/h`}
-                  help={HELP.replacement}
-                />
-                <MachineStat
-                  label="Custo-máquina total"
-                  value={`${formatBRL(machineBreak.total)}/h`}
-                  highlight
-                />
-              </div>
-
-              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs leading-relaxed text-white/50">
-                Cada hora de impressão consome{" "}
-                <span className="font-black text-cyan-300">{formatBRL(machineBreak.total)}/h</span> da sua máquina —{" "}
-                <span className="font-black text-white/80">{formatBRL(machineBreak.depreciation)}</span> de desgaste do
-                equipamento +{" "}
-                <span className="font-black text-white/80">{formatBRL(machineBreak.replacement)}</span> reservado para
-                repor peças.
-              </div>
-
-              <AdvancedPanel
-                open={showAdvancedMachine}
-                onToggle={() => setShowAdvancedMachine((v) => !v)}
-                label="Ajustar máquina e depreciação (avançado)"
-              >
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <NumberField
-                    label="Preço da máquina (P2S + AMS)"
-                    prefix="R$"
-                    value={machinePrice}
-                    onChange={setMachinePrice}
-                    step={1}
-                    help={HELP.machinePrice}
-                  />
-                  <NumberField
-                    label="Vida útil da máquina"
-                    suffix="h"
-                    value={lifespanHours}
-                    onChange={setLifespanHours}
-                    min={1}
-                    step={100}
-                    help={HELP.lifespan}
-                  />
-                </div>
-
-                <p className="mt-5 mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
-                  <Wrench className="h-3 w-3" /> Fundo de reposição de peças
-                </p>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <NumberField
-                    label="Bico — preço"
-                    prefix="R$"
-                    value={nozzlePrice}
-                    onChange={setNozzlePrice}
-                    step={1}
-                    help={HELP.nozzle}
-                  />
-                  <NumberField
-                    label="Bico — vida útil"
-                    suffix="h"
-                    value={nozzleLifeHours}
-                    onChange={setNozzleLifeHours}
-                    min={1}
-                    step={50}
-                    help={HELP.nozzle}
-                  />
-                  <NumberField
-                    label="Placa / PEI — preço"
-                    prefix="R$"
-                    value={platePrice}
-                    onChange={setPlatePrice}
-                    step={1}
-                    help={HELP.plate}
-                  />
-                  <NumberField
-                    label="Placa / PEI — vida útil"
-                    suffix="h"
-                    value={plateLifeHours}
-                    onChange={setPlateLifeHours}
-                    min={1}
-                    step={50}
-                    help={HELP.plate}
-                  />
-                  <NumberField
-                    label="Correias (par) — preço"
-                    prefix="R$"
-                    value={beltsPrice}
-                    onChange={setBeltsPrice}
-                    step={1}
-                    help={HELP.belts}
-                  />
-                  <NumberField
-                    label="Correias — vida útil"
-                    suffix="h"
-                    value={beltsLifeHours}
-                    onChange={setBeltsLifeHours}
-                    min={1}
-                    step={50}
-                    help={HELP.belts}
-                  />
-                </div>
-
-                <div className="mt-4">
-                  <NumberField
-                    label="Manutenção geral"
-                    prefix="R$"
-                    suffix="/h"
-                    value={maintPerHour}
-                    onChange={setMaintPerHour}
-                    step={0.01}
-                    help={HELP.maint}
-                  />
-                </div>
-              </AdvancedPanel>
-            </SectionCard>
-            </Reveal>
-
-            {/* 2. MATERIAL */}
-            <Reveal delay={0.1}>
-            <SectionCard
-              icon={Package}
-              title="Material (Filamento)"
-              subtitle="Escolha o filamento e ajuste com os dados do Bambu Studio"
+              icon={Zap}
+              title="Início Rápido"
+              subtitle="Dados do job atual — copie do Bambu Studio"
             >
               <div className="mb-5 grid grid-cols-2 gap-3">
                 {(Object.keys(MATERIAL_PRESETS) as MaterialKey[]).map((key) => {
@@ -900,21 +817,11 @@ export default function FilamentCalculator() {
                           : "border-white/10 bg-white/[0.04] hover:border-white/20",
                       )}
                     >
-                      <p
-                        className={cn(
-                          "text-sm font-black uppercase tracking-[0.18em]",
-                          active ? "text-[#07080d]" : "text-white/80",
-                        )}
-                      >
+                      <p className={cn("text-sm font-black uppercase tracking-[0.18em]", active ? "text-[#07080d]" : "text-white/80")}>
                         {preset.label}
                       </p>
-                      <p
-                        className={cn(
-                          "mt-1 text-[10px] font-bold",
-                          active ? "text-[#07080d]/60" : "text-white/40",
-                        )}
-                      >
-                        R${preset.spoolPrice}/kg
+                      <p className={cn("mt-1 text-[10px] font-bold", active ? "text-[#07080d]/60" : "text-white/40")}>
+                        R${preset.spoolPrice}/kg · {preset.printTempC}°C
                       </p>
                     </button>
                   );
@@ -922,25 +829,6 @@ export default function FilamentCalculator() {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <NumberField
-                  label="Preço do carretel"
-                  prefix="R$"
-                  value={spoolPrice}
-                  onChange={setSpoolPrice}
-                  step={0.01}
-                  help={HELP.spoolPrice}
-                />
-                <NumberField
-                  label="Peso do carretel"
-                  suffix="g"
-                  value={spoolWeight}
-                  onChange={setSpoolWeight}
-                  min={1}
-                  help={HELP.spoolWeight}
-                />
-              </div>
-
-              <div className="mt-5">
                 <NumberField
                   label="Filamento utilizado (slicer)"
                   suffix="g"
@@ -951,55 +839,6 @@ export default function FilamentCalculator() {
                   help={HELP.weight}
                   hint="Campo 'Filamento utilizado' do Bambu Studio"
                 />
-              </div>
-
-              <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                <NumberField
-                  label="Reserva para falhas"
-                  suffix="%"
-                  value={reservePct}
-                  onChange={setReservePct}
-                  step={5}
-                  help={HELP.reserve}
-                />
-                <NumberField
-                  label="Taxa de falha"
-                  suffix="%"
-                  value={failureRatePct}
-                  onChange={setFailureRatePct}
-                  step={1}
-                  help={HELP.failureRate}
-                />
-              </div>
-
-              <div className="mt-5">
-                <NumberField
-                  label="Peças no lote"
-                  value={batchQuantity}
-                  onChange={setBatchQuantity}
-                  min={1}
-                  help={HELP.quantity}
-                />
-              </div>
-
-              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs text-white/40">
-                Custo por grama (com reserva de {reservePct}%):{" "}
-                <span className="font-mono font-black text-cyan-300">
-                  R$ {decimal.format(result.gramCost * reserveMultiplier)}
-                </span>
-                {" "}/g
-              </div>
-            </SectionCard>
-            </Reveal>
-
-            {/* 3. ENERGIA */}
-            <Reveal delay={0.2}>
-            <SectionCard
-              icon={Zap}
-              title="Energia"
-              subtitle="Tarifa da sua conta de luz e consumo real da P2S"
-            >
-              <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <TextField
                     label="Tempo de impressão"
@@ -1012,116 +851,156 @@ export default function FilamentCalculator() {
                     = {formatHoursToHHMM(printTime)}
                   </p>
                 </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <NumberField
-                  label="Custo do kWh"
-                  prefix="R$"
-                  value={kwhCost}
-                  onChange={setKwhCost}
-                  step={0.01}
-                  help={HELP.kwh}
+                  label="Peças no lote"
+                  value={batchQuantity}
+                  onChange={setBatchQuantity}
+                  min={1}
+                  help={HELP.quantity}
                 />
+                <div className="flex items-center rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">Custo por grama</p>
+                    <p className="mt-0.5 font-mono text-base font-black text-cyan-300">
+                      R$ {decimal.format(result.gramCost * reserveMultiplier)}/g
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </SectionCard>
+            </Reveal>
+
+            {/* MÁQUINA & DEPRECIAÇÃO — recolhida */}
+            <Reveal delay={0.1}>
+            <CollapsibleSection
+              icon={Cpu}
+              title="Máquina & Depreciação"
+              summary={`Custo: ${formatBRL(machineBreak.total)}/h · Depr. ${formatBRL(machineBreak.depreciation)}/h`}
+              open={showMachineConfig}
+              onToggle={() => setShowMachineConfig((v) => !v)}
+            >
+              <div className="grid gap-3 sm:grid-cols-3">
+                <MachineStat label="Depreciação" value={`${formatBRL(machineBreak.depreciation)}/h`} help={HELP.depreciation} />
+                <MachineStat label="Reposição de peças" value={`${formatBRL(machineBreak.replacement)}/h`} help={HELP.replacement} />
+                <MachineStat label="Custo-máquina total" value={`${formatBRL(machineBreak.total)}/h`} highlight />
               </div>
 
-              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
-                  Consumo estimado
-                </p>
-                <p className="mt-1 font-mono text-lg font-black text-cyan-300">
-                  {decimal.format(result.energyKwh)} kWh
-                </p>
-                <p className="mt-1 text-[10px] text-white/40">
-                  = {formatBRL(result.energyCost)}
-                </p>
+              <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs leading-relaxed text-white/50">
+                Cada hora de impressão consome{" "}
+                <span className="font-black text-cyan-300">{formatBRL(machineBreak.total)}/h</span> da sua máquina —{" "}
+                <span className="font-black text-white/80">{formatBRL(machineBreak.depreciation)}</span> de desgaste +{" "}
+                <span className="font-black text-white/80">{formatBRL(machineBreak.replacement)}</span> para repor peças.
               </div>
 
+              <AdvancedPanel
+                open={showAdvancedMachine}
+                onToggle={() => setShowAdvancedMachine((v) => !v)}
+                label="Ajustar máquina e depreciação"
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <NumberField label="Preço da máquina (P2S + AMS)" prefix="R$" value={machinePrice} onChange={setMachinePrice} step={1} help={HELP.machinePrice} />
+                  <NumberField label="Vida útil da máquina" suffix="h" value={lifespanHours} onChange={setLifespanHours} min={1} step={100} help={HELP.lifespan} />
+                </div>
+                <p className="mt-5 mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+                  <Wrench className="h-3 w-3" /> Fundo de reposição de peças
+                </p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <NumberField label="Bico — preço" prefix="R$" value={nozzlePrice} onChange={setNozzlePrice} step={1} help={HELP.nozzle} />
+                  <NumberField label="Bico — vida útil" suffix="h" value={nozzleLifeHours} onChange={setNozzleLifeHours} min={1} step={50} help={HELP.nozzle} />
+                  <NumberField label="Placa / PEI — preço" prefix="R$" value={platePrice} onChange={setPlatePrice} step={1} help={HELP.plate} />
+                  <NumberField label="Placa / PEI — vida útil" suffix="h" value={plateLifeHours} onChange={setPlateLifeHours} min={1} step={50} help={HELP.plate} />
+                  <NumberField label="Correias (par) — preço" prefix="R$" value={beltsPrice} onChange={setBeltsPrice} step={1} help={HELP.belts} />
+                  <NumberField label="Correias — vida útil" suffix="h" value={beltsLifeHours} onChange={setBeltsLifeHours} min={1} step={50} help={HELP.belts} />
+                </div>
+                <div className="mt-4">
+                  <NumberField label="Manutenção geral" prefix="R$" suffix="/h" value={maintPerHour} onChange={setMaintPerHour} step={0.01} help={HELP.maint} />
+                </div>
+              </AdvancedPanel>
+            </CollapsibleSection>
+            </Reveal>
+
+            {/* FILAMENTO & CUSTOS — recolhida */}
+            <Reveal delay={0.2}>
+            <CollapsibleSection
+              icon={Package}
+              title="Filamento & Custos"
+              summary={`R$${spoolPrice}/carretel · reserva ${reservePct}% · falha ${failureRatePct}%`}
+              open={showMaterialConfig}
+              onToggle={() => setShowMaterialConfig((v) => !v)}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <NumberField label="Preço do carretel" prefix="R$" value={spoolPrice} onChange={setSpoolPrice} step={0.01} help={HELP.spoolPrice} />
+                <NumberField label="Peso do carretel" suffix="g" value={spoolWeight} onChange={setSpoolWeight} min={1} help={HELP.spoolWeight} />
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <NumberField label="Reserva para falhas" suffix="%" value={reservePct} onChange={setReservePct} step={5} help={HELP.reserve} />
+                <NumberField label="Taxa de falha" suffix="%" value={failureRatePct} onChange={setFailureRatePct} step={1} help={HELP.failureRate} />
+              </div>
+            </CollapsibleSection>
+            </Reveal>
+
+            {/* ENERGIA — recolhida */}
+            <Reveal delay={0.3}>
+            <CollapsibleSection
+              icon={Zap}
+              title="Energia"
+              summary={`R$${kwhCost}/kWh · ${decimal.format(result.energyKwh)} kWh estimados`}
+              open={showEnergyConfig}
+              onToggle={() => setShowEnergyConfig((v) => !v)}
+            >
+              <div className="grid gap-4 sm:grid-cols-2">
+                <NumberField label="Custo do kWh" prefix="R$" value={kwhCost} onChange={setKwhCost} step={0.01} help={HELP.kwh} />
+                <div className="rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">Consumo estimado</p>
+                  <p className="mt-1 font-mono text-lg font-black text-cyan-300">{decimal.format(result.energyKwh)} kWh</p>
+                  <p className="mt-1 text-[10px] text-white/40">= {formatBRL(result.energyCost)}</p>
+                </div>
+              </div>
               <AdvancedPanel
                 open={showAdvancedEnergy}
                 onToggle={() => setShowAdvancedEnergy((v) => !v)}
                 label="Ajustes avançados de energia"
               >
                 <div className="grid gap-4 sm:grid-cols-3">
-                  <NumberField
-                    label="Potência média"
-                    suffix="W"
-                    value={steadyPower}
-                    onChange={setSteadyPower}
-                    help={HELP.steadyPower}
-                  />
-                  <NumberField
-                    label="Pico de aquecimento"
-                    suffix="W"
-                    value={startupPower}
-                    onChange={setStartupPower}
-                    help={HELP.startupPower}
-                  />
-                  <NumberField
-                    label="Duração do pico"
-                    suffix="min"
-                    value={startupMinutes}
-                    onChange={setStartupMinutes}
-                    step={0.5}
-                    help={HELP.startupMinutes}
-                  />
+                  <NumberField label="Potência média" suffix="W" value={steadyPower} onChange={setSteadyPower} help={HELP.steadyPower} />
+                  <NumberField label="Pico de aquecimento" suffix="W" value={startupPower} onChange={setStartupPower} help={HELP.startupPower} />
+                  <NumberField label="Duração do pico" suffix="min" value={startupMinutes} onChange={setStartupMinutes} step={0.5} help={HELP.startupMinutes} />
                 </div>
               </AdvancedPanel>
-
               <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-white/40">
                 A energia soma o <span className="font-black text-white/80">pico de aquecimento</span> nos primeiros
-                minutos com o <span className="font-black text-white/80">regime estável</span> pelo resto da
-                impressão — por isso jobs curtos pesam proporcionalmente mais na conta.
+                minutos com o <span className="font-black text-white/80">regime estável</span> pelo resto da impressão.
               </div>
-            </SectionCard>
+            </CollapsibleSection>
             </Reveal>
 
-            {/* 4. MÃO DE OBRA & INSUMOS */}
-            <Reveal delay={0.3}>
-            <SectionCard
+            {/* MÃO DE OBRA & INSUMOS — recolhida */}
+            <Reveal delay={0.4}>
+            <CollapsibleSection
               icon={Wrench}
               title="Mão de Obra & Insumos"
-              subtitle="Seu tempo de trabalho e materiais extras do job"
+              summary={requiresLabor ? `${formatBRL(laborTotal)} computados` : "Não computada"}
+              open={showLaborConfig}
+              onToggle={() => setShowLaborConfig((v) => !v)}
             >
               <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <p className="text-sm font-black text-white/90">
-                    Tem trabalho manual / pós-processamento?
-                  </p>
-                  <p className="mt-1 text-xs text-white/40">
-                    Ative para computar fatiar, tirar suportes, lixar, pintar, montar e embalar.
-                  </p>
+                  <p className="text-sm font-black text-white/90">Tem trabalho manual / pós-processamento?</p>
+                  <p className="mt-1 text-xs text-white/40">Ative para computar fatiar, tirar suportes, lixar, pintar, montar e embalar.</p>
                 </div>
                 <Toggle checked={requiresLabor} onChange={setRequiresLabor} />
               </div>
-
               <div className="mt-5 grid gap-4 md:grid-cols-3">
-                <NumberField
-                  label="Horas de trabalho"
-                  suffix="h"
-                  value={laborHours}
-                  onChange={setLaborHours}
-                  step={0.25}
-                  disabled={!requiresLabor}
-                  help={HELP.laborHours}
-                />
-                <NumberField
-                  label="Valor da sua hora"
-                  prefix="R$"
-                  value={laborRate}
-                  onChange={setLaborRate}
-                  step={1}
-                  help={HELP.laborRate}
-                />
-                <NumberField
-                  label="Insumos extras"
-                  prefix="R$"
-                  value={extraSupplies}
-                  onChange={setExtraSupplies}
-                  step={0.01}
-                  disabled={!requiresLabor}
-                  help={HELP.extraSupplies}
-                />
+                <NumberField label="Horas de trabalho" suffix="h" value={laborHours} onChange={setLaborHours} step={0.25} disabled={!requiresLabor} help={HELP.laborHours} />
+                <NumberField label="Valor da sua hora" prefix="R$" value={laborRate} onChange={setLaborRate} step={1} help={HELP.laborRate} />
+                <NumberField label="Insumos extras" prefix="R$" value={extraSupplies} onChange={setExtraSupplies} step={0.01} disabled={!requiresLabor} help={HELP.extraSupplies} />
               </div>
-            </SectionCard>
+            </CollapsibleSection>
             </Reveal>
+
           </div>
 
           <aside className="bg-white/[0.03] border border-white/[0.08] rounded-[28px] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] lg:p-6 xl:sticky xl:top-24">
