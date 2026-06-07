@@ -49,7 +49,7 @@ export default function FloatingSupport() {
               </a>
 
               <a
-                href="/faq"
+                href="/conhecimento"
                 className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all group border border-white/5"
               >
                 <div className="flex items-center gap-3">
