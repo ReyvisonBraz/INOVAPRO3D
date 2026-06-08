@@ -9,7 +9,6 @@ import {
   ShoppingBag,
   User as UserIcon,
   X,
-  Zap,
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -62,7 +61,6 @@ export function Navbar() {
 
   const navLinks = [
     { name: "Catálogo", path: "/catalogo", icon: Box },
-    { name: "Orçamento", path: "/upload", icon: Zap },
     { name: "Dicas", path: "/conhecimento", icon: BookOpen },
   ];
 

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "../../components/ui/Button";
+import { waLink } from "../../lib/config";
 import { 
   Zap, 
   HelpCircle, 
@@ -107,7 +108,7 @@ export default function KnowledgeBase() {
               Nossa equipe técnica pode orientar sobre as melhores configurações para seu modelo.
             </p>
             <div className="flex gap-4 justify-center lg:justify-start">
-               <a href="https://wa.me/seu-numero" target="_blank" rel="noreferrer">
+               <a href={waLink("Olá INOVAPRO3D! Preciso de ajuda com meu projeto.")} target="_blank" rel="noreferrer">
                  <Button className="bg-white text-primary rounded-xl h-12 px-8 font-black uppercase tracking-widest text-[10px]">
                    CONTATO WHATSAPP
                  </Button>
