@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Box, Home, Calculator, Upload, HelpCircle, MessageCircle } from "lucide-react";
+import { ArrowRight, Box, Home, HelpCircle, MessageCircle } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { waLink } from "../../lib/config";
 
@@ -13,12 +13,6 @@ const quickLinks = [
   { label: "Games", to: "/catalogo?categoria=Games" },
 ];
 
-const actions = [
-  { icon: <ArrowRight className="w-4 h-4" />, label: "Ver catálogo", to: "/catalogo", primary: true },
-  { icon: <Home className="w-4 h-4" />, label: "Início", to: "/", primary: false },
-  { icon: <Calculator className="w-4 h-4" />, label: "Calculadora", to: "/calculadora", primary: false },
-  { icon: <Upload className="w-4 h-4" />, label: "Orçamento", to: "/orcamento", primary: false },
-];
 
 export default function NotFound() {
   return (

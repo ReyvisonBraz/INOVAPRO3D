@@ -94,8 +94,8 @@ export function Footer() {
           <div className="lg:col-span-2 space-y-8">
             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Plataforma</h4>
             <ul className="space-y-4">
+              <FooterLink to="/">Início</FooterLink>
               <FooterLink to="/catalogo">Catálogo 3D</FooterLink>
-              <FooterLink to="/upload">Upload de Arquivo</FooterLink>
               <FooterLink to="/calculadora">Calculadora</FooterLink>
               <FooterLink to="/meus-pedidos">Meus Pedidos</FooterLink>
             </ul>
@@ -104,8 +104,8 @@ export function Footer() {
           <div className="lg:col-span-2 space-y-8">
             <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Saiba Mais</h4>
             <ul className="space-y-4">
-              <FooterLink to="/calculadora">Materiais</FooterLink>
-              <FooterLink to="/orcamento">Orçamento Técnico</FooterLink>
+              <FooterLink to="/conhecimento">Como Funciona</FooterLink>
+              <FooterLink to="/conhecimento">Materiais</FooterLink>
               <FooterLink to="/conhecimento">Central de Ajuda</FooterLink>
               <FooterLink to="/catalogo">Ver Produtos</FooterLink>
             </ul>
