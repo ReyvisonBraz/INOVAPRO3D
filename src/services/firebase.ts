@@ -17,12 +17,10 @@ export const storage = getStorage(app);
  */
 export async function testConnection() {
   try {
-    // Attempting to read a non-existent document to check connectivity
     await getDocFromServer(doc(db, 'system', 'health'));
-    console.log("🔥 Firebase Connection: OK");
   } catch (error) {
     if (error instanceof Error && error.message.includes('offline')) {
-      console.error("🚨 Firebase is offline. Check configuration.");
+      console.error("Firebase is offline. Check configuration.");
     }
   }
 }
