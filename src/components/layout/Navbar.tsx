@@ -3,6 +3,7 @@ import {
   BookOpen,
   Box,
   Calculator,
+  Home,
   type LucideIcon,
   LogOut,
   Menu,
@@ -60,8 +61,9 @@ export function Navbar() {
   }, [user, profile, isDismissed]);
 
   const navLinks = [
+    { name: "Início", path: "/", icon: Home },
     { name: "Catálogo", path: "/catalogo", icon: Box },
-    { name: "Dicas", path: "/conhecimento", icon: BookOpen },
+    { name: "Como Funciona", path: "/conhecimento", icon: BookOpen },
   ];
 
   const adminLinks = [{ name: "Calculadora", path: "/calculadora", icon: Calculator }];

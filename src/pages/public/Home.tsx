@@ -13,7 +13,6 @@ import {
   Ruler,
   ShieldCheck,
   Sparkles,
-  Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
@@ -425,9 +424,9 @@ export default function Home() {
                     Do clique ao objeto real, sem complicação.
                   </h2>
                 </div>
-                <Link to="/upload">
+                <Link to="/catalogo">
                   <Button className="h-[3.25rem] rounded-2xl px-6 text-[10px] font-black uppercase tracking-[0.18em]">
-                    Pedir uma peça sob medida
+                    Escolher no catálogo
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
@@ -437,7 +436,7 @@ export default function Home() {
 
           <RevealGroup className="grid gap-5">
             {[
-              { icon: Layers3, title: "Escolha ou envie", text: "Compre direto no catálogo ou envie seu STL para um orçamento exclusivo — ambos chegam no mesmo padrão de qualidade." },
+              { icon: Layers3, title: "Escolha no catálogo", text: "Dezenas de modelos prontos para pedir agora mesmo. Escolha o material, a cor e a quantidade — tudo em poucos cliques." },
               { icon: Clock3, title: "Validação e produção", text: "Avaliamos material, resistência e acabamento. Sua peça entra em produção calibrada na Bambu Lab P2S." },
               { icon: PackageCheck, title: "Embalado e entregue", text: "Sai protegida, pronta para usar, presentear ou revender. Entrega nacional com rastreio." },
             ].map((step, index) => (
@@ -470,7 +469,7 @@ export default function Home() {
                 Sua próxima peça está a um clique de distância.
               </h2>
               <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.45] sm:text-base">
-                Catálogo para comprar agora ou envio de STL para pedir algo exclusivo. Os dois caminhos chegam no mesmo lugar: um objeto feito com capricho de verdade.
+                Escolha entre dezenas de modelos prontos no catálogo e receba em casa. Precisão de ±0.2mm, materiais premium e entrega em todo o Brasil.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -480,10 +479,10 @@ export default function Home() {
                   <ArrowRight className="h-4 w-4" />
                 </button>
               </Link>
-              <Link to="/upload">
+              <Link to="/conhecimento">
                 <button className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-7 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.64] transition-all hover:border-white/[0.24] hover:text-white lg:w-64">
-                  Enviar STL
-                  <Zap className="h-4 w-4" />
+                  Como funciona
+                  <ArrowRight className="h-4 w-4" />
                 </button>
               </Link>
             </div>
