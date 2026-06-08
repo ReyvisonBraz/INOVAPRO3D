@@ -2,7 +2,7 @@ import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion"
 import {
   ArrowDown,
   ArrowRight,
-  BadgeCheck,
+
   Box,
   ChevronLeft,
   ChevronRight,
@@ -26,43 +26,41 @@ import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui
 import { useCart } from "../../contexts/CartContext";
 import { db } from "../../services/firebase";
 import type { Product, ShowcaseItem } from "../../types/domain";
-
-const brl = (value: number) =>
-  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+import { formatBRL as brl } from "../../lib/pricing";
 
 const heroCopyOptions = [
   {
     lines: [
-      { text: "Escolha a peça.", accent: false },
-      { text: "A gente imprime.", accent: true },
-      { text: "Você recebe pronta.", accent: true },
+      { text: "Feito com precisão.", accent: false },
+      { text: "Entregue com", accent: true },
+      { text: "capricho.", accent: true },
     ],
     body:
-      "Peças decorativas, utilitárias e colecionáveis feitas com acabamento limpo, medidas confiáveis e cuidado de produto final.",
+      "Impressão 3D profissional com acabamento que você não vai querer esconder. Catálogo visual, compra em minutos, entrega nacional.",
   },
   {
     lines: [
-      { text: "Não precisa imaginar.", accent: false },
-      { text: "Veja no catálogo.", accent: true },
+      { text: "Do digital", accent: false },
+      { text: "ao concreto.", accent: true },
     ],
     body:
-      "Fotos reais, preço inicial e modelos prontos para comprar. Você escolhe com segurança antes de chamar no orçamento.",
+      "Escolha no catálogo ou envie seu arquivo STL. Produzimos com Bambu Lab P2S calibrada — 0.2mm de precisão, nenhum detalhe perdido.",
   },
   {
     lines: [
-      { text: "Impressão 3D", accent: false },
-      { text: "com cara de loja.", accent: true },
+      { text: "Não é protótipo.", accent: false },
+      { text: "É produto final.", accent: true },
     ],
     body:
-      "Para presentear, decorar, revender ou usar no dia a dia. Sem aparência de teste, sem acabamento improvisado.",
+      "Cada peça sai calibrada, limpa e pronta para usar, expor ou presentear. Porque capricho não é opcional aqui.",
   },
   {
     lines: [
-      { text: "Tem uma ideia?", accent: false },
-      { text: "Comece pelo catálogo.", accent: true },
+      { text: "Sua ideia", accent: false },
+      { text: "ganha forma agora.", accent: true },
     ],
     body:
-      "O catálogo ajuda você a sair da dúvida e encontrar uma peça pronta, ou chegar mais perto do que quer mandar fazer.",
+      "Do modelo ao objeto em mãos. Orçamento em minutos, produção em 48h, resultado que impressiona quem vê.",
   },
 ];
 
@@ -74,6 +72,22 @@ export default function Home() {
   const [categories, setCategories] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const { addItem } = useCart();
+
+  // Trap browser-back while lightbox is open
+  const lightboxOpen = selectedIndex !== null;
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const base = window.location.pathname + window.location.search;
+    window.history.pushState(null, '', base + '#preview');
+    const handler = () => setSelectedIndex(null);
+    window.addEventListener('popstate', handler);
+    return () => {
+      window.removeEventListener('popstate', handler);
+      if (window.location.hash === '#preview') {
+        window.history.replaceState(null, '', base);
+      }
+    };
+  }, [lightboxOpen]);
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.22], [0, -90]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0.2]);
@@ -109,14 +123,13 @@ export default function Home() {
   }, []);
 
   const featuredProducts = products.slice(0, 8);
-  const heroProducts = featuredProducts.slice(0, 5);
   const filteredItems = filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
 
   const proofStats = useMemo(
     () => [
-      { value: "P2S", label: "Bambu Lab calibrada" },
-      { value: "48h", label: "janela média de produção" },
-      { value: "PLA/PETG", label: "materiais para uso real" },
+      { value: "±0.2mm", label: "precisão de impressão" },
+      { value: "48h", label: "produção média" },
+      { value: "PLA Pro", label: "filamento premium" },
       { value: "BR", label: "envio nacional" },
     ],
     [],
@@ -145,56 +158,50 @@ export default function Home() {
 
   return (
     <div className="relative overflow-hidden bg-surface">
-      <section className="relative min-h-[calc(100svh-4rem)] overflow-hidden px-4 pb-8 pt-6 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:px-8">
         <FloatingBackground variant="grid" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_52%_18%,rgba(255,255,255,0.13),transparent_28%),linear-gradient(180deg,rgba(2,6,23,0.15),#020617_88%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-surface to-transparent" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,179,237,0.08),transparent_60%),linear-gradient(180deg,transparent,#020617_90%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-surface to-transparent" />
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
-          className="container-section relative z-10 grid min-h-[calc(100svh-6rem)] items-center gap-12 py-10 lg:grid-cols-[1.02fr_0.98fr] lg:py-16"
+          className="container-section relative z-10 flex flex-col items-start py-10 lg:py-16"
         >
-          <div className="max-w-3xl">
-            <Reveal direction="up" delay={0.08}>
-              <AnimatedHeroCopy />
-            </Reveal>
-
-            <Reveal direction="up" delay={0.42}>
-              <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-                <Link to="/catalogo" className="w-full sm:w-auto">
-                  <button className="catalog-cta group relative flex h-[3.75rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white px-7 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-[0_24px_80px_-18px_rgba(255,255,255,0.65)] transition-transform duration-300 hover:-translate-y-1 active:translate-y-0 sm:w-auto">
-                    Abrir catálogo agora
-                    <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                  </button>
-                </Link>
-                <button
-                  type="button"
-                  onClick={scrollToCatalog}
-                  className="group flex h-[3.25rem] w-fit min-w-[11rem] items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-6 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:h-[3.75rem] sm:w-auto sm:px-7"
-                >
-                  Ver prévia
-                  <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
-                </button>
-              </div>
-            </Reveal>
-
-            <RevealGroup className="mt-9 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
-              {proofStats.map((stat) => (
-                <RevealItem key={stat.label}>
-                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
-                    <p className="font-display text-xl font-black text-white">{stat.value}</p>
-                    <p className="mt-1 text-[9px] font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
-                      {stat.label}
-                    </p>
-                  </div>
-                </RevealItem>
-              ))}
-            </RevealGroup>
-          </div>
-
-          <Reveal direction="left" delay={0.22} className="min-w-0">
-            <HeroProductStage products={heroProducts} loading={loading} />
+          <Reveal direction="up" delay={0.08}>
+            <AnimatedHeroCopy />
           </Reveal>
+
+          <Reveal direction="up" delay={0.42}>
+            <div className="mt-9 flex flex-col gap-3 sm:flex-row">
+              <Link to="/catalogo" className="w-full sm:w-auto">
+                <button className="catalog-cta group relative flex h-[3.75rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white px-8 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-[0_24px_80px_-18px_rgba(255,255,255,0.55)] transition-transform duration-300 hover:-translate-y-1 active:translate-y-0 sm:w-auto">
+                  Ver o catálogo
+                  <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                </button>
+              </Link>
+              <button
+                type="button"
+                onClick={scrollToCatalog}
+                className="group flex h-[3.75rem] w-full items-center justify-center gap-3 rounded-2xl border border-white/[0.12] bg-white/[0.04] px-7 text-sm font-black uppercase tracking-[0.12em] text-white/70 backdrop-blur-xl transition-all duration-300 hover:border-white/[0.24] hover:bg-white/[0.08] hover:text-white sm:w-auto"
+              >
+                Explorar peças
+                <ArrowDown className="h-4 w-4 transition-transform group-hover:translate-y-1" />
+              </button>
+            </div>
+          </Reveal>
+
+          <RevealGroup className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
+            {proofStats.map((stat) => (
+              <RevealItem key={stat.label}>
+                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
+                  <p className="font-display text-xl font-black text-white">{stat.value}</p>
+                  <p className="mt-1 text-[9px] font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
+                    {stat.label}
+                  </p>
+                </div>
+              </RevealItem>
+            ))}
+          </RevealGroup>
         </motion.div>
       </section>
 
@@ -202,81 +209,28 @@ export default function Home() {
         <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
           {Array.from({ length: 2 }).map((_, index) => (
             <div key={index} className="flex min-w-full items-center justify-around gap-8">
-              <span>catálogo pronto para comprar</span>
-              <span>orçamento por arquivo STL</span>
-              <span>acabamento premium</span>
-              <span>peças sob medida</span>
-              <span>envio para todo o Brasil</span>
+              <span>precisão ±0.2mm</span>
+              <span>acabamento profissional</span>
+              <span>Bambu Lab P2S calibrada</span>
+              <span>entrega nacional</span>
+              <span>filamento premium</span>
+              <span>peças únicas</span>
+              <span>qualidade garantida</span>
             </div>
           ))}
         </div>
       </section>
 
-      <section className="container-section py-20 sm:py-28">
-        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-          <div>
-            <Reveal direction="up">
-              <p className="section-label-accent mb-4">Por que abrir o catálogo?</p>
-            </Reveal>
-            <RevealText
-              text="Você vê possibilidades reais antes de pedir qualquer coisa."
-              highlightFrom={4}
-              as="h2"
-              className="heading-lg justify-start text-white"
-            />
-          </div>
-          <Reveal direction="up" delay={0.18}>
-            <p className="max-w-2xl text-sm font-medium leading-relaxed text-white/[0.44] sm:text-base">
-              O catálogo foi pensado para tirar o cliente do "será que dá certo?" e levar direto
-              para escolhas concretas: modelos, valores iniciais, fotos, materiais e compra em poucos
-              cliques. Quando precisar de algo único, o fluxo de orçamento entra no mesmo padrão.
-            </p>
-          </Reveal>
-        </div>
-
-        <RevealGroup className="mt-12 grid gap-4 md:grid-cols-3">
-          {[
-            {
-              icon: Sparkles,
-              title: "Compra sem fricção",
-              text: "Produtos prontos para escolher, comparar e adicionar ao carrinho sem depender de troca longa de mensagens.",
-            },
-            {
-              icon: Ruler,
-              title: "Medida e uso claros",
-              text: "Cada peça comunica preço inicial, categoria e descrição para o cliente entender onde ela se encaixa.",
-            },
-            {
-              icon: ShieldCheck,
-              title: "Acabamento de loja",
-              text: "A produção é ajustada para entregar peças limpas, resistentes e com aparência profissional.",
-            },
-          ].map((item) => (
-            <RevealItem key={item.title}>
-              <div className="spotlight-card group h-full rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-6 transition-all duration-500 hover:-translate-y-1 hover:border-white/[0.16]">
-                <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-cyan-300">
-                  <item.icon className="h-5 w-5" />
-                </div>
-                <h3 className="font-display text-xl font-black leading-tight text-white">
-                  {item.title}
-                </h3>
-                <p className="mt-4 text-sm font-medium leading-relaxed text-white/40">{item.text}</p>
-              </div>
-            </RevealItem>
-          ))}
-        </RevealGroup>
-      </section>
-
-      <section id="catalogo-preview" className="scroll-mt-28 py-20 sm:py-28">
+      <section id="catalogo-preview" className="scroll-mt-28 py-14 sm:py-20">
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <Reveal direction="up">
-                <p className="section-label-accent mb-4">Prévia do catálogo</p>
+                <p className="section-label-accent mb-4">Catálogo</p>
               </Reveal>
               <RevealText
-                text="Peças prontas para colocar no carrinho."
-                highlightFrom={3}
+                text="Objetos prontos. Sem esperar."
+                highlightFrom={2}
                 as="h2"
                 className="heading-lg justify-start text-white"
               />
@@ -286,7 +240,7 @@ export default function Home() {
                 to="/catalogo"
                 className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.55] transition-all hover:border-white/20 hover:bg-white hover:text-slate-950"
               >
-                Ver todos os modelos
+                Ver catálogo completo
                 <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Link>
             </Reveal>
@@ -311,55 +265,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container-section py-20 sm:py-28">
-        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
-          <Reveal direction="right" className="min-h-[420px]">
-            <div className="relative h-full overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.03]">
-              <FloatingBackground subtle />
-              <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/70" />
-              <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
-                <div>
-                  <p className="section-label-accent mb-5">Processo sem mistério</p>
-                  <h2 className="max-w-xl font-display text-4xl font-black uppercase leading-[0.92] text-white sm:text-5xl">
-                    Do clique ao pacote, tudo pensado para o cliente confiar.
-                  </h2>
-                </div>
-                <Link to="/upload">
-                  <Button className="h-[3.25rem] rounded-2xl px-6 text-[10px] font-black uppercase tracking-[0.18em]">
-                    Pedir uma peça sob medida
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-          </Reveal>
-
-          <RevealGroup className="grid gap-5">
-            {[
-              { icon: Layers3, title: "Escolha ou envie", text: "Use o catálogo para comprar rápido ou envie seu STL para uma peça exclusiva." },
-              { icon: Clock3, title: "Validação técnica", text: "Avaliamos material, tempo, resistência e acabamento antes de produzir." },
-              { icon: PackageCheck, title: "Produção e envio", text: "A peça sai protegida, embalada e pronta para uso, presente ou revenda." },
-            ].map((step, index) => (
-              <RevealItem key={step.title}>
-                <div className="grid grid-cols-[auto_1fr] gap-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-950">
-                    <step.icon className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
-                      Etapa 0{index + 1}
-                    </p>
-                    <h3 className="font-display text-xl font-black leading-tight text-white">{step.title}</h3>
-                    <p className="mt-3 text-sm font-medium leading-relaxed text-white/[0.42]">{step.text}</p>
-                  </div>
-                </div>
-              </RevealItem>
-            ))}
-          </RevealGroup>
-        </div>
-      </section>
-
-      <section className="py-20 sm:py-28">
+      <section className="py-14 sm:py-20">
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
@@ -368,8 +274,8 @@ export default function Home() {
                 <span className="section-label-accent">Galeria real</span>
               </div>
               <RevealText
-                text="Imagens que parecem menos IA e mais bancada de produção."
-                highlightFrom={6}
+                text="Prints reais. Da máquina às suas mãos."
+                highlightFrom={2}
                 as="h2"
                 className="heading-lg justify-start text-white"
               />
@@ -377,7 +283,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilter("ALL")}
-                className={`rounded-full border px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                className={`rounded-full border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                   filter === "ALL"
                     ? "border-white bg-white text-slate-950"
                     : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
@@ -389,7 +295,7 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setFilter(cat)}
-                  className={`rounded-full border px-4 py-2 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                  className={`rounded-full border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
                     filter === cat
                       ? "border-white bg-white text-slate-950"
                       : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
@@ -406,7 +312,7 @@ export default function Home() {
               <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary/20 border-t-primary" />
             </div>
           ) : filteredItems.length > 0 ? (
-            <motion.div layout className="columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
+            <motion.div className="columns-1 gap-5 space-y-5 sm:columns-2 lg:columns-3">
               <AnimatePresence mode="popLayout">
                 {filteredItems.map((item, idx) => (
                   <motion.button
@@ -454,18 +360,118 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="container-section py-20 sm:py-28">
+        <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div>
+            <Reveal direction="up">
+              <p className="section-label-accent mb-4">Por que a INOVAPRO3D?</p>
+            </Reveal>
+            <RevealText
+              text="Experiência de loja. Sem a loja física."
+              highlightFrom={2}
+              as="h2"
+              className="heading-lg justify-start text-white"
+            />
+          </div>
+          <Reveal direction="up" delay={0.18}>
+            <p className="max-w-2xl text-sm font-medium leading-relaxed text-white/[0.44] sm:text-base">
+              Do valor inicial ao acabamento, cada detalhe foi pensado para você escolher com confiança — sem precisar mandar mensagem antes de decidir. Quando precisar de algo único, o orçamento personalizado entra no mesmo padrão de qualidade.
+            </p>
+          </Reveal>
+        </div>
+
+        <RevealGroup className="mt-12 grid gap-4 md:grid-cols-3">
+          {[
+            {
+              icon: Sparkles,
+              title: "Escolha. Pague. Receba.",
+              text: "Catálogo visual com fotos reais, preço inicial e botão de compra. Sem negociação demorada, sem surpresa no final.",
+            },
+            {
+              icon: Ruler,
+              title: "Especificações honestas",
+              text: "Dimensões, peso e material de cada peça exibidos com clareza — para você saber exatamente o que está comprando.",
+            },
+            {
+              icon: ShieldCheck,
+              title: "Qualidade que se vê",
+              text: "Bambu Lab P2S calibrada. Filamento premium. Resultado que parece produto de loja — porque é produto de loja.",
+            },
+          ].map((item) => (
+            <RevealItem key={item.title}>
+              <div className="spotlight-card group h-full rounded-[24px] border border-white/[0.08] bg-white/[0.035] p-6 transition-all duration-500 hover:-translate-y-1 hover:border-white/[0.16]">
+                <div className="mb-7 flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.05] text-cyan-300">
+                  <item.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-display text-xl font-black leading-tight text-white">
+                  {item.title}
+                </h3>
+                <p className="mt-4 text-sm font-medium leading-relaxed text-white/40">{item.text}</p>
+              </div>
+            </RevealItem>
+          ))}
+        </RevealGroup>
+      </section>
+
+      <section className="container-section py-20 sm:py-28">
+        <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
+          <Reveal direction="right" className="min-h-[420px]">
+            <div className="relative h-full overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.03]">
+              <FloatingBackground subtle />
+              <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-transparent to-black/70" />
+              <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
+                <div>
+                  <p className="section-label-accent mb-5">Como funciona</p>
+                  <h2 className="max-w-xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-4xl sm:leading-[0.92] lg:text-5xl">
+                    Do clique ao objeto real, sem complicação.
+                  </h2>
+                </div>
+                <Link to="/upload">
+                  <Button className="h-[3.25rem] rounded-2xl px-6 text-[10px] font-black uppercase tracking-[0.18em]">
+                    Pedir uma peça sob medida
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </Reveal>
+
+          <RevealGroup className="grid gap-5">
+            {[
+              { icon: Layers3, title: "Escolha ou envie", text: "Compre direto no catálogo ou envie seu STL para um orçamento exclusivo — ambos chegam no mesmo padrão de qualidade." },
+              { icon: Clock3, title: "Validação e produção", text: "Avaliamos material, resistência e acabamento. Sua peça entra em produção calibrada na Bambu Lab P2S." },
+              { icon: PackageCheck, title: "Embalado e entregue", text: "Sai protegida, pronta para usar, presentear ou revender. Entrega nacional com rastreio." },
+            ].map((step, index) => (
+              <RevealItem key={step.title}>
+                <div className="grid grid-cols-[auto_1fr] gap-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white text-slate-950">
+                    <step.icon className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
+                      Etapa 0{index + 1}
+                    </p>
+                    <h3 className="font-display text-xl font-black leading-tight text-white">{step.title}</h3>
+                    <p className="mt-3 text-sm font-medium leading-relaxed text-white/[0.42]">{step.text}</p>
+                  </div>
+                </div>
+              </RevealItem>
+            ))}
+          </RevealGroup>
+        </div>
+      </section>
+
       <section className="container-section pb-28 pt-8 sm:pb-36">
         <div className="relative overflow-hidden rounded-[36px] border border-white/[0.08] bg-white/[0.04] px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
           <FloatingBackground subtle />
           <div className="relative z-10 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
-              <p className="section-label-accent mb-4">Comece pela decisão mais fácil</p>
-              <h2 className="max-w-3xl font-display text-4xl font-black uppercase leading-[0.9] text-white sm:text-6xl">
-                Abra o catálogo. Escolha a peça. A gente imprime direito.
+              <p className="section-label-accent mb-4">Comece agora</p>
+              <h2 className="max-w-3xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-5xl sm:leading-[0.92] lg:text-6xl lg:leading-[0.9]">
+                Sua próxima peça está a um clique de distância.
               </h2>
               <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.45] sm:text-base">
-                Para produto pronto, vá ao catálogo. Para arquivo próprio, solicite orçamento.
-                Os dois caminhos chegam no mesmo ponto: uma peça bem feita.
+                Catálogo para comprar agora ou envio de STL para pedir algo exclusivo. Os dois caminhos chegam no mesmo lugar: um objeto feito com capricho de verdade.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -497,45 +503,6 @@ export default function Home() {
   );
 }
 
-function HeroProductStage({ products, loading }: { products: Product[]; loading: boolean }) {
-  return (
-    <div className="relative mx-auto w-full max-w-[620px] lg:max-w-none">
-      <div className="absolute left-1/2 top-1/2 h-[68%] w-[72%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-400/12 blur-[110px]" />
-      <div className="relative min-h-[520px] overflow-hidden rounded-[36px] border border-white/10 bg-black/25 p-4 shadow-[0_40px_140px_-60px_rgba(56,189,248,0.8)] backdrop-blur-xl sm:p-6">
-        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12),transparent_28%,rgba(59,130,246,0.12)_68%,transparent)]" />
-        <div className="absolute inset-x-8 bottom-8 h-36 rounded-[100%] border border-cyan-300/20 bg-cyan-300/8 blur-sm" />
-
-        <div className="relative z-10 grid h-full min-h-[480px] grid-cols-2 gap-4">
-          <div className="flex flex-col gap-4">
-            <CatalogPreviewCard product={products[0]} loading={loading} size="large" badge="Mais visto" />
-            <CatalogPreviewCard product={products[2]} loading={loading} badge="Presenteável" />
-          </div>
-          <div className="flex flex-col gap-4 pt-12">
-            <CatalogPreviewCard product={products[1]} loading={loading} badge="Decoração" />
-            <CatalogPreviewCard product={products[3]} loading={loading} size="large" badge="Sob demanda" />
-          </div>
-        </div>
-
-        <motion.div
-          animate={{ y: [0, -7, 0] }}
-          transition={{ duration: 4.6, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-5 left-5 right-5 z-20 flex items-center justify-between rounded-2xl border border-white/10 bg-black/45 px-4 py-3 backdrop-blur-xl"
-        >
-          <div className="flex items-center gap-2">
-            <BadgeCheck className="h-4 w-4 text-cyan-300" />
-            <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/[0.55]">
-              Catálogo pronto para compra
-            </span>
-          </div>
-          <span className="text-[9px] font-black uppercase tracking-[0.18em] text-white/[0.28]">
-            {products.length || "..."} modelos
-          </span>
-        </motion.div>
-      </div>
-    </div>
-  );
-}
-
 function AnimatedHeroCopy() {
   const [activeCopy, setActiveCopy] = useState(0);
   const copy = heroCopyOptions[activeCopy];
@@ -553,16 +520,16 @@ function AnimatedHeroCopy() {
       <motion.div
         layout
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative min-h-[10rem] sm:min-h-[12rem] lg:min-h-[15rem]"
+        className="relative min-h-[9rem] sm:min-h-[11rem] lg:min-h-[14rem]"
       >
         <AnimatePresence mode="wait">
           <motion.h1
             key={activeCopy}
-            initial={{ opacity: 0, y: 26, filter: "blur(14px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -22, filter: "blur(14px)" }}
+            initial={{ opacity: 0, y: 26 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -22 }}
             transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
-            className="max-w-4xl text-[clamp(2.55rem,6.2vw,6.25rem)] font-display font-black uppercase leading-[0.9] tracking-tight text-white [text-wrap:balance]"
+            className="max-w-4xl text-[clamp(2.2rem,5.5vw,5.5rem)] font-display font-black uppercase leading-[0.88] tracking-tight text-white [text-wrap:balance]"
           >
             {copy.lines.map((line, index) => (
               <motion.span
@@ -583,9 +550,9 @@ function AnimatedHeroCopy() {
         <AnimatePresence mode="wait">
           <motion.p
             key={copy.body}
-            initial={{ opacity: 0, y: 14, filter: "blur(8px)" }}
-            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-            exit={{ opacity: 0, y: -10, filter: "blur(8px)" }}
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className="text-base font-medium leading-relaxed text-white/[0.58] sm:text-lg"
           >
@@ -602,58 +569,6 @@ function AnimatedHeroCopy() {
         <span>Envio Brasil</span>
       </div>
     </div>
-  );
-}
-
-function CatalogPreviewCard({
-  product,
-  loading,
-  size = "default",
-  badge,
-}: {
-  product?: Product;
-  loading: boolean;
-  size?: "default" | "large";
-  badge: string;
-}) {
-  const image = product?.images?.[0];
-
-  return (
-    <motion.div
-      animate={{ y: size === "large" ? [0, -10, 0] : [0, 8, 0] }}
-      transition={{ duration: size === "large" ? 5.8 : 6.5, repeat: Infinity, ease: "easeInOut" }}
-      className={`group relative overflow-hidden rounded-[24px] border border-white/10 bg-white/[0.05] shadow-2xl shadow-black/30 ${
-        size === "large" ? "min-h-[250px]" : "min-h-[180px]"
-      }`}
-    >
-      {loading || !product ? (
-        <div className="h-full min-h-[inherit] animate-pulse bg-white/[0.08]" />
-      ) : (
-        <>
-          {image ? (
-            <img
-              src={image}
-              alt={product.name}
-              className="absolute inset-0 h-full w-full object-cover opacity-80 transition-transform duration-700 group-hover:scale-110"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-white/10 to-transparent">
-              <Box className="h-10 w-10 text-white/20" />
-            </div>
-          )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/30 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-4">
-            <span className="mb-2 inline-flex rounded-full border border-white/[0.12] bg-white/10 px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-white/[0.65] backdrop-blur-md">
-              {badge}
-            </span>
-            <h3 className="line-clamp-2 font-display text-base font-black uppercase leading-none text-white">
-              {product.name}
-            </h3>
-            <p className="mt-2 text-[11px] font-bold text-white/[0.52]">a partir de {brl(product.basePrice)}</p>
-          </div>
-        </>
-      )}
-    </motion.div>
   );
 }
 
@@ -733,7 +648,7 @@ function Lightbox({
           exit={{ scale: 0.96, opacity: 0 }}
           className="relative aspect-[4/3] w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/10 shadow-2xl sm:aspect-video"
         >
-          <img src={item.image} className="h-full w-full object-cover" alt={item.title} />
+          <img src={item.image} loading="lazy" decoding="async" className="h-full w-full object-cover" alt={item.title} />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent p-6 sm:p-10">
             <div className="mb-3 flex items-center gap-3">
               {item.category && (

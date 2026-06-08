@@ -1,84 +1,56 @@
 import { useState, useEffect } from "react";
 import { ShieldAlert, CheckCircle2 } from "lucide-react";
 import { cn } from "@/src/lib/utils";
-import { useAuth } from "@/src/contexts/AuthContext";
 
-export function DebugMarker() {
-  const { profile } = useAuth();
-
-  if (profile?.role !== 'ADMIN') return null;
-
-  return <DebugMarkerContent />;
-}
-
-function DebugMarkerContent() {
+/** Inline widget used inside the Admin Dashboard settings tab */
+export function DiagnosticWidget() {
   const [status, setStatus] = useState<'healthy' | 'warning' | 'error'>('healthy');
-
-  const statusLabel = { healthy: 'OK', warning: 'Alerta', error: 'Erro' }[status];
   const [latency, setLatency] = useState<number | null>(null);
 
   useEffect(() => {
-    const checkHealth = async () => {
+    const check = async () => {
       const start = Date.now();
       try {
         const res = await fetch('/api/health');
-        if (res.ok) {
-          setLatency(Date.now() - start);
-          setStatus('healthy');
-        } else {
-          setStatus('warning');
-        }
-      } catch (e) {
-        setStatus('error');
-      }
+        if (res.ok) { setLatency(Date.now() - start); setStatus('healthy'); }
+        else setStatus('warning');
+      } catch { setStatus('error'); }
     };
-
-    const interval = setInterval(checkHealth, 10000);
-    checkHealth();
-    return () => clearInterval(interval);
+    const t = setInterval(check, 10000);
+    check();
+    return () => clearInterval(t);
   }, []);
 
+  const dot = status === 'healthy' ? 'bg-green-500' : status === 'warning' ? 'bg-yellow-500' : 'bg-red-500';
+  const label = { healthy: 'OK', warning: 'Alerta', error: 'Erro' }[status];
+
   return (
-    <div className="fixed bottom-4 right-4 z-50 group cursor-help">
-      <div className={cn(
-        "debug-marker-overlay flex items-center gap-2",
-        status === 'error' && "border-red-500/50 bg-red-500/5",
-        status === 'warning' && "border-yellow-500/50 bg-yellow-500/5"
-      )}>
-        <div className={cn(
-          "w-1.5 h-1.5 rounded-full animate-pulse",
-          status === 'healthy' ? "bg-green-500" : status === 'warning' ? "bg-yellow-500" : "bg-red-500"
-        )} />
-        
-        <span className="capitalize">{statusLabel}</span>
-        
-        {latency !== null && (
-          <span className="text-[8px] opacity-40 ml-1">{latency}ms</span>
-        )}
-
-        <div className="flex items-center ml-1">
-          {status === 'healthy' ? <CheckCircle2 className="w-3 h-3 text-green-500/50" /> : <ShieldAlert className="w-3 h-3 text-red-500/50" />}
+    <div className="space-y-3">
+      {[
+        {
+          key: 'srv',
+          label: 'Servidor',
+          value: (
+            <span className="flex items-center gap-1.5">
+              <span className={cn('w-1.5 h-1.5 rounded-full animate-pulse', dot)} />
+              <span className={cn('text-[10px] font-mono font-bold', status === 'healthy' ? 'text-green-400' : status === 'warning' ? 'text-yellow-400' : 'text-red-400')}>
+                {label}
+              </span>
+              {latency !== null && <span className="text-[9px] text-white/30">{latency}ms</span>}
+              {status === 'healthy'
+                ? <CheckCircle2 className="w-3 h-3 text-green-500/50" />
+                : <ShieldAlert className="w-3 h-3 text-red-500/50" />}
+            </span>
+          ),
+        },
+        { key: 'fb', label: 'Firebase', value: <span className="text-[10px] font-mono font-bold text-green-400">Conectado</span> },
+        { key: 'ui', label: 'Modo UI', value: <span className="text-[10px] font-mono text-white/50">Refined-Dark</span> },
+      ].map(row => (
+        <div key={row.key} className="flex items-center justify-between">
+          <span className="text-[10px] text-white/30 uppercase font-bold">{row.label}</span>
+          {row.value}
         </div>
-      </div>
-
-      {/* TOOLTIP ON HOVER */}
-      <div className="absolute bottom-full right-0 mb-2 w-48 glass p-3 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none scale-95 group-hover:scale-100 origin-bottom-right">
-        <p className="font-display font-bold text-xs mb-1">Motor de Diagnóstico</p>
-        <div className="space-y-1 text-[10px] text-white/50 font-mono">
-          <div className="flex justify-between">
-            <span>Servidor:</span>
-            <span className="text-green-500">Ativo</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Firebase:</span>
-            <span>Desconectado</span>
-          </div>
-          <div className="flex justify-between">
-            <span>Modo UI:</span>
-            <span>Refined-Dark</span>
-          </div>
-        </div>
-      </div>
+      ))}
     </div>
   );
 }

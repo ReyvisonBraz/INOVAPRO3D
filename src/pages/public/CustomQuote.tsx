@@ -180,9 +180,9 @@ export default function CustomQuote() {
   };
 
   return (
-    <div className="container-section py-8 min-h-[80vh]">
-      <header className="max-w-md mx-auto mb-8 text-center">
-        <h1 className="heading-md uppercase mb-2">
+    <div className="container-section py-6 sm:py-8 min-h-[80vh]">
+      <header className="max-w-md mx-auto mb-6 text-center">
+        <h1 className="text-2xl sm:text-3xl font-black font-display uppercase tracking-tight mb-2">
           Orçamento <span className="text-shimmer italic">3D.</span>
         </h1>
         <p className="text-xs text-white/40 font-medium italic">
@@ -207,7 +207,7 @@ export default function CustomQuote() {
         </div>
 
         <div className="glass-card rounded-[24px] overflow-hidden border border-white/5 bg-white/[0.01]">
-          <div className="p-4 lg:p-8">
+          <div className="p-4 sm:p-6 lg:p-8">
             <AnimatePresence mode="wait">
               {step === 1 && (
                 <motion.div 
@@ -222,7 +222,7 @@ export default function CustomQuote() {
                       onDragOver={(e) => e.preventDefault()}
                       onDrop={handleDrop}
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full aspect-[21/6] border-2 border-dashed border-white/5 rounded-[24px] flex flex-col items-center justify-center group cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all relative overflow-hidden"
+                      className="w-full min-h-[160px] sm:aspect-[21/6] border-2 border-dashed border-white/5 rounded-[24px] flex flex-col items-center justify-center group cursor-pointer hover:border-primary/40 hover:bg-primary/5 transition-all relative overflow-hidden"
                     >
                       <input 
                         type="file" 
@@ -231,14 +231,14 @@ export default function CustomQuote() {
                         accept=".stl,.obj,.step,.stp,.iges,.igs" 
                         onChange={handleFileChange} 
                       />
-                      <div className="w-16 h-16 rounded-2xl bg-white/5 flex items-center justify-center mb-4 border border-white/5 group-hover:scale-110 group-hover:bg-primary/20 transition-all">
-                        <Upload className="w-8 h-8 text-primary" />
+                      <div className="w-12 h-12 rounded-xl bg-white/5 flex items-center justify-center mb-3 border border-white/5 group-hover:scale-110 group-hover:bg-primary/20 transition-all">
+                        <Upload className="w-6 h-6 text-primary" />
                       </div>
-                      <h3 className="text-xl font-black font-display uppercase tracking-tight mb-2">Envie seu Modelo</h3>
-                      <p className="text-white/40 font-medium text-xs italic">Clique ou arraste seu arquivo (STL/OBJ/STEP/IGES)</p>
+                      <h3 className="text-sm font-black font-display uppercase tracking-tight mb-1">Envie seu Modelo</h3>
+                      <p className="text-white/40 font-medium text-[10px] italic">Clique ou arraste (STL / OBJ / STEP / IGES)</p>
                     </div>
                   ) : (
-                    <div className="w-full aspect-[21/6] flex flex-col items-center justify-center gap-6">
+                    <div className="w-full min-h-[160px] sm:aspect-[21/6] flex flex-col items-center justify-center gap-6">
                       <div className="relative w-20 h-20">
                         <div className="absolute inset-0 border-2 border-primary/20 rounded-full" />
                         <motion.div 
@@ -254,16 +254,16 @@ export default function CustomQuote() {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-12 w-full">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-8 w-full">
                     {[
                       { icon: Zap, title: "Cálculo Real", desc: "Estimativa baseada em peso e tempo real de impressão." },
-                      { icon: ShieldCheck, title: "Acabamento PLA", desc: "Opções de acabamento específicos para sua necessidade." },
+                      { icon: ShieldCheck, title: "Acabamento PLA", desc: "Opções de acabamento para sua necessidade." },
                       { icon: AlertCircle, title: "Análise de Malha", desc: "Verificação básica de integridade do arquivo." }
                     ].map((feat, i) => (
-                      <div key={i} className="p-6 rounded-2xl bg-white/[0.03] border border-white/5">
-                        <feat.icon className="w-5 h-5 text-primary mb-3" />
-                        <h4 className="font-bold uppercase tracking-tight mb-1 text-xs">{feat.title}</h4>
-                        <p className="text-[10px] text-white/30 leading-relaxed font-medium italic">{feat.desc}</p>
+                      <div key={i} className="p-4 rounded-xl bg-white/[0.03] border border-white/5">
+                        <feat.icon className="w-4 h-4 text-primary mb-2" />
+                        <h4 className="font-bold uppercase tracking-tight mb-0.5 text-[10px]">{feat.title}</h4>
+                        <p className="text-[9px] text-white/30 leading-relaxed font-medium italic">{feat.desc}</p>
                       </div>
                     ))}
                   </div>
@@ -276,7 +276,7 @@ export default function CustomQuote() {
                   initial={{ opacity: 0, x: 50 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -50 }}
-                  className="grid grid-cols-1 lg:grid-cols-5 gap-10"
+                  className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10"
                 >
                   <div className="lg:col-span-3 space-y-4">
                     <div className="aspect-[4/3] bg-black/40 rounded-[32px] overflow-hidden relative border border-white/5 group">
@@ -292,7 +292,7 @@ export default function CustomQuote() {
                   <div className="lg:col-span-2 flex flex-col pt-4">
                       <div className="mb-4">
                          <span className="text-[9px] font-black uppercase tracking-widest text-primary mb-1 block">Arquivo Validado</span>
-                         <h3 className="text-xl font-black font-display uppercase tracking-tight mb-0.5 truncate">{file?.name}</h3>
+                         <h3 className="text-sm font-black font-display uppercase tracking-tight mb-0.5 truncate">{file?.name}</h3>
                       </div>
   
                       <div className="space-y-5 flex-1">
@@ -347,14 +347,14 @@ export default function CustomQuote() {
                               <p className="text-[8px] text-white/30 uppercase font-black mb-1 tracking-widest">Investimento Estimado</p>
                               <div className="flex items-baseline gap-1">
                                  <span className="text-sm text-white/40 font-mono">R$</span>
-                                 <span className="text-4xl font-display font-black text-shimmer">45,90</span>
+                                 <span className="text-3xl sm:text-4xl font-display font-black text-shimmer">45,90</span>
                               </div>
                            </div>
                         </div>
                         
                         <Button 
                           isShimmer
-                          className="w-full h-14 rounded-2xl gap-2 text-xs font-display font-black uppercase tracking-tight"
+                          className="w-full h-12 sm:h-14 rounded-2xl gap-2 text-xs font-display font-black uppercase tracking-tight"
                           onClick={submitQuote}
                         >
                           SOLICITAR IMPRESSÃO
@@ -373,24 +373,24 @@ export default function CustomQuote() {
                 >
                   <div className="relative mb-12">
                      <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
-                     <div className="w-32 h-32 rounded-[40px] bg-primary text-white flex items-center justify-center relative border-4 border-white/10 shadow-2xl">
-                       <CheckCircle2 className="w-16 h-16" />
+                     <div className="w-20 h-20 sm:w-32 sm:h-32 rounded-[40px] bg-primary text-white flex items-center justify-center relative border-2 sm:border-4 border-white/10 shadow-2xl">
+                       <CheckCircle2 className="w-10 h-10 sm:w-16 sm:h-16" />
                      </div>
                   </div>
                   
-                  <h2 className="text-5xl lg:text-7xl font-display font-black mb-6 uppercase tracking-tighter leading-none">
+                  <h2 className="text-3xl sm:text-5xl lg:text-7xl font-display font-black mb-6 uppercase tracking-tighter leading-none">
                     Protocolo <br /> Transmitido.
                   </h2>
-                  <p className="text-xl text-white/40 font-medium mb-12 leading-relaxed">
+                  <p className="text-base sm:text-xl text-white/40 font-medium mb-12 leading-relaxed">
                     Sua geometria foi enfileirada para revisão humana. Um engenheiro entrará em contato via dashboard em até <span className="text-primary">60 minutos</span>.
                   </p>
                   
                   <div className="flex flex-col sm:flex-row gap-6 w-full">
-                    <Button variant="outline" className="h-16 px-8 rounded-2xl flex-1 text-xs font-black uppercase tracking-widest" onClick={reset}>
+                    <Button variant="outline" className="h-12 sm:h-16 px-8 rounded-2xl flex-1 text-xs font-black uppercase tracking-widest" onClick={reset}>
                       NOVA ANÁLISE
                     </Button>
                     <Link to="/catalogo" className="flex-1">
-                      <Button className="h-16 px-8 rounded-2xl w-full text-xs font-black uppercase tracking-widest">
+                      <Button className="h-12 sm:h-16 px-8 rounded-2xl w-full text-xs font-black uppercase tracking-widest">
                         CATÁLOGO DE PRODUTOS
                       </Button>
                     </Link>

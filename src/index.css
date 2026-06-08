@@ -191,7 +191,7 @@
 .aurora-blob {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(90px);
+  filter: blur(50px);
   opacity: 0.65;
   will-change: transform;
   mix-blend-mode: screen;
@@ -285,15 +285,23 @@
 .homepage-marquee {
   width: max-content;
   animation: homepage-marquee 28s linear infinite;
+  will-change: transform;
+}
+
+.homepage-marquee-reverse {
+  width: max-content;
+  animation: homepage-marquee-reverse 34s linear infinite;
+  will-change: transform;
 }
 
 @keyframes homepage-marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+
+@keyframes homepage-marquee-reverse {
+  from { transform: translateX(-50%); }
+  to   { transform: translateX(0); }
 }
 
 /* Conic shimmer para chips/badges */

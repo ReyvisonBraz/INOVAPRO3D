@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { 
   collection, 
   query, 
@@ -18,20 +18,37 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage
 import { db, handleFirestoreError, OperationType, auth, storage } from "../../services/firebase";
 import { 
   Package, 
+  Clock, 
   Printer, 
   FileText, 
+  TrendingUp, 
+  Users, 
   Settings, 
   Trash2, 
   Plus, 
+  RefreshCw, 
   History,
+  Shield,
   Truck,
+  BarChart as BarChartIcon, 
+  PieChart as PieChartIcon, 
   MapPin,
+  Maximize2,
   CheckCircle2,
+  Box,
+  Sparkles,
   HelpCircle,
+  LayoutDashboard,
+  Search,
+  Bell,
+  ChevronRight,
   ArrowRight,
+  Zap,
   Edit,
   Eye,
+  LogOut,
   Mail,
+  Menu,
   X,
   Smartphone,
   CheckCircle,
@@ -39,34 +56,184 @@ import {
   Layers,
   Copy,
   Download,
+  Wallet,
   Calculator,
+  ListTodo,
   Upload
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { 
+  AreaChart, 
+  Area, 
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell
+} from 'recharts';
+import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
-import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey } from "../../lib/pricing";
+import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, DEFAULT_FAILURE_RATE, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey, type MachineConfig } from "../../lib/pricing";
+import { BrandMark } from "../../components/brand/BrandLogo";
+import { DiagnosticWidget } from "../../components/layout/DebugMarker";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
-import { ADMIN_MENU_ITEMS, type AdminTabId } from "./adminConfig";
-import { AdminSidebar } from "./components/AdminSidebar";
-import { AdminHeader } from "./components/AdminHeader";
-import { ProductionKanban } from "./components/ProductionKanban";
-import { AdminOverviewSummary } from "./components/AdminOverviewSummary";
-import { AdminOverviewCharts } from "./components/AdminOverviewCharts";
-import { ConfirmDialog, type ConfirmDialogState } from "./components/ConfirmDialog";
 import type {
   AuditLog,
+  Coupon,
   Customer,
   FAQ,
   GlobalSettings,
   Material,
   Order,
+  OrderItem,
   Product,
   Quote,
   ShowcaseItem,
   Ticket,
 } from "../../types/domain";
+
+type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'materials' | 'showcase' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs';
+
+const PT_LOWERCASE_WORDS = new Set(["de", "da", "do", "dos", "das", "a", "o", "as", "os", "e", "ou", "em", "com", "para", "por", "sem", "sob", "sobre", "num", "numa", "no", "na", "nos", "nas"]);
+
+function formatCatalogTitle(raw: string): string {
+  if (!raw) return raw;
+  const cleaned = raw
+    .replace(/\s*[|\-–—]\s*(Thingiverse|Printables|MakerWorld|Cults3D|MyMiniFactory|GrabCAD|Free 3D Models?|3D Models?|STL Files?|Free Download).*$/i, "")
+    .replace(/^(3D Printed?|Printable|FDM)\s+/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned
+    .toLowerCase()
+    .split(" ")
+    .map((word, i) => (i === 0 || !PT_LOWERCASE_WORDS.has(word)) ? word.charAt(0).toUpperCase() + word.slice(1) : word)
+    .join(" ");
+}
+
+function formatCatalogDescription(raw: string): string {
+  if (!raw) return raw;
+  const cleaned = raw
+    .replace(/\r\n/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  if (cleaned.length <= 500) return cleaned;
+  const truncated = cleaned.slice(0, 500);
+  const lastBreak = Math.max(truncated.lastIndexOf(". "), truncated.lastIndexOf(".\n"), truncated.lastIndexOf("! "), truncated.lastIndexOf("? "));
+  return (lastBreak > 200 ? truncated.slice(0, lastBreak + 1) : truncated + "...").trim();
+}
+
+async function importAndConvertImage(
+  url: string,
+  storageBucket: ReturnType<typeof import("firebase/storage").getStorage>
+): Promise<{ url: string; converted: boolean }> {
+  // Try loading with CORS — works if remote CDN sends Access-Control-Allow-Origin
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = () => reject(new Error("cors"));
+    img.src = url;
+  });
+
+  // Resize keeping max 1200px on longest side
+  const MAX = 1200;
+  const scale = Math.min(1, MAX / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round((img.naturalWidth || 1200) * scale);
+  canvas.height = Math.round((img.naturalHeight || 1200) * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise<Blob>((res, rej) =>
+    canvas.toBlob(b => (b ? res(b) : rej(new Error("blob"))), "image/webp", 0.85)
+  );
+
+  const { ref: storageRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
+  const path = `products/imports/${Date.now()}_${Math.random().toString(36).slice(2)}.webp`;
+  const fileRef = storageRef(storageBucket, path);
+  await uploadBytes(fileRef, blob, { contentType: "image/webp" });
+  const downloadUrl = await getDownloadURL(fileRef);
+  return { url: downloadUrl, converted: true };
+}
+
+async function translateToBR(text: string): Promise<string> {
+  if (!text.trim()) return text;
+  // Split at sentence boundaries to stay under MyMemory's 500-char limit
+  const sentences: string[] = [];
+  let current = "";
+  for (const part of text.split(/(?<=[.!?])\s+/)) {
+    if ((current + " " + part).length > 490 && current) {
+      sentences.push(current.trim());
+      current = part;
+    } else {
+      current = current ? current + " " + part : part;
+    }
+  }
+  if (current) sentences.push(current.trim());
+
+  const translated = await Promise.all(sentences.map(async chunk => {
+    try {
+      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|pt-BR`);
+      const d = await r.json() as { responseStatus?: number; responseData?: { translatedText?: string } };
+      return (d.responseStatus === 200 && d.responseData?.translatedText) ? d.responseData.translatedText : chunk;
+    } catch { return chunk; }
+  }));
+  return translated.join(" ").trim();
+}
+
+function NumInput({
+  value,
+  onChange,
+  min,
+  max,
+  step,
+  className,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  min?: number;
+  max?: number;
+  step?: number;
+  className?: string;
+}) {
+  const [draft, setDraft] = React.useState(String(value));
+  React.useEffect(() => { setDraft(String(value)); }, [value]);
+  return (
+    <input
+      type="number"
+      min={min}
+      max={max}
+      step={step}
+      value={draft}
+      className={className}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const n = Number(e.target.value);
+        if (e.target.value !== "" && Number.isFinite(n)) onChange(n);
+      }}
+      onBlur={() => {
+        const n = Number(draft);
+        if (draft === "" || !Number.isFinite(n)) {
+          const fallback = min ?? 0;
+          setDraft(String(fallback));
+          onChange(fallback);
+        }
+      }}
+    />
+  );
+}
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -74,11 +241,13 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLive, setIsLive] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<AdminTabId>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -92,11 +261,12 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const docRef = doc(db, 'settings', 'global');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setGlobalSettings(docSnap.data() as GlobalSettings);
-        }
+        const [globalSnap, machineSnap] = await Promise.all([
+          getDoc(doc(db, 'settings', 'global')),
+          getDoc(doc(db, 'settings', 'machine')),
+        ]);
+        if (globalSnap.exists()) setGlobalSettings(globalSnap.data() as GlobalSettings);
+        if (machineSnap.exists()) setMachineConfig(machineSnap.data() as MachineConfig);
       } catch (err) {
         console.error("Error fetching settings:", err);
       }
@@ -116,6 +286,42 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleImportImageUrl = async (url: string, addFn: (u: string) => void) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+    setImportingImage(true);
+    try {
+      const { getStorage } = await import("firebase/storage");
+      const result = await importAndConvertImage(trimmed, getStorage());
+      addFn(result.url);
+      toast.success("Imagem convertida para WebP e salva no Storage!", { position: "bottom-center" });
+    } catch {
+      // CORS blocked or canvas error — keep original URL as fallback
+      addFn(trimmed);
+      toast.warning("CORS bloqueou a conversão — URL original mantida.", { position: "bottom-center", duration: 3500 });
+    } finally {
+      setImportingImage(false);
+      setNewImageUrl("");
+    }
+  };
+
+  const handleSaveMachineConfig = async () => {
+    try {
+      await setDoc(doc(db, 'settings', 'machine'), {
+        ...machineConfig,
+        updatedAt: serverTimestamp()
+      });
+      toast.success("Config da máquina salva! A calculadora rápida já usa os novos valores.");
+    } catch {
+      toast.error("Erro ao salvar config da máquina.");
+    }
+  };
+
+  const filteredOrders = orders.filter(o => 
+    o.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (o.userName && o.userName.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   const filteredCustomers = customers.filter(c => 
     (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -125,11 +331,25 @@ export default function AdminDashboard() {
     (q.userName && q.userName.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (q.fileName && q.fileName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-  const activeMenuItem = ADMIN_MENU_ITEMS.find((item) => item.id === activeTab);
+  
+  const menuItems = [
+    { id: 'overview', name: 'Painel', icon: TrendingUp },
+    { id: 'orders', name: 'Pedidos', icon: Package },
+    { id: 'quotes', name: 'Orçamentos', icon: FileText },
+    { id: 'products', name: 'Catálogo', icon: Printer },
+    { id: 'materials', name: 'Materiais', icon: Box },
+    { id: 'showcase', name: 'Vitrine', icon: Sparkles },
+    { id: 'crm', name: 'Clientes', icon: Users },
+    { id: 'support', name: 'Suporte', icon: AlertCircle },
+    { id: 'faqs', name: 'FAQs', icon: HelpCircle },
+    { id: 'settings', name: 'Ajustes', icon: Settings },
+    { id: 'logs', name: 'Registro de Auditoria', icon: History },
+  ];
+  const activeMenuItem = menuItems.find((item) => item.id === activeTab);
 
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
   const [isEditingMaterial, setIsEditingMaterial] = useState(false);
-  const [selectedMaterial] = useState<Material | null>(null);
+  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [newMaterial, setNewMaterial] = useState({
     name: '',
     type: 'PLA',
@@ -337,20 +557,30 @@ export default function AdminDashboard() {
   const [quickCalcBatchQty, setQuickCalcBatchQty] = useState<number>(1);
   const [quickCalcMaterial, setQuickCalcMaterial] = useState<MaterialKey>('pla');
   const [quickCalcMaterialReserve, setQuickCalcMaterialReserve] = useState<number>(15);
+  const [quickCalcFailureRate, setQuickCalcFailureRate] = useState<number>(DEFAULT_FAILURE_RATE);
   const [quickCalcMinPrice, setQuickCalcMinPrice] = useState<number>(35);
   const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState<number>(1.6);
   const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState<number>(2.5);
 
+  // Photo management helper state
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [importingImage, setImportingImage] = useState(false);
+  // Translation loading indicator
+  const [translatingField, setTranslatingField] = useState<'name' | 'description' | null>(null);
+  // Machine config — loaded from Firestore settings/machine, used by quick calc
+  const [machineConfig, setMachineConfig] = useState<MachineConfig>(DEFAULT_MACHINE);
+
   // Calculadora rápida do admin agora consome o motor de precificação compartilhado
   // (src/lib/pricing.ts), garantindo que ela SEMPRE concorde com a calculadora pública.
-  // A depreciação da máquina usa DEFAULT_MACHINE silenciosamente (apenas exibida como readout).
-  const quickMachine = DEFAULT_MACHINE;
+  // A depreciação usa a config da máquina salva em settings/machine (editável em Ajustes).
+  const quickMachine = machineConfig;
   const quickCalcResult = computePricing({
     material: quickCalcMaterial,
     weightGrams: Math.max(0, Number(quickCalcWeight) || 0),
     hours: Math.max(0, parseTimeToHours(quickCalcTime)),
     quantity: Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1)),
     reservePct: Math.max(0, Number(quickCalcMaterialReserve) || 0),
+    failureRatePct: Math.max(0, Number(quickCalcFailureRate) || 0),
     kwhCost: DEFAULT_ENERGY.kwhCost,
     startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts,
     startupMinutes: DEFAULT_ENERGY.startupMinutes,
@@ -375,7 +605,15 @@ export default function AdminDashboard() {
     finalNotes?: string;
   } | null>(null);
 
-  const [confirmState, setConfirmState] = useState<ConfirmDialogState | null>(null);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    description: string;
+    confirmText?: string;
+    cancelText?: string;
+    isDanger?: boolean;
+    onConfirm: () => void;
+  } | null>(null);
 
   const triggerConfirm = (
     title: string,
@@ -457,6 +695,13 @@ export default function AdminDashboard() {
     modelUrl: '',
     baseDimensions: { x: 120, y: 120, z: 150 }
   });
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
+
+  const STATIC_CATEGORIES = ["DECORAÇÃO", "UTILITÁRIOS", "ACTION FIGURES", "ORGANIZADORES", "MODA", "GAMES", "PERSONALIZADO", "OUTROS"];
+  const allCategories = useMemo(
+    () => Array.from(new Set([...STATIC_CATEGORIES, ...customCategories])).sort(),
+    [customCategories]
+  );
 
   const resetNewProduct = () => {
     setNewProduct({
@@ -521,8 +766,8 @@ export default function AdminDashboard() {
 
       setNewProduct((current) => ({
         ...current,
-        name: data.title || current.name,
-        description: data.description || current.description,
+        name: formatCatalogTitle(data.title || current.name),
+        description: formatCatalogDescription(data.description || current.description),
         images: importedImages.length > 0 ? importedImages : current.images,
         sourceUrl: data.sourceUrl || url,
         modelUrl: data.modelUrl || current.modelUrl,
@@ -538,6 +783,37 @@ export default function AdminDashboard() {
           ...(data.technical || {}),
         },
       }));
+
+      // Auto-sugerir preço se dados técnicos disponíveis
+      const importedTech = { ...(data.technical || {}) };
+      const weightG = Number(importedTech.weight) || 0;
+      const printTimeH = (() => {
+        const t = importedTech.printTime || "";
+        const hMatch = t.match(/(\d+)\s*h/i);
+        const mMatch = t.match(/(\d+)\s*m/i);
+        return (hMatch ? Number(hMatch[1]) : 0) + (mMatch ? Number(mMatch[1]) / 60 : 0);
+      })();
+      if (weightG > 0 && printTimeH > 0) {
+        try {
+          const suggested = computePricing({
+            material: "pla",
+            weightGrams: weightG,
+            hours: printTimeH,
+            quantity: 1,
+            reservePct: MATERIAL_PRESETS.pla.defaultReservePct,
+            failureRatePct: DEFAULT_FAILURE_RATE,
+            machineConfig: DEFAULT_MACHINE,
+            kwhCost: DEFAULT_ENERGY.kwhCost,
+            startupWatts: DEFAULT_ENERGY.startupPowerWatts,
+            startupMinutes: DEFAULT_ENERGY.startupMinutes,
+            wholesaleMarkup: 1.8,
+            retailMarkup: 2.5,
+            minPrice: 15,
+          });
+          setNewProduct(p => ({ ...p, basePrice: parseFloat(suggested.retailUnit.toFixed(2)) }));
+          toast.info(`Preço sugerido: R$ ${suggested.retailUnit.toFixed(2)} (varejo unitário)`, { duration: 5000 });
+        } catch { /* silently skip */ }
+      }
 
       toast.success("Metadados importados. Revise o preco antes de salvar.");
     } catch (error) {
@@ -604,6 +880,7 @@ export default function AdminDashboard() {
       const productsSnap = await getDocs(collection(db, "products"));
       const showcaseSnap = await getDocs(collection(db, "showcase"));
       const materialsSnap = await getDocs(collection(db, "materials"));
+      const couponsSnap = await getDocs(collection(db, "coupons"));
       const customersSnap = await getDocs(collection(db, "customers"));
       const ticketsSnap = await getDocs(query(collection(db, "tickets"), orderBy("createdAt", "desc")));
       const faqsSnap = await getDocs(collection(db, "faqs"));
@@ -612,9 +889,12 @@ export default function AdminDashboard() {
       
       setOrders(ordersSnap.docs.map(o => ({ id: o.id, ...o.data() } as Order)));
       setQuotes(quotesSnap.docs.map(q => ({ id: q.id, ...q.data() } as Quote)));
-      setProducts(productsSnap.docs.map(p => ({ id: p.id, ...p.data() } as Product)));
+      const loadedProducts = productsSnap.docs.map(p => ({ id: p.id, ...p.data() } as Product));
+      setProducts(loadedProducts);
+      setCustomCategories(Array.from(new Set(loadedProducts.map(p => p.category).filter(Boolean))) as string[]);
       setShowcase(showcaseSnap.docs.map(s => ({ id: s.id, ...s.data() } as ShowcaseItem)));
       setMaterials(materialsSnap.docs.map(m => ({ id: m.id, ...m.data() } as Material)));
+      setCoupons(couponsSnap.docs.map(c => ({ id: c.id, ...c.data() } as Coupon)));
       setCustomers(customersSnap.docs.map(c => ({ id: c.id, ...c.data() } as Customer)));
       setTickets(ticketsSnap.docs.map(t => ({ id: t.id, ...t.data() } as Ticket)));
       setFaqs(faqsSnap.docs.map(f => ({ id: f.id, ...f.data() } as FAQ)));
@@ -635,6 +915,7 @@ export default function AdminDashboard() {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(1));
     let isInitialLoad = true;
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      setIsLive(true);
       if (isInitialLoad) { isInitialLoad = false; return; }
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
@@ -643,7 +924,7 @@ export default function AdminDashboard() {
           fetchData();
         }
       });
-    });
+    }, () => setIsLive(false));
     return () => unsubscribe();
   }, []);
 
@@ -1177,6 +1458,20 @@ export default function AdminDashboard() {
     }
   };
 
+  const chartData = orders.map(o => ({
+    name: new Date(o.createdAt?.seconds * 1000).toLocaleDateString() || 'N/A',
+    total: o.total || 0
+  })).reverse();
+
+  const pieData = [
+    { name: 'Pendente', value: orders.filter(o => o.status === 'PENDING_PAYMENT').length },
+    { name: 'Pago', value: orders.filter(o => o.status === 'PAID').length },
+    { name: 'Produção', value: orders.filter(o => ['QUEUE', 'SLICING', 'PRINTING', 'FINISHING'].includes(o.status)).length },
+    { name: 'Concluído', value: orders.filter(o => o.status === 'COMPLETED').length },
+  ];
+
+  const COLORS = ['#2563EB', '#22C55E', '#3B82F6', '#EAB308'];
+
   if (loading) return (
     <div className="min-h-screen bg-[#050508] flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -1186,32 +1481,171 @@ export default function AdminDashboard() {
   return (
     <div className="relative flex min-h-screen bg-[#050508] text-white overflow-hidden">
       <FloatingBackground subtle />
-      <AdminSidebar
-        activeTab={activeTab}
-        isOpen={isSidebarOpen}
-        onClose={() => setIsSidebarOpen(false)}
-        onSelectTab={setActiveTab}
-        onLogout={() => auth.signOut()}
-      />
+      {/* SIDEBAR - Responsive Toggle */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
+      <aside className={cn(
+        "w-64 border-r border-white/5 bg-surface/30 backdrop-blur-3xl flex flex-col fixed inset-y-0 z-[70] transition-transform duration-500 ease-in-out lg:translate-x-0",
+        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="p-8 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-3">
+            <BrandMark className="h-6 w-6" />
+            <h1 className="text-xl font-black font-display uppercase italic tracking-tighter">INOVAPRO<span className="text-primary truncate">Admin</span></h1>
+          </Link>
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-white/20 hover:text-white">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto no-scrollbar pb-8">
+          {menuItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveTab(item.id as AdminTabId);
+                setIsSidebarOpen(false);
+              }}
+              className={cn(
+                "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-bold transition-all group",
+                activeTab === item.id ? "bg-primary text-white shadow-xl shadow-primary/20" : "text-white/30 hover:text-white hover:bg-white/5"
+              )}
+            >
+              <item.icon className="w-4 h-4" />
+              {item.name}
+            </button>
+          ))}
+        </nav>
+        <div className="p-4 mt-auto border-t border-white/5">
+           <button className="flex items-center gap-3 w-full p-2 hover:bg-white/5 rounded-2xl transition-colors" onClick={() => auth.signOut()}>
+              <LogOut className="w-4 h-4 text-white/20" />
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Sair</span>
+           </button>
+        </div>
+      </aside>
 
       <main className="relative z-10 flex-1 lg:ml-64 min-h-screen min-w-0">
-        <AdminHeader
-          activeTab={activeTab}
-          activeTabName={activeMenuItem?.name}
-          searchTerm={searchTerm}
-          isSyncing={isSyncing}
-          onOpenSidebar={() => setIsSidebarOpen(true)}
-          onSearchChange={setSearchTerm}
-          onSyncData={handleSyncData}
-        />
+        <header className="h-20 border-b border-white/5 bg-[#050508]/80 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 bg-white/5 rounded-xl border border-white/10 hover:border-primary/50 transition-all"
+            >
+              <Menu className="w-5 h-5 text-primary" />
+            </button>
+            <div className="flex items-center gap-2">
+              <BrandMark className="h-6 w-6 hidden sm:block" />
+              <h2 className="text-[10px] sm:text-sm font-black uppercase tracking-[0.2em] italic truncate">{activeMenuItem?.name || activeTab}</h2>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
+             <div className="hidden sm:flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2 border border-white/5 focus-within:border-primary/50 transition-all flex-1 max-w-md">
+               <Search className="w-3.5 h-3.5 text-white/20" />
+               <input 
+                  type="text" 
+                  placeholder="Pesquisar protocolo ou cliente..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="bg-transparent border-none outline-none text-[10px] font-bold text-white w-full" 
+               />
+             </div>
+             <div className="flex items-center gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  className={cn("h-9 px-3 sm:px-4 text-[10px] uppercase font-black", isSyncing && "opacity-50")} 
+                  onClick={handleSyncData}
+                  disabled={isSyncing}
+                >
+                  <RefreshCw className={cn("w-3 h-3 sm:mr-2", isSyncing && "animate-spin")} /> 
+                  <span className="hidden sm:inline">{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
+                </Button>
+             </div>
+          </div>
+        </header>
 
         <div className="p-3 sm:p-6 lg:p-10 xl:p-12 max-w-[1600px] mx-auto overflow-x-hidden">
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-'
-                <AdminOverviewSummary orders={orders} quotes={quotes} onSelectTab={setActiveTab} />
-'
+                {/* TOP STATS */}
+                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
+                  <div className="col-span-2 glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 relative overflow-hidden group min-h-[150px] sm:min-h-[190px]">
+                    <TrendingUp className="absolute top-6 right-6 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 text-primary opacity-10" />
+                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-2 italic">Receita Acumulada</p>
+                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words">R$ {orders.reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}</h2>
+                  </div>
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
+                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Em Produção</p>
+                    <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary">{orders.filter(o => o.status !== "COMPLETED").length}</h3>
+                  </div>
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
+                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Orçamentos</p>
+                    <h3 className="text-3xl sm:text-4xl font-display font-black italic">{quotes.filter(q => q.status === "PENDING").length}</h3>
+                  </div>
+                </div>
+
+                {/* RECENT ACTIVITY BENTO */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                  {/* Recent Orders */}
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
+                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                          <Package className="w-3.5 h-3.5 text-primary" /> Últimos Pedidos
+                       </h3>
+                       <button onClick={() => setActiveTab('orders')} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
+                    </div>
+                    <div className="space-y-3">
+                       {orders.slice(0, 4).map(o => (
+                          <div key={o.id} className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0">
+                             <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 shrink-0 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center font-mono text-[9px] font-bold text-white/40">#{o.id.slice(0,4)}</div>
+                                <div className="min-w-0">
+                                   <p className="text-xs font-bold uppercase truncate max-w-[120px]">{o.userName}</p>
+                                   <p className="text-[8px] text-white/20 uppercase font-black tracking-widest">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                </div>
+                             </div>
+                             <p className="shrink-0 text-sm font-display font-black text-primary italic">R$ {(o.total || 0).toFixed(2)}</p>
+                          </div>
+                       ))}
+                    </div>
+                  </div>
+
+                  {/* Recent Quotes */}
+                  <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
+                    <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
+                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
+                          <FileText className="w-3.5 h-3.5 text-blue-400" /> Consultas de Preço
+                       </h3>
+                       <button onClick={() => setActiveTab('quotes')} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
+                    </div>
+                    <div className="space-y-3">
+                       {quotes.slice(0, 4).map(q => (
+                          <div key={q.id} className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0">
+                             <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-8 h-8 shrink-0 rounded-lg bg-blue-500/10 flex items-center justify-center"><FileText className="w-4 h-4 text-blue-400" /></div>
+                                <div className="min-w-0">
+                                   <p className="text-xs font-bold uppercase truncate max-w-[120px]">{q.userName}</p>
+                                   <p className="text-[8px] text-white/20 uppercase font-black tracking-widest truncate max-w-[150px]">{q.fileName}</p>
+                                </div>
+                             </div>
+                             <span className="shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">PENDENTE</span>
+                          </div>
+                       ))}
+                    </div>
+                  </div>
+                </div>
+
                 {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
                 <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 bg-gradient-to-b from-white/[0.01] to-black/40 space-y-5 sm:space-y-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4">
@@ -1224,13 +1658,13 @@ export default function AdminDashboard() {
                         <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">P2S + AMS | Equatorial Pará | custo real com atacado e varejo</p>
                       </div>
                     </div>
-                    <span className="w-fit text-[9px] font-black tracking-wider uppercase text-[#38bdf8] bg-[#38bdf8]/10 px-2.5 py-1 rounded-full border border-[#38bdf8]/10">Maker V6.0</span>
+                    <span className="w-fit text-[9px] font-black tracking-wider uppercase text-white/50 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">Maker V6.0</span>
                   </div>
 
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
                     {/* COLUNA 1: DADOS DO CLIENTE */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">1. Dados do Cliente e Peça</h4>
                       <div>
                         <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                           Nome do Cliente
@@ -1242,7 +1676,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcCustomerName}
                           onChange={(e) => setQuickCalcCustomerName(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-bold"
                           placeholder="Ex: João Silva"
                         />
                       </div>
@@ -1257,7 +1691,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcPhone}
                           onChange={(e) => setQuickCalcPhone(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           placeholder="Ex: 11999998888"
                         />
                       </div>
@@ -1272,7 +1706,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcPieceName}
                           onChange={(e) => setQuickCalcPieceName(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-bold"
                           placeholder="Ex: Suporte de Headset"
                         />
                       </div>
@@ -1280,7 +1714,7 @@ export default function AdminDashboard() {
 
                     {/* COLUNA 2: ESPECIFICAÇÕES TÉCNICAS */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">2. Especificações da Impressão</h4>
 
                       {/* SELETOR DE MATERIAL */}
                       <div>
@@ -1298,8 +1732,8 @@ export default function AdminDashboard() {
                               onClick={() => setQuickCalcMaterial(key)}
                               className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
                                 quickCalcMaterial === key
-                                  ? 'bg-primary/20 border-primary/50 text-primary'
-                                  : 'bg-black/40 border-white/10 text-white/40 hover:border-white/20'
+                                  ? 'bg-white text-[#07080d] border-white'
+                                  : 'bg-white/[0.03] border-white/10 text-white/40 hover:border-white/20'
                               }`}
                             >
                               {MATERIAL_PRESETS[key].label}
@@ -1319,12 +1753,11 @@ export default function AdminDashboard() {
                               <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                             </span>
                           </label>
-                          <input
-                            type="number"
-                            min="0"
+                          <NumInput
+                            min={0}
                             value={quickCalcWeight}
-                            onChange={(e) => setQuickCalcWeight(Number(e.target.value))}
-                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                            onChange={setQuickCalcWeight}
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           />
                         </div>
                         <div>
@@ -1334,12 +1767,11 @@ export default function AdminDashboard() {
                               <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
                             </span>
                           </label>
-                          <input
-                            type="number"
-                            min="1"
+                          <NumInput
+                            min={1}
                             value={quickCalcBatchQty}
-                            onChange={(e) => setQuickCalcBatchQty(Number(e.target.value))}
-                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                            onChange={setQuickCalcBatchQty}
+                            className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           />
                         </div>
                       </div>
@@ -1355,7 +1787,7 @@ export default function AdminDashboard() {
                           type="text"
                           value={quickCalcTime}
                           onChange={(e) => setQuickCalcTime(e.target.value)}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
+                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
                           placeholder="Ex: 2h 30m"
                         />
                       </div>
@@ -1412,13 +1844,28 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="5"
+                            <NumInput
+                              min={0}
+                              max={100}
+                              step={5}
                               value={quickCalcMaterialReserve}
-                              onChange={(e) => setQuickCalcMaterialReserve(Number(e.target.value))}
+                              onChange={setQuickCalcMaterialReserve}
+                              className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                              Taxa de Falha %
+                              <span title={HELP.failureRate}>
+                                <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                              </span>
+                            </label>
+                            <NumInput
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={quickCalcFailureRate}
+                              onChange={setQuickCalcFailureRate}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1429,12 +1876,11 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="5"
+                            <NumInput
+                              min={0}
+                              step={5}
                               value={quickCalcMinPrice}
-                              onChange={(e) => setQuickCalcMinPrice(Number(e.target.value))}
+                              onChange={setQuickCalcMinPrice}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1445,12 +1891,11 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.1"
+                            <NumInput
+                              min={0}
+                              step={0.1}
                               value={quickCalcWholesaleMarkup}
-                              onChange={(e) => setQuickCalcWholesaleMarkup(Number(e.target.value))}
+                              onChange={setQuickCalcWholesaleMarkup}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1461,12 +1906,11 @@ export default function AdminDashboard() {
                                 <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
                               </span>
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.1"
+                            <NumInput
+                              min={0}
+                              step={0.1}
                               value={quickCalcRetailMarkup}
-                              onChange={(e) => setQuickCalcRetailMarkup(Number(e.target.value))}
+                              onChange={setQuickCalcRetailMarkup}
                               className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
                             />
                           </div>
@@ -1476,9 +1920,9 @@ export default function AdminDashboard() {
 
                     {/* COLUNA 3: RESULTADO */}
                     <div className="space-y-4">
-                      <h4 className="text-[10px] uppercase font-black tracking-widest text-[#2563EB] italic border-b border-white/5 pb-2">3. Custo Real e Lucro</h4>
+                      <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">3. Custo Real e Lucro</h4>
 
-                      <div className="card-glow bg-white/[0.02] border border-primary/20 rounded-[24px] p-4 sm:p-5 space-y-3 shadow-[0_0_24px_rgba(37,99,235,0.1)]">
+                      <div className="card-glow bg-white/[0.02] border border-white/10 rounded-[24px] p-4 sm:p-5 space-y-3 shadow-[0_0_24px_rgba(37,99,235,0.08)]">
                         {/* CUSTO REAL */}
                         <div className="flex justify-between gap-3 text-xs text-white/70">
                           <span className="min-w-0">Material ({quickCalcResult.weightGrams.toFixed(1)}g + {quickCalcMaterialReserve}% reserva):</span>
@@ -1492,6 +1936,12 @@ export default function AdminDashboard() {
                           <span className="min-w-0">Hora-máquina ({quickCalcResult.hours.toFixed(2)}h × {formatBRL(quickCalcResult.machineHourCost)}):</span>
                           <span className="shrink-0 font-mono text-white">{formatBRL(quickCalcResult.machineCost)}</span>
                         </div>
+                        {quickCalcResult.failureLoss > 0 && (
+                          <div className="flex justify-between gap-3 text-xs text-white/70">
+                            <span className="min-w-0">Falhas ({quickCalcFailureRate}% de retrabalho):</span>
+                            <span className="shrink-0 font-mono text-white">{formatBRL(quickCalcResult.failureLoss)}</span>
+                          </div>
+                        )}
                         <div className="flex justify-between gap-3 text-xs font-bold text-white/40 border-t border-white/5 pt-2">
                           <span>Custo real do lote:</span>
                           <span className="shrink-0 font-mono text-white/80">{formatBRL(quickCalcResult.totalCost)}</span>
@@ -1504,38 +1954,40 @@ export default function AdminDashboard() {
                             <span className="font-mono text-white/70">{formatBRL(quickCalcResult.unitCost)}</span>
                           </div>
                           <div className="mt-2 flex h-1.5 rounded-full bg-white/5 overflow-hidden">
-                            <div className="h-full bg-[#38bdf8]" style={{ width: `${quickCalcResult.shares.material}%` }} />
-                            <div className="h-full bg-[#f97316]" style={{ width: `${quickCalcResult.shares.energy}%` }} />
-                            <div className="h-full bg-[#a78bfa]" style={{ width: `${quickCalcResult.shares.machine}%` }} />
+                            <div className="h-full bg-cyan-400" style={{ width: `${quickCalcResult.shares.material}%` }} />
+                            <div className="h-full bg-amber-400" style={{ width: `${quickCalcResult.shares.energy}%` }} />
+                            <div className="h-full bg-primary" style={{ width: `${quickCalcResult.shares.machine}%` }} />
+                            <div className="h-full bg-orange-500" style={{ width: `${quickCalcResult.shares.failure}%` }} />
                           </div>
-                          <div className="mt-2 grid grid-cols-3 gap-1 text-[7px] uppercase font-black text-white/35">
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#38bdf8]" />Mat. {quickCalcResult.shares.material.toFixed(0)}%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#f97316]" />Ener. {quickCalcResult.shares.energy.toFixed(0)}%</span>
-                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-[#a78bfa]" />Maq. {quickCalcResult.shares.machine.toFixed(0)}%</span>
+                          <div className="mt-2 grid grid-cols-2 min-[430px]:grid-cols-4 gap-1 text-[7px] uppercase font-black text-white/35">
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-cyan-400" />Mat. {quickCalcResult.shares.material.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-amber-400" />Ener. {quickCalcResult.shares.energy.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-primary" />Maq. {quickCalcResult.shares.machine.toFixed(0)}%</span>
+                            <span className="flex items-center gap-1"><span className="inline-block w-2 h-1.5 rounded-sm bg-orange-500" />Falha {quickCalcResult.shares.failure.toFixed(0)}%</span>
                           </div>
                         </div>
 
                         {/* PREÇOS ATACADO / VAREJO */}
                         <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 border-t border-white/10 pt-3">
-                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinWholesale ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-[#f59e0b]/20 bg-[#f59e0b]/10'}`}>
-                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-[#fbbf24] tracking-wider">
+                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinWholesale ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-amber-400/20 bg-amber-400/[0.06]'}`}>
+                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-amber-300 tracking-wider">
                               Atacado ×{quickCalcWholesaleMarkup}
                               {quickCalcResult.isBelowMinWholesale && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
                             </span>
                             <strong className="block text-sm font-mono text-white mt-1 break-words">{formatBRL(quickCalcResult.wholesaleTotal)}</strong>
                             <span className="block text-[9px] text-white/50 mt-0.5">{formatBRL(quickCalcResult.wholesaleUnit)} / un.</span>
-                            <span className="block text-[8px] text-[#4ade80] font-black mt-1">
+                            <span className="block text-[8px] text-emerald-400 font-black mt-1">
                               Lucro: {formatBRL(quickCalcResult.profitWholesale)} ({quickCalcResult.profitWholesalePct.toFixed(0)}%)
                             </span>
                           </div>
-                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinRetail ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-[#38bdf8]/20 bg-[#38bdf8]/10'}`}>
-                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-[#38bdf8] tracking-wider">
+                          <div className={`rounded-2xl border p-3 ${quickCalcResult.isBelowMinRetail ? 'border-yellow-500/30 bg-yellow-500/10' : 'border-primary/30 bg-primary/10'}`}>
+                            <span className="flex items-center gap-1 text-[8px] uppercase font-black text-primary tracking-wider">
                               Varejo ×{quickCalcRetailMarkup}
                               {quickCalcResult.isBelowMinRetail && <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo."><AlertCircle className="w-3 h-3 text-yellow-400" /></span>}
                             </span>
                             <strong className="block text-sm font-mono text-white mt-1 break-words">{formatBRL(quickCalcResult.retailTotal)}</strong>
                             <span className="block text-[9px] text-white/50 mt-0.5">{formatBRL(quickCalcResult.retailUnit)} / un.</span>
-                            <span className="block text-[8px] text-[#4ade80] font-black mt-1">
+                            <span className="block text-[8px] text-emerald-400 font-black mt-1">
                               Lucro: {formatBRL(quickCalcResult.profitRetail)} ({quickCalcResult.profitRetailPct.toFixed(0)}%)
                             </span>
                           </div>
@@ -1553,37 +2005,190 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
-                <ProductionKanban
-                  orders={orders}
-                  searchTerm={searchTerm}
-                  variant="compact"
-                  onSelectOrder={(order) => {
-                    setActiveTab("orders");
-                    setSelectedOrder(order);
-                  }}
-                />
-                <AdminOverviewCharts orders={orders} />
+
+                {/* ESTEIRA DE PRODUÇÃO (KANBAN) DIRETA NA TELA INICIAL */}
+                <div className="space-y-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center bg-white/[0.02] p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-white/5">
+                     <div className="min-w-0">
+                        <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2">
+                           <Layers className="w-4 h-4 shrink-0 text-primary" /> Esteira de Produção
+                        </h3>
+                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Controle logístico e manufatura diretamente no dashboard inicial</p>
+                     </div>
+                     <span className="w-fit text-[8px] font-black uppercase tracking-widest text-white/30 bg-white/5 border border-white/5 rounded-full px-3 py-1">Arraste para ver etapas</span>
+                  </div>
+
+                  <div className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
+                     {[
+                       { id: 'PENDING_PAYMENT', label: 'AGUAR. PAGTO', icon: Wallet },
+                       { id: 'PAID', label: 'PAGO', icon: CheckCircle2 },
+                       { id: 'QUEUE', label: 'FILA IMPRESSÃO', icon: ListTodo },
+                       { id: 'PRINTING', label: 'IMPRIMINDO', icon: Zap },
+                       { id: 'FINISHING', label: 'ACABAMENTO', icon: Layers },
+                       { id: 'SHIPPED', label: 'ENVIADO', icon: Truck },
+                       { id: 'COMPLETED', label: 'FINALIZADO', icon: Shield },
+                     ].map(stage => {
+                        const stageOrders = orders.filter(o => o.status === stage.id &&
+                          (searchTerm === "" ||
+                           o.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           o.id.toLowerCase().includes(searchTerm.toLowerCase()))
+                        );
+                        const Icon = stage.icon;
+                        return (
+                           <div key={stage.id} className="min-w-[245px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[26px] sm:rounded-[32px] flex flex-col h-[390px] sm:h-[420px]">
+                              <div className="p-4 border-b border-white/5 bg-white/[0.01]">
+                                 <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2 min-w-0">
+                                       <Icon className="w-3.5 h-3.5 shrink-0 text-primary" />
+                                       <h4 className="text-[10px] font-black uppercase text-white/70 truncate">{stage.label}</h4>
+                                    </div>
+                                    <span className="text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40">{stageOrders.length}</span>
+                                 </div>
+                              </div>
+                              <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
+                                 {stageOrders.map(o => (
+                                    <div key={o.id} onClick={() => { setActiveTab('orders'); setSelectedOrder(o); }} className="glass p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)]">
+                                       <div className="flex justify-between items-start mb-2">
+                                          <p className="text-[8px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
+                                          <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
+                                       </div>
+                                       <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">{o.userName}</h5>
+                                       <p className="text-[9px] text-white/30 line-clamp-1 mb-3 mt-1 font-bold">{o.items?.map((i: OrderItem) => i.name || i.fileName).join(' • ')}</p>
+                                       <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                                           <p className="text-[8px] font-mono text-white/20">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                           <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all">
+                                               <ArrowRight className="w-2.5 h-2.5" />
+                                           </div>
+                                       </div>
+                                    </div>
+                                 ))}
+                                 {stageOrders.length === 0 && (
+                                    <div className="py-12 text-center">
+                                       <p className="text-[8px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto">Sem Pedidos</p>
+                                    </div>
+                                 )}
+                              </div>
+                           </div>
+                        )
+                     })}
+                  </div>
+                </div>
+
+                {/* CHARTS ROW */}
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
+                  <div className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]">
+                     <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData}>
+                          <defs>
+                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3}/>
+                              <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+                          <XAxis dataKey="name" stroke="#ffffff10" fontSize={9} tick={{ fill: '#ffffff20' }} />
+                          <YAxis stroke="#ffffff10" fontSize={9} tick={{ fill: '#ffffff20' }} />
+                          <Tooltip contentStyle={{ backgroundColor: '#0A0A0F', border: '1px solid rgba(37,99,235,0.1)', borderRadius: '24px' }} />
+                          <Area type="monotone" dataKey="total" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+                        </AreaChart>
+                     </ResponsiveContainer>
+                  </div>
+                  
+                  <div className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]">
+                     <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                           <Pie data={pieData} innerRadius={60} outerRadius={85} paddingAngle={10} dataKey="value">
+                              {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                           </Pie>
+                        </PieChart>
+                     </ResponsiveContainer>
+                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
+                        <span className="text-2xl font-black italic">{orders.length}</span>
+                        <span className="text-[8px] font-black uppercase text-white/20">Pedidos</span>
+                     </div>
+                  </div>
+                </div>
               </motion.div>
             )}
 
             {activeTab === 'orders' && (
               <motion.div key="orders" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                <ProductionKanban
-                  orders={orders}
-                  searchTerm={searchTerm}
-                  onSelectOrder={setSelectedOrder}
-                />
+                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
+                    <div>
+                       <h3 className="text-sm font-black uppercase tracking-widest italic">Esteira de Produção (Kanban)</h3>
+                       <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Painel de controle logístico e manufatura</p>
+                    </div>
+                 </div>
+
+                 <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-8 snap-x no-scrollbar">
+                    {[
+                      { id: 'PENDING_PAYMENT', label: 'AGUAR. PAGTO', icon: Wallet },
+                      { id: 'PAID', label: 'PAGO', icon: CheckCircle2 },
+                      { id: 'QUEUE', label: 'FILA IMPRESSÃO', icon: ListTodo },
+                      { id: 'PRINTING', label: 'IMPRIMINDO', icon: Zap },
+                      { id: 'FINISHING', label: 'ACABAMENTO', icon: Layers },
+                      { id: 'SHIPPED', label: 'ENVIADO', icon: Truck },
+                      { id: 'COMPLETED', label: 'FINALIZADO', icon: Shield },
+                    ].map(stage => {
+                       const stageOrders = orders.filter(o => o.status === stage.id &&
+                         (searchTerm === "" ||
+                          o.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          o.id.toLowerCase().includes(searchTerm.toLowerCase()))
+                       );
+                       const Icon = stage.icon;
+                       return (
+                          <div key={stage.id} className="min-w-[260px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[32px] flex flex-col h-[65vh] sm:h-[70vh]">
+                             {/* Column Header */}
+                             <div className="p-4 sm:p-5 border-b border-white/5 bg-white/[0.02]">
+                                <div className="flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-2">
+                                       <Icon className="w-4 h-4 text-primary" />
+                                       <h4 className="text-xs font-black uppercase text-white/80">{stage.label}</h4>
+                                    </div>
+                                    <span className="text-[10px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40">{stageOrders.length}</span>
+                                </div>
+                             </div>
+                             
+                             {/* Column Body / Cards */}
+                             <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
+                                {stageOrders.map(o => (
+                                   <div key={o.id} onClick={() => setSelectedOrder(o)} className="glass p-4 sm:p-5 rounded-[24px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_20px_rgba(37,99,235,0.1)]">
+                                      <div className="flex justify-between items-start mb-3">
+                                         <p className="text-[9px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
+                                         <p className="text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
+                                      </div>
+                                      <h5 className="text-sm font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">{o.userName}</h5>
+                                      <p className="text-[10px] text-white/30 line-clamp-1 mb-4 mt-1 font-bold">{o.items?.map((i: OrderItem) => i.name || i.fileName).join(' • ')}</p>
+                                      
+                                      <div className="flex items-center justify-between border-t border-white/5 pt-3">
+                                          <p className="text-[8px] font-mono text-white/20">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                                          <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all">
+                                              <ArrowRight className="w-3 h-3" />
+                                          </div>
+                                      </div>
+                                   </div>
+                                ))}
+                                {stageOrders.length === 0 && (
+                                   <div className="py-10 text-center">
+                                      <p className="text-[9px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-4 w-1/2 mx-auto">Vazio</p>
+                                   </div>
+                                )}
+                             </div>
+                          </div>
+                       )
+                    })}
+                 </div>
               </motion.div>
             )}
 
             {activeTab === 'products' && (
               <motion.div key="products" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Controle de Catálogo</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Gerencie os itens visíveis na loja</p>
                     </div>
-                    <Button onClick={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }} className="rounded-2xl gap-2 h-11 px-6">
+                    <Button onClick={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Novo Produto
                     </Button>
                  </div>
@@ -1602,7 +2207,7 @@ export default function AdminDashboard() {
                                 <span className="px-3 py-1 bg-primary text-white text-[9px] font-black uppercase rounded-full tracking-widest italic">{p.category}</span>
                              </div>
                           </div>
-                          <h4 className="text-sm font-black uppercase mb-1">{p.name}</h4>
+                          <h4 className="text-sm font-black uppercase mb-1 line-clamp-2 leading-snug">{p.name}</h4>
                           <p className="text-[10px] text-white/20 mb-4 line-clamp-2">{p.description}</p>
                           
                           <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 mb-4">
@@ -1631,12 +2236,12 @@ export default function AdminDashboard() {
 
             {activeTab === 'materials' && (
               <motion.div key="materials" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Estoque</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Matéria Prima para Impressão</p>
                     </div>
-                    <Button onClick={() => setIsAddingMaterial(true)} className="rounded-2xl gap-2 h-11 px-6">
+                    <Button onClick={() => setIsAddingMaterial(true)} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Novo Filamento
                     </Button>
                  </div>
@@ -1886,12 +2491,12 @@ export default function AdminDashboard() {
 
             {activeTab === 'faqs' && (
               <motion.div key="faqs" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic">Central de Dúvidas</h3>
                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Base de Conhecimento do Cliente</p>
                     </div>
-                    <Button onClick={() => setIsAddingFAQ(true)} className="rounded-2xl gap-2 h-11 px-6">
+                    <Button onClick={() => setIsAddingFAQ(true)} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Nova Resposta
                     </Button>
                  </div>
@@ -1917,14 +2522,14 @@ export default function AdminDashboard() {
 
             {activeTab === 'showcase' && (
               <motion.div key="showcase" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
-                 <div className="flex justify-between items-center bg-white/5 p-8 rounded-[40px] border border-white/5">
-                    <div>
+                 <div className="flex justify-between items-center gap-3 bg-white/5 p-8 rounded-[40px] border border-white/5">
+                    <div className="min-w-0">
                        <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2 text-primary">
                           <Eye className="w-4 h-4" /> Gestão de Vitrine
                        </h3>
                        <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em] mt-1">Banners e Destaques da Landing Page</p>
                     </div>
-                    <Button onClick={() => setIsAddingShowcase(true)} className="rounded-3xl gap-2 h-12 px-8 bg-white text-black hover:bg-white/90">
+                    <Button onClick={() => setIsAddingShowcase(true)} className="rounded-2xl gap-2 h-9 px-4 bg-white text-black hover:bg-white/90 whitespace-nowrap shrink-0 text-[10px]">
                        <Plus className="w-4 h-4" /> Novo Destaque
                     </Button>
                  </div>
@@ -2013,16 +2618,47 @@ export default function AdminDashboard() {
                        </div>
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase text-white/20">Valor Mínimo para Orçamento (R$)</label>
-                          <input 
-                            type="number" 
-                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50" 
+                          <NumInput
+                            min={0}
+                            className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50"
                             value={globalSettings.minOrderValue}
-                            onChange={(e) => setGlobalSettings({...globalSettings, minOrderValue: parseFloat(e.target.value)})}
+                            onChange={(v) => setGlobalSettings({...globalSettings, minOrderValue: v})}
                           />
                        </div>
                        <Button className="w-full h-14 rounded-2xl" onClick={handleSaveSettings}>Salvar Alterações Globais</Button>
                     </div>
                  </div>
+                 <div className="glass rounded-[48px] p-10 border border-white/5 space-y-8 md:col-span-2">
+                    <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2"><Calculator className="w-4 h-4" /> Config da Máquina (Bambu Lab P2S)</h3>
+                    <p className="text-[9px] text-white/30 uppercase tracking-widest -mt-4">Esses valores são usados pela calculadora rápida e pela calculadora pública como padrão inicial.</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                      {([
+                        { label: "Preço da Máquina (R$)", key: "price", min: 0 },
+                        { label: "Vida útil (horas)", key: "lifespanHours", min: 1 },
+                        { label: "Preço do Bico (R$)", key: "nozzlePrice", min: 0 },
+                        { label: "Vida do Bico (h)", key: "nozzleLifeHours", min: 1 },
+                        { label: "Preço da Placa (R$)", key: "platePrice", min: 0 },
+                        { label: "Vida da Placa (h)", key: "plateLifeHours", min: 1 },
+                        { label: "Preço das Correias (R$)", key: "beltsPrice", min: 0 },
+                        { label: "Vida das Correias (h)", key: "beltsLifeHours", min: 1 },
+                        { label: "Manutenção R$/h", key: "maintPerHour", min: 0 },
+                      ] as { label: string; key: keyof MachineConfig; min: number }[]).map(({ label, key, min }) => (
+                        <div key={key} className="space-y-1.5">
+                          <label className="text-[8px] font-black uppercase tracking-widest text-white/25">{label}</label>
+                          <NumInput
+                            min={min}
+                            value={machineConfig[key]}
+                            onChange={v => setMachineConfig(c => ({...c, [key]: v}))}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs font-mono outline-none focus:border-primary/50 transition-all"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <Button className="h-12 rounded-2xl px-8 text-[10px] font-black uppercase tracking-widest" onClick={handleSaveMachineConfig}>
+                      Salvar Config da Máquina
+                    </Button>
+                 </div>
+
                  <div className="glass rounded-[48px] p-10 border border-white/5">
                     <h3 className="text-sm font-black uppercase tracking-widest italic mb-8">Estado do Sistema</h3>
                     <div className="space-y-4">
@@ -2044,6 +2680,10 @@ export default function AdminDashboard() {
                        <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
                           <p className="text-[10px] font-black uppercase text-white/20 mb-2">Versão do Engine</p>
                           <p className="text-xs font-mono font-bold">INOVAPRO-OS v2.4.8-stable</p>
+                       </div>
+                       <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
+                          <p className="text-[10px] font-black uppercase text-white/20 mb-4">Motor de Diagnóstico</p>
+                          <DiagnosticWidget />
                        </div>
                     </div>
                  </div>
@@ -2279,8 +2919,22 @@ export default function AdminDashboard() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                        <div className="space-y-2">
-                          <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Identidade do Item</label>
-                          <input 
+                          <div className="flex items-center justify-between gap-2">
+                            <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Identidade do Item</label>
+                            <button type="button" disabled={!newProduct.name || translatingField === 'name'}
+                              onClick={async () => {
+                                setTranslatingField('name');
+                                try {
+                                  const t = await translateToBR(newProduct.name);
+                                  setNewProduct(p => ({...p, name: formatCatalogTitle(t)}));
+                                } catch { toast.error("Falha na tradução."); }
+                                finally { setTranslatingField(null); }
+                              }}
+                              className="text-[8px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
+                              {translatingField === 'name' ? '⏳ traduzindo...' : '🌐 Traduzir PT'}
+                            </button>
+                          </div>
+                          <input
                              required
                              value={newProduct.name}
                              onChange={(e) => setNewProduct({...newProduct, name: e.target.value})}
@@ -2304,10 +2958,10 @@ export default function AdminDashboard() {
                              <div className="h-6 w-px bg-white/10" />
                              <div className="flex items-center gap-2 flex-1">
                                 <label className="text-[9px] font-black uppercase text-white/20">Estoque:</label>
-                                <input 
-                                   type="number"
+                                <NumInput
+                                   min={0}
                                    value={newProduct.stock || 0}
-                                   onChange={(e) => setNewProduct({...newProduct, stock: parseInt(e.target.value) || 0})}
+                                   onChange={(v) => setNewProduct({...newProduct, stock: Math.round(v)})}
                                    className="bg-transparent border-none outline-none text-xs font-bold text-white w-12"
                                 />
                              </div>
@@ -2318,35 +2972,50 @@ export default function AdminDashboard() {
                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Preço Base (R$)</label>
-                         <input 
-                            required
-                            type="number"
-                            step="0.01"
+                         <NumInput
+                            min={0}
+                            step={0.01}
                             value={newProduct.basePrice}
-                            onChange={(e) => setNewProduct({...newProduct, basePrice: parseFloat(e.target.value)})}
+                            onChange={(v) => setNewProduct({...newProduct, basePrice: v})}
                             className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all"
                          />
                       </div>
                        <div className="space-y-2">
                           <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Setor / Categoria</label>
-                          <select 
+                          <select
                              value={newProduct.category}
                              onChange={(e) => setNewProduct({...newProduct, category: e.target.value})}
                              className="w-full bg-[#050508] border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-display text-[11px]"
                           >
-                             <option value="DECORAÇÃO">DECORAÇÃO</option>
-                             <option value="UTILITÁRIOS">UTILITÁRIOS</option>
-                             <option value="ACTION FIGURES">ACTION FIGURES</option>
-                             <option value="ORGANIZADORES">ORGANIZADORES</option>
-                             <option value="MODA">MODA</option>
-                             <option value="GAMES">GAMES</option>
-                             <option value="OUTROS">OUTROS</option>
+                             {allCategories.map(cat => (
+                               <option key={cat} value={cat}>{cat}</option>
+                             ))}
                           </select>
+                          <div className="mt-2">
+                            <input
+                              type="text"
+                              placeholder="+ Nova categoria (Enter para adicionar)"
+                              className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 transition-all text-white placeholder:text-white/20"
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  const val = (e.target as HTMLInputElement).value.trim().toUpperCase();
+                                  if (val && !allCategories.includes(val)) {
+                                    setCustomCategories(prev => [...prev, val]);
+                                    setNewProduct(p => ({...p, category: val}));
+                                    (e.target as HTMLInputElement).value = "";
+                                  }
+                                }
+                              }}
+                            />
+                          </div>
                        </div>
                    </div>
 
-                   <div className="space-y-2">
-                       <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Carrossel de Imagens (URLs, uma por linha)</label>
+                   <div className="space-y-3">
+                       <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Fotos do Produto</label>
+
+                       {/* Upload button */}
                        <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4">
                          <label className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer">
                            <div className="min-w-0">
@@ -2355,60 +3024,79 @@ export default function AdminDashboard() {
                                Enviar imagem manual
                              </span>
                              <p className="text-[8px] uppercase tracking-widest text-white/30 mt-1">
-                               JPG, PNG ou WEBP. A URL do Firebase Storage entra automaticamente abaixo.
+                               JPG, PNG ou WEBP. A URL entra automaticamente na lista abaixo.
                              </p>
                            </div>
                            <span className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">
                              {isUploadingProductImage ? "Enviando..." : "Escolher arquivo"}
                            </span>
-                           <input
-                             type="file"
-                             accept="image/*"
-                             disabled={isUploadingProductImage}
-                             onChange={(e) => {
-                               const file = e.target.files?.[0] || null;
-                               void handleProductImageUpload(file);
-                               e.target.value = "";
-                             }}
+                           <input type="file" accept="image/*" disabled={isUploadingProductImage}
+                             onChange={(e) => { void handleProductImageUpload(e.target.files?.[0] || null); e.target.value = ""; }}
                              className="sr-only"
                            />
                          </label>
                        </div>
-                       <textarea 
-                          rows={3}
-                          value={newProduct.images.join('\n')}
-                          onChange={(e) => {
-                            const lines = e.target.value.split('\n').map(line => line.trim()).filter(Boolean);
-                            setNewProduct({...newProduct, images: lines.length > 0 ? lines : ['']});
-                          }}
-                          placeholder="https://images.unsplash.com/...&#10;https://images.unsplash.com/..."
-                          className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-mono outline-none focus:border-primary/50 transition-all resize-y"
-                       />
+
+                       {/* Sortable image list */}
                        {newProduct.images.filter(Boolean).length > 0 && (
-                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
-                           {newProduct.images.filter(Boolean).slice(0, 10).map((imageUrl, index) => (
-                             <a
-                               key={`${imageUrl}-${index}`}
-                               href={imageUrl}
-                               target="_blank"
-                               rel="noreferrer"
-                               className="group relative aspect-square overflow-hidden rounded-2xl border border-white/10 bg-black"
-                               title={`Abrir imagem ${index + 1}`}
-                             >
-                               <img
-                                 src={imageUrl}
-                                 alt={`Preview ${index + 1}`}
-                                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                 loading="lazy"
-                               />
-                               <span className="absolute left-2 top-2 rounded-lg bg-black/70 px-2 py-1 text-[8px] font-black uppercase tracking-widest text-white/70">
-                                 {index === 0 ? 'Capa' : `#${index + 1}`}
+                         <div className="space-y-1.5">
+                           {newProduct.images.filter(Boolean).map((url, idx) => (
+                             <div key={`${url}-${idx}`} className="flex items-center gap-2 p-2 rounded-2xl bg-white/[0.03] border border-white/[0.06] group">
+                               <img src={url} alt="" className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0 bg-black/20" loading="lazy" />
+                               <span className="text-[8px] font-black uppercase tracking-widest text-white/30 w-8 shrink-0 text-center">
+                                 {idx === 0 ? 'CAPA' : `#${idx + 1}`}
                                </span>
-                             </a>
+                               <span className="flex-1 min-w-0 text-[9px] font-mono text-white/25 truncate hidden sm:block">{url}</span>
+                               <div className="flex items-center gap-1 shrink-0">
+                                 <button type="button" title="Mover para cima"
+                                   disabled={idx === 0}
+                                   onClick={() => {
+                                     const imgs = [...newProduct.images.filter(Boolean)];
+                                     [imgs[idx - 1], imgs[idx]] = [imgs[idx], imgs[idx - 1]];
+                                     setNewProduct(p => ({...p, images: imgs}));
+                                   }}
+                                   className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↑</button>
+                                 <button type="button" title="Mover para baixo"
+                                   disabled={idx === newProduct.images.filter(Boolean).length - 1}
+                                   onClick={() => {
+                                     const imgs = [...newProduct.images.filter(Boolean)];
+                                     [imgs[idx], imgs[idx + 1]] = [imgs[idx + 1], imgs[idx]];
+                                     setNewProduct(p => ({...p, images: imgs}));
+                                   }}
+                                   className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↓</button>
+                                 <button type="button" title="Remover"
+                                   onClick={() => {
+                                     const imgs = newProduct.images.filter(Boolean).filter((_, i) => i !== idx);
+                                     setNewProduct(p => ({...p, images: imgs.length > 0 ? imgs : ['']}));
+                                   }}
+                                   className="w-7 h-7 flex items-center justify-center rounded-lg text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-all text-xs">✕</button>
+                               </div>
+                             </div>
                            ))}
                          </div>
                        )}
-                       <span className="text-[8px] uppercase tracking-widest text-white/30 block mt-1">O primeiro link é a capa. Insira outros de forma opcional (um por linha) para habilitar o carrossel.</span>
+
+                       {/* Add URL — with WebP conversion attempt */}
+                       <div className="flex gap-2">
+                         <input
+                           type="url"
+                           placeholder="Cole uma URL de imagem (Bambu Lab, etc.)..."
+                           value={newImageUrl}
+                           onChange={e => setNewImageUrl(e.target.value)}
+                           onKeyDown={e => {
+                             if (e.key === 'Enter') { e.preventDefault();
+                               handleImportImageUrl(newImageUrl, u => setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), u]})));
+                             }
+                           }}
+                           className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-mono outline-none focus:border-primary/50 transition-all"
+                         />
+                         <button type="button" disabled={importingImage}
+                           onClick={() => handleImportImageUrl(newImageUrl, u => setNewProduct(p => ({...p, images: [...p.images.filter(Boolean), u]})))}
+                           className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed min-w-[64px]">
+                           {importingImage ? "..." : "Importar"}
+                         </button>
+                       </div>
+                       <span className="text-[8px] uppercase tracking-widest text-white/25 block">A primeira imagem é a capa. Use ↑↓ para ordenar, ✕ para remover.</span>
                     </div>
 
                     <div className="space-y-2">
@@ -2439,45 +3127,36 @@ export default function AdminDashboard() {
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase text-white/40">Eixo X (Largura)</label>
-                          <input 
-                             type="number"
+                          <NumInput
+                             min={0}
                              value={newProduct.baseDimensions?.x || 120}
-                             onChange={(e) => setNewProduct({
-                               ...newProduct, 
-                               baseDimensions: { 
-                                 ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), 
-                                 x: parseInt(e.target.value) || 0 
-                               }
+                             onChange={(v) => setNewProduct({
+                               ...newProduct,
+                               baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), x: Math.round(v) }
                              })}
                              className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center"
                           />
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase text-white/40">Eixo Y (Comprimento)</label>
-                          <input 
-                             type="number"
+                          <NumInput
+                             min={0}
                              value={newProduct.baseDimensions?.y || 120}
-                             onChange={(e) => setNewProduct({
-                               ...newProduct, 
-                               baseDimensions: { 
-                                 ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), 
-                                 y: parseInt(e.target.value) || 0 
-                               }
+                             onChange={(v) => setNewProduct({
+                               ...newProduct,
+                               baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), y: Math.round(v) }
                              })}
                              className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center"
                           />
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase text-white/40">Eixo Z (Altura)</label>
-                          <input 
-                             type="number"
+                          <NumInput
+                             min={0}
                              value={newProduct.baseDimensions?.z || 150}
-                             onChange={(e) => setNewProduct({
-                               ...newProduct, 
-                               baseDimensions: { 
-                                 ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), 
-                                 z: parseInt(e.target.value) || 0 
-                               }
+                             onChange={(v) => setNewProduct({
+                               ...newProduct,
+                               baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), z: Math.round(v) }
                              })}
                              className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center"
                           />
@@ -2496,10 +3175,11 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase text-white/20">Infill (%)</label>
-                         <input 
-                            type="number"
+                         <NumInput
+                            min={0}
+                            max={100}
                             value={newProduct.technical.infill}
-                            onChange={(e) => setNewProduct({...newProduct, technical: {...newProduct.technical, infill: parseInt(e.target.value)}})}
+                            onChange={(v) => setNewProduct({...newProduct, technical: {...newProduct.technical, infill: Math.round(v)}})}
                             className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none"
                          />
                       </div>
@@ -2514,19 +3194,32 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase text-white/20">Peso Base (g)</label>
-                         <input 
-                            type="number"
+                         <NumInput
+                            min={0}
                             value={newProduct.technical.weight || 80}
-                            onChange={(e) => setNewProduct({...newProduct, technical: {...newProduct.technical, weight: parseInt(e.target.value) || 0}})}
-                            placeholder="80"
+                            onChange={(v) => setNewProduct({...newProduct, technical: {...newProduct.technical, weight: Math.round(v)}})}
                             className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none"
                          />
                       </div>
                    </div>
 
                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Descrição Técnica / Marketing</label>
-                      <textarea 
+                      <div className="flex items-center justify-between gap-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Descrição Técnica / Marketing</label>
+                        <button type="button" disabled={!newProduct.description || translatingField === 'description'}
+                          onClick={async () => {
+                            setTranslatingField('description');
+                            try {
+                              const t = await translateToBR(newProduct.description);
+                              setNewProduct(p => ({...p, description: formatCatalogDescription(t)}));
+                            } catch { toast.error("Falha na tradução."); }
+                            finally { setTranslatingField(null); }
+                          }}
+                          className="text-[8px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
+                          {translatingField === 'description' ? '⏳ traduzindo...' : '🌐 Traduzir PT'}
+                        </button>
+                      </div>
+                      <textarea
                          rows={3}
                          value={newProduct.description}
                          onChange={(e) => setNewProduct({...newProduct, description: e.target.value})}
@@ -2695,44 +3388,41 @@ export default function AdminDashboard() {
                                  <div className="grid grid-cols-2 gap-3">
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase font-black block mb-1">Filamento (R$/g)</label>
-                                       <input
-                                          type="number"
-                                          step="0.01"
+                                       <NumInput
+                                          min={0}
+                                          step={0.01}
                                           value={calcFilamentPrice}
-                                          onChange={(e) => setCalcFilamentPrice(Number(e.target.value))}
+                                          onChange={setCalcFilamentPrice}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 0.15"
                                        />
                                     </div>
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase block mb-1 font-black">Hora Máquina (R$)</label>
-                                       <input
-                                          type="number"
-                                          step="0.10"
+                                       <NumInput
+                                          min={0}
+                                          step={0.10}
                                           value={calcHourCost}
-                                          onChange={(e) => setCalcHourCost(Number(e.target.value))}
+                                          onChange={setCalcHourCost}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 4.50"
                                        />
                                     </div>
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase font-black block mb-1">Taxa Setup (R$)</label>
-                                       <input
-                                          type="number"
+                                       <NumInput
+                                          min={0}
                                           value={calcSetupFee}
-                                          onChange={(e) => setCalcSetupFee(Number(e.target.value))}
+                                          onChange={setCalcSetupFee}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 10.00"
                                        />
                                     </div>
                                     <div>
                                        <label className="text-[9px] text-white/40 uppercase font-black block mb-1">Margem de Lucro (%)</label>
-                                       <input
-                                          type="number"
+                                       <NumInput
+                                          min={0}
+                                          max={100}
                                           value={calcMargin}
-                                          onChange={(e) => setCalcMargin(Number(e.target.value))}
+                                          onChange={setCalcMargin}
                                           className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold"
-                                          placeholder="Ex: 50"
                                        />
                                     </div>
                                  </div>
@@ -2780,11 +3470,11 @@ export default function AdminDashboard() {
                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div>
                              <label className="text-[10px] font-black uppercase tracking-wider text-white/40 mb-1 block">Valor Final Aprovado (R$)</label>
-                             <input 
-                                type="number" 
-                                step="0.01"
+                             <NumInput
+                                min={0}
+                                step={0.01}
                                 value={editingQuoteTotal}
-                                onChange={(e) => setEditingQuoteTotal(Number(e.target.value))}
+                                onChange={setEditingQuoteTotal}
                                 className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm text-primary font-bold outline-none focus:border-primary/50 transition-all font-mono"
                              />
                           </div>
@@ -2810,10 +3500,10 @@ export default function AdminDashboard() {
                           </div>
                           <div>
                              <label className="text-[10px] font-black uppercase tracking-wider text-[#2563EB] mb-1 block font-bold">Peso Estimado (g)</label>
-                             <input 
-                                type="number" 
+                             <NumInput
+                                min={0}
                                 value={editingQuoteWeight}
-                                onChange={(e) => setEditingQuoteWeight(Number(e.target.value))}
+                                onChange={setEditingQuoteWeight}
                                 className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-primary/50 transition-all font-mono"
                              />
                           </div>
@@ -3048,10 +3738,11 @@ export default function AdminDashboard() {
                       </div>
                       <div className="space-y-2">
                          <label className="text-[10px] font-black uppercase text-white/20">Custo p/ Kg</label>
-                         <input 
-                            type="number"
+                         <NumInput
+                            min={0}
+                            step={0.01}
                             value={newMaterial.pricePerKg}
-                            onChange={(e) => setNewMaterial({...newMaterial, pricePerKg: parseFloat(e.target.value)})}
+                            onChange={(v) => setNewMaterial({...newMaterial, pricePerKg: v})}
                             className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
                          />
                       </div>
@@ -3106,7 +3797,51 @@ export default function AdminDashboard() {
                    </div>
                    <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic">Publicar Ativo</Button>
 
-        <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} />
+        {confirmState && confirmState.isOpen && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/85 backdrop-blur-md">
+             <div className="bg-[#0a0a0f] border border-white/10 rounded-[32px] p-8 max-w-sm w-full text-center space-y-6 shadow-2xl relative">
+                <div className={cn(
+                  "w-16 h-16 rounded-full flex items-center justify-center mx-auto border transition-all",
+                  confirmState.isDanger 
+                    ? "bg-red-500/10 text-red-500 border-red-500/20" 
+                    : "bg-green-500/10 text-green-500 border-green-500/20"
+                )}>
+                   {confirmState.isDanger ? (
+                     <AlertCircle className="w-8 h-8 animate-pulse" />
+                   ) : (
+                     <CheckCircle2 className="w-8 h-8 animate-pulse" />
+                   )}
+                </div>
+                
+                <div className="space-y-2">
+                   <h3 className="text-lg font-black text-white italic uppercase tracking-wider">{confirmState.title}</h3>
+                   <p className="text-xs text-white/50 leading-relaxed font-bold">{confirmState.description}</p>
+                </div>
+                
+                <div className="flex gap-3 pt-2">
+                   <button 
+                     type="button"
+                     onClick={() => setConfirmState(null)}
+                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-wider text-white/60 hover:text-white transition-all border border-white/5 active:scale-95"
+                   >
+                      {confirmState.cancelText || "Cancelar"}
+                   </button>
+                   <button 
+                     type="button"
+                     onClick={confirmState.onConfirm}
+                     className={cn(
+                       "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white transition-all active:scale-95",
+                       confirmState.isDanger 
+                         ? "bg-red-500 hover:bg-red-600" 
+                         : "bg-green-500 hover:bg-green-600"
+                     )}
+                   >
+                      {confirmState.confirmText || "Confirmar"}
+                   </button>
+                </div>
+             </div>
+          </div>
+        )}
                 </form>
              </motion.div>
           </div>

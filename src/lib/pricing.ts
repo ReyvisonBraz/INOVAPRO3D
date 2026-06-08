@@ -33,7 +33,9 @@ export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
   pla: {
     key: "pla",
     label: "PLA",
-    spoolPrice: 85,
+    // R$100 produto + frete R$119 diluído em ~7 rolos (compra típica 5–10 rolos).
+    // Frete/rolo ≈ R$17. Ajuste se comprar menos (5 rolos = R$124) ou mais (10 = R$112).
+    spoolPrice: 117,
     spoolWeight: 1000,
     steadyPowerWatts: 200,
     defaultReservePct: 12,
@@ -42,7 +44,8 @@ export const MATERIAL_PRESETS: Record<MaterialKey, MaterialPreset> = {
   petg: {
     key: "petg",
     label: "PETG",
-    spoolPrice: 120,
+    // R$120 produto + frete R$119 diluído em ~7 rolos ≈ R$17/rolo.
+    spoolPrice: 137,
     spoolWeight: 1000,
     steadyPowerWatts: 230,
     defaultReservePct: 20,
@@ -73,19 +76,21 @@ export interface MachineConfig {
 }
 
 /**
- * Configuração padrão da Bambu Lab P2S + AMS no Brasil.
- * Valores conservadores — você pode editar todos na calculadora detalhada.
+ * Configuração padrão da Bambu Lab P2S + AMS 2 PRO no Brasil.
+ * Fonte: mercado BR jun/2026 — Fozit R$9.899, Beehive R$10.999.
+ * Você pode editar todos os campos na calculadora detalhada.
  */
 export const DEFAULT_MACHINE: MachineConfig = {
-  price: 5500,
-  lifespanHours: 6000,
-  nozzlePrice: 70,
-  nozzleLifeHours: 600,
-  platePrice: 130,
+  price: 10999,
+  lifespanHours: 7000,
+  // Hotend completo 0,4mm aço endurecido P1/P2 series (Tecnocubo jun/2026: R$200–220 + margem).
+  nozzlePrice: 250,
+  nozzleLifeHours: 1300,
+  platePrice: 190,
   plateLifeHours: 1500,
-  beltsPrice: 90,
+  beltsPrice: 100,
   beltsLifeHours: 2500,
-  maintPerHour: 0.1,
+  maintPerHour: 0.2,
 };
 
 export interface MachineHourBreakdown {
@@ -128,13 +133,20 @@ export function machineHourBreakdown(m: MachineConfig): MachineHourBreakdown {
 // ----------------------------------------------------------------------------
 
 export const DEFAULT_ENERGY = {
-  /** Equatorial Pará 2025: ~R$0,96 base + ICMS ≈ R$1,20/kWh na conta. */
-  kwhCost: 1.2,
-  /** Pico de aquecimento da câmara P2S. */
+  /**
+   * Equatorial Pará (CELPA) — RH ANEEL nº 3.507 (ago/2025→ago/2026).
+   * Tarifa residencial B1 com ICMS 25% + PIS/COFINS: R$0,97/kWh.
+   * Sem bandeira tarifária (verde). Ajuste se estiver em bandeira amarela/vermelha.
+   */
+  kwhCost: 0.97,
+  /** Pico de aquecimento — P2S câmara fechada, medido ~1000 W por ~8 min. */
   startupPowerWatts: 1000,
   /** Tempo no pico (aquecimento). */
   startupMinutes: 8,
 };
+
+/** Taxa de falha padrão sugerida (%) — perfil estável de PLA. */
+export const DEFAULT_FAILURE_RATE = 5;
 
 // ----------------------------------------------------------------------------
 // CÁLCULO PRINCIPAL
@@ -171,6 +183,13 @@ export interface PricingInputs {
   /** Insumos extras do job (parafusos, tinta, ímã) em R$. */
   extraSupplies: number;
 
+  /**
+   * Taxa de falha de impressão (%). Captura o tempo de máquina + energia
+   * PERDIDOS quando uma impressão falha e precisa ser refeita. NÃO mexe no
+   * material — esse desperdício já é coberto por `reservePct`.
+   */
+  failureRatePct?: number;
+
   /** Multiplicador de atacado (B2B) sobre o custo. */
   wholesaleMarkup: number;
   /** Multiplicador de varejo (cliente final) sobre o custo. */
@@ -192,6 +211,9 @@ export interface PricingResult {
   machineCost: number;
   laborCost: number;
   extraSupplies: number;
+  /** Custo do tempo de máquina + energia perdidos em falhas de impressão. */
+  failureLoss: number;
+  failureRatePct: number;
   totalCost: number;
   unitCost: number;
   costPerGram: number;
@@ -201,6 +223,7 @@ export interface PricingResult {
     energy: number;
     machine: number;
     labor: number;
+    failure: number;
   };
 
   wholesaleTotal: number;
@@ -253,7 +276,13 @@ export function computePricing(input: PricingInputs): PricingResult {
   const laborCost = Math.max(0, num(input.laborHours)) * Math.max(0, num(input.laborRate));
   const extraSupplies = Math.max(0, num(input.extraSupplies));
 
-  const totalCost = materialCost + energyCost + machineCost + laborCost + extraSupplies;
+  // --- Taxa de falha: tempo de máquina + energia perdidos numa reimpressão ---
+  // (o material desperdiçado já está coberto por reservePct)
+  const failureRatePct = Math.max(0, num(input.failureRatePct));
+  const failureLoss = (machineCost + energyCost) * (failureRatePct / 100);
+
+  const totalCost =
+    materialCost + energyCost + machineCost + laborCost + extraSupplies + failureLoss;
   const safe = totalCost > 0 ? totalCost : 1;
   const unitCost = totalCost / quantity;
   const costPerGram = weightGrams > 0 ? totalCost / weightGrams : 0;
@@ -280,6 +309,8 @@ export function computePricing(input: PricingInputs): PricingResult {
     machineCost,
     laborCost,
     extraSupplies,
+    failureLoss,
+    failureRatePct,
     totalCost,
     unitCost,
     costPerGram,
@@ -288,6 +319,7 @@ export function computePricing(input: PricingInputs): PricingResult {
       energy: (energyCost / safe) * 100,
       machine: (machineCost / safe) * 100,
       labor: ((laborCost + extraSupplies) / safe) * 100,
+      failure: (failureLoss / safe) * 100,
     },
     wholesaleTotal,
     wholesaleUnit: wholesaleTotal / quantity,
@@ -313,6 +345,17 @@ export const formatBRL = (value: number) =>
     style: "currency",
     currency: "BRL",
   });
+
+/** Converte horas decimais (3.47) em "3h 28min" para exibição amigável. */
+export function formatHoursToHHMM(hours: number): string {
+  const h = Math.max(0, Number.isFinite(hours) ? hours : 0);
+  const totalMinutes = Math.round(h * 60);
+  const hh = Math.floor(totalMinutes / 60);
+  const mm = totalMinutes % 60;
+  if (hh === 0) return `${mm}min`;
+  if (mm === 0) return `${hh}h`;
+  return `${hh}h ${mm}min`;
+}
 
 /** Converte "2h 30m", "2.5" ou "2:30" em horas decimais. */
 export function parseTimeToHours(timeStr: string): number {
@@ -352,8 +395,10 @@ export const HELP = {
     "Quantas peças saem nesta impressão. O custo total é dividido por aqui para dar o preço por unidade.",
   reserve:
     "Margem de segurança sobre o material para cobrir falhas e reimpressões. PLA com perfil bom: 10–15%. PETG ou peça difícil: 20–30%.",
+  failureRate:
+    "Quantas impressões, em média, falham e precisam ser refeitas (%). Aqui entra o tempo de máquina e a energia perdidos — o material já está na 'reserva'. Perfil estável: 3–8%. Peça difícil ou nova: 10–20%.",
   kwh:
-    "Preço do kWh na sua conta de luz. Equatorial Pará em 2025 fica perto de R$1,20/kWh com impostos.",
+    "Preço do kWh na sua conta de luz. Equatorial Pará (CELPA) 2025→2026: R$0,97/kWh na tarifa residencial B1 com ICMS 25% + PIS/COFINS, sem bandeira tarifária.",
   steadyPower:
     "Potência média da P2S imprimindo. Medida real: ~200 W em PLA e ~230 W em PETG.",
   startupPower:
@@ -379,9 +424,9 @@ export const HELP = {
   extraSupplies:
     "Insumos específicos deste job que não são filamento: parafusos, ímãs, tinta, cola, embalagem especial.",
   wholesale:
-    "Multiplicador para venda em atacado/B2B (cliente que revende ou fecha lote). Ex: 1.6 = custo + 60%.",
+    "Markup de atacado/B2B. No modo ×: insira o multiplicador (ex: 1.6 = custo + 60%). No modo %: insira direto o markup sobre o custo (ex: 60%). Os dois modos dão o mesmo preço.",
   retail:
-    "Multiplicador para venda no varejo (cliente final). Ex: 2.5 = custo × 2,5. Cobre seu lucro e o tempo de atendimento.",
+    "Markup de varejo (cliente final). No modo ×: ex: 2.5 = custo × 2,5. No modo %: ex: 150% = custo + 150%. Cobre seu lucro e o tempo de atendimento.",
   minPrice:
     "Valor mínimo que você cobra por qualquer pedido, mesmo peças pequenas. Cobre o custo de parar, atender, embalar e entregar.",
   depreciation:

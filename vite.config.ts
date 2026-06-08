@@ -18,27 +18,21 @@ export default defineConfig(({mode}) => {
       },
     },
     server: {
-      // HMR is controlled by DISABLE_HMR for constrained editing environments.
-      // File watching is disabled when requested to prevent flickering during agent edits.
       hmr: process.env.DISABLE_HMR !== 'true',
-      // Disable file watching when DISABLE_HMR is true to save CPU during agent edits.
       watch: process.env.DISABLE_HMR === 'true' ? null : {},
     },
     build: {
       rollupOptions: {
         output: {
-          manualChunks(id) {
-            if (!id.includes('node_modules')) return;
-
-            if (id.includes('@react-three')) return 'vendor-react-3d';
-            if (id.includes('three')) return 'vendor-three';
-            if (id.includes('firebase')) return 'vendor-firebase';
-            if (id.includes('framer-motion')) return 'vendor-motion';
-            if (id.includes('recharts')) return 'vendor-charts';
+          manualChunks(id: string) {
+            if (id.includes('node_modules/three') || id.includes('node_modules/@react-three')) return 'vendor-3d';
+            if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'vendor-charts';
+            if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
+            if (id.includes('node_modules/firebase')) return 'vendor-firebase';
+            if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'vendor-react';
           },
         },
       },
-      chunkSizeWarningLimit: 1000,
     },
   };
 });

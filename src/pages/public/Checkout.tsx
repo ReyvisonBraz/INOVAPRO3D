@@ -1,7 +1,8 @@
-import { Fragment, useEffect, useState } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   CreditCard, 
+  Truck, 
   CheckCircle2, 
   ArrowRight,
   ShieldCheck,
@@ -30,6 +31,7 @@ export default function Checkout() {
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
   const [shippingRate, setShippingRate] = useState<number>(0);
   const [needsShipping, setNeedsShipping] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
   const [address, setAddress] = useState<ShippingAddress>({
     zipCode: '',
     street: '',
@@ -38,6 +40,28 @@ export default function Checkout() {
     city: '',
     state: ''
   });
+
+  const fetchCep = async (cep: string) => {
+    try {
+      setCepLoading(true);
+      const res = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      if (!res.ok) { toast.error("Serviço de CEP indisponível. Preencha o endereço manualmente."); return; }
+      const data = await res.json();
+      if (data.erro) { toast.error("CEP não encontrado. Verifique e tente novamente."); return; }
+      setAddress(prev => ({
+        ...prev,
+        street: data.logradouro || prev.street,
+        neighborhood: data.bairro || prev.neighborhood,
+        city: data.localidade || prev.city,
+        state: data.uf || prev.state,
+      }));
+      toast.success("Endereço preenchido automaticamente!");
+    } catch {
+      // silent — user fills manually
+    } finally {
+      setCepLoading(false);
+    }
+  };
 
   const validateAddress = () => {
     if (!needsShipping) return true;
@@ -53,6 +77,12 @@ export default function Checkout() {
 
     if (requiredFields.some(field => !field.trim())) {
       toast.error("Endereco incompleto", { description: "Preencha CEP, rua, numero, bairro, cidade e UF antes de continuar." });
+      return false;
+    }
+
+    const cepClean = address.zipCode.replace(/\D/g, "");
+    if (cepClean.length !== 8) {
+      toast.error("CEP inválido", { description: "O CEP deve ter 8 dígitos no formato 00000-000." });
       return false;
     }
 
@@ -91,7 +121,7 @@ export default function Checkout() {
     }
   };
 
-  useEffect(() => {
+  React.useEffect(() => {
     const fetchSettings = async () => {
       try {
         const snap = await getDoc(doc(db, "settings", "shipping"));
@@ -143,7 +173,7 @@ export default function Checkout() {
         <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-8">
            <Package className="w-8 h-8 text-white/20" />
         </div>
-        <h2 className="text-4xl font-display font-black mb-4 uppercase tracking-tight">Seu carrinho está vazio</h2>
+        <h2 className="text-2xl sm:text-4xl font-display font-black mb-4 uppercase tracking-tight">Seu carrinho está vazio</h2>
         <p className="text-white/40 mb-12 font-medium">Adicione um produto ao carrinho para finalizar seu pedido.</p>
         <Button onClick={() => navigate('/catalogo')} size="lg" className="h-16 px-10 rounded-2xl gap-2 font-black uppercase">
           EXPLORAR CATÁLOGO <ChevronRight className="w-4 h-4" />
@@ -165,15 +195,15 @@ export default function Checkout() {
         
         <div className="flex items-center gap-4 sm:gap-6 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
            {[1, 2, 3].map((s) => (
-              <Fragment key={s}>
-               <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
+             <React.Fragment key={s}>
+               <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
                  step === s ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20' : 
                  step > s ? 'bg-green-500 text-white' : 'bg-white/5 text-white/20'
                }`}>
                  {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
                </div>
                {s < 3 && <div className={`w-6 sm:w-8 h-[2px] rounded-full ${step > s ? 'bg-green-500' : 'bg-white/10'}`} />}
-              </Fragment>
+             </React.Fragment>
            ))}
         </div>
       </div>
@@ -238,14 +268,19 @@ export default function Checkout() {
                         >
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-2">
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">CEP</label>
+                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2 flex items-center gap-2">CEP {cepLoading && <span className="text-[9px] text-primary animate-pulse">buscando...</span>}</label>
                                 <input
                                   placeholder="00000-000"
                                   inputMode="numeric"
                                   autoComplete="postal-code"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-mono focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.zipCode}
-                                  onChange={(e) => setAddress({...address, zipCode: e.target.value})}
+                                  onChange={(e) => {
+                                    const raw = e.target.value.replace(/\D/g, "").slice(0, 8);
+                                    const masked = raw.length > 5 ? `${raw.slice(0, 5)}-${raw.slice(5)}` : raw;
+                                    setAddress(prev => ({ ...prev, zipCode: masked }));
+                                    if (raw.length === 8) fetchCep(raw);
+                                  }}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -253,18 +288,18 @@ export default function Checkout() {
                                 <input
                                   placeholder="Rua, Av, etc."
                                   autoComplete="street-address"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.street}
-                                  onChange={(e) => setAddress({...address, street: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, street: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
                                 <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número</label>
                                 <input
                                   placeholder="Ex: 123"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.number}
-                                  onChange={(e) => setAddress({...address, number: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, number: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -272,9 +307,9 @@ export default function Checkout() {
                                 <input
                                   placeholder="São Paulo - SP"
                                   autoComplete="address-level2"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.city}
-                                  onChange={(e) => setAddress({...address, city: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, city: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -282,9 +317,9 @@ export default function Checkout() {
                                 <input
                                   placeholder="Ex: Centro"
                                   autoComplete="address-level3"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.neighborhood}
-                                  onChange={(e) => setAddress({...address, neighborhood: e.target.value})}
+                                  onChange={(e) => setAddress(prev => ({...prev, neighborhood: e.target.value}))}
                                 />
                              </div>
                              <div className="space-y-3">
@@ -293,9 +328,9 @@ export default function Checkout() {
                                   placeholder="SP"
                                   maxLength={2}
                                   autoComplete="address-level1"
-                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none"
+                                  className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-mono uppercase focus:border-primary focus:bg-primary/5 transition-all outline-none"
                                   value={address.state}
-                                  onChange={(e) => setAddress({...address, state: e.target.value.toUpperCase()})}
+                                  onChange={(e) => setAddress(prev => ({...prev, state: e.target.value.toUpperCase()}))}
                                 />
                              </div>
                           </div>
@@ -324,36 +359,36 @@ export default function Checkout() {
                    </h3>
                    
                    <div className="space-y-4">
-                      <button className="w-full p-8 rounded-[32px] border-2 border-primary bg-primary/5 flex items-center justify-between group relative overflow-hidden transition-all">
+                      <button className="w-full p-4 sm:p-8 rounded-[24px] sm:rounded-[32px] border-2 border-primary bg-primary/5 flex items-center justify-between group relative overflow-hidden transition-all">
                         <div className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent pointer-events-none" />
-                        <div className="flex items-center gap-6 relative z-10">
-                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center p-3 shadow-lg">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" className="w-full" alt="Pix" />
+                        <div className="flex items-center gap-3 sm:gap-6 relative z-10 min-w-0">
+                          <div className="w-11 h-11 sm:w-16 sm:h-16 bg-white rounded-xl sm:rounded-2xl flex items-center justify-center p-2 sm:p-3 shadow-lg shrink-0">
+                            <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" loading="lazy" decoding="async" className="w-full" alt="Pix" />
                           </div>
-                          <div className="text-left">
-                            <p className="text-xl font-black uppercase font-display leading-tight">Pix Instantâneo</p>
-                            <p className="text-xs text-primary font-bold uppercase tracking-widest mt-1">Cashback de 5% aplicado</p>
+                          <div className="text-left min-w-0">
+                            <p className="text-base sm:text-xl font-black uppercase font-display leading-tight">Pix Instantâneo</p>
+                            <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-widest mt-1">Cashback de 5% aplicado</p>
                           </div>
                         </div>
-                        <CheckCircle2 className="text-primary w-8 h-8 relative z-10" />
+                        <CheckCircle2 className="text-primary w-6 h-6 sm:w-8 sm:h-8 relative z-10 shrink-0 ml-2" />
                       </button>
 
-                      <button className="w-full p-8 rounded-[32px] border border-white/5 bg-white/5 flex items-center justify-between opacity-40 cursor-not-allowed group grayscale">
-                        <div className="flex items-center gap-6">
-                          <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center">
-                            <PaymentIcon className="w-8 h-8 text-white/20" />
+                      <button className="w-full p-4 sm:p-8 rounded-[24px] sm:rounded-[32px] border border-white/5 bg-white/5 flex items-center justify-between opacity-40 cursor-not-allowed group grayscale">
+                        <div className="flex items-center gap-3 sm:gap-6 min-w-0">
+                          <div className="w-11 h-11 sm:w-16 sm:h-16 bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
+                            <PaymentIcon className="w-5 h-5 sm:w-8 sm:h-8 text-white/20" />
                           </div>
-                          <div className="text-left">
-                            <p className="text-xl font-black uppercase font-display leading-tight">Cartão de Crédito</p>
+                          <div className="text-left min-w-0">
+                            <p className="text-base sm:text-xl font-black uppercase font-display leading-tight">Cartão de Crédito</p>
                             <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Em planejamento</p>
                           </div>
                         </div>
-                        <Lock className="w-6 h-6 text-white/10" />
+                        <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-white/10 shrink-0 ml-2" />
                       </button>
                    </div>
                 </section>
 
-                <div className="p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex gap-4">
+                <div className="p-5 sm:p-8 rounded-[32px] bg-white/[0.02] border border-white/5 flex gap-4">
                    <ShieldCheck className="w-6 h-6 text-primary shrink-0" />
                    <p className="text-[11px] text-white/40 leading-relaxed italic font-medium">
                      O login só é necessário para salvar seu pedido e liberar o acompanhamento. O pagamento Pix será confirmado pela equipe antes da produção.
@@ -435,7 +470,7 @@ export default function Checkout() {
                            <p className="text-xs sm:text-sm font-bold uppercase truncate tracking-tight">{item.name}</p>
                            <p className="text-[8px] sm:text-[10px] text-white/30 font-mono">QTD: {item.quantity}</p>
                         </div>
-                        <p className="text-xs sm:text-sm font-mono font-black text-white/60 shrink-0">R$ {(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="text-xs sm:text-sm font-mono font-black text-white/60 shrink-0">{(item.price * item.quantity).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                      </div>
                    ))}
                  </div>
@@ -444,7 +479,7 @@ export default function Checkout() {
                     <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
                        <span>Entrega</span>
                        <span className={shippingRate === 0 ? "text-green-500" : ""}>
-                           {shippingRate === 0 ? "Frete Grátis" : `R$ ${shippingRate.toFixed(2)}`}
+                           {shippingRate === 0 ? "Frete Grátis" : shippingRate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                        </span>
                     </div>
                     <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
@@ -457,7 +492,7 @@ export default function Checkout() {
                        <div className="flex items-baseline gap-2">
                           <span className="text-base sm:text-lg text-white/40 font-mono">R$</span>
                           <p className="text-4xl sm:text-5xl font-display font-black text-shimmer leading-none">
-                             {(total + shippingRate).toFixed(2)}
+                             {(total + shippingRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                           </p>
                        </div>
                     </div>
@@ -476,7 +511,7 @@ export default function Checkout() {
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               <div>
                 <p className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-1">Total</p>
-                <p className="text-2xl font-display font-black text-primary">R$ {(total + shippingRate).toFixed(2)}</p>
+                <p className="text-2xl font-display font-black text-primary">{(total + shippingRate).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
               </div>
               <Button 
                 onClick={() => step === 1 ? goToPayment() : handleCompleteOrder()}
