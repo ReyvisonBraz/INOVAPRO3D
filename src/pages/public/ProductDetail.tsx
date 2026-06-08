@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { 
@@ -7,11 +7,9 @@ import {
   Layers, 
   Weight, 
   Clock, 
-  Settings2,
   ShoppingCart,
   CheckCircle2,
   Zap,
-  Shield,
   Info,
   Maximize2,
   Box,

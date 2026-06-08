@@ -1,17 +1,13 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { 
-  Package, 
-  Clock, 
   CheckCircle2, 
   AlertCircle, 
   ChevronRight,
   Printer,
   History,
-  TrendingUp,
-  Settings,
   Truck,
   Layers,
   ListTodo,

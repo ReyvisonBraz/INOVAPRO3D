@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MessageCircle, X, Phone, Mail, HelpCircle, ArrowUpRight } from "lucide-react";
+import { MessageCircle, X, Mail, HelpCircle, ArrowUpRight } from "lucide-react";
 
 export default function FloatingSupport() {
   const [isOpen, setIsOpen] = useState(false);

@@ -3,6 +3,7 @@ import {
   BookOpen,
   Box,
   Calculator,
+  type LucideIcon,
   LogOut,
   Menu,
   ShoppingBag,
@@ -323,7 +324,7 @@ function NavPill({
   name: string;
   path: string;
   active: boolean;
-  icon?: React.ElementType;
+  icon?: LucideIcon;
 }) {
   return (
     <Link

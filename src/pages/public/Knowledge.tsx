@@ -1,18 +1,11 @@
 import { motion } from "framer-motion";
 import { Button } from "../../components/ui/Button";
 import { 
-  BookOpen, 
-  Layers, 
   Zap, 
-  Shield, 
   HelpCircle, 
-  ChevronRight,
-  Info,
   Box,
   Settings,
-  Minimize2,
   Atom,
-  Thermometer
 } from "lucide-react";
 
 export default function KnowledgeBase() {

@@ -1,15 +1,10 @@
-import React, { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { 
   Upload, 
-  FileText, 
   Zap, 
   ShieldCheck, 
-  ChevronRight,
-  Info,
   Layers,
   Settings2,
-  Trash2,
-  Box,
   CheckCircle2,
   AlertCircle
 } from "lucide-react";

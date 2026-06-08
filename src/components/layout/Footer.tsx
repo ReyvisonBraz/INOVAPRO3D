@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Cpu, Github, Instagram, Linkedin, Mail, Twitter, Globe, Shield } from "lucide-react";
+import { Instagram, Linkedin, Twitter, Globe, Shield } from "lucide-react";
 import { BrandLogo } from "../brand/BrandLogo";
 import { motion } from "framer-motion";
 

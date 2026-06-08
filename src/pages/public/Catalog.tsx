@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft, SlidersHorizontal } from "lucide-react";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
@@ -16,10 +16,8 @@ export default function Catalog() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
-  const [addedId, setAddedId] = useState<string | null>(null);
   const [activeSlide, setActiveSlide] = useState(0);
 
   const fetchInitialData = async () => {
@@ -77,11 +75,9 @@ export default function Catalog() {
       image: product.images[0],
       type: 'PRODUCT'
     });
-    setAddedId(product.id);
     toast.success(`${product.name} adicionado!`, {
       icon: <ShoppingCart className="w-4 h-4" />,
     });
-    setTimeout(() => setAddedId(null), 2000);
   };
 
   const filteredProducts = products.filter(p => {

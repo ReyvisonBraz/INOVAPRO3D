@@ -18,37 +18,20 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage
 import { db, handleFirestoreError, OperationType, auth, storage } from "../../services/firebase";
 import { 
   Package, 
-  Clock, 
   Printer, 
   FileText, 
-  TrendingUp, 
-  Users, 
   Settings, 
   Trash2, 
   Plus, 
-  RefreshCw, 
   History,
-  Shield,
   Truck,
-  BarChart as BarChartIcon, 
-  PieChart as PieChartIcon, 
   MapPin,
-  Maximize2,
   CheckCircle2,
-  Box,
-  Sparkles,
   HelpCircle,
-  LayoutDashboard,
-  Search,
-  Bell,
-  ChevronRight,
   ArrowRight,
-  Zap,
   Edit,
   Eye,
-  LogOut,
   Mail,
-  Menu,
   X,
   Smartphone,
   CheckCircle,
@@ -56,52 +39,34 @@ import {
   Layers,
   Copy,
   Download,
-  Wallet,
   Calculator,
-  ListTodo,
   Upload
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { 
-  AreaChart, 
-  Area, 
-  BarChart,
-  Bar,
-  LineChart,
-  Line,
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell
-} from 'recharts';
-import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import { MATERIAL_PRESETS, DEFAULT_MACHINE, DEFAULT_ENERGY, machineHourBreakdown, computePricing, formatBRL, parseTimeToHours, HELP, type MaterialKey } from "../../lib/pricing";
-import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
+import { ADMIN_MENU_ITEMS, type AdminTabId } from "./adminConfig";
+import { AdminSidebar } from "./components/AdminSidebar";
+import { AdminHeader } from "./components/AdminHeader";
+import { ProductionKanban } from "./components/ProductionKanban";
+import { AdminOverviewSummary } from "./components/AdminOverviewSummary";
+import { AdminOverviewCharts } from "./components/AdminOverviewCharts";
+import { ConfirmDialog, type ConfirmDialogState } from "./components/ConfirmDialog";
 import type {
   AuditLog,
-  Coupon,
   Customer,
   FAQ,
   GlobalSettings,
   Material,
   Order,
-  OrderItem,
   Product,
   Quote,
   ShowcaseItem,
   Ticket,
 } from "../../types/domain";
-
-type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'materials' | 'showcase' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs';
 
 export default function AdminDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -109,13 +74,11 @@ export default function AdminDashboard() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isLive, setIsLive] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<AdminTabId>('overview');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -153,11 +116,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const filteredOrders = orders.filter(o => 
-    o.id.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (o.userName && o.userName.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
-
   const filteredCustomers = customers.filter(c => 
     (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -167,25 +125,11 @@ export default function AdminDashboard() {
     (q.userName && q.userName.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (q.fileName && q.fileName.toLowerCase().includes(searchTerm.toLowerCase()))
   );
-  
-  const menuItems = [
-    { id: 'overview', name: 'Painel', icon: TrendingUp },
-    { id: 'orders', name: 'Pedidos', icon: Package },
-    { id: 'quotes', name: 'Orçamentos', icon: FileText },
-    { id: 'products', name: 'Catálogo', icon: Printer },
-    { id: 'materials', name: 'Materiais', icon: Box },
-    { id: 'showcase', name: 'Vitrine', icon: Sparkles },
-    { id: 'crm', name: 'Clientes', icon: Users },
-    { id: 'support', name: 'Suporte', icon: AlertCircle },
-    { id: 'faqs', name: 'FAQs', icon: HelpCircle },
-    { id: 'settings', name: 'Ajustes', icon: Settings },
-    { id: 'logs', name: 'Registro de Auditoria', icon: History },
-  ];
-  const activeMenuItem = menuItems.find((item) => item.id === activeTab);
+  const activeMenuItem = ADMIN_MENU_ITEMS.find((item) => item.id === activeTab);
 
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
   const [isEditingMaterial, setIsEditingMaterial] = useState(false);
-  const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
+  const [selectedMaterial] = useState<Material | null>(null);
   const [newMaterial, setNewMaterial] = useState({
     name: '',
     type: 'PLA',
@@ -431,15 +375,7 @@ export default function AdminDashboard() {
     finalNotes?: string;
   } | null>(null);
 
-  const [confirmState, setConfirmState] = useState<{
-    isOpen: boolean;
-    title: string;
-    description: string;
-    confirmText?: string;
-    cancelText?: string;
-    isDanger?: boolean;
-    onConfirm: () => void;
-  } | null>(null);
+  const [confirmState, setConfirmState] = useState<ConfirmDialogState | null>(null);
 
   const triggerConfirm = (
     title: string,
@@ -668,7 +604,6 @@ export default function AdminDashboard() {
       const productsSnap = await getDocs(collection(db, "products"));
       const showcaseSnap = await getDocs(collection(db, "showcase"));
       const materialsSnap = await getDocs(collection(db, "materials"));
-      const couponsSnap = await getDocs(collection(db, "coupons"));
       const customersSnap = await getDocs(collection(db, "customers"));
       const ticketsSnap = await getDocs(query(collection(db, "tickets"), orderBy("createdAt", "desc")));
       const faqsSnap = await getDocs(collection(db, "faqs"));
@@ -680,7 +615,6 @@ export default function AdminDashboard() {
       setProducts(productsSnap.docs.map(p => ({ id: p.id, ...p.data() } as Product)));
       setShowcase(showcaseSnap.docs.map(s => ({ id: s.id, ...s.data() } as ShowcaseItem)));
       setMaterials(materialsSnap.docs.map(m => ({ id: m.id, ...m.data() } as Material)));
-      setCoupons(couponsSnap.docs.map(c => ({ id: c.id, ...c.data() } as Coupon)));
       setCustomers(customersSnap.docs.map(c => ({ id: c.id, ...c.data() } as Customer)));
       setTickets(ticketsSnap.docs.map(t => ({ id: t.id, ...t.data() } as Ticket)));
       setFaqs(faqsSnap.docs.map(f => ({ id: f.id, ...f.data() } as FAQ)));
@@ -701,7 +635,6 @@ export default function AdminDashboard() {
     const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(1));
     let isInitialLoad = true;
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setIsLive(true);
       if (isInitialLoad) { isInitialLoad = false; return; }
       snapshot.docChanges().forEach((change) => {
         if (change.type === "added") {
@@ -710,7 +643,7 @@ export default function AdminDashboard() {
           fetchData();
         }
       });
-    }, () => setIsLive(false));
+    });
     return () => unsubscribe();
   }, []);
 
@@ -1244,20 +1177,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const chartData = orders.map(o => ({
-    name: new Date(o.createdAt?.seconds * 1000).toLocaleDateString() || 'N/A',
-    total: o.total || 0
-  })).reverse();
-
-  const pieData = [
-    { name: 'Pendente', value: orders.filter(o => o.status === 'PENDING_PAYMENT').length },
-    { name: 'Pago', value: orders.filter(o => o.status === 'PAID').length },
-    { name: 'Produção', value: orders.filter(o => ['QUEUE', 'SLICING', 'PRINTING', 'FINISHING'].includes(o.status)).length },
-    { name: 'Concluído', value: orders.filter(o => o.status === 'COMPLETED').length },
-  ];
-
-  const COLORS = ['#2563EB', '#22C55E', '#3B82F6', '#EAB308'];
-
   if (loading) return (
     <div className="min-h-screen bg-[#050508] flex items-center justify-center">
       <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
@@ -1267,171 +1186,32 @@ export default function AdminDashboard() {
   return (
     <div className="relative flex min-h-screen bg-[#050508] text-white overflow-hidden">
       <FloatingBackground subtle />
-      {/* SIDEBAR - Responsive Toggle */}
-      <AnimatePresence>
-        {isSidebarOpen && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setIsSidebarOpen(false)}
-            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] lg:hidden"
-          />
-        )}
-      </AnimatePresence>
-
-      <aside className={cn(
-        "w-64 border-r border-white/5 bg-surface/30 backdrop-blur-3xl flex flex-col fixed inset-y-0 z-[70] transition-transform duration-500 ease-in-out lg:translate-x-0",
-        isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="p-8 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-3">
-            <BrandMark className="h-6 w-6" />
-            <h1 className="text-xl font-black font-display uppercase italic tracking-tighter">INOVAPRO<span className="text-primary truncate">Admin</span></h1>
-          </Link>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-white/20 hover:text-white">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-        <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto no-scrollbar pb-8">
-          {menuItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setActiveTab(item.id as AdminTabId);
-                setIsSidebarOpen(false);
-              }}
-              className={cn(
-                "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-bold transition-all group",
-                activeTab === item.id ? "bg-primary text-white shadow-xl shadow-primary/20" : "text-white/30 hover:text-white hover:bg-white/5"
-              )}
-            >
-              <item.icon className="w-4 h-4" />
-              {item.name}
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 mt-auto border-t border-white/5">
-           <button className="flex items-center gap-3 w-full p-2 hover:bg-white/5 rounded-2xl transition-colors" onClick={() => auth.signOut()}>
-              <LogOut className="w-4 h-4 text-white/20" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Sair</span>
-           </button>
-        </div>
-      </aside>
+      <AdminSidebar
+        activeTab={activeTab}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onSelectTab={setActiveTab}
+        onLogout={() => auth.signOut()}
+      />
 
       <main className="relative z-10 flex-1 lg:ml-64 min-h-screen min-w-0">
-        <header className="h-20 border-b border-white/5 bg-[#050508]/80 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-8 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 bg-white/5 rounded-xl border border-white/10 hover:border-primary/50 transition-all"
-            >
-              <Menu className="w-5 h-5 text-primary" />
-            </button>
-            <div className="flex items-center gap-2">
-              <BrandMark className="h-6 w-6 hidden sm:block" />
-              <h2 className="text-[10px] sm:text-sm font-black uppercase tracking-[0.2em] italic truncate">{activeMenuItem?.name || activeTab}</h2>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
-             <div className="hidden sm:flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2 border border-white/5 focus-within:border-primary/50 transition-all flex-1 max-w-md">
-               <Search className="w-3.5 h-3.5 text-white/20" />
-               <input 
-                  type="text" 
-                  placeholder="Pesquisar protocolo ou cliente..." 
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="bg-transparent border-none outline-none text-[10px] font-bold text-white w-full" 
-               />
-             </div>
-             <div className="flex items-center gap-2">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  className={cn("h-9 px-3 sm:px-4 text-[10px] uppercase font-black", isSyncing && "opacity-50")} 
-                  onClick={handleSyncData}
-                  disabled={isSyncing}
-                >
-                  <RefreshCw className={cn("w-3 h-3 sm:mr-2", isSyncing && "animate-spin")} /> 
-                  <span className="hidden sm:inline">{isSyncing ? 'Sincronizando...' : 'Sincronizar'}</span>
-                </Button>
-             </div>
-          </div>
-        </header>
+        <AdminHeader
+          activeTab={activeTab}
+          activeTabName={activeMenuItem?.name}
+          searchTerm={searchTerm}
+          isSyncing={isSyncing}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onSearchChange={setSearchTerm}
+          onSyncData={handleSyncData}
+        />
 
         <div className="p-3 sm:p-6 lg:p-10 xl:p-12 max-w-[1600px] mx-auto overflow-x-hidden">
           <AnimatePresence mode="wait">
             {activeTab === 'overview' && (
               <motion.div key="overview" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="space-y-6">
-                {/* TOP STATS */}
-                <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
-                  <div className="col-span-2 glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 relative overflow-hidden group min-h-[150px] sm:min-h-[190px]">
-                    <TrendingUp className="absolute top-6 right-6 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 text-primary opacity-10" />
-                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-2 italic">Receita Acumulada</p>
-                    <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words">R$ {orders.reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}</h2>
-                  </div>
-                  <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Em Produção</p>
-                    <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary">{orders.filter(o => o.status !== "COMPLETED").length}</h3>
-                  </div>
-                  <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-                    <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Orçamentos</p>
-                    <h3 className="text-3xl sm:text-4xl font-display font-black italic">{quotes.filter(q => q.status === "PENDING").length}</h3>
-                  </div>
-                </div>
-
-                {/* RECENT ACTIVITY BENTO */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                  {/* Recent Orders */}
-                  <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
-                    <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
-                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                          <Package className="w-3.5 h-3.5 text-primary" /> Últimos Pedidos
-                       </h3>
-                       <button onClick={() => setActiveTab('orders')} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
-                    </div>
-                    <div className="space-y-3">
-                       {orders.slice(0, 4).map(o => (
-                          <div key={o.id} className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0">
-                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-8 h-8 shrink-0 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center font-mono text-[9px] font-bold text-white/40">#{o.id.slice(0,4)}</div>
-                                <div className="min-w-0">
-                                   <p className="text-xs font-bold uppercase truncate max-w-[120px]">{o.userName}</p>
-                                   <p className="text-[8px] text-white/20 uppercase font-black tracking-widest">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-                                </div>
-                             </div>
-                             <p className="shrink-0 text-sm font-display font-black text-primary italic">R$ {(o.total || 0).toFixed(2)}</p>
-                          </div>
-                       ))}
-                    </div>
-                  </div>
-
-                  {/* Recent Quotes */}
-                  <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
-                    <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
-                       <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-                          <FileText className="w-3.5 h-3.5 text-blue-400" /> Consultas de Preço
-                       </h3>
-                       <button onClick={() => setActiveTab('quotes')} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">Ver Todos</button>
-                    </div>
-                    <div className="space-y-3">
-                       {quotes.slice(0, 4).map(q => (
-                          <div key={q.id} className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0">
-                             <div className="flex items-center gap-3 min-w-0">
-                                <div className="w-8 h-8 shrink-0 rounded-lg bg-blue-500/10 flex items-center justify-center"><FileText className="w-4 h-4 text-blue-400" /></div>
-                                <div className="min-w-0">
-                                   <p className="text-xs font-bold uppercase truncate max-w-[120px]">{q.userName}</p>
-                                   <p className="text-[8px] text-white/20 uppercase font-black tracking-widest truncate max-w-[150px]">{q.fileName}</p>
-                                </div>
-                             </div>
-                             <span className="shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">PENDENTE</span>
-                          </div>
-                       ))}
-                    </div>
-                  </div>
-                </div>
-
+'
+                <AdminOverviewSummary orders={orders} quotes={quotes} onSelectTab={setActiveTab} />
+'
                 {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
                 <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 bg-gradient-to-b from-white/[0.01] to-black/40 space-y-5 sm:space-y-6">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4">
@@ -1773,179 +1553,26 @@ export default function AdminDashboard() {
                     </div>
                   </div>
                 </div>
-
-                {/* ESTEIRA DE PRODUÇÃO (KANBAN) DIRETA NA TELA INICIAL */}
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center bg-white/[0.02] p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-white/5">
-                     <div className="min-w-0">
-                        <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2">
-                           <Layers className="w-4 h-4 shrink-0 text-primary" /> Esteira de Produção
-                        </h3>
-                        <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Controle logístico e manufatura diretamente no dashboard inicial</p>
-                     </div>
-                     <span className="w-fit text-[8px] font-black uppercase tracking-widest text-white/30 bg-white/5 border border-white/5 rounded-full px-3 py-1">Arraste para ver etapas</span>
-                  </div>
-
-                  <div className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
-                     {[
-                       { id: 'PENDING_PAYMENT', label: 'AGUAR. PAGTO', icon: Wallet },
-                       { id: 'PAID', label: 'PAGO', icon: CheckCircle2 },
-                       { id: 'QUEUE', label: 'FILA IMPRESSÃO', icon: ListTodo },
-                       { id: 'PRINTING', label: 'IMPRIMINDO', icon: Zap },
-                       { id: 'FINISHING', label: 'ACABAMENTO', icon: Layers },
-                       { id: 'SHIPPED', label: 'ENVIADO', icon: Truck },
-                       { id: 'COMPLETED', label: 'FINALIZADO', icon: Shield },
-                     ].map(stage => {
-                        const stageOrders = orders.filter(o => o.status === stage.id &&
-                          (searchTerm === "" ||
-                           o.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           o.id.toLowerCase().includes(searchTerm.toLowerCase()))
-                        );
-                        const Icon = stage.icon;
-                        return (
-                           <div key={stage.id} className="min-w-[245px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[26px] sm:rounded-[32px] flex flex-col h-[390px] sm:h-[420px]">
-                              <div className="p-4 border-b border-white/5 bg-white/[0.01]">
-                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2 min-w-0">
-                                       <Icon className="w-3.5 h-3.5 shrink-0 text-primary" />
-                                       <h4 className="text-[10px] font-black uppercase text-white/70 truncate">{stage.label}</h4>
-                                    </div>
-                                    <span className="text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40">{stageOrders.length}</span>
-                                 </div>
-                              </div>
-                              <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
-                                 {stageOrders.map(o => (
-                                    <div key={o.id} onClick={() => { setActiveTab('orders'); setSelectedOrder(o); }} className="glass p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)]">
-                                       <div className="flex justify-between items-start mb-2">
-                                          <p className="text-[8px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
-                                          <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
-                                       </div>
-                                       <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">{o.userName}</h5>
-                                       <p className="text-[9px] text-white/30 line-clamp-1 mb-3 mt-1 font-bold">{o.items?.map((i: OrderItem) => i.name || i.fileName).join(' • ')}</p>
-                                       <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                                           <p className="text-[8px] font-mono text-white/20">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-                                           <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all">
-                                               <ArrowRight className="w-2.5 h-2.5" />
-                                           </div>
-                                       </div>
-                                    </div>
-                                 ))}
-                                 {stageOrders.length === 0 && (
-                                    <div className="py-12 text-center">
-                                       <p className="text-[8px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto">Sem Pedidos</p>
-                                    </div>
-                                 )}
-                              </div>
-                           </div>
-                        )
-                     })}
-                  </div>
-                </div>
-
-                {/* CHARTS ROW */}
-                <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
-                  <div className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]">
-                     <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData}>
-                          <defs>
-                            <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#2563EB" stopOpacity={0.3}/>
-                              <stop offset="95%" stopColor="#2563EB" stopOpacity={0}/>
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
-                          <XAxis dataKey="name" stroke="#ffffff10" fontSize={9} tick={{ fill: '#ffffff20' }} />
-                          <YAxis stroke="#ffffff10" fontSize={9} tick={{ fill: '#ffffff20' }} />
-                          <Tooltip contentStyle={{ backgroundColor: '#0A0A0F', border: '1px solid rgba(37,99,235,0.1)', borderRadius: '24px' }} />
-                          <Area type="monotone" dataKey="total" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
-                        </AreaChart>
-                     </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]">
-                     <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                           <Pie data={pieData} innerRadius={60} outerRadius={85} paddingAngle={10} dataKey="value">
-                              {pieData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                           </Pie>
-                        </PieChart>
-                     </ResponsiveContainer>
-                     <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
-                        <span className="text-2xl font-black italic">{orders.length}</span>
-                        <span className="text-[8px] font-black uppercase text-white/20">Pedidos</span>
-                     </div>
-                  </div>
-                </div>
+                <ProductionKanban
+                  orders={orders}
+                  searchTerm={searchTerm}
+                  variant="compact"
+                  onSelectOrder={(order) => {
+                    setActiveTab("orders");
+                    setSelectedOrder(order);
+                  }}
+                />
+                <AdminOverviewCharts orders={orders} />
               </motion.div>
             )}
 
             {activeTab === 'orders' && (
               <motion.div key="orders" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-                 <div className="flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-                    <div>
-                       <h3 className="text-sm font-black uppercase tracking-widest italic">Esteira de Produção (Kanban)</h3>
-                       <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Painel de controle logístico e manufatura</p>
-                    </div>
-                 </div>
-
-                 <div className="flex gap-4 sm:gap-6 overflow-x-auto pb-8 snap-x no-scrollbar">
-                    {[
-                      { id: 'PENDING_PAYMENT', label: 'AGUAR. PAGTO', icon: Wallet },
-                      { id: 'PAID', label: 'PAGO', icon: CheckCircle2 },
-                      { id: 'QUEUE', label: 'FILA IMPRESSÃO', icon: ListTodo },
-                      { id: 'PRINTING', label: 'IMPRIMINDO', icon: Zap },
-                      { id: 'FINISHING', label: 'ACABAMENTO', icon: Layers },
-                      { id: 'SHIPPED', label: 'ENVIADO', icon: Truck },
-                      { id: 'COMPLETED', label: 'FINALIZADO', icon: Shield },
-                    ].map(stage => {
-                       const stageOrders = orders.filter(o => o.status === stage.id &&
-                         (searchTerm === "" ||
-                          o.userName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          o.id.toLowerCase().includes(searchTerm.toLowerCase()))
-                       );
-                       const Icon = stage.icon;
-                       return (
-                          <div key={stage.id} className="min-w-[260px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[32px] flex flex-col h-[65vh] sm:h-[70vh]">
-                             {/* Column Header */}
-                             <div className="p-4 sm:p-5 border-b border-white/5 bg-white/[0.02]">
-                                <div className="flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-2">
-                                       <Icon className="w-4 h-4 text-primary" />
-                                       <h4 className="text-xs font-black uppercase text-white/80">{stage.label}</h4>
-                                    </div>
-                                    <span className="text-[10px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40">{stageOrders.length}</span>
-                                </div>
-                             </div>
-                             
-                             {/* Column Body / Cards */}
-                             <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
-                                {stageOrders.map(o => (
-                                   <div key={o.id} onClick={() => setSelectedOrder(o)} className="glass p-4 sm:p-5 rounded-[24px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_20px_rgba(37,99,235,0.1)]">
-                                      <div className="flex justify-between items-start mb-3">
-                                         <p className="text-[9px] font-mono text-white/30">#{o.id.slice(0,8)}</p>
-                                         <p className="text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
-                                      </div>
-                                      <h5 className="text-sm font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">{o.userName}</h5>
-                                      <p className="text-[10px] text-white/30 line-clamp-1 mb-4 mt-1 font-bold">{o.items?.map((i: OrderItem) => i.name || i.fileName).join(' • ')}</p>
-                                      
-                                      <div className="flex items-center justify-between border-t border-white/5 pt-3">
-                                          <p className="text-[8px] font-mono text-white/20">{new Date(o.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-                                          <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all">
-                                              <ArrowRight className="w-3 h-3" />
-                                          </div>
-                                      </div>
-                                   </div>
-                                ))}
-                                {stageOrders.length === 0 && (
-                                   <div className="py-10 text-center">
-                                      <p className="text-[9px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-4 w-1/2 mx-auto">Vazio</p>
-                                   </div>
-                                )}
-                             </div>
-                          </div>
-                       )
-                    })}
-                 </div>
+                <ProductionKanban
+                  orders={orders}
+                  searchTerm={searchTerm}
+                  onSelectOrder={setSelectedOrder}
+                />
               </motion.div>
             )}
 
@@ -3479,51 +3106,7 @@ export default function AdminDashboard() {
                    </div>
                    <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic">Publicar Ativo</Button>
 
-        {confirmState && confirmState.isOpen && (
-          <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/85 backdrop-blur-md">
-             <div className="bg-[#0a0a0f] border border-white/10 rounded-[32px] p-8 max-w-sm w-full text-center space-y-6 shadow-2xl relative">
-                <div className={cn(
-                  "w-16 h-16 rounded-full flex items-center justify-center mx-auto border transition-all",
-                  confirmState.isDanger 
-                    ? "bg-red-500/10 text-red-500 border-red-500/20" 
-                    : "bg-green-500/10 text-green-500 border-green-500/20"
-                )}>
-                   {confirmState.isDanger ? (
-                     <AlertCircle className="w-8 h-8 animate-pulse" />
-                   ) : (
-                     <CheckCircle2 className="w-8 h-8 animate-pulse" />
-                   )}
-                </div>
-                
-                <div className="space-y-2">
-                   <h3 className="text-lg font-black text-white italic uppercase tracking-wider">{confirmState.title}</h3>
-                   <p className="text-xs text-white/50 leading-relaxed font-bold">{confirmState.description}</p>
-                </div>
-                
-                <div className="flex gap-3 pt-2">
-                   <button 
-                     type="button"
-                     onClick={() => setConfirmState(null)}
-                     className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-wider text-white/60 hover:text-white transition-all border border-white/5 active:scale-95"
-                   >
-                      {confirmState.cancelText || "Cancelar"}
-                   </button>
-                   <button 
-                     type="button"
-                     onClick={confirmState.onConfirm}
-                     className={cn(
-                       "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white transition-all active:scale-95",
-                       confirmState.isDanger 
-                         ? "bg-red-500 hover:bg-red-600" 
-                         : "bg-green-500 hover:bg-green-600"
-                     )}
-                   >
-                      {confirmState.confirmText || "Confirmar"}
-                   </button>
-                </div>
-             </div>
-          </div>
-        )}
+        <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} />
                 </form>
              </motion.div>
           </div>

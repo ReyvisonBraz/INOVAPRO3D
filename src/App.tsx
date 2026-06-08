@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { AnimatePresence, motion } from "framer-motion";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
+import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import { DebugMarker } from "./components/layout/DebugMarker";
 import FloatingSupport from "./components/ui/FloatingSupport";
 import { Toaster } from "sonner";
@@ -84,39 +85,41 @@ function RouterContent() {
           )}
 
           <main className="relative">
-            <Suspense fallback={<RouteLoader />}>
-              <Routes>
-                <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
-                <Route path="/catalogo" element={<PageWrapper><Catalog /></PageWrapper>} />
-                <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
-                <Route path="/calculadora" element={<PageWrapper><FilamentCalculator /></PageWrapper>} />
-                <Route path="/upload" element={<PageWrapper><CustomQuote /></PageWrapper>} />
-                <Route 
-                  path="/checkout" 
-                  element={
-                    <PageWrapper><Checkout /></PageWrapper>
-                  } 
-                />
-                <Route 
-                  path="/meus-pedidos" 
-                  element={
-                    <ProtectedRoute>
-                      <PageWrapper><MyOrders /></PageWrapper>
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route 
-                  path="/admin" 
-                  element={
-                    <ProtectedRoute requireAdmin>
-                      <PageWrapper><AdminDashboard /></PageWrapper>
-                    </ProtectedRoute>
-                  } 
-                />
-                <Route path="/conhecimento" element={<PageWrapper><Knowledge /></PageWrapper>} />
-                <Route path="*" element={<PageWrapper><Home /></PageWrapper>} />
-              </Routes>
-            </Suspense>
+            <ErrorBoundary>
+              <Suspense fallback={<RouteLoader />}>
+                <Routes>
+                  <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
+                  <Route path="/catalogo" element={<PageWrapper><Catalog /></PageWrapper>} />
+                  <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
+                  <Route path="/calculadora" element={<PageWrapper><FilamentCalculator /></PageWrapper>} />
+                  <Route path="/upload" element={<PageWrapper><CustomQuote /></PageWrapper>} />
+                  <Route 
+                    path="/checkout" 
+                    element={
+                      <PageWrapper><Checkout /></PageWrapper>
+                    } 
+                  />
+                  <Route 
+                    path="/meus-pedidos" 
+                    element={
+                      <ProtectedRoute>
+                        <PageWrapper><MyOrders /></PageWrapper>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin" 
+                    element={
+                      <ProtectedRoute requireAdmin>
+                        <PageWrapper><AdminDashboard /></PageWrapper>
+                      </ProtectedRoute>
+                    } 
+                  />
+                  <Route path="/conhecimento" element={<PageWrapper><Knowledge /></PageWrapper>} />
+                  <Route path="*" element={<PageWrapper><Home /></PageWrapper>} />
+                </Routes>
+              </Suspense>
+            </ErrorBoundary>
           </main>
 
           {!isAdminPage && (
