@@ -3,6 +3,20 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { readModelMetadata } from "./api/_modelMetadata.ts";
 
+// ── Telegram helper ────────────────────────────────────────────────────────
+async function sendTelegram(message: string): Promise<void> {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
+    });
+  } catch { /* silent — notification failure must never break the order flow */ }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -38,7 +52,7 @@ async function startServer() {
     });
 
     // ── Webhook ────────────────────────────────────────────────
-    app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+    app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
       if (!webhookSecret) { res.status(400).send('Webhook secret não configurado'); return; }
       const sig = req.headers['stripe-signature'] as string;
       let event: ReturnType<typeof stripe.webhooks.constructEvent>;
@@ -48,14 +62,50 @@ async function startServer() {
         res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : err}`);
         return;
       }
-      // Log event — Firestore update via Firebase Admin SDK can be added here
-      const orderId = (event.data.object as { metadata?: { orderId?: string } }).metadata?.orderId;
-      console.log(`Stripe: ${event.type} | order: ${orderId ?? 'n/a'}`);
+      const obj = event.data.object as { metadata?: { orderId?: string }; amount?: number };
+      const orderId = obj.metadata?.orderId;
+      if (event.type === 'payment_intent.succeeded' && orderId) {
+        const amountBRL = obj.amount ? (obj.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '?';
+        await sendTelegram(
+          `✅ <b>Pagamento Confirmado — INOVAPRO3D</b>\n\n` +
+          `💳 Método: PIX (Stripe)\n` +
+          `💰 Valor: R$ ${amountBRL}\n` +
+          `🔑 Pedido: <code>${orderId}</code>`
+        );
+      }
       res.json({ received: true });
     });
   }
 
   app.use(express.json());
+
+  // ── New order notification ─────────────────────────────────────────────────
+  app.post('/api/notify/new-order', async (req, res) => {
+    const { orderId, customerName, customerEmail, total, itemCount, paymentMethod } = req.body as {
+      orderId: string; customerName: string; customerEmail: string;
+      total: number; itemCount: number; paymentMethod: string;
+    };
+    if (!orderId) { res.status(400).json({ error: 'orderId obrigatório' }); return; }
+
+    const methodLabel: Record<string, string> = {
+      stripe: 'Stripe (cartão/PIX)',
+      pix_manual: 'PIX Manual',
+    };
+    const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Belem' });
+    const totalFmt = (total ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+
+    await sendTelegram(
+      `🛍️ <b>Novo Pedido — INOVAPRO3D</b>\n\n` +
+      `👤 Cliente: ${customerName || 'Não informado'}\n` +
+      `📧 ${customerEmail || '—'}\n` +
+      `💰 Valor: R$ ${totalFmt}\n` +
+      `📦 Itens: ${itemCount ?? '?'}\n` +
+      `💳 Pagamento: ${methodLabel[paymentMethod] ?? paymentMethod}\n` +
+      `🔑 Pedido: <code>${orderId}</code>\n` +
+      `📅 ${now}`
+    );
+    res.json({ sent: true });
+  });
 
   // Status and diagnostics endpoint.
   app.get("/api/health", (_req, res) => {
