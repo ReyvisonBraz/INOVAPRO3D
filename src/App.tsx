@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { HelmetProvider } from "react-helmet-async";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
@@ -14,7 +15,6 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 const Home = lazy(() => import("./pages/public/Home"));
 const Catalog = lazy(() => import("./pages/public/Catalog"));
 const ProductDetail = lazy(() => import("./pages/public/ProductDetail"));
-const CustomQuote = lazy(() => import("./pages/public/CustomQuote"));
 const FilamentCalculator = lazy(() => import("./pages/public/FilamentCalculator"));
 const Checkout = lazy(() => import("./pages/public/Checkout"));
 const MyOrders = lazy(() => import("./pages/public/MyOrders"));
@@ -57,11 +57,13 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <Router>
-        <RouterContent />
-      </Router>
-    </ThemeProvider>
+    <HelmetProvider>
+      <ThemeProvider>
+        <Router>
+          <RouterContent />
+        </Router>
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 
@@ -96,7 +98,7 @@ function RouterContent() {
                 <Route path="/catalogo" element={<PageWrapper><Catalog /></PageWrapper>} />
                 <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
                 <Route path="/calculadora" element={<PageWrapper><FilamentCalculator /></PageWrapper>} />
-                <Route path="/upload" element={<PageWrapper><CustomQuote /></PageWrapper>} />
+                <Route path="/upload" element={<Navigate to="/catalogo" replace />} />
                 <Route 
                   path="/checkout" 
                   element={

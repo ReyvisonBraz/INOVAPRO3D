@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { PageSEO } from "../../components/seo/PageSEO";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -72,16 +73,16 @@ export default function MyOrders() {
     }
   };
 
-  const getStatusWidth = (status: OrderStatus) => {
+  const getStatusStep = (status: OrderStatus): number => {
     switch (status) {
-      case "PENDING_PAYMENT": return "10%";
-      case "PAID": return "25%";
-      case "QUEUE": return "40%";
-      case "PRINTING": return "60%";
-      case "FINISHING": return "75%";
-      case "SHIPPED": return "90%";
-      case "COMPLETED": return "100%";
-      default: return "10%";
+      case "PENDING_PAYMENT": return 0;
+      case "PAID": return 1;
+      case "QUEUE": return 2;
+      case "PRINTING": return 3;
+      case "FINISHING": return 3;
+      case "SHIPPED": return 4;
+      case "COMPLETED": return 5;
+      default: return 0;
     }
   };
 
@@ -94,6 +95,12 @@ export default function MyOrders() {
 
   return (
     <div className="px-6 lg:px-12 py-12 max-w-7xl mx-auto min-h-screen">
+      <PageSEO
+        title="Meus Pedidos"
+        description="Acompanhe seus pedidos em tempo real: fila, impressão, acabamento, envio e entrega."
+        path="/meus-pedidos"
+        noindex
+      />
       <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-4 sm:gap-8">
         <div>
            <div className="flex items-center gap-3 mb-6">
@@ -211,23 +218,59 @@ export default function MyOrders() {
                   </div>
                 </div>
                 
-                {/* Progress Bar for all items */}
-                <div className="mt-12">
-                   <div className="flex justify-between text-[8px] font-black uppercase tracking-[0.3em] text-white/20 mb-2">
-                      <span>Pedido</span>
-                      <span>Pagamento</span>
-                      <span>Fila</span>
-                      <span>Produção</span>
-                      <span>Despacho</span>
-                   </div>
-                   <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                      <motion.div 
-                         initial={{ width: 0 }}
-                         animate={{ width: getStatusWidth(order.status) }}
-                         transition={{ duration: 1.5, ease: "circOut" }}
-                         className="h-full bg-primary shadow-[0_0_10px_rgba(var(--primary),0.5)]"
-                      />
-                   </div>
+                {/* Step progress indicator */}
+                <div className="mt-10">
+                  {(() => {
+                    const steps = [
+                      { label: "Pedido" },
+                      { label: "Pagamento" },
+                      { label: "Fila" },
+                      { label: "Produção" },
+                      { label: "Envio" },
+                      { label: "Entregue" },
+                    ];
+                    const current = getStatusStep(order.status);
+                    return (
+                      <div className="relative">
+                        {/* Connecting line behind dots */}
+                        <div className="absolute top-[13px] left-0 right-0 h-px bg-white/[0.07] mx-6" />
+                        <motion.div
+                          className="absolute top-[13px] left-6 h-px bg-primary"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(current / (steps.length - 1), 1) * (100 - 12)}%` }}
+                          transition={{ duration: 1.2, ease: "circOut" }}
+                        />
+                        <div className="relative flex justify-between">
+                          {steps.map((step, i) => {
+                            const done = i < current;
+                            const active = i === current;
+                            return (
+                              <div key={step.label} className="flex flex-col items-center gap-2">
+                                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                  done
+                                    ? "bg-primary border-primary"
+                                    : active
+                                    ? "bg-primary/20 border-primary animate-pulse"
+                                    : "bg-surface border-white/10"
+                                }`}>
+                                  {done ? (
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                                  ) : active ? (
+                                    <span className="w-2 h-2 rounded-full bg-primary" />
+                                  ) : (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-white/15" />
+                                  )}
+                                </div>
+                                <span className={`text-[8px] font-black uppercase tracking-wider hidden sm:block ${
+                                  done || active ? "text-white/50" : "text-white/15"
+                                }`}>{step.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {order.trackingCode && order.status !== 'PENDING_PAYMENT' && (

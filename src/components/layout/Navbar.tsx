@@ -3,13 +3,13 @@ import {
   BookOpen,
   Box,
   Calculator,
+  Home,
   type LucideIcon,
   LogOut,
   Menu,
   ShoppingBag,
   User as UserIcon,
   X,
-  Zap,
 } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -61,9 +61,9 @@ export function Navbar() {
   }, [user, profile, isDismissed]);
 
   const navLinks = [
+    { name: "Início", path: "/", icon: Home },
     { name: "Catálogo", path: "/catalogo", icon: Box },
-    { name: "Orçamento", path: "/upload", icon: Zap },
-    { name: "Dicas", path: "/conhecimento", icon: BookOpen },
+    { name: "Como Funciona", path: "/conhecimento", icon: BookOpen },
   ];
 
   const adminLinks = [{ name: "Calculadora", path: "/calculadora", icon: Calculator }];
