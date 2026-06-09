@@ -943,6 +943,18 @@ export default function AdminDashboard() {
                 orders={filteredOrders}
                 searchTerm={searchTerm}
                 onSelectOrder={setSelectedOrder}
+                onCancelOrder={(o) => triggerConfirm(
+                  "Cancelar Pedido",
+                  `Deseja cancelar o pedido #${o.id.slice(0, 12)} de ${o.userName}?`,
+                  () => { updateStatus("orders", o.id, "CANCELED"); setSelectedOrder(null); },
+                  true, "Sim, Cancelar"
+                )}
+                onDeleteOrder={(o) => triggerConfirm(
+                  "Excluir Pedido",
+                  `ATENÇÃO: O pedido #${o.id.slice(0, 12)} será removido permanentemente. Esta ação não pode ser desfeita.`,
+                  () => { deleteItem("orders", o.id); setSelectedOrder(null); },
+                  true, "Sim, Excluir"
+                )}
               />
             )}
             {activeTab === "products" && (
@@ -968,7 +980,7 @@ export default function AdminDashboard() {
                 quotes={filteredQuotes}
                 onSelectQuote={setSelectedCustomer}
                 onApproveQuote={handleApproveQuote}
-                onDeleteQuote={(id) => deleteItem("quotes", id)}
+                onDeleteQuote={(type, id) => deleteItem(type, id)}
               />
             )}
             {activeTab === "support" && (

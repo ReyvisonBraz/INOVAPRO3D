@@ -1,18 +1,22 @@
 import { memo, type FC } from "react";
 import { motion } from "framer-motion";
-import { Wallet, CheckCircle2, ListTodo, Zap, Layers, Truck, Shield, ArrowRight } from "lucide-react";
+import { Wallet, CheckCircle2, ListTodo, Zap, Layers, Truck, Shield, ArrowRight, XCircle, Trash2 } from "lucide-react";
 import type { Order, OrderItem } from "../../../types/domain";
 
 interface AdminOrdersPanelProps {
   orders: Order[];
   searchTerm: string;
   onSelectOrder: (order: Order) => void;
+  onCancelOrder: (order: Order) => void;
+  onDeleteOrder: (order: Order) => void;
 }
 
 const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
   orders,
   searchTerm,
   onSelectOrder,
+  onCancelOrder,
+  onDeleteOrder,
 }) => {
   return (
     <motion.div key="orders" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
@@ -55,7 +59,27 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
               {/* Column Body / Cards */}
               <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
                 {stageOrders.map(o => (
-                  <div key={o.id} onClick={() => onSelectOrder(o)} className="bg-surface-card p-4 sm:p-5 rounded-[24px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_20px_rgba(37,99,235,0.1)] min-h-[44px]">
+                  <div key={o.id} className="bg-surface-card p-4 sm:p-5 rounded-[24px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_20px_rgba(37,99,235,0.1)] min-h-[44px] relative">
+                    {/* Quick actions on hover */}
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      {o.status !== "CANCELED" && o.status !== "COMPLETED" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onCancelOrder(o); }}
+                          className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                          title="Cancelar pedido"
+                        >
+                          <XCircle className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onDeleteOrder(o); }}
+                        className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                        title="Excluir pedido"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <div onClick={() => onSelectOrder(o)} className="cursor-pointer">
                     <div className="flex justify-between items-start mb-3">
                       <p className="text-[9px] font-mono text-secondary">#{o.id.slice(0,8)}</p>
                       <p className="text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md">R$ {(o.total || 0).toFixed(2)}</p>
@@ -68,6 +92,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
                       <div className="w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">
                         <ArrowRight className="w-3 h-3" />
                       </div>
+                    </div>
                     </div>
                   </div>
                 ))}

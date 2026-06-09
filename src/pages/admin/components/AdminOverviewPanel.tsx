@@ -182,9 +182,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-2 italic">
             Receita Acumulada
           </p>
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words" aria-label={`Receita acumulada: R$ ${orders.reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}`}>
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words" aria-label={`Receita acumulada: R$ ${orders.filter(o => o.status !== "CANCELED").reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}`}>
             R${" "}
             {orders
+              .filter(o => o.status !== "CANCELED")
               .reduce((acc, o) => acc + (o.total || 0), 0)
               .toFixed(2)}
           </h2>
@@ -193,8 +194,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-1 italic">
             Em Produção
           </p>
-          <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary" aria-label={`${orders.filter((o) => o.status !== "COMPLETED").length} pedidos em produção`}>
-            {orders.filter((o) => o.status !== "COMPLETED").length}
+          <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary" aria-label={`${orders.filter((o) => o.status !== "COMPLETED" && o.status !== "CANCELED").length} pedidos em produção`}>
+            {orders.filter((o) => o.status !== "COMPLETED" && o.status !== "CANCELED").length}
           </h3>
         </div>
         <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
@@ -224,7 +225,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
             </button>
           </div>
           <ul className="space-y-3" aria-labelledby="recent-orders-title">
-            {orders.slice(0, 4).map((o) => (
+            {orders.filter(o => o.status !== "CANCELED").slice(0, 4).map((o) => (
               <li
                 key={o.id}
                 className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0"
@@ -825,12 +826,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       role="button"
                       tabIndex={0}
                       aria-label={`Pedido ${o.id.slice(0, 8)} de ${o.userName}, R$ ${(o.total || 0).toFixed(2)}, status ${stage.label}`}
-                      onClick={() => {
-                        onTabChange("orders");
-                        onSelectOrder(o);
-                      }}
-                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTabChange("orders"); onSelectOrder(o); } }}
-                      className="bg-surface-card p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)] min-h-[44px]"
+                      onClick={() => onSelectOrder(o)}
+                      className="bg-surface-card p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)] min-h-[44px] relative"
                     >
                       <div className="flex justify-between items-start mb-2">
                         <p className="text-[11px] font-mono text-secondary">
