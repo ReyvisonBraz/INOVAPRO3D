@@ -934,6 +934,18 @@ export default function AdminDashboard() {
                 quickMachineBreak={quickMachineBreak}
                 machineConfig={machineConfig}
                 onSelectOrder={handleSelectOrderAndTab}
+                onCancelOrder={(o) => triggerConfirm(
+                  "Cancelar Pedido",
+                  `Deseja cancelar o pedido #${o.id.slice(0, 12)} de ${o.userName}?`,
+                  () => updateStatus("orders", o.id, "CANCELED"),
+                  true, "Sim, Cancelar"
+                )}
+                onDeleteOrder={(o) => triggerConfirm(
+                  "Excluir Pedido",
+                  `ATENÇÃO: O pedido #${o.id.slice(0, 12)} será removido permanentemente.`,
+                  () => deleteItem("orders", o.id),
+                  true, "Sim, Excluir"
+                )}
                 onTabChange={handleTabChange}
                 onSendWhatsAppQuote={handleSendQuickWhatsAppQuote}
               />
@@ -943,16 +955,17 @@ export default function AdminDashboard() {
                 orders={filteredOrders}
                 searchTerm={searchTerm}
                 onSelectOrder={setSelectedOrder}
+                onUpdateStatus={(id, status) => updateStatus("orders", id, status)}
                 onCancelOrder={(o) => triggerConfirm(
                   "Cancelar Pedido",
                   `Deseja cancelar o pedido #${o.id.slice(0, 12)} de ${o.userName}?`,
-                  () => { updateStatus("orders", o.id, "CANCELED"); setSelectedOrder(null); },
+                  () => updateStatus("orders", o.id, "CANCELED"),
                   true, "Sim, Cancelar"
                 )}
                 onDeleteOrder={(o) => triggerConfirm(
                   "Excluir Pedido",
-                  `ATENÇÃO: O pedido #${o.id.slice(0, 12)} será removido permanentemente. Esta ação não pode ser desfeita.`,
-                  () => { deleteItem("orders", o.id); setSelectedOrder(null); },
+                  `ATENÇÃO: O pedido #${o.id.slice(0, 12)} será removido permanentemente.`,
+                  () => deleteItem("orders", o.id),
                   true, "Sim, Excluir"
                 )}
               />

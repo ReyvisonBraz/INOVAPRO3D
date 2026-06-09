@@ -15,6 +15,7 @@ import {
   Calculator,
   ListTodo,
   Shield,
+  Trash2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -74,6 +75,8 @@ interface AdminOverviewPanelProps {
   quickCalcResult: ReturnType<typeof import("../../../lib/pricing").computePricing>;
   quickMachineBreak: MachineHourBreakdown;
   onSelectOrder: (order: Order) => void;
+  onCancelOrder: (order: Order) => void;
+  onDeleteOrder: (order: Order) => void;
   onTabChange: (tab: string) => void;
   onSendWhatsAppQuote: () => void;
   machineConfig: MachineConfig;
@@ -122,6 +125,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   quickCalcResult,
   quickMachineBreak,
   onSelectOrder,
+  onCancelOrder,
+  onDeleteOrder,
   onTabChange,
   onSendWhatsAppQuote,
   machineConfig,
@@ -826,9 +831,28 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       role="button"
                       tabIndex={0}
                       aria-label={`Pedido ${o.id.slice(0, 8)} de ${o.userName}, R$ ${(o.total || 0).toFixed(2)}, status ${stage.label}`}
-                      onClick={() => onSelectOrder(o)}
                       className="bg-surface-card p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)] min-h-[44px] relative"
                     >
+                      {/* Quick actions on hover */}
+                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                        {o.status !== "CANCELED" && o.status !== "COMPLETED" && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onCancelOrder(o); }}
+                            className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                            title="Cancelar pedido"
+                          >
+                            <AlertCircle className="w-3 h-3" />
+                          </button>
+                        )}
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onDeleteOrder(o); }}
+                          className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                          title="Excluir pedido"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                      <div onClick={() => onSelectOrder(o)}>
                       <div className="flex justify-between items-start mb-2">
                         <p className="text-[11px] font-mono text-secondary">
                           #{o.id.slice(0, 8)}
@@ -854,6 +878,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                         <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">
                           <ArrowRight className="w-2.5 h-2.5" />
                         </div>
+                      </div>
                       </div>
                     </div>
                   ))}
