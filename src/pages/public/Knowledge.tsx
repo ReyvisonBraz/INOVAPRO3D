@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { PageSEO } from "../../components/seo/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
 import { collection, getDocs, limit, query } from "firebase/firestore";
@@ -159,6 +160,11 @@ export default function HowItWorks() {
 
   return (
     <div className="pb-12 min-h-screen">
+      <PageSEO
+        title="Como Funciona"
+        description="Entenda a impressão 3D: materiais, processo de produção, especificações da Bambu Lab P2S, perguntas frequentes e muito mais."
+        path="/conhecimento"
+      />
 
       {/* ─── HERO ─────────────────────────────────────────────── */}
       <section className="container-section pt-12 pb-16 sm:pt-16 sm:pb-24">

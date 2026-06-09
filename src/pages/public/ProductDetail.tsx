@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
+import { PageSEO } from "../../components/seo/PageSEO";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
 import {
@@ -191,6 +192,12 @@ export default function ProductDetail() {
 
   return (
     <div className="container-section py-8 sm:py-12">
+      <PageSEO
+        title={product?.name ?? "Produto"}
+        description={`${product?.name ?? "Peça"} em impressão 3D${product?.category ? ` — ${product.category}` : ""}. Precisão ±0,2mm, material premium, entrega nacional.`}
+        path={`/produto/${product?.id ?? ""}`}
+        image={product?.images?.[0]}
+      />
       <nav aria-label="Breadcrumb" className="mb-8 sm:mb-12">
         <button
           type="button"

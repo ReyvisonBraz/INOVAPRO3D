@@ -1,4 +1,5 @@
 import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { PageSEO } from "../../components/seo/PageSEO";
 import {
   ArrowDown,
   ArrowRight,
@@ -157,6 +158,11 @@ export default function Home() {
 
   return (
     <div className="relative overflow-hidden bg-surface">
+      <PageSEO
+        title="INOVAPRO3D"
+        description="Impressão 3D com precisão ±0,2mm e filamentos premium. Catálogo com centenas de peças prontas, produção em 48h e entrega em todo o Brasil."
+        path="/"
+      />
       <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:px-8">
         <FloatingBackground variant="grid" />
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,179,237,0.08),transparent_60%),linear-gradient(180deg,transparent,#020617_90%)]" />

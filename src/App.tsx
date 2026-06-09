@@ -1,6 +1,7 @@
 import React, { Suspense, lazy, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
+import { HelmetProvider } from "react-helmet-async";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
 import FloatingSupport from "./components/ui/FloatingSupport";
@@ -55,11 +56,13 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <Router>
-        <RouterContent />
-      </Router>
-    </ThemeProvider>
+    <HelmetProvider>
+      <ThemeProvider>
+        <Router>
+          <RouterContent />
+        </Router>
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 

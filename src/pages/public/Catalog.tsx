@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { PageSEO } from "../../components/seo/PageSEO";
 import { collection, getDocs } from "firebase/firestore";
 import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft, SlidersHorizontal } from "lucide-react";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
@@ -194,6 +195,11 @@ export default function Catalog() {
 
   return (
     <div className="min-h-screen bg-surface">
+      <PageSEO
+        title="Catálogo"
+        description="Explore centenas de peças impressas em 3D: miniaturas, decoração, funcional, educacional e muito mais. Produção na Bambu Lab P2S com entrega nacional."
+        path="/catalogo"
+      />
 
       {/* HEADER */}
       <div className="relative overflow-hidden pt-20 pb-8 sm:pt-24 sm:pb-10">

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { PageSEO } from "../../components/seo/PageSEO";
 import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -98,6 +99,12 @@ export default function MyOrders() {
 
   return (
     <div className="px-6 lg:px-12 py-12 max-w-7xl mx-auto min-h-screen">
+      <PageSEO
+        title="Meus Pedidos"
+        description="Acompanhe seus pedidos em tempo real: fila, impressão, acabamento, envio e entrega."
+        path="/meus-pedidos"
+        noindex
+      />
       <div className="flex flex-col md:flex-row items-end justify-between mb-16 gap-4 sm:gap-8">
         <div>
            <div className="flex items-center gap-3 mb-6">
