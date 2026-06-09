@@ -110,6 +110,8 @@ export default function AdminDashboard() {
 
   const [machineConfig, setMachineConfig] = useState<MachineConfig>(DEFAULT_MACHINE);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [editingItems, setEditingItems] = useState(false);
+  const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Quote | Ticket | null>(null);
 
   useEffect(() => {
@@ -1061,7 +1063,36 @@ export default function AdminDashboard() {
                       <option value="FINISHING">ACABAMENTO POST-OP</option>
                       <option value="SHIPPED">ENVIADO / LOGÍSTICA</option>
                       <option value="COMPLETED">ENTREGA FINALIZADA</option>
+                      <option value="CANCELED">CANCELADO</option>
                     </select>
+                    <div className="flex gap-3 mt-3">
+                      <Button
+                        variant="outline"
+                        className="flex-1 rounded-2xl h-10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
+                        onClick={() => triggerConfirm(
+                          "Cancelar Pedido",
+                          `Deseja realmente cancelar o pedido #${selectedOrder.id.slice(0, 12)}? O status será alterado para CANCELADO.`,
+                          () => { updateStatus("orders", selectedOrder.id, "CANCELED"); setSelectedOrder(null); },
+                          true,
+                          "Sim, Cancelar Pedido"
+                        )}
+                      >
+                        Cancelar Pedido
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="flex-1 rounded-2xl h-10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
+                        onClick={() => triggerConfirm(
+                          "Excluir Pedido",
+                          `ATENÇÃO: O pedido #${selectedOrder.id.slice(0, 12)} será permanentemente removido do banco de dados. Esta ação não pode ser desfeita.`,
+                          () => { deleteItem("orders", selectedOrder.id); setSelectedOrder(null); },
+                          true,
+                          "Sim, Excluir Permanentemente"
+                        )}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Excluir Pedido
+                      </Button>
+                    </div>
                   </div>
                   <div className="p-6 bg-white/5 rounded-[28px] border border-white/5">
                     <p className="text-[10px] font-black uppercase tracking-widest text-dim mb-3 italic">Identidade do Cliente</p>
@@ -1088,22 +1119,83 @@ export default function AdminDashboard() {
               </div>
               {/* Right: Items */}
               <div className="flex-1 p-6 sm:p-12 overflow-y-auto no-scrollbar bg-[#050508]/40">
-                <h3 className="text-sm font-black uppercase tracking-widest italic mb-8 border-b border-white/5 pb-4">Manifesto de Produção</h3>
+                <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
+                  <h3 className="text-sm font-black uppercase tracking-widest italic">Manifesto de Produção</h3>
+                  <button
+                    onClick={() => {
+                      if (editingItems) {
+                        const newTotal = editedItems.reduce((acc, it) => acc + (it.price || 0) * (it.quantity || 1), 0);
+                        updateDoc(doc(db, "orders", selectedOrder.id), { items: editedItems, total: newTotal, updatedAt: serverTimestamp() })
+                          .then(() => { setSelectedOrder((prev) => prev ? { ...prev, items: editedItems, total: newTotal } : null); toast.success("Itens atualizados!"); })
+                          .catch((err) => handleFirestoreError(err, OperationType.UPDATE, `orders/${selectedOrder.id}`));
+                        setEditingItems(false);
+                      } else {
+                        setEditedItems(JSON.parse(JSON.stringify(selectedOrder.items || [])));
+                        setEditingItems(true);
+                      }
+                    }}
+                    className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${
+                      editingItems
+                        ? "bg-primary text-white"
+                        : "text-primary hover:bg-primary/10 border border-primary/20"
+                    }`}
+                  >
+                    {editingItems ? "Salvar Alterações" : "Editar Itens"}
+                  </button>
+                </div>
                 <div className="space-y-4">
-                  {selectedOrder.items?.map((item: OrderItem, idx: number) => (
-                    <div key={idx} className="glass p-6 rounded-[32px] border border-white/5 flex items-center gap-5">
+                  {selectedOrder.items?.map((item: OrderItem, idx: number) => {
+                    const editItem = editingItems ? editedItems[idx] : item;
+                    return (
+                    <div key={idx} className="bg-surface-card p-6 rounded-[32px] border border-white/5 flex items-center gap-5">
                       <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0">
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       </div>
-                      <div className="flex-1">
-                        <p className="text-xs font-black uppercase">{item.name}</p>
-                        <p className="text-[9px] text-white/40">{item.options?.material} / Infill {item.options?.infill}%</p>
-                        {item.options?.adminNotes && <p className="text-[9px] text-primary/70 italic mt-1">{item.options.adminNotes}</p>}
-                        <p className="text-[9px] text-secondary mt-0.5">Qtd: {item.quantity}</p>
+                      <div className="flex-1 min-w-0">
+                        {editingItems ? (
+                          <input
+                            value={editItem.name}
+                            onChange={(e) => { const next = [...editedItems]; next[idx] = { ...next[idx], name: e.target.value }; setEditedItems(next); }}
+                            className="w-full bg-black border border-white/10 rounded-xl p-2 text-xs font-black uppercase outline-none focus:border-primary/50 mb-2"
+                          />
+                        ) : (
+                          <p className="text-xs font-black uppercase">{item.name}</p>
+                        )}
+                        <p className="text-[11px] text-white/40">{item.options?.material} / Infill {item.options?.infill}%</p>
+                        {item.options?.adminNotes && <p className="text-[11px] text-primary/70 italic mt-1">{item.options.adminNotes}</p>}
+                        {editingItems ? (
+                          <div className="flex items-center gap-2 mt-2">
+                            <label className="text-[10px] text-dim">Qtd:</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={editItem.quantity}
+                              onChange={(e) => { const next = [...editedItems]; next[idx] = { ...next[idx], quantity: Number(e.target.value) || 1 }; setEditedItems(next); }}
+                              className="w-16 bg-black border border-white/10 rounded-lg p-1.5 text-xs font-bold text-center outline-none focus:border-primary/50"
+                            />
+                          </div>
+                        ) : (
+                          <p className="text-[11px] text-secondary mt-0.5">Qtd: {item.quantity}</p>
+                        )}
                       </div>
-                      <p className="text-sm font-display font-black text-primary">R$ {(item.price || 0).toFixed(2)}</p>
+                      {editingItems ? (
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-[10px] text-dim">R$</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={0.01}
+                            value={editItem.price}
+                            onChange={(e) => { const next = [...editedItems]; next[idx] = { ...next[idx], price: Number(e.target.value) || 0 }; setEditedItems(next); }}
+                            className="w-24 bg-black border border-white/10 rounded-lg p-1.5 text-xs font-bold text-right outline-none focus:border-primary/50 font-mono"
+                          />
+                        </div>
+                      ) : (
+                        <p className="text-sm font-display font-black text-primary shrink-0">R$ {(item.price || 0).toFixed(2)}</p>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
