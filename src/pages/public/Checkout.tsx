@@ -510,7 +510,7 @@ export default function Checkout() {
         </div>
 
         {/* Sidebar */}
-        <aside className="lg:col-span-4 sticky top-28 order-1 lg:order-2">
+        <aside className="lg:col-span-4 lg:sticky lg:top-28 order-1 lg:order-2">
           <div className="rounded-[32px] sm:rounded-[40px] bg-white/[0.03] border border-white/5 overflow-hidden p-1">
             <div className="bg-surface rounded-[30px] sm:rounded-[38px] p-6 sm:p-10 space-y-6 sm:space-y-10">
               <h3 className="text-[10px] sm:text-xs font-black uppercase tracking-[0.3em] text-primary flex items-center gap-3 mb-4 sm:mb-8">
