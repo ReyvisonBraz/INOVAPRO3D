@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
+import { PageSEO } from "../../components/seo/PageSEO";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   CreditCard,
@@ -260,6 +261,12 @@ export default function Checkout() {
 
   return (
     <div className="px-5 lg:px-12 py-8 sm:py-12 max-w-7xl mx-auto min-h-screen">
+      <PageSEO
+        title="Finalizar Compra"
+        description="Conclua seu pedido de impressão 3D: endereço de entrega, confirmação dos itens e pagamento seguro via PIX ou cartão."
+        path="/checkout"
+        noindex
+      />
       {/* Stepper */}
       <div className="flex flex-col md:flex-row items-center md:items-start justify-between mb-10 sm:mb-16 gap-8">
         <div className="text-center md:text-left">

@@ -1,3 +1,4 @@
+import { PageSEO } from "../../components/seo/PageSEO";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowRight, Box, Home, HelpCircle, MessageCircle } from "lucide-react";
@@ -16,6 +17,12 @@ const quickLinks = [
 export default function NotFound() {
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center text-center px-6 py-16">
+      <PageSEO
+        title="Página não encontrada"
+        description="A página que você procura não existe. Explore o catálogo de peças impressas em 3D ou fale com nosso suporte."
+        path="/404"
+        noindex
+      />
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}

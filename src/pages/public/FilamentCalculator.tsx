@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { PageSEO } from "../../components/seo/PageSEO";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
@@ -758,6 +759,11 @@ export default function FilamentCalculator() {
 
   return (
     <>
+    <PageSEO
+      title="Calculadora de Custos 3D"
+      description="Calcule o custo real de qualquer impressão 3D: material, energia, depreciação da máquina e mão de obra. Motor de precisão com parâmetros da Bambu Lab P2S."
+      path="/calculadora"
+    />
     <div className="maker-screen relative overflow-hidden min-h-screen bg-[#07080d] px-4 py-8 text-white sm:px-6 lg:px-8">
       <FloatingBackground subtle variant="grid" />
       <div className="relative z-10 mx-auto max-w-7xl">
