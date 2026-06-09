@@ -66,7 +66,10 @@ export async function importAndConvertImage(
   return { url: downloadUrl, converted: true };
 }
 
-export async function translateToBR(text: string): Promise<string> {
+const translationCache = new Map<string, string>();
+
+export async function translateToBR(text: string, signal?: AbortSignal): Promise<string> {
+  if (translationCache.has(text)) return translationCache.get(text)!;
   if (!text.trim()) return text;
   const sentences: string[] = [];
   let current = "";
@@ -82,12 +85,14 @@ export async function translateToBR(text: string): Promise<string> {
 
   const translated = await Promise.all(sentences.map(async chunk => {
     try {
-      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|pt-BR`);
+      const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(chunk)}&langpair=en|pt-BR`, { signal });
       const d = await r.json() as { responseStatus?: number; responseData?: { translatedText?: string } };
       return (d.responseStatus === 200 && d.responseData?.translatedText) ? d.responseData.translatedText : chunk;
     } catch { return chunk; }
   }));
-  return translated.join(" ").trim();
+  const result = translated.join(" ").trim();
+  translationCache.set(text, result);
+  return result;
 }
 
 export const NumInput = memo(function NumInput({
