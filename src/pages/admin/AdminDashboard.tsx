@@ -17,9 +17,6 @@ import {
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { db, handleFirestoreError, OperationType, auth, storage } from "../../services/firebase";
 import {
-  TrendingUp,
-  Package,
-  FileText,
   RefreshCw,
   LogOut,
   Search,
@@ -27,19 +24,11 @@ import {
   X,
   Smartphone,
   CheckCircle2,
-  AlertCircle,
   ArrowRight,
   Edit,
   Trash2,
-  Printer,
   Truck,
   Calculator,
-  Settings,
-  History,
-  Box,
-  Sparkles,
-  Users,
-  HelpCircle,
   Plus,
   Upload,
 } from "lucide-react";
@@ -68,8 +57,10 @@ import {
   NumInput,
   type AdminTabId,
 } from "../../lib/adminHelpers";
+import { ADMIN_MENU_ITEMS } from "./adminConfig";
 import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
+import { ConfirmDialog } from "./components/ConfirmDialog";
 import type {
   AuditLog,
   Customer,
@@ -131,7 +122,7 @@ export default function AdminDashboard() {
         if (globalSnap.exists()) setGlobalSettings(globalSnap.data() as GlobalSettings);
         if (machineSnap.exists()) setMachineConfig(machineSnap.data() as MachineConfig);
       } catch (err) {
-        // silent
+        console.error("Error fetching settings:", err);
       }
     };
     fetchSettings();
@@ -140,15 +131,17 @@ export default function AdminDashboard() {
   // ── Data fetching ──
   const fetchData = useCallback(async () => {
     try {
-      const ordersSnap = await getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50)));
-      const quotesSnap = await getDocs(query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(50)));
-      const productsSnap = await getDocs(collection(db, "products"));
-      const showcaseSnap = await getDocs(collection(db, "showcase"));
-      const materialsSnap = await getDocs(collection(db, "materials"));
-      const customersSnap = await getDocs(collection(db, "customers"));
-      const ticketsSnap = await getDocs(query(collection(db, "tickets"), orderBy("createdAt", "desc")));
-      const faqsSnap = await getDocs(collection(db, "faqs"));
-      const logsSnap = await getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100)));
+      const [ordersSnap, quotesSnap, productsSnap, showcaseSnap, materialsSnap, customersSnap, ticketsSnap, faqsSnap, logsSnap] = await Promise.all([
+        getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50))),
+        getDocs(query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(50))),
+        getDocs(collection(db, "products")),
+        getDocs(collection(db, "showcase")),
+        getDocs(collection(db, "materials")),
+        getDocs(collection(db, "customers")),
+        getDocs(query(collection(db, "tickets"), orderBy("createdAt", "desc"))),
+        getDocs(collection(db, "faqs")),
+        getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
+      ]);
 
       setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)));
       setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)));
@@ -354,7 +347,7 @@ export default function AdminDashboard() {
           });
           setNewProduct((p) => ({ ...p, basePrice: parseFloat(suggested.retailUnit.toFixed(2)) }));
           toast.info(`Preço sugerido: R$ ${suggested.retailUnit.toFixed(2)} (varejo unitário)`, { duration: 5000 });
-        } catch { /* skip */ }
+        } catch (err) { console.error("Price suggestion failed:", err); }
       }
       toast.success("Metadados importados. Revise o preço antes de salvar.");
     } catch (error) {
@@ -367,6 +360,8 @@ export default function AdminDashboard() {
   const handleProductImageUpload = useCallback(async (file: File | null) => {
     if (!file || !auth.currentUser) return;
     if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    const MAX_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_SIZE) { toast.error("Imagem excede 5MB. Reduza o tamanho antes de enviar."); return; }
     try {
       setIsUploadingProductImage(true);
       const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
@@ -465,27 +460,19 @@ export default function AdminDashboard() {
 
   // ── Materials ──
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
-  const [isEditingMaterial, setIsEditingMaterial] = useState(false);
-  const [selectedMaterial] = useState<Material | null>(null);
   const [newMaterial, setNewMaterial] = useState({ name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, inStock: true });
 
   const handleMaterialSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     try {
-      if (isEditingMaterial && selectedMaterial) {
-        await updateDoc(doc(db, "materials", selectedMaterial.id), newMaterial);
-        toast.success("Material atualizado!");
-      } else {
-        await addDoc(collection(db, "materials"), { ...newMaterial, createdAt: serverTimestamp() });
-        toast.success("Material adicionado!");
-      }
+      await addDoc(collection(db, "materials"), { ...newMaterial, createdAt: serverTimestamp() });
+      toast.success("Material adicionado!");
       setIsAddingMaterial(false);
-      setIsEditingMaterial(false);
       fetchData();
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, "materials");
     }
-  }, [isEditingMaterial, selectedMaterial, newMaterial, fetchData]);
+  }, [newMaterial, fetchData]);
 
   // ── Showcase ──
   const [isAddingShowcase, setIsAddingShowcase] = useState(false);
@@ -539,11 +526,13 @@ export default function AdminDashboard() {
   const exportCustomersToCSV = useCallback(() => {
     try {
       const headers = ["Nome", "Email", "Telefone", "Tags", "Data de Cadastro"];
+      const escapeCSV = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
       const rows = customers.map((c) => [
-        c.name, c.email, c.phone, (c.tags || []).join(", "),
-        c.createdAt ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : "N/A",
+        escapeCSV(c.name), escapeCSV(c.email), escapeCSV(c.phone),
+        escapeCSV((c.tags || []).join("; ")),
+        escapeCSV(c.createdAt ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : "N/A"),
       ]);
-      const csvContent = "data:text/csv;charset=utf-8," + headers.join(",") + "\n" + rows.map((e) => e.join(",")).join("\n");
+      const csvContent = "data:text/csv;charset=utf-8," + headers.map(escapeCSV).join(",") + "\n" + rows.map((e) => e.join(",")).join("\n");
       const link = document.createElement("a");
       link.setAttribute("href", encodeURI(csvContent));
       link.setAttribute("download", `clientes_INOVAPRO_${new Date().toLocaleDateString()}.csv`);
@@ -733,7 +722,7 @@ export default function AdminDashboard() {
   const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState(2.5);
 
   const quickMachine = machineConfig;
-  const quickCalcResult = computePricing({
+  const quickCalcResult = useMemo(() => computePricing({
     material: quickCalcMaterial, weightGrams: Math.max(0, Number(quickCalcWeight) || 0),
     hours: Math.max(0, parseTimeToHours(quickCalcTime)),
     quantity: Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1)),
@@ -745,8 +734,8 @@ export default function AdminDashboard() {
     wholesaleMarkup: Math.max(0, Number(quickCalcWholesaleMarkup) || 0),
     retailMarkup: Math.max(0, Number(quickCalcRetailMarkup) || 0),
     minPrice: Math.max(0, Number(quickCalcMinPrice) || 0),
-  });
-  const quickMachineBreak = machineHourBreakdown(quickMachine);
+  }), [quickCalcMaterial, quickCalcWeight, quickCalcTime, quickCalcBatchQty, quickCalcMaterialReserve, quickCalcFailureRate, quickCalcWholesaleMarkup, quickCalcRetailMarkup, quickCalcMinPrice, quickMachine]);
+  const quickMachineBreak = useMemo(() => machineHourBreakdown(quickMachine), [quickMachine]);
 
   const handleSendQuickWhatsAppQuote = useCallback(() => {
     const phoneClean = quickCalcPhone.replace(/\D/g, "");
@@ -756,6 +745,9 @@ export default function AdminDashboard() {
     const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Material: ${MATERIAL_PRESETS[quickCalcMaterial].label}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Peso do job/lote: ${quickCalcResult.weightGrams.toFixed(1).replace(".", ",")}g\n- Tempo de impressão: ${quickCalcTime || "0h"} (${quickCalcResult.hours.toFixed(2).replace(".", ",")}h)\n\n*Investimento final (varejo):*\nTotal: ${formatBRL(quickCalcResult.retailTotal)}\nUnitário: ${formatBRL(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico com material ${MATERIAL_PRESETS[quickCalcMaterial].label}, energia e hora-máquina P2S.`;
     window.open(`https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`, "_blank");
   }, [quickCalcPhone, quickCalcCustomerName, quickCalcPieceName, quickCalcMaterial, quickCalcTime, quickCalcResult]);
+
+  const handleTabChange = useCallback((tab: string) => setActiveTab(tab as AdminTabId), []);
+  const handleSelectOrderAndTab = useCallback((o: Order) => { setActiveTab("orders"); setSelectedOrder(o); }, []);
 
   // ── Confirm dialog ──
   const [confirmState, setConfirmState] = useState<{
@@ -793,20 +785,7 @@ export default function AdminDashboard() {
   );
 
   // ── Menu ──
-  const menuItems = [
-    { id: "overview", name: "Painel", icon: TrendingUp },
-    { id: "orders", name: "Pedidos", icon: Package },
-    { id: "quotes", name: "Orçamentos", icon: FileText },
-    { id: "products", name: "Catálogo", icon: Printer },
-    { id: "materials", name: "Materiais", icon: Box },
-    { id: "showcase", name: "Vitrine", icon: Sparkles },
-    { id: "crm", name: "Clientes", icon: Users },
-    { id: "support", name: "Suporte", icon: AlertCircle },
-    { id: "faqs", name: "FAQs", icon: HelpCircle },
-    { id: "settings", name: "Ajustes", icon: Settings },
-    { id: "logs", name: "Registro de Auditoria", icon: History },
-  ] as const;
-  const activeMenuItem = menuItems.find((item) => item.id === activeTab);
+  const activeMenuItem = ADMIN_MENU_ITEMS.find((item) => item.id === activeTab);
 
   if (loading)
     return (
@@ -844,12 +823,12 @@ export default function AdminDashboard() {
               INOVAPRO<span className="text-primary truncate">Admin</span>
             </h1>
           </Link>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-white/20 hover:text-white">
+          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-2 text-dim hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
         <nav className="flex-1 px-4 space-y-1.5 overflow-y-auto no-scrollbar pb-8">
-          {menuItems.map((item) => (
+          {ADMIN_MENU_ITEMS.map((item) => (
             <button
               key={item.id}
               onClick={() => { setActiveTab(item.id as AdminTabId); setIsSidebarOpen(false); }}
@@ -857,7 +836,7 @@ export default function AdminDashboard() {
                 "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-bold transition-all group",
                 activeTab === item.id
                   ? "bg-primary text-white shadow-xl shadow-primary/20"
-                  : "text-white/30 hover:text-white hover:bg-white/5"
+                  : "text-secondary hover:text-white hover:bg-white/5"
               )}
             >
               <item.icon className="w-4 h-4" />
@@ -870,7 +849,7 @@ export default function AdminDashboard() {
             className="flex items-center gap-3 w-full p-2 hover:bg-white/5 rounded-2xl transition-colors"
             onClick={() => auth.signOut()}
           >
-            <LogOut className="w-4 h-4 text-white/20" />
+            <LogOut className="w-4 h-4 text-dim" />
             <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Sair</span>
           </button>
         </div>
@@ -896,7 +875,7 @@ export default function AdminDashboard() {
           </div>
           <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
             <div className="hidden sm:flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2 border border-white/5 focus-within:border-primary/50 transition-all flex-1 max-w-md">
-              <Search className="w-3.5 h-3.5 text-white/20" />
+              <Search className="w-3.5 h-3.5 text-dim" />
               <input
                 type="text"
                 placeholder="Pesquisar protocolo ou cliente..."
@@ -952,8 +931,8 @@ export default function AdminDashboard() {
                 quickCalcResult={quickCalcResult}
                 quickMachineBreak={quickMachineBreak}
                 machineConfig={machineConfig}
-                onSelectOrder={(o) => { setActiveTab("orders"); setSelectedOrder(o); }}
-                onTabChange={(tab: string) => setActiveTab(tab as AdminTabId)}
+                onSelectOrder={handleSelectOrderAndTab}
+                onTabChange={handleTabChange}
                 onSendWhatsAppQuote={handleSendQuickWhatsAppQuote}
               />
             )}
@@ -969,7 +948,7 @@ export default function AdminDashboard() {
                 products={products}
                 onDuplicate={handleDuplicateProduct}
                 onEdit={handleEditProduct}
-                onDelete={(id) => deleteItem("products", id)}
+                onDelete={(id) => triggerConfirm("Excluir Produto", "Tem certeza que deseja excluir este produto permanentemente?", () => deleteItem("products", id), true)}
                 onUpdateStock={handleUpdateStock}
                 onAddProduct={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }}
               />
@@ -978,7 +957,7 @@ export default function AdminDashboard() {
               <AdminMaterialsPanel
                 materials={materials}
                 onDeleteMaterial={(id) => deleteItem("materials", id)}
-                onAddMaterial={() => setIsAddingMaterial(true)}
+                onAddMaterial={() => { setNewMaterial({ name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, inStock: true }); setIsAddingMaterial(true); }}
                 onToggleStock={(id, current) => updateStatus("materials", id, { inStock: !current })}
               />
             )}
@@ -1028,7 +1007,7 @@ export default function AdminDashboard() {
               <AdminShowcasePanel
                 showcase={showcase}
                 onDeleteShowcase={(id) => deleteItem("showcase", id)}
-                onAddShowcase={() => setIsAddingShowcase(true)}
+                onAddShowcase={() => { setNewShowcase({ title: "", subtitle: "", image: "", link: "", active: true }); setIsAddingShowcase(true); }}
                 onEditShowcase={(item) => { setSelectedShowcase(item); setNewShowcase({ title: item.title || "", subtitle: item.subtitle || "", image: item.image || "", link: item.link || "", active: item.active !== undefined ? item.active : true }); setIsEditingShowcase(true); }}
               />
             )}
@@ -1063,13 +1042,13 @@ export default function AdminDashboard() {
               {/* Left: Core data */}
               <div className="lg:w-1/3 bg-white/[0.02] border-b lg:border-b-0 lg:border-r border-white/5 p-6 sm:p-12 flex flex-col">
                 <button onClick={() => setSelectedOrder(null)} className="mb-6 lg:mb-12 self-start p-3 hover:bg-white/5 rounded-2xl transition-all group">
-                  <Plus className="w-6 h-6 rotate-45 text-white/20 group-hover:text-red-500" />
+                  <Plus className="w-6 h-6 rotate-45 text-dim group-hover:text-red-500" />
                 </button>
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 italic">Protocol Ledger</p>
                 <h2 className="text-4xl font-display font-black italic tracking-tighter mb-8 leading-none">#{selectedOrder.id.slice(0, 12)}</h2>
                 <div className="space-y-8">
                   <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-4 italic">Status de Operação</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-dim mb-4 italic">Status de Operação</p>
                     <select
                       value={selectedOrder.status}
                       onChange={(e) => updateStatus("orders", selectedOrder.id, e.target.value)}
@@ -1085,12 +1064,12 @@ export default function AdminDashboard() {
                     </select>
                   </div>
                   <div className="p-6 bg-white/5 rounded-[28px] border border-white/5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 mb-3 italic">Identidade do Cliente</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-dim mb-3 italic">Identidade do Cliente</p>
                     <p className="text-sm font-bold uppercase mb-1">{selectedOrder.userName}</p>
                     <p className="text-xs text-white/40">{selectedOrder.userEmail}</p>
                   </div>
                   <div className="space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-white/20 italic">Rastreamento de Logística</p>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-dim italic">Rastreamento de Logística</p>
                     <div className="flex gap-2">
                       <input
                         placeholder="Código de Rastreio"
@@ -1103,7 +1082,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 <div className="mt-8 lg:mt-auto pt-10">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white/10 mb-2">Total Transacionado</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-subtle mb-2">Total Transacionado</p>
                   <p className="text-3xl lg:text-4xl font-display font-black text-primary italic">R$ {(selectedOrder.total || 0).toFixed(2)}</p>
                 </div>
               </div>
@@ -1120,7 +1099,7 @@ export default function AdminDashboard() {
                         <p className="text-xs font-black uppercase">{item.name}</p>
                         <p className="text-[9px] text-white/40">{item.options?.material} / Infill {item.options?.infill}%</p>
                         {item.options?.adminNotes && <p className="text-[9px] text-primary/70 italic mt-1">{item.options.adminNotes}</p>}
-                        <p className="text-[9px] text-white/30 mt-0.5">Qtd: {item.quantity}</p>
+                        <p className="text-[9px] text-secondary mt-0.5">Qtd: {item.quantity}</p>
                       </div>
                       <p className="text-sm font-display font-black text-primary">R$ {(item.price || 0).toFixed(2)}</p>
                     </div>
@@ -1138,7 +1117,7 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}
               className="bg-surface border border-white/10 rounded-[32px] sm:rounded-[48px] p-6 sm:p-12 max-w-3xl w-full relative my-auto"
             >
-              <button onClick={() => setSelectedCustomer(null)} className="absolute top-8 right-8 text-white/20 hover:text-white transition-all"><X className="w-8 h-8" /></button>
+              <button onClick={() => setSelectedCustomer(null)} className="absolute top-8 right-8 text-dim hover:text-white transition-all"><X className="w-8 h-8" /></button>
               {approvalStatus?.success ? (
                 <div className="text-center py-6 space-y-8">
                   <div className="relative mb-6 flex justify-center">
@@ -1154,7 +1133,7 @@ export default function AdminDashboard() {
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl mx-auto text-left">
                     <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-4">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-white/30">Resumo da Ordem</h4>
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-secondary">Resumo da Ordem</h4>
                       <div className="space-y-2 text-xs">
                         <div className="flex justify-between"><span className="text-white/40">Geometria:</span> <span className="text-white/80 font-bold truncate max-w-[120px]" title={selectedCustomer.fileName}>{selectedCustomer.fileName}</span></div>
                         <div className="flex justify-between"><span className="text-white/40">Infill:</span> <span className="text-white/80 font-bold">{approvalStatus.finalInfill}%</span></div>
@@ -1207,16 +1186,16 @@ export default function AdminDashboard() {
                   <h2 className="text-3xl font-black italic tracking-tighter mb-8">Revisão do Engenheiro</h2>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                      <p className="text-[9px] font-black uppercase text-white/20 mb-1">Cliente</p>
+                      <p className="text-[9px] font-black uppercase text-dim mb-1">Cliente</p>
                       <p className="text-xs font-bold text-white/80">{selectedCustomer.userName}</p>
                     </div>
                     <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                      <p className="text-[9px] font-black uppercase text-white/20 mb-1">Geometria / Arquivo</p>
+                      <p className="text-[9px] font-black uppercase text-dim mb-1">Geometria / Arquivo</p>
                       <p className="text-xs font-bold text-primary truncate" title={selectedCustomer.fileName}>{selectedCustomer.fileName}</p>
                     </div>
                   </div>
                   <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5 mb-6">
-                    <p className="text-[9px] font-black uppercase text-white/20 mb-1">Especificações de Entrada (Cliente)</p>
+                    <p className="text-[9px] font-black uppercase text-dim mb-1">Especificações de Entrada (Cliente)</p>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs mt-2">
                       <div><span className="text-white/40">Material:</span> <strong className="text-white/80 uppercase">{selectedCustomer.materialId || "PLA Pro"}</strong></div>
                       <div><span className="text-white/40">Infill:</span> <strong className="text-white/80">{selectedCustomer.infill || 20}%</strong></div>
@@ -1319,19 +1298,19 @@ export default function AdminDashboard() {
                   </div>
                   <div><h2 className="text-3xl font-black italic tracking-tighter">{selectedCRMUser.name}</h2><p className="text-xs text-white/40 font-bold uppercase tracking-widest">{selectedCRMUser.email}</p></div>
                 </div>
-                <button onClick={() => setSelectedCRMUser(null)} className="p-4 hover:bg-white/5 rounded-2xl transition-all text-white/20 hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
+                <button onClick={() => setSelectedCRMUser(null)} className="p-4 hover:bg-white/5 rounded-2xl transition-all text-dim hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
               </div>
               <div className="flex-1 p-12 overflow-y-auto no-scrollbar space-y-10">
                 <div>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/20 mb-6 italic">Fluxo de Protocolos (Pedidos)</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-dim mb-6 italic">Fluxo de Protocolos (Pedidos)</h3>
                   <div className="space-y-4">
                     {orders.filter((o) => o.userEmail === selectedCRMUser.email).map((order) => (
                       <div key={order.id} className="glass p-6 rounded-[32px] border border-white/5 flex items-center justify-between hover:bg-white/5 transition-all">
-                        <div><p className="text-[10px] font-mono text-white/20 mb-1">#{order.id.slice(0, 12)}</p><p className="text-xs font-bold uppercase">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p></div>
-                        <div className="text-center"><p className="text-[8px] font-black uppercase text-white/20 mb-1">Status</p><span className="text-[9px] font-black uppercase px-3 py-1 bg-white/5 rounded-full border border-white/5">{order.status}</span></div>
+                        <div><p className="text-[10px] font-mono text-dim mb-1">#{order.id.slice(0, 12)}</p><p className="text-xs font-bold uppercase">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p></div>
+                        <div className="text-center"><p className="text-[11px] font-black uppercase text-dim mb-1">Status</p><span className="text-[9px] font-black uppercase px-3 py-1 bg-white/5 rounded-full border border-white/5">{order.status}</span></div>
                         <div className="text-right">
                           <p className="text-sm font-display font-black text-primary">R$ {(order.total || 0).toFixed(2)}</p>
-                          <button onClick={() => { setSelectedOrder(order); setSelectedCRMUser(null); }} className="text-[8px] font-black uppercase text-white/20 hover:text-white mt-1 underline">Ver Detalhes</button>
+                          <button onClick={() => { setSelectedOrder(order); setSelectedCRMUser(null); }} className="text-[11px] font-black uppercase text-dim hover:text-white mt-1 underline">Ver Detalhes</button>
                         </div>
                       </div>
                     ))}
@@ -1353,15 +1332,15 @@ export default function AdminDashboard() {
         {(isAddingCustomer || isEditingCustomer) && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-surface border border-white/10 rounded-[48px] p-10 max-w-md w-full relative my-auto">
-              <button onClick={() => { setIsAddingCustomer(false); setIsEditingCustomer(false); }} className="absolute top-8 right-8 text-white/20 hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
+              <button onClick={() => { setIsAddingCustomer(false); setIsEditingCustomer(false); }} className="absolute top-8 right-8 text-dim hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
               <h2 className="text-3xl font-black italic tracking-tighter mb-8 leading-none">{isEditingCustomer ? "Editar Cliente" : "Novo Cliente"}<br /><span className="text-primary text-sm uppercase tracking-widest mt-2 block">{isEditingCustomer ? "Refinar Cadastro" : "Cadastro Manual (CRM)"}</span></h2>
               <form onSubmit={handleCustomerSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20 italic">Nome Completo</label><input required value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20 italic">Telefone / WhatsApp</label><input value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} placeholder="(00) 00000-0000" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Nome Completo</label><input required value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Telefone / WhatsApp</label><input value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} placeholder="(00) 00000-0000" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
                 </div>
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20 italic">Email de Contato</label><input required type="email" value={newCustomer.email} onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20 italic">Segmentação (Tags separadas por vírgula)</label><input value={newCustomer.tags.join(", ")} onChange={(e) => setNewCustomer({ ...newCustomer, tags: e.target.value.split(",").map((t) => t.trim()).filter((t) => t !== "") })} placeholder="Ex: VIP, B2B, Atacado" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Email de Contato</label><input required type="email" value={newCustomer.email} onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Segmentação (Tags separadas por vírgula)</label><input value={newCustomer.tags.join(", ")} onChange={(e) => setNewCustomer({ ...newCustomer, tags: e.target.value.split(",").map((t) => t.trim()).filter((t) => t !== "") })} placeholder="Ex: VIP, B2B, Atacado" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
                 <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest bg-primary shadow-xl shadow-primary/20">Registrar no Database</Button>
               </form>
             </motion.div>
@@ -1369,19 +1348,19 @@ export default function AdminDashboard() {
         )}
 
         {/* Material Form Modal */}
-        {(isAddingMaterial || isEditingMaterial) && (
+        {isAddingMaterial && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl">
             <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-surface border border-white/10 rounded-[48px] p-12 max-w-md w-full relative">
-              <button onClick={() => { setIsAddingMaterial(false); setIsEditingMaterial(false); }} className="absolute top-8 right-8 text-white/20 hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
-              <h2 className="text-3xl font-black italic tracking-tighter mb-8">{isEditingMaterial ? "Editar Material" : "Novo Material"}</h2>
+              <button onClick={() => setIsAddingMaterial(false)} className="absolute top-8 right-8 text-dim hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
+              <h2 className="text-3xl font-black italic tracking-tighter mb-8">Novo Material</h2>
               <form onSubmit={handleMaterialSubmit} className="space-y-6">
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Identificação</label><input required value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })} placeholder="Ex: PLA Silk Gold" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Identificação</label><input required value={newMaterial.name} onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })} placeholder="Ex: PLA Silk Gold" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Tipo</label><input value={newMaterial.type} onChange={(e) => setNewMaterial({ ...newMaterial, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Custo p/ Kg</label><NumInput min={0} step={0.01} value={newMaterial.pricePerKg} onChange={(v) => setNewMaterial({ ...newMaterial, pricePerKg: v })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Tipo</label><input value={newMaterial.type} onChange={(e) => setNewMaterial({ ...newMaterial, type: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Custo p/ Kg</label><NumInput min={0} step={0.01} value={newMaterial.pricePerKg} onChange={(v) => setNewMaterial({ ...newMaterial, pricePerKg: v })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
                 </div>
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Cor do Display</label><input type="color" value={newMaterial.color} onChange={(e) => setNewMaterial({ ...newMaterial, color: e.target.value })} className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl overflow-hidden cursor-pointer" /></div>
-                <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest">{isEditingMaterial ? "Salvar Protocolo" : "Registrar Material"}</Button>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Cor do Display</label><input type="color" value={newMaterial.color} onChange={(e) => setNewMaterial({ ...newMaterial, color: e.target.value })} className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl overflow-hidden cursor-pointer" /></div>
+                <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest">Registrar Material</Button>
               </form>
             </motion.div>
           </div>
@@ -1391,12 +1370,12 @@ export default function AdminDashboard() {
         {(isAddingShowcase || isEditingShowcase) && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
             <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 30 }} className="bg-surface border border-white/10 rounded-[48px] p-12 max-w-lg w-full relative my-auto">
-              <button onClick={() => { setIsAddingShowcase(false); setIsEditingShowcase(false); }} className="absolute top-8 right-8 text-white/20 hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
+              <button onClick={() => { setIsAddingShowcase(false); setIsEditingShowcase(false); }} className="absolute top-8 right-8 text-dim hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
               <h2 className="text-3xl font-black italic tracking-tighter mb-8">{isEditingShowcase ? "Edição Vitrine" : "Novo Destaque"}</h2>
               <form onSubmit={handleShowcaseSubmit} className="space-y-6">
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Título do Banner</label><input required value={newShowcase.title} onChange={(e) => setNewShowcase({ ...newShowcase, title: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Subtítulo / Tagline</label><input value={newShowcase.subtitle} onChange={(e) => setNewShowcase({ ...newShowcase, subtitle: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Wallpaper URL</label><input required value={newShowcase.image} onChange={(e) => setNewShowcase({ ...newShowcase, image: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Título do Banner</label><input required value={newShowcase.title} onChange={(e) => setNewShowcase({ ...newShowcase, title: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Subtítulo / Tagline</label><input value={newShowcase.subtitle} onChange={(e) => setNewShowcase({ ...newShowcase, subtitle: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Wallpaper URL</label><input required value={newShowcase.image} onChange={(e) => setNewShowcase({ ...newShowcase, image: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
                 <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic">Publicar Ativo</Button>
               </form>
             </motion.div>
@@ -1407,7 +1386,7 @@ export default function AdminDashboard() {
         {(isAddingProduct || isEditingProduct) && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto no-scrollbar">
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-surface border border-white/10 rounded-[32px] sm:rounded-[48px] p-6 sm:p-12 max-w-4xl w-full relative my-auto">
-              <button onClick={() => { setIsAddingProduct(false); setIsEditingProduct(false); }} className="absolute top-8 right-8 text-white/20 hover:text-red-500 transition-all"><X className="w-8 h-8" /></button>
+              <button onClick={() => { setIsAddingProduct(false); setIsEditingProduct(false); }} className="absolute top-8 right-8 text-dim hover:text-red-500 transition-all"><X className="w-8 h-8" /></button>
               <h2 className="text-3xl font-black italic tracking-tighter mb-8 leading-none">{isEditingProduct ? "Editar Produto" : "Cadastrar Item"}<br /><span className="text-primary text-sm uppercase tracking-widest mt-2 block">{isEditingProduct ? "Ajuste de Catálogo" : "Registro de Manufatura"}</span></h2>
               <form onSubmit={handleProductSubmit} className="space-y-6">
                 {/* Source URL import */}
@@ -1416,48 +1395,48 @@ export default function AdminDashboard() {
                     <input type="text" value={productImportUrl} onChange={(e) => setProductImportUrl(e.target.value)} placeholder="Cole um link público do modelo, ex: MakerWorld/Bambu Lab" className="min-w-0 flex-1 bg-black border border-white/10 rounded-2xl p-4 text-xs font-mono outline-none focus:border-primary/50 transition-all" />
                     <Button type="button" onClick={handleImportProductMetadata} disabled={isImportingProduct} className="rounded-2xl px-6 h-12 text-[10px] font-black uppercase tracking-widest">{isImportingProduct ? "Importando..." : "Importar"}</Button>
                   </div>
-                  {newProduct.sourceUrl && <p className="text-[8px] text-white/30 font-mono break-all">Origem: {newProduct.sourceUrl}</p>}
+                  {newProduct.sourceUrl && <p className="text-[11px] text-secondary font-mono break-all">Origem: {newProduct.sourceUrl}</p>}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Identidade do Item</label>
+                      <label className="text-[10px] font-black uppercase tracking-widest text-dim">Identidade do Item</label>
                       <button type="button" disabled={!newProduct.name || translatingField === "name"}
                         onClick={async () => { setTranslatingField("name"); try { const t = await translateToBR(newProduct.name); setNewProduct((p) => ({ ...p, name: formatCatalogTitle(t) })); } catch { toast.error("Falha na tradução."); } finally { setTranslatingField(null); } }}
-                        className="text-[8px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
+                        className="text-[11px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
                         {translatingField === "name" ? "traduzindo..." : "Traduzir PT"}
                       </button>
                     </div>
                     <input required value={newProduct.name} onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })} placeholder="Ex: Luminária Cyberpunk" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Status & Disponibilidade</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-dim">Status & Disponibilidade</label>
                     <div className="flex items-center gap-4 h-14 bg-white/5 border border-white/10 rounded-2xl px-4">
                       <button type="button" onClick={() => setNewProduct({ ...newProduct, active: !newProduct.active })} className={cn("px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all", newProduct.active ? "bg-green-500/10 text-green-500" : "bg-red-500/10 text-red-500")}>{newProduct.active ? "Ativo" : "Inativo"}</button>
                       <div className="h-6 w-px bg-white/10" />
-                      <div className="flex items-center gap-2 flex-1"><label className="text-[9px] font-black uppercase text-white/20">Estoque:</label><NumInput min={0} value={newProduct.stock || 0} onChange={(v) => setNewProduct({ ...newProduct, stock: Math.round(v) })} className="bg-transparent border-none outline-none text-xs font-bold text-white w-12" /></div>
+                      <div className="flex items-center gap-2 flex-1"><label className="text-[9px] font-black uppercase text-dim">Estoque:</label><NumInput min={0} value={newProduct.stock || 0} onChange={(v) => setNewProduct({ ...newProduct, stock: Math.round(v) })} className="bg-transparent border-none outline-none text-xs font-bold text-white w-12" /></div>
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase tracking-widest text-white/20">Preço Base (R$)</label><NumInput min={0} step={0.01} value={newProduct.basePrice} onChange={(v) => setNewProduct({ ...newProduct, basePrice: v })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase tracking-widest text-dim">Preço Base (R$)</label><NumInput min={0} step={0.01} value={newProduct.basePrice} onChange={(v) => setNewProduct({ ...newProduct, basePrice: v })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Setor / Categoria</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-dim">Setor / Categoria</label>
                     <select value={newProduct.category} onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })} className="w-full bg-[#050508] border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-display text-[11px]">
                       {allCategories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
                     </select>
                     <div className="mt-2">
-                      <input type="text" placeholder="+ Nova categoria (Enter para adicionar)" className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 transition-all text-white placeholder:text-white/20"
+                      <input type="text" placeholder="+ Nova categoria (Enter para adicionar)" className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 transition-all text-white placeholder:text-dim"
                         onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); const val = (e.target as HTMLInputElement).value.trim().toUpperCase(); if (val && !allCategories.includes(val)) { setCustomCategories((prev) => [...prev, val]); setNewProduct((p) => ({ ...p, category: val })); (e.target as HTMLInputElement).value = ""; } } }} />
                     </div>
                   </div>
                 </div>
                 {/* Images */}
                 <div className="space-y-3">
-                  <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Fotos do Produto</label>
+                  <label className="text-[10px] font-black uppercase tracking-widest text-dim">Fotos do Produto</label>
                   <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4">
                     <label className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 cursor-pointer">
-                      <div className="min-w-0"><span className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2"><Upload className="w-4 h-4" />Enviar imagem manual</span><p className="text-[8px] uppercase tracking-widest text-white/30 mt-1">JPG, PNG ou WEBP.</p></div>
+                      <div className="min-w-0"><span className="text-[10px] font-black uppercase tracking-widest text-primary flex items-center gap-2"><Upload className="w-4 h-4" />Enviar imagem manual</span><p className="text-[11px] uppercase tracking-widest text-secondary mt-1">JPG, PNG ou WEBP.</p></div>
                       <span className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[9px] font-black uppercase tracking-widest border border-primary/20">{isUploadingProductImage ? "Enviando..." : "Escolher arquivo"}</span>
                       <input type="file" accept="image/*" disabled={isUploadingProductImage} onChange={(e) => { void handleProductImageUpload(e.target.files?.[0] || null); e.target.value = ""; }} className="sr-only" />
                     </label>
@@ -1467,12 +1446,12 @@ export default function AdminDashboard() {
                       {newProduct.images.filter(Boolean).map((url, idx) => (
                         <div key={`${url}-${idx}`} className="flex items-center gap-2 p-2 rounded-2xl bg-white/[0.03] border border-white/[0.06] group">
                           <img src={url} alt="" className="w-12 h-12 rounded-xl object-cover border border-white/10 shrink-0 bg-black/20" loading="lazy" />
-                          <span className="text-[8px] font-black uppercase tracking-widest text-white/30 w-8 shrink-0 text-center">{idx === 0 ? "CAPA" : `#${idx + 1}`}</span>
-                          <span className="flex-1 min-w-0 text-[9px] font-mono text-white/25 truncate hidden sm:block">{url}</span>
+                          <span className="text-[11px] font-black uppercase tracking-widest text-secondary w-8 shrink-0 text-center">{idx === 0 ? "CAPA" : `#${idx + 1}`}</span>
+                          <span className="flex-1 min-w-0 text-[9px] font-mono text-secondary truncate hidden sm:block">{url}</span>
                           <div className="flex items-center gap-1 shrink-0">
-                            <button type="button" title="Mover para cima" disabled={idx === 0} onClick={() => { const imgs = [...newProduct.images.filter(Boolean)]; [imgs[idx - 1], imgs[idx]] = [imgs[idx], imgs[idx - 1]]; setNewProduct((p) => ({ ...p, images: imgs })); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↑</button>
-                            <button type="button" title="Mover para baixo" disabled={idx === newProduct.images.filter(Boolean).length - 1} onClick={() => { const imgs = [...newProduct.images.filter(Boolean)]; [imgs[idx], imgs[idx + 1]] = [imgs[idx + 1], imgs[idx]]; setNewProduct((p) => ({ ...p, images: imgs })); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/30 hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↓</button>
-                            <button type="button" title="Remover" onClick={() => { const imgs = newProduct.images.filter(Boolean).filter((_, i) => i !== idx); setNewProduct((p) => ({ ...p, images: imgs.length > 0 ? imgs : [""] })); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-white/25 hover:text-red-400 hover:bg-red-400/10 transition-all text-xs">✕</button>
+                            <button type="button" title="Mover para cima" disabled={idx === 0} onClick={() => { const imgs = [...newProduct.images.filter(Boolean)]; [imgs[idx - 1], imgs[idx]] = [imgs[idx], imgs[idx - 1]]; setNewProduct((p) => ({ ...p, images: imgs })); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↑</button>
+                            <button type="button" title="Mover para baixo" disabled={idx === newProduct.images.filter(Boolean).length - 1} onClick={() => { const imgs = [...newProduct.images.filter(Boolean)]; [imgs[idx], imgs[idx + 1]] = [imgs[idx + 1], imgs[idx]]; setNewProduct((p) => ({ ...p, images: imgs })); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:text-white hover:bg-white/[0.07] transition-all disabled:opacity-20 disabled:cursor-not-allowed text-xs">↓</button>
+                            <button type="button" title="Remover" onClick={() => { const imgs = newProduct.images.filter(Boolean).filter((_, i) => i !== idx); setNewProduct((p) => ({ ...p, images: imgs.length > 0 ? imgs : [""] })); }} className="w-7 h-7 flex items-center justify-center rounded-lg text-secondary hover:text-red-400 hover:bg-red-400/10 transition-all text-xs">✕</button>
                           </div>
                         </div>
                       ))}
@@ -1486,28 +1465,28 @@ export default function AdminDashboard() {
                   </div>
                 </div>
                 {/* Model URLs */}
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase tracking-widest text-white/20">Link do Arquivo STL / Modelo 3D</label><input value={newProduct.modelUrl || ""} onChange={(e) => setNewProduct({ ...newProduct, modelUrl: e.target.value })} placeholder="Ex: /cube.stl ou link HTTPS" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs" /></div>
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase tracking-widest text-white/20">Link de Origem / Download do Modelo</label><input value={newProduct.sourceUrl || ""} onChange={(e) => setNewProduct({ ...newProduct, sourceUrl: e.target.value })} placeholder="Link da página do modelo ou download externo" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase tracking-widest text-dim">Link do Arquivo STL / Modelo 3D</label><input value={newProduct.modelUrl || ""} onChange={(e) => setNewProduct({ ...newProduct, modelUrl: e.target.value })} placeholder="Ex: /cube.stl ou link HTTPS" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase tracking-widest text-dim">Link de Origem / Download do Modelo</label><input value={newProduct.sourceUrl || ""} onChange={(e) => setNewProduct({ ...newProduct, sourceUrl: e.target.value })} placeholder="Link da página do modelo ou download externo" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs" /></div>
                 {/* Dimensions */}
                 <div className="grid grid-cols-3 gap-4 bg-white/5 p-4 sm:p-6 rounded-3xl border border-white/5">
-                  <div className="space-y-1 col-span-3"><label className="text-[10px] font-black uppercase tracking-widest text-white/20">Dimensões Base do Modelo (mm)</label></div>
+                  <div className="space-y-1 col-span-3"><label className="text-[10px] font-black uppercase tracking-widest text-dim">Dimensões Base do Modelo (mm)</label></div>
                   <div className="space-y-2"><label className="text-[9px] font-black uppercase text-white/40">Eixo X (Largura)</label><NumInput min={0} value={newProduct.baseDimensions?.x || 120} onChange={(v) => setNewProduct({ ...newProduct, baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), x: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center" /></div>
                   <div className="space-y-2"><label className="text-[9px] font-black uppercase text-white/40">Eixo Y (Comprimento)</label><NumInput min={0} value={newProduct.baseDimensions?.y || 120} onChange={(v) => setNewProduct({ ...newProduct, baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), y: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center" /></div>
                   <div className="space-y-2"><label className="text-[9px] font-black uppercase text-white/40">Eixo Z (Altura)</label><NumInput min={0} value={newProduct.baseDimensions?.z || 150} onChange={(v) => setNewProduct({ ...newProduct, baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), z: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center" /></div>
                 </div>
                 {/* Technical specs */}
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 sm:gap-4 p-4 sm:p-6 bg-white/5 rounded-3xl border border-white/5">
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Resolução</label><input value={newProduct.technical.resolution} onChange={(e) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, resolution: e.target.value } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Infill (%)</label><NumInput min={0} max={100} value={newProduct.technical.infill} onChange={(v) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, infill: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Tempo</label><input value={newProduct.technical.printTime} onChange={(e) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, printTime: e.target.value } })} placeholder="4h 30m" className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
-                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-white/20">Peso Base (g)</label><NumInput min={0} value={newProduct.technical.weight || 80} onChange={(v) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, weight: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Resolução</label><input value={newProduct.technical.resolution} onChange={(e) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, resolution: e.target.value } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Infill (%)</label><NumInput min={0} max={100} value={newProduct.technical.infill} onChange={(v) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, infill: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Tempo</label><input value={newProduct.technical.printTime} onChange={(e) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, printTime: e.target.value } })} placeholder="4h 30m" className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
+                  <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Peso Base (g)</label><NumInput min={0} value={newProduct.technical.weight || 80} onChange={(v) => setNewProduct({ ...newProduct, technical: { ...newProduct.technical, weight: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none" /></div>
                 </div>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-white/20">Descrição Técnica / Marketing</label>
+                    <label className="text-[10px] font-black uppercase tracking-widest text-dim">Descrição Técnica / Marketing</label>
                     <button type="button" disabled={!newProduct.description || translatingField === "description"}
                       onClick={async () => { setTranslatingField("description"); try { const t = await translateToBR(newProduct.description); setNewProduct((p) => ({ ...p, description: formatCatalogDescription(t) })); } catch { toast.error("Falha na tradução."); } finally { setTranslatingField(null); } }}
-                      className="text-[8px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
+                      className="text-[11px] font-black uppercase tracking-widest text-primary/70 hover:text-primary transition-colors disabled:opacity-30 flex items-center gap-1 shrink-0">
                       {translatingField === "description" ? "traduzindo..." : "Traduzir PT"}
                     </button>
                   </div>
@@ -1520,20 +1499,7 @@ export default function AdminDashboard() {
         )}
 
         {/* Confirm Dialog */}
-        {confirmState && (
-          <div className="fixed inset-0 z-[250] flex items-center justify-center p-6 bg-black/85 backdrop-blur-md">
-            <div className="bg-[#0a0a0f] border border-white/10 rounded-[32px] p-8 max-w-sm w-full text-center space-y-6 shadow-2xl relative">
-              <div className={cn("w-16 h-16 rounded-full flex items-center justify-center mx-auto border transition-all", confirmState.isDanger ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-green-500/10 text-green-500 border-green-500/20")}>
-                {confirmState.isDanger ? <AlertCircle className="w-8 h-8 animate-pulse" /> : <CheckCircle2 className="w-8 h-8 animate-pulse" />}
-              </div>
-              <div className="space-y-2"><h3 className="text-lg font-black text-white italic uppercase tracking-wider">{confirmState.title}</h3><p className="text-xs text-white/50 leading-relaxed font-bold">{confirmState.description}</p></div>
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setConfirmState(null)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-[10px] font-black uppercase tracking-wider text-white/60 hover:text-white transition-all border border-white/5 active:scale-95">{confirmState.cancelText || "Cancelar"}</button>
-                <button type="button" onClick={confirmState.onConfirm} className={cn("flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-wider text-white transition-all active:scale-95", confirmState.isDanger ? "bg-red-500 hover:bg-red-600" : "bg-green-500 hover:bg-green-600")}>{confirmState.confirmText || "Confirmar"}</button>
-              </div>
-            </div>
-          </div>
-        )}
+        <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} />
       </AnimatePresence>
     </div>
   );

@@ -27,7 +27,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
       <div className="glass rounded-[32px] sm:rounded-[48px] p-4 sm:p-10 border border-white/5 overflow-x-auto no-scrollbar">
         <table className="w-full text-left min-w-[600px]">
           <thead>
-            <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-white/20 border-b border-white/5">
+            <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-dim border-b border-white/5">
               <th className="pb-6">Protocolo</th>
               <th className="pb-6">Arquivo</th>
               <th className="pb-6">Cliente</th>
@@ -53,7 +53,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => onSelectQuote(q)}
-                      className="p-3 bg-white/5 hover:bg-white/10 text-white/20 hover:text-white rounded-xl transition-all"
+                      className="p-3 bg-white/5 hover:bg-white/10 text-dim hover:text-white rounded-xl transition-all"
                     >
                       <Eye className="w-4 h-4" />
                     </button>
@@ -79,7 +79,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
               <tr>
                 <td
                   colSpan={4}
-                  className="py-20 text-center text-white/10 italic"
+                  className="py-20 text-center text-subtle italic"
                 >
                   Nenhum orçamento encontrado.
                 </td>

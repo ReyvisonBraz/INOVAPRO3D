@@ -194,7 +194,7 @@ export default function Home() {
               <RevealItem key={stat.label}>
                 <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
                   <p className="font-display text-xl font-black text-white">{stat.value}</p>
-                  <p className="mt-1 text-[9px] font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
+                  <p className="mt-1 text-xs font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
                     {stat.label}
                   </p>
                 </div>
@@ -257,7 +257,7 @@ export default function Home() {
             </RevealGroup>
           ) : (
             <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
-              <Box className="mx-auto mb-4 h-9 w-9 text-white/18" />
+              <Box className="mx-auto mb-4 h-9 w-9 text-dim" />
               <p className="text-sm font-medium text-white/[0.35]">Nenhum produto disponivel no momento.</p>
             </div>
           )}
@@ -282,7 +282,7 @@ export default function Home() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setFilter("ALL")}
-                className={`rounded-full border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                className={`rounded-full border px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] transition-all ${
                   filter === "ALL"
                     ? "border-white bg-white text-slate-950"
                     : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
@@ -294,7 +294,7 @@ export default function Home() {
                 <button
                   key={cat}
                   onClick={() => setFilter(cat)}
-                  className={`rounded-full border px-4 py-2.5 text-[9px] font-black uppercase tracking-[0.16em] transition-all ${
+                  className={`rounded-full border px-4 py-2.5 text-xs font-black uppercase tracking-[0.16em] transition-all ${
                     filter === cat
                       ? "border-white bg-white text-slate-950"
                       : "border-white/10 bg-white/[0.04] text-white/40 hover:text-white"
@@ -336,7 +336,7 @@ export default function Home() {
                     <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent opacity-80" />
                     <div className="absolute inset-x-0 bottom-0 p-5">
                       {item.category && (
-                        <span className="mb-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[8px] font-black uppercase tracking-widest text-slate-950">
+                        <span className="mb-2 inline-flex rounded-full bg-white px-2.5 py-1 text-[11px] font-black uppercase tracking-widest text-slate-950">
                           {item.category}
                         </span>
                       )}
@@ -447,7 +447,7 @@ export default function Home() {
                     <step.icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="mb-2 text-[9px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
+                    <p className="mb-2 text-xs font-black uppercase tracking-[0.24em] text-white/[0.28]">
                       Etapa 0{index + 1}
                     </p>
                     <h3 className="font-display text-xl font-black leading-tight text-white">{step.title}</h3>
@@ -560,7 +560,7 @@ function AnimatedHeroCopy() {
         </AnimatePresence>
       </div>
 
-      <div className="mt-5 flex max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 border-l border-cyan-300/45 pl-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/38">
+      <div className="mt-5 flex max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 border-l border-cyan-300/45 pl-4 text-[10px] font-black uppercase tracking-[0.2em] text-secondary">
         <span>Catálogo</span>
         <span className="hidden h-px w-8 bg-white/16 sm:inline-block" />
         <span>STL sob medida</span>
@@ -651,11 +651,11 @@ function Lightbox({
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent p-6 sm:p-10">
             <div className="mb-3 flex items-center gap-3">
               {item.category && (
-                <span className="rounded-full bg-white px-3 py-1 text-[9px] font-black uppercase tracking-widest text-slate-950">
+                <span className="rounded-full bg-white px-3 py-1 text-xs font-black uppercase tracking-widest text-slate-950">
                   {item.category}
                 </span>
               )}
-              <span className="font-mono text-[9px] font-black uppercase tracking-widest text-white/[0.42]">
+              <span className="font-mono text-xs font-black uppercase tracking-widest text-white/[0.42]">
                 {selectedIndex + 1} / {items.length}
               </span>
             </div>

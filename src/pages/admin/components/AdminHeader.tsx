@@ -42,7 +42,7 @@ export function AdminHeader({
 
       <div className="flex items-center gap-2 sm:gap-4 flex-1 justify-end">
         <div className="hidden sm:flex items-center gap-2 bg-white/5 rounded-xl px-4 py-2 border border-white/5 focus-within:border-primary/50 transition-all flex-1 max-w-md">
-          <Search className="w-3.5 h-3.5 text-white/20" />
+          <Search className="w-3.5 h-3.5 text-dim" />
           <input
             type="text"
             placeholder="Pesquisar protocolo ou cliente..."

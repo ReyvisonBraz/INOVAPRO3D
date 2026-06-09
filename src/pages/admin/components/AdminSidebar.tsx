@@ -47,7 +47,7 @@ export function AdminSidebar({
               INOVAPRO<span className="text-primary truncate">Admin</span>
             </h1>
           </Link>
-          <button onClick={onClose} className="lg:hidden p-2 text-white/20 hover:text-white">
+          <button onClick={onClose} className="lg:hidden p-2 text-dim hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -64,7 +64,7 @@ export function AdminSidebar({
                 "w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-[11px] font-bold transition-all group",
                 activeTab === item.id
                   ? "bg-primary text-white shadow-xl shadow-primary/20"
-                  : "text-white/30 hover:text-white hover:bg-white/5",
+                  : "text-secondary hover:text-white hover:bg-white/5",
               )}
             >
               <item.icon className="w-4 h-4" />
@@ -75,7 +75,7 @@ export function AdminSidebar({
 
         <div className="p-4 mt-auto border-t border-white/5">
           <button className="flex items-center gap-3 w-full p-2 hover:bg-white/5 rounded-2xl transition-colors" onClick={onLogout}>
-            <LogOut className="w-4 h-4 text-white/20" />
+            <LogOut className="w-4 h-4 text-dim" />
             <span className="text-[10px] font-black uppercase tracking-widest text-white/40">Sair</span>
           </button>
         </div>

@@ -28,14 +28,14 @@ export function ProductionKanban({
             {isCompact && <Layers className="w-4 h-4 shrink-0 text-primary" />}
             {isCompact ? "Esteira de Produção" : "Esteira de Produção (Kanban)"}
           </h3>
-          <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">
+          <p className="text-[10px] text-dim uppercase font-bold tracking-widest">
             {isCompact
               ? "Controle logístico e manufatura diretamente no dashboard inicial"
               : "Painel de controle logístico e manufatura"}
           </p>
         </div>
         {isCompact && (
-          <span className="w-fit text-[8px] font-black uppercase tracking-widest text-white/30 bg-white/5 border border-white/5 rounded-full px-3 py-1">
+          <span className="w-fit text-[11px] font-black uppercase tracking-widest text-secondary bg-white/5 border border-white/5 rounded-full px-3 py-1">
             Arraste para ver etapas
           </span>
         )}
@@ -90,7 +90,7 @@ export function ProductionKanban({
                     }
                   >
                     <div className={isCompact ? "flex justify-between items-start mb-2" : "flex justify-between items-start mb-3"}>
-                      <p className={isCompact ? "text-[8px] font-mono text-white/30" : "text-[9px] font-mono text-white/30"}>#{order.id.slice(0, 8)}</p>
+                      <p className={isCompact ? "text-[11px] font-mono text-secondary" : "text-[9px] font-mono text-secondary"}>#{order.id.slice(0, 8)}</p>
                       <p className={isCompact ? "text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md" : "text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md"}>
                         R$ {(order.total || 0).toFixed(2)}
                       </p>
@@ -98,13 +98,13 @@ export function ProductionKanban({
                     <h5 className={isCompact ? "text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors" : "text-sm font-black uppercase truncate group-hover:text-white text-white/80 transition-colors"}>
                       {order.userName}
                     </h5>
-                    <p className={isCompact ? "text-[9px] text-white/30 line-clamp-1 mb-3 mt-1 font-bold" : "text-[10px] text-white/30 line-clamp-1 mb-4 mt-1 font-bold"}>
+                    <p className={isCompact ? "text-[9px] text-secondary line-clamp-1 mb-3 mt-1 font-bold" : "text-[10px] text-secondary line-clamp-1 mb-4 mt-1 font-bold"}>
                       {order.items?.map((item: OrderItem) => item.name || item.fileName).join(" • ")}
                     </p>
 
                     <div className={isCompact ? "flex items-center justify-between border-t border-white/5 pt-2" : "flex items-center justify-between border-t border-white/5 pt-3"}>
-                      <p className="text-[8px] font-mono text-white/20">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p>
-                      <div className={isCompact ? "w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all" : "w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all"}>
+                      <p className="text-[11px] font-mono text-dim">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                      <div className={isCompact ? "w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all" : "w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all"}>
                         <ArrowRight className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
                       </div>
                     </div>
@@ -113,7 +113,7 @@ export function ProductionKanban({
 
                 {stageOrders.length === 0 && (
                   <div className={isCompact ? "py-12 text-center" : "py-10 text-center"}>
-                    <p className={isCompact ? "text-[8px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto" : "text-[9px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-4 w-1/2 mx-auto"}>
+                    <p className={isCompact ? "text-[11px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto" : "text-[9px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-4 w-1/2 mx-auto"}>
                       {isCompact ? "Sem Pedidos" : "Vazio"}
                     </p>
                   </div>

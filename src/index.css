@@ -14,14 +14,17 @@
   --app-primary-dark: #1d4ed8;
   --app-primary-soft: rgba(37, 99, 235, 0.14);
   --app-border-glow: rgba(37, 99, 235, 0.18);
+  --text-secondary: #475569;
+  --text-dim: #64748b;
+  --text-subtle: #94a3b8;
 }
 
 :root.dark {
   --app-surface: #020617;
   --app-surface-card: #07111f;
   --app-foreground: #f8fafc;
-  --app-muted: #94a3b8;
-  --app-border: rgba(255, 255, 255, 0.08);
+  --app-muted: #cbd5e1;
+  --app-border: rgba(255, 255, 255, 0.1);
   --app-glass: rgba(7, 17, 31, 0.74);
   --app-card: rgba(15, 23, 42, 0.72);
   --app-grid: rgba(148, 163, 184, 0.08);
@@ -29,6 +32,9 @@
   --app-primary-dark: #1d4ed8;
   --app-primary-soft: rgba(59, 130, 246, 0.16);
   --app-border-glow: rgba(59, 130, 246, 0.22);
+  --text-secondary: #cbd5e1;
+  --text-dim: #94a3b8;
+  --text-subtle: #64748b;
 }
 
 @theme {
@@ -44,6 +50,9 @@
   --color-foreground: var(--app-foreground);
   --color-muted: var(--app-muted);
   --color-border-glow: var(--app-border-glow);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-dim: var(--text-dim);
+  --color-text-subtle: var(--text-subtle);
 
   --animate-border-beam: border-beam 4s infinite linear;
   --animate-shimmer: shimmer 2.5s infinite;

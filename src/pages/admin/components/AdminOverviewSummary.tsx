@@ -18,17 +18,17 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
         <div className="col-span-2 glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 relative overflow-hidden group min-h-[150px] sm:min-h-[190px]">
           <TrendingUp className="absolute top-6 right-6 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 text-primary opacity-10" />
-          <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-2 italic">Receita Acumulada</p>
+          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-2 italic">Receita Acumulada</p>
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words">
             R$ {revenue.toFixed(2)}
           </h2>
         </div>
         <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-          <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Em Produção</p>
+          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-1 italic">Em Produção</p>
           <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary">{activeOrders}</h3>
         </div>
         <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-          <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">Orçamentos</p>
+          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-1 italic">Orçamentos</p>
           <h3 className="text-3xl sm:text-4xl font-display font-black italic">{pendingQuotes}</h3>
         </div>
       </div>
@@ -39,7 +39,7 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
               <Package className="w-3.5 h-3.5 text-primary" /> Últimos Pedidos
             </h3>
-            <button onClick={() => onSelectTab("orders")} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">
+            <button onClick={() => onSelectTab("orders")} className="shrink-0 text-[9px] font-black uppercase text-dim hover:text-white transition-colors">
               Ver Todos
             </button>
           </div>
@@ -50,7 +50,7 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
                   <div className="w-8 h-8 shrink-0 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center font-mono text-[9px] font-bold text-white/40">#{order.id.slice(0, 4)}</div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold uppercase truncate max-w-[120px]">{order.userName}</p>
-                    <p className="text-[8px] text-white/20 uppercase font-black tracking-widest">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                    <p className="text-[11px] text-dim uppercase font-black tracking-widest">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p>
                   </div>
                 </div>
                 <p className="shrink-0 text-sm font-display font-black text-primary italic">R$ {(order.total || 0).toFixed(2)}</p>
@@ -64,7 +64,7 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
               <FileText className="w-3.5 h-3.5 text-blue-400" /> Consultas de Preço
             </h3>
-            <button onClick={() => onSelectTab("quotes")} className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors">
+            <button onClick={() => onSelectTab("quotes")} className="shrink-0 text-[9px] font-black uppercase text-dim hover:text-white transition-colors">
               Ver Todos
             </button>
           </div>
@@ -77,10 +77,10 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold uppercase truncate max-w-[120px]">{quote.userName}</p>
-                    <p className="text-[8px] text-white/20 uppercase font-black tracking-widest truncate max-w-[150px]">{quote.fileName}</p>
+                    <p className="text-[11px] text-dim uppercase font-black tracking-widest truncate max-w-[150px]">{quote.fileName}</p>
                   </div>
                 </div>
-                <span className="shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">PENDENTE</span>
+                <span className="shrink-0 text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">PENDENTE</span>
               </div>
             ))}
           </div>

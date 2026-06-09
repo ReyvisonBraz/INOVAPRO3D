@@ -26,7 +26,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
       <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
         <div className="min-w-0">
           <h3 className="text-sm font-black uppercase tracking-widest italic">Controle de Catálogo</h3>
-          <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">Gerencie os itens visíveis na loja</p>
+          <p className="text-[10px] text-dim uppercase font-bold tracking-widest">Gerencie os itens visíveis na loja</p>
         </div>
         <Button onClick={onAddProduct} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
           <Plus className="w-4 h-4" /> Novo Produto
@@ -35,7 +35,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {products.map(p => (
-          <div key={p.id} className="glass rounded-[40px] p-6 border border-white/5 group hover:border-primary/30 transition-all flex flex-col">
+          <div key={p.id} className="bg-surface-card rounded-[40px] p-6 border border-white/5 group hover:border-primary/30 transition-all flex flex-col min-h-[44px]">
             <div className="relative aspect-square rounded-[32px] overflow-hidden mb-4 bg-black/40 border border-white/5">
               <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
               <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -48,11 +48,11 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
               </div>
             </div>
             <h4 className="text-sm font-black uppercase mb-1 line-clamp-2 leading-snug">{p.name}</h4>
-            <p className="text-[10px] text-white/20 mb-4 line-clamp-2">{p.description}</p>
+            <p className="text-[10px] text-dim mb-4 line-clamp-2">{p.description}</p>
             
             <div className="flex items-center justify-between p-3 bg-white/5 rounded-2xl border border-white/5 mb-4">
               <div>
-                <p className="text-[8px] font-black uppercase text-white/30 tracking-widest">Estoque</p>
+                <p className="text-[11px] font-black uppercase text-secondary tracking-widest">Estoque</p>
                 <p className="text-xs font-black">{p.stock || 0} unid.</p>
               </div>
               <div className="flex gap-1">
@@ -65,7 +65,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
               <span className="text-lg font-display font-black text-primary">R$ {p.basePrice?.toFixed(2)}</span>
               <div className="flex items-center gap-2">
                 <div className={`w-1.5 h-1.5 rounded-full ${p.active ? 'bg-green-500' : 'bg-red-500'}`} />
-                <span className="text-[8px] font-black uppercase tracking-widest text-white/20">{p.active ? 'Ativo' : 'Inativo'}</span>
+                <span className="text-[11px] font-black uppercase tracking-widest text-dim">{p.active ? 'Ativo' : 'Inativo'}</span>
               </div>
             </div>
           </div>

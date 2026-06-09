@@ -25,7 +25,7 @@ const AdminShowcasePanel: FC<AdminShowcasePanelProps> = memo(({
           <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2 text-primary">
             <Eye className="w-4 h-4" /> Gestão de Vitrine
           </h3>
-          <p className="text-[10px] text-white/20 uppercase font-black tracking-[0.2em] mt-1">Banners e Destaques da Landing Page</p>
+          <p className="text-[10px] text-dim uppercase font-black tracking-[0.2em] mt-1">Banners e Destaques da Landing Page</p>
         </div>
         <Button onClick={onAddShowcase} className="rounded-2xl gap-2 h-9 px-4 bg-white text-black hover:bg-white/90 whitespace-nowrap shrink-0 text-[10px]">
           <Plus className="w-4 h-4" /> Novo Destaque
@@ -38,7 +38,7 @@ const AdminShowcasePanel: FC<AdminShowcasePanelProps> = memo(({
             <img src={s.image} alt={s.title} className="w-full h-full object-cover opacity-60 group-hover:opacity-40 transition-all duration-700 group-hover:scale-105" />
             <div className="absolute inset-0 p-12 flex flex-col justify-end bg-gradient-to-t from-black via-black/40 to-transparent">
               <div className="flex items-center gap-2 mb-3">
-                <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded", s.active ? "bg-green-500 text-white" : "bg-red-500 text-white")}>
+                <span className={cn("text-[11px] font-black uppercase px-2 py-0.5 rounded", s.active ? "bg-green-500 text-white" : "bg-red-500 text-white")}>
                   {s.active ? "ATIVO" : "INATIVO"}
                 </span>
               </div>
@@ -53,7 +53,7 @@ const AdminShowcasePanel: FC<AdminShowcasePanelProps> = memo(({
           </div>
         ))}
         {showcase.length === 0 && (
-          <div className="md:col-span-2 py-20 text-center text-white/10 italic">Nenhum destaque configurado.</div>
+          <div className="md:col-span-2 py-20 text-center text-subtle italic">Nenhum destaque configurado.</div>
         )}
       </div>
     </motion.div>

@@ -65,7 +65,7 @@ export function AdminOverviewCharts({ orders }: AdminOverviewChartsProps) {
         </ResponsiveContainer>
         <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
           <span className="text-2xl font-black italic">{orders.length}</span>
-          <span className="text-[8px] font-black uppercase text-white/20">Pedidos</span>
+          <span className="text-[11px] font-black uppercase text-dim">Pedidos</span>
         </div>
       </div>
     </div>

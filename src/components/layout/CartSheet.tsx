@@ -41,7 +41,7 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                 <ShoppingBag className="w-4 h-4 text-primary" />
                 <h2 className="text-base font-black uppercase tracking-tight">Carrinho</h2>
                 {items.length > 0 && (
-                  <span className="bg-primary text-white text-[9px] font-black px-2 py-0.5 rounded-full">
+                  <span className="bg-primary text-white text-xs font-black px-2 py-0.5 rounded-full">
                     {items.reduce((s, i) => s + i.quantity, 0)}
                   </span>
                 )}
@@ -60,10 +60,10 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
               {items.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center text-center py-16">
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
-                    <ShoppingBag className="w-6 h-6 text-white/15" />
+                    <ShoppingBag className="w-6 h-6 text-dim" />
                   </div>
-                  <p className="text-sm font-black uppercase tracking-widest text-white/25">Carrinho vazio</p>
-                  <p className="mt-2 text-xs text-white/15 max-w-[200px] leading-relaxed">
+                  <p className="text-sm font-black uppercase tracking-widest text-secondary">Carrinho vazio</p>
+                  <p className="mt-2 text-xs text-dim max-w-[200px] leading-relaxed">
                     Escolha um produto no catálogo para começar.
                   </p>
                 </div>
@@ -83,7 +83,7 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                         <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
-                          <ShoppingBag className="w-5 h-5 text-white/15" />
+                          <ShoppingBag className="w-5 h-5 text-dim" />
                         </div>
                       )}
                     </div>
@@ -97,7 +97,7 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                         <button
                           onClick={() => removeItem(item.id)}
                           aria-label="Remover item"
-                          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-white/20 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                          className="shrink-0 w-6 h-6 flex items-center justify-center rounded-lg text-dim hover:text-red-400 hover:bg-red-400/10 transition-all"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
@@ -129,7 +129,7 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                         {/* Price */}
                         <div className="text-right">
                           {item.quantity > 1 && (
-                            <p className="text-[8px] text-white/30 font-bold">
+                            <p className="text-[11px] text-secondary font-bold">
                               {item.quantity} × {brl(item.price)}
                             </p>
                           )}
@@ -150,7 +150,7 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                 <span className="text-xs text-white/40 font-bold uppercase tracking-widest">Total</span>
                 <span className="text-2xl font-black font-mono">{brl(total)}</span>
               </div>
-              <p className="text-[9px] leading-relaxed text-white/25 font-medium">
+              <p className="text-xs leading-relaxed text-secondary font-medium">
                 Frete e impostos calculados na próxima etapa.
               </p>
               <Button

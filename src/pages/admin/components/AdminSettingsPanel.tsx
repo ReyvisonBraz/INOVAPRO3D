@@ -45,7 +45,7 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
         <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2"><Settings className="w-4 h-4" /> Config Gerais</h3>
         <div className="space-y-6">
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-white/20">Banner Promocional</label>
+            <label className="text-[10px] font-black uppercase text-dim">Banner Promocional</label>
             <input 
               className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50" 
               value={globalSettings.promoBanner || ''}
@@ -53,7 +53,7 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-white/20">Valor Mínimo para Orçamento (R$)</label>
+            <label className="text-[10px] font-black uppercase text-dim">Valor Mínimo para Orçamento (R$)</label>
             <NumInput
               min={0}
               className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50"
@@ -66,11 +66,11 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
       </div>
       <div className="glass rounded-[48px] p-10 border border-white/5 space-y-8 md:col-span-2">
         <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2"><Calculator className="w-4 h-4" /> Config da Máquina (Bambu Lab P2S)</h3>
-        <p className="text-[9px] text-white/30 uppercase tracking-widest -mt-4">Esses valores são usados pela calculadora rápida e pela calculadora pública como padrão inicial.</p>
+        <p className="text-[9px] text-secondary uppercase tracking-widest -mt-4">Esses valores são usados pela calculadora rápida e pela calculadora pública como padrão inicial.</p>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           {MACHINE_CONFIG_FIELDS.map(({ label, key, min }) => (
             <div key={key} className="space-y-1.5">
-              <label className="text-[8px] font-black uppercase tracking-widest text-white/25">{label}</label>
+              <label className="text-[11px] font-black uppercase tracking-widest text-secondary">{label}</label>
               <NumInput
                 min={min}
                 value={machineConfig[key]}
@@ -99,16 +99,16 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
               <div className={cn("w-2 h-2 rounded-full animate-pulse", globalSettings.maintenanceMode ? "bg-red-500" : "bg-green-500")} />
               <span className="text-[10px] font-black uppercase">{globalSettings.maintenanceMode ? "Modo Manutenção Ativo" : "Sistema Online"}</span>
             </div>
-            <span className={cn("text-[8px] font-black uppercase px-2 py-0.5 rounded", globalSettings.maintenanceMode ? "bg-red-500 text-white" : "bg-green-500 text-white")}>
+            <span className={cn("text-[11px] font-black uppercase px-2 py-0.5 rounded", globalSettings.maintenanceMode ? "bg-red-500 text-white" : "bg-green-500 text-white")}>
               {globalSettings.maintenanceMode ? "OFFLINE" : "LIVE"}
             </span>
           </button>
           <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
-            <p className="text-[10px] font-black uppercase text-white/20 mb-2">Versão do Engine</p>
+            <p className="text-[10px] font-black uppercase text-dim mb-2">Versão do Engine</p>
             <p className="text-xs font-mono font-bold">INOVAPRO-OS v2.4.8-stable</p>
           </div>
           <div className="p-6 bg-white/5 rounded-3xl border border-white/5">
-            <p className="text-[10px] font-black uppercase text-white/20 mb-4">Motor de Diagnóstico</p>
+            <p className="text-[10px] font-black uppercase text-dim mb-4">Motor de Diagnóstico</p>
             <DiagnosticWidget />
           </div>
         </div>

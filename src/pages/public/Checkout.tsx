@@ -170,7 +170,7 @@ export default function Checkout() {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 max-w-xl mx-auto">
         <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-8">
-           <Package className="w-8 h-8 text-white/20" />
+           <Package className="w-8 h-8 text-dim" />
         </div>
         <h2 className="text-2xl sm:text-4xl font-display font-black mb-4 uppercase tracking-tight">Seu carrinho está vazio</h2>
         <p className="text-white/40 mb-12 font-medium">Adicione um produto ao carrinho para finalizar seu pedido.</p>
@@ -197,7 +197,7 @@ export default function Checkout() {
              <Fragment key={s}>
                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
                  step === s ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20' : 
-                 step > s ? 'bg-green-500 text-white' : 'bg-white/5 text-white/20'
+                 step > s ? 'bg-green-500 text-white' : 'bg-white/5 text-dim'
                }`}>
                  {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
                </div>
@@ -235,7 +235,7 @@ export default function Checkout() {
                             : 'border-white/5 bg-white/[0.02] text-white/40 hover:border-white/15'
                         }`}
                       >
-                        <MapPin className={`w-5 h-5 ${!needsShipping ? 'text-primary' : 'text-white/20'}`} />
+                        <MapPin className={`w-5 h-5 ${!needsShipping ? 'text-primary' : 'text-dim'}`} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Retirada</span>
                         <span className="text-[9px] font-medium opacity-70">Busco no local / Sem frete</span>
                       </button>
@@ -248,7 +248,7 @@ export default function Checkout() {
                             : 'border-white/5 bg-white/[0.02] text-white/40 hover:border-white/15'
                         }`}
                       >
-                        <ArrowRight className={`w-5 h-5 ${needsShipping ? 'text-primary' : 'text-white/20'}`} />
+                        <ArrowRight className={`w-5 h-5 ${needsShipping ? 'text-primary' : 'text-dim'}`} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Entrega</span>
                         <span className="text-[9px] font-medium opacity-70">Recebo no endereço</span>
                       </button>
@@ -267,7 +267,7 @@ export default function Checkout() {
                         >
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 pt-2">
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2 flex items-center gap-2">CEP {cepLoading && <span className="text-[9px] text-primary animate-pulse">buscando...</span>}</label>
+                                <label className="text-[10px] text-secondary uppercase font-black tracking-widest px-2 flex items-center gap-2">CEP {cepLoading && <span className="text-[9px] text-primary animate-pulse">buscando...</span>}</label>
                                 <input
                                   placeholder="00000-000"
                                   inputMode="numeric"
@@ -283,7 +283,7 @@ export default function Checkout() {
                                 />
                              </div>
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Endereço Completo</label>
+                                <label className="text-[10px] text-secondary uppercase font-black tracking-widest px-2">Endereço Completo</label>
                                 <input
                                   placeholder="Rua, Av, etc."
                                   autoComplete="street-address"
@@ -293,7 +293,7 @@ export default function Checkout() {
                                 />
                              </div>
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Número</label>
+                                <label className="text-[10px] text-secondary uppercase font-black tracking-widest px-2">Número</label>
                                 <input
                                   placeholder="Ex: 123"
                                   className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-4 sm:p-5 text-base sm:text-lg font-medium focus:border-primary focus:bg-primary/5 transition-all outline-none"
@@ -302,7 +302,7 @@ export default function Checkout() {
                                 />
                              </div>
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Cidade</label>
+                                <label className="text-[10px] text-secondary uppercase font-black tracking-widest px-2">Cidade</label>
                                 <input
                                   placeholder="São Paulo - SP"
                                   autoComplete="address-level2"
@@ -312,7 +312,7 @@ export default function Checkout() {
                                 />
                              </div>
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">Bairro</label>
+                                <label className="text-[10px] text-secondary uppercase font-black tracking-widest px-2">Bairro</label>
                                 <input
                                   placeholder="Ex: Centro"
                                   autoComplete="address-level3"
@@ -322,7 +322,7 @@ export default function Checkout() {
                                 />
                              </div>
                              <div className="space-y-3">
-                                <label className="text-[10px] text-white/30 uppercase font-black tracking-widest px-2">UF</label>
+                                <label className="text-[10px] text-secondary uppercase font-black tracking-widest px-2">UF</label>
                                 <input
                                   placeholder="SP"
                                   maxLength={2}
@@ -375,14 +375,14 @@ export default function Checkout() {
                       <button className="w-full p-4 sm:p-8 rounded-[24px] sm:rounded-[32px] border border-white/5 bg-white/5 flex items-center justify-between opacity-40 cursor-not-allowed group grayscale">
                         <div className="flex items-center gap-3 sm:gap-6 min-w-0">
                           <div className="w-11 h-11 sm:w-16 sm:h-16 bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center shrink-0">
-                            <PaymentIcon className="w-5 h-5 sm:w-8 sm:h-8 text-white/20" />
+                            <PaymentIcon className="w-5 h-5 sm:w-8 sm:h-8 text-dim" />
                           </div>
                           <div className="text-left min-w-0">
                             <p className="text-base sm:text-xl font-black uppercase font-display leading-tight">Cartão de Crédito</p>
-                            <p className="text-[10px] text-white/30 font-black uppercase tracking-widest mt-1">Em planejamento</p>
+                            <p className="text-[10px] text-secondary font-black uppercase tracking-widest mt-1">Em planejamento</p>
                           </div>
                         </div>
-                        <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-white/10 shrink-0 ml-2" />
+                        <Lock className="w-5 h-5 sm:w-6 sm:h-6 text-subtle shrink-0 ml-2" />
                       </button>
                    </div>
                 </section>
@@ -467,7 +467,7 @@ export default function Checkout() {
                      <div key={item.id} className="flex justify-between items-start gap-4">
                         <div className="flex-1 min-w-0">
                            <p className="text-xs sm:text-sm font-bold uppercase truncate tracking-tight">{item.name}</p>
-                           <p className="text-[8px] sm:text-[10px] text-white/30 font-mono">QTD: {item.quantity}</p>
+                           <p className="text-[11px] sm:text-[10px] text-secondary font-mono">QTD: {item.quantity}</p>
                         </div>
                         <p className="text-xs sm:text-sm font-mono font-black text-white/60 shrink-0">{(item.price * item.quantity).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
                      </div>
@@ -475,19 +475,19 @@ export default function Checkout() {
                  </div>
 
                  <div className="pt-6 sm:pt-10 border-t border-white/5 space-y-3 sm:space-y-4">
-                    <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
+                    <div className="flex justify-between text-[11px] sm:text-[10px] font-black uppercase tracking-widest text-dim">
                        <span>Entrega</span>
                        <span className={shippingRate === 0 ? "text-green-500" : ""}>
                            {shippingRate === 0 ? "Frete Grátis" : shippingRate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                        </span>
                     </div>
-                    <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
+                    <div className="flex justify-between text-[11px] sm:text-[10px] font-black uppercase tracking-widest text-dim">
                        <span>Taxas Fiscais</span>
                        <span>Incluídas</span>
                     </div>
                     
                     <div className="pt-4 sm:pt-6">
-                       <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/30 mb-2">Total Consolidado</p>
+                       <p className="text-[11px] sm:text-[10px] font-black uppercase tracking-widest text-secondary mb-2">Total Consolidado</p>
                        <div className="flex items-baseline gap-2">
                           <span className="text-base sm:text-lg text-white/40 font-mono">R$</span>
                           <p className="text-4xl sm:text-5xl font-display font-black text-shimmer leading-none">
@@ -500,7 +500,7 @@ export default function Checkout() {
            </div>
            
            <div className="mt-6 sm:mt-8 text-center hidden lg:block">
-               <p className="text-[8px] font-black uppercase tracking-[0.4em] text-white/10 italic">Acompanhamento disponível em Meus Pedidos</p>
+               <p className="text-[11px] font-black uppercase tracking-[0.4em] text-subtle italic">Acompanhamento disponível em Meus Pedidos</p>
            </div>
         </aside>
 
@@ -509,7 +509,7 @@ export default function Checkout() {
           <div className="lg:hidden fixed bottom-0 left-0 right-0 p-4 bg-surface/80 backdrop-blur-xl border-t border-white/10 z-[50]">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               <div>
-                <p className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-1">Total</p>
+                <p className="text-[11px] font-black uppercase tracking-widest text-secondary mb-1">Total</p>
                 <p className="text-2xl font-display font-black text-primary">{(total + shippingRate).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
               </div>
               <Button 

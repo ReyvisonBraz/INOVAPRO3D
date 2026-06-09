@@ -132,7 +132,7 @@ function ProductModal({
               {/* Indicadores + dica */}
               <div className="absolute bottom-3 inset-x-0 flex flex-col items-center gap-2 px-4">
                 {hasMultiple && (
-                  <p className="flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-white/50">
+                  <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-white/50">
                     <Images className="w-2.5 h-2.5" />
                     {imgIdx + 1} / {images.length} · use as setas ou teclas ← →
                   </p>
@@ -184,7 +184,7 @@ function ProductModal({
             {/* Categoria + estoque */}
             <div className="flex items-center gap-2 flex-wrap mb-4">
               {product.category && (
-                <span className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-[8px] font-black uppercase tracking-widest text-white/50">
+                <span className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-[11px] font-black uppercase tracking-widest text-white/50">
                   {product.category}
                 </span>
               )}
@@ -217,25 +217,25 @@ function ProductModal({
               <div className="grid grid-cols-2 gap-2 mb-5">
                 {product.technical.printTime && (
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[7px] font-black uppercase tracking-wider text-white/30 mb-0.5">Tempo</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Tempo</p>
                     <p className="text-[10px] font-black text-white/80">{product.technical.printTime}</p>
                   </div>
                 )}
                 {product.technical.resolution && (
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[7px] font-black uppercase tracking-wider text-white/30 mb-0.5">Resolução</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Resolução</p>
                     <p className="text-[10px] font-black text-white/80">{product.technical.resolution}</p>
                   </div>
                 )}
                 {!!product.technical.infill && (
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[7px] font-black uppercase tracking-wider text-white/30 mb-0.5">Preenchimento</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Preenchimento</p>
                     <p className="text-[10px] font-black text-white/80">{product.technical.infill}%</p>
                   </div>
                 )}
                 {!!product.technical.weight && (
                   <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[7px] font-black uppercase tracking-wider text-white/30 mb-0.5">Peso</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Peso</p>
                     <p className="text-[10px] font-black text-white/80">{product.technical.weight}g</p>
                   </div>
                 )}
@@ -246,7 +246,7 @@ function ProductModal({
 
             {/* Preço */}
             <div className="mb-5">
-              <p className="text-[8px] font-black uppercase tracking-wider text-white/30 mb-0.5">A partir de</p>
+              <p className="text-[11px] font-black uppercase tracking-wider text-secondary mb-0.5">A partir de</p>
               <p className="text-3xl font-black text-white">{brl(product.basePrice)}</p>
             </div>
 
@@ -362,7 +362,7 @@ export function ProductCard({
             </AnimatePresence>
           ) : (
             <div className="flex h-full w-full items-center justify-center">
-              <Box className="h-8 w-8 text-white/15" />
+              <Box className="h-8 w-8 text-dim" />
             </div>
           )}
 
@@ -373,13 +373,13 @@ export function ProductCard({
           {hasMultiple && (
             <div className="absolute top-2 right-2 flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-black/65 backdrop-blur-sm border border-white/10">
               <Images className="w-2.5 h-2.5 text-white/55" />
-              <span className="text-[7px] font-black text-white/55">{images.length}</span>
+              <span className="text-[10px] font-black text-white/55">{images.length}</span>
             </div>
           )}
 
           {/* Chip de categoria */}
           {product.category && (
-            <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-white/60 backdrop-blur-sm">
+            <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white/60 backdrop-blur-sm">
               {product.category}
             </span>
           )}
@@ -408,14 +408,14 @@ export function ProductCard({
             </div>
           )}
           {lowStock && !outOfStock && (
-            <span className="absolute right-2 top-2 rounded-full bg-amber-500/80 px-2 py-0.5 text-[8px] font-black uppercase tracking-wider text-white">
+            <span className="absolute right-2 top-2 rounded-full bg-amber-500/80 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white">
               Últimas {product.stock}
             </span>
           )}
 
           {/* Overlay "Clique para ver" no hover */}
           <div className="absolute inset-0 flex items-end justify-center pb-9 opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 pointer-events-none">
-            <span className="px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/15 text-[7px] font-black uppercase tracking-wider text-white/90 whitespace-nowrap">
+            <span className="px-2.5 py-1 rounded-full bg-black/75 backdrop-blur-md border border-white/15 text-[10px] font-black uppercase tracking-wider text-white/90 whitespace-nowrap">
               {hasMultiple ? "↔ fotos · toque para ver" : "toque para ver"}
             </span>
           </div>
@@ -428,7 +428,7 @@ export function ProductCard({
           </h3>
           <div className="flex items-center justify-between gap-2">
             <div>
-              <p className="text-[8px] font-black uppercase tracking-wider text-white/30">
+              <p className="text-[11px] font-black uppercase tracking-wider text-secondary">
                 A partir de
               </p>
               <p className="text-sm font-black text-white">{brl(product.basePrice)}</p>

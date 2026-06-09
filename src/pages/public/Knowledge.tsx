@@ -82,7 +82,7 @@ export default function KnowledgeBase() {
                     <h3 className="text-sm font-bold uppercase tracking-tight group-hover:text-primary transition-colors">{topic.name}</h3>
                     <div className="flex gap-1">
                       {topic.tags.map(tag => (
-                        <span key={tag} className="px-2 py-0.5 bg-white/5 rounded-md text-[7px] font-black uppercase text-white/30">{tag}</span>
+                        <span key={tag} className="px-2 py-0.5 bg-white/5 rounded-md text-[10px] font-black uppercase text-white/30">{tag}</span>
                       ))}
                     </div>
                   </div>

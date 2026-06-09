@@ -128,7 +128,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
 }: AdminOverviewPanelProps) {
   const chartData = useMemo(
     () =>
-      orders
+      [...orders]
         .map((o) => ({
           name:
             new Date(o.createdAt?.seconds * 1000).toLocaleDateString() || "N/A",
@@ -138,29 +138,37 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
     [orders]
   );
 
-  const pieData = useMemo(
-    () => [
-      {
-        name: "Pendente",
-        value: orders.filter((o) => o.status === "PENDING_PAYMENT").length,
-      },
-      { name: "Pago", value: orders.filter((o) => o.status === "PAID").length },
-      {
-        name: "Produção",
-        value: orders.filter((o) =>
-          ["QUEUE", "SLICING", "PRINTING", "FINISHING"].includes(o.status)
-        ).length,
-      },
-      {
-        name: "Concluído",
-        value: orders.filter((o) => o.status === "COMPLETED").length,
-      },
-    ],
-    [orders]
-  );
+  const pieData = useMemo(() => {
+    let pending = 0, paid = 0, production = 0, completed = 0;
+    for (const o of orders) {
+      if (o.status === "PENDING_PAYMENT") pending++;
+      else if (o.status === "PAID") paid++;
+      else if (["QUEUE", "SLICING", "PRINTING", "FINISHING"].includes(o.status)) production++;
+      else if (o.status === "COMPLETED") completed++;
+    }
+    return [
+      { name: "Pendente", value: pending },
+      { name: "Pago", value: paid },
+      { name: "Produção", value: production },
+      { name: "Concluído", value: completed },
+    ];
+  }, [orders]);
+
+  const ordersByStatus = useMemo(() => {
+    const map = new Map<string, Order[]>();
+    for (const o of orders) {
+      if (searchTerm && !(o.userName?.toLowerCase().includes(searchTerm.toLowerCase())) && !(o.id.toLowerCase().includes(searchTerm.toLowerCase()))) continue;
+      const arr = map.get(o.status) || [];
+      arr.push(o);
+      map.set(o.status, arr);
+    }
+    return map;
+  }, [orders, searchTerm]);
 
   return (
     <motion.div
+      role="region"
+      aria-label="Visão geral do painel administrativo"
       key="overview"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -169,31 +177,31 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
     >
       {/* TOP STATS */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
-        <div className="col-span-2 glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 relative overflow-hidden group min-h-[150px] sm:min-h-[190px]">
-          <TrendingUp className="absolute top-6 right-6 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 text-primary opacity-10" />
-          <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-2 italic">
+        <div className="col-span-2 glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 relative overflow-hidden group min-h-[150px] sm:min-h-[190px]" role="status" aria-live="polite">
+          <TrendingUp className="absolute top-6 right-6 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 text-primary opacity-10" aria-hidden="true" />
+          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-2 italic">
             Receita Acumulada
           </p>
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words">
+          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words" aria-label={`Receita acumulada: R$ ${orders.reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}`}>
             R${" "}
             {orders
               .reduce((acc, o) => acc + (o.total || 0), 0)
               .toFixed(2)}
           </h2>
         </div>
-        <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-          <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">
+        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
+          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-1 italic">
             Em Produção
           </p>
-          <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary">
+          <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary" aria-label={`${orders.filter((o) => o.status !== "COMPLETED").length} pedidos em produção`}>
             {orders.filter((o) => o.status !== "COMPLETED").length}
           </h3>
         </div>
-        <div className="glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-          <p className="text-[10px] text-white/20 uppercase font-black tracking-widest mb-1 italic">
+        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
+          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-1 italic">
             Orçamentos
           </p>
-          <h3 className="text-3xl sm:text-4xl font-display font-black italic">
+          <h3 className="text-3xl sm:text-4xl font-display font-black italic" aria-label={`${quotes.filter((q) => q.status === "PENDING").length} orçamentos pendentes`}>
             {quotes.filter((q) => q.status === "PENDING").length}
           </h3>
         </div>
@@ -202,21 +210,22 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
       {/* RECENT ACTIVITY BENTO */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Recent Orders */}
-        <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
+        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
           <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <Package className="w-3.5 h-3.5 text-primary" /> Últimos Pedidos
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2" id="recent-orders-title">
+              <Package className="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Últimos Pedidos
             </h3>
             <button
               onClick={() => onTabChange("orders")}
-              className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors"
+              className="shrink-0 text-[9px] font-black uppercase text-dim hover:text-white transition-colors rounded-xl px-3 py-2 hover:bg-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Ver todos os pedidos"
             >
               Ver Todos
             </button>
           </div>
-          <div className="space-y-3">
+          <ul className="space-y-3" aria-labelledby="recent-orders-title">
             {orders.slice(0, 4).map((o) => (
-              <div
+              <li
                 key={o.id}
                 className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0"
               >
@@ -228,7 +237,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     <p className="text-xs font-bold uppercase truncate max-w-[120px]">
                       {o.userName}
                     </p>
-                    <p className="text-[8px] text-white/20 uppercase font-black tracking-widest">
+                    <p className="text-[11px] text-dim uppercase font-black tracking-widest">
                       {new Date(
                         o.createdAt?.seconds * 1000
                       ).toLocaleDateString()}
@@ -238,28 +247,29 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 <p className="shrink-0 text-sm font-display font-black text-primary italic">
                   R$ {(o.total || 0).toFixed(2)}
                 </p>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
 
         {/* Recent Quotes */}
-        <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
+        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
           <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2">
-              <FileText className="w-3.5 h-3.5 text-blue-400" /> Consultas de
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2" id="recent-quotes-title">
+              <FileText className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" /> Consultas de
               Preço
             </h3>
             <button
               onClick={() => onTabChange("quotes")}
-              className="shrink-0 text-[9px] font-black uppercase text-white/20 hover:text-white transition-colors"
+              className="shrink-0 text-[9px] font-black uppercase text-dim hover:text-white transition-colors rounded-xl px-3 py-2 hover:bg-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Ver todos os orçamentos pendentes"
             >
               Ver Todos
             </button>
           </div>
-          <div className="space-y-3">
+          <ul className="space-y-3" aria-labelledby="recent-quotes-title">
             {quotes.slice(0, 4).map((q) => (
-              <div
+              <li
                 key={q.id}
                 className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0"
               >
@@ -271,17 +281,17 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     <p className="text-xs font-bold uppercase truncate max-w-[120px]">
                       {q.userName}
                     </p>
-                    <p className="text-[8px] text-white/20 uppercase font-black tracking-widest truncate max-w-[150px]">
+                    <p className="text-[11px] text-dim uppercase font-black tracking-widest truncate max-w-[150px]">
                       {q.fileName}
                     </p>
                   </div>
                 </div>
-                <span className="shrink-0 text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
+                <span className="shrink-0 text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
                   PENDENTE
                 </span>
-              </div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </div>
 
@@ -296,7 +306,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <h3 className="text-xs font-black uppercase tracking-widest italic text-white">
                 Assistente Cálculo Maker Rápido
               </h3>
-              <p className="text-[9px] text-white/30 uppercase font-black tracking-widest">
+              <p className="text-[9px] text-secondary uppercase font-black tracking-widest">
                 P2S + AMS | Equatorial Pará | custo real com atacado e varejo
               </p>
             </div>
@@ -316,7 +326,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                 Nome do Cliente
                 <span title="Nome para personalizar a mensagem de orçamento no WhatsApp">
-                  <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
                 </span>
               </label>
               <input
@@ -331,7 +341,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                 WhatsApp (DDD + Número)
                 <span title="Número usado para abrir o WhatsApp Web com o orçamento já preenchido">
-                  <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
                 </span>
               </label>
               <input
@@ -346,7 +356,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                 Nome do Modelo 3D
                 <span title="Nome da peça ou projeto para identificação no orçamento">
-                  <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
                 </span>
               </label>
               <input
@@ -370,7 +380,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-2">
                 Material
                 <span title={HELP.material}>
-                  <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
                 </span>
               </label>
               <div className="flex gap-2">
@@ -390,7 +400,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     }`}
                   >
                     {MATERIAL_PRESETS[key].label}
-                    <span className="block text-[8px] font-bold mt-0.5 opacity-70">
+                    <span className="block text-[11px] font-bold mt-0.5 opacity-70">
                       R$
                       {(MATERIAL_PRESETS[key].spoolPrice / 10).toFixed(0)}
                       /100g
@@ -405,7 +415,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                   Peso Job/Lote (g)
                   <span title={HELP.weight}>
-                    <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                    <HelpCircle className="w-3 h-3 text-dim cursor-help" />
                   </span>
                 </label>
                 <NumInput
@@ -419,7 +429,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                   Peças no Lote
                   <span title={HELP.quantity}>
-                    <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                    <HelpCircle className="w-3 h-3 text-dim cursor-help" />
                   </span>
                 </label>
                 <NumInput
@@ -435,7 +445,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
                 Tempo Total
                 <span title={HELP.time}>
-                  <HelpCircle className="w-3 h-3 text-white/20 cursor-help" />
+                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
                 </span>
               </label>
               <input
@@ -449,17 +459,17 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
 
             {/* PREMISSAS CONFIGURÁVEIS */}
             <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-3">
-              <p className="text-[8px] uppercase font-black text-white/40 tracking-wider">
+              <p className="text-[11px] uppercase font-black text-white/40 tracking-wider">
                 Premissas P2S — Equatorial Pará
               </p>
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
                     Energia P2S
                     <span
                       title={`${HELP.steadyPower} ${HELP.startupPower}`}
                     >
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
@@ -468,10 +478,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   </strong>
                 </div>
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
                     Tarifa Pará
                     <span title={HELP.kwh}>
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
@@ -479,29 +489,29 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   </strong>
                 </div>
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
                     Hora-Máquina
                     <span
                       title={`${HELP.depreciation} ${HELP.replacement}`}
                     >
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
                     {formatBRL(quickCalcResult.machineHourCost)}/h
                   </strong>
-                  <span className="block text-[7px] text-white/40 font-mono leading-tight mt-0.5">
+                  <span className="block text-[10px] text-white/40 font-mono leading-tight mt-0.5">
                     Deprec. {formatBRL(quickMachineBreak.depreciation)}/h ·
                     Reposição {formatBRL(quickMachineBreak.replacement)}/h
                   </span>
                 </div>
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[7px] text-white/30 uppercase font-black">
+                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
                     Material
                     <span
                       title={`${MATERIAL_PRESETS[quickCalcMaterial].label}: R$${MATERIAL_PRESETS[quickCalcMaterial].spoolPrice}/kg`}
                     >
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
@@ -511,10 +521,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               </div>
               <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
                     Reserva Material %
                     <span title={HELP.reserve}>
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </label>
                   <NumInput
@@ -527,10 +537,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
                     Taxa de Falha %
                     <span title={HELP.failureRate}>
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </label>
                   <NumInput
@@ -543,10 +553,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
                     Preço Mínimo R$
                     <span title={HELP.minPrice}>
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </label>
                   <NumInput
@@ -558,10 +568,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
                     Atacado ×
                     <span title={HELP.wholesale}>
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </label>
                   <NumInput
@@ -573,10 +583,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   />
                 </div>
                 <div>
-                  <label className="text-[7px] text-white/30 uppercase flex items-center gap-1 font-black">
+                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
                     Varejo ×
                     <span title={HELP.retail}>
-                      <HelpCircle className="w-2.5 h-2.5 text-white/20 cursor-help" />
+                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </label>
                   <NumInput
@@ -676,7 +686,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     }}
                   />
                 </div>
-                <div className="mt-2 grid grid-cols-2 min-[430px]:grid-cols-4 gap-1 text-[7px] uppercase font-black text-white/35">
+                <div className="mt-2 grid grid-cols-2 min-[430px]:grid-cols-4 gap-1 text-[10px] uppercase font-black text-white/35">
                   <span className="flex items-center gap-1">
                     <span className="inline-block w-2 h-1.5 rounded-sm bg-cyan-400" />
                     Mat. {quickCalcResult.shares.material.toFixed(0)}%
@@ -705,7 +715,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       : "border-amber-400/20 bg-amber-400/[0.06]"
                   }`}
                 >
-                  <span className="flex items-center gap-1 text-[8px] uppercase font-black text-amber-300 tracking-wider">
+                  <span className="flex items-center gap-1 text-[11px] uppercase font-black text-amber-300 tracking-wider">
                     Atacado ×{quickCalcWholesaleMarkup}
                     {quickCalcResult.isBelowMinWholesale && (
                       <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo.">
@@ -719,7 +729,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   <span className="block text-[9px] text-white/50 mt-0.5">
                     {formatBRL(quickCalcResult.wholesaleUnit)} / un.
                   </span>
-                  <span className="block text-[8px] text-emerald-400 font-black mt-1">
+                  <span className="block text-[11px] text-emerald-400 font-black mt-1">
                     Lucro: {formatBRL(quickCalcResult.profitWholesale)} (
                     {quickCalcResult.profitWholesalePct.toFixed(0)}
                     %)
@@ -732,7 +742,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       : "border-primary/30 bg-primary/10"
                   }`}
                 >
-                  <span className="flex items-center gap-1 text-[8px] uppercase font-black text-primary tracking-wider">
+                  <span className="flex items-center gap-1 text-[11px] uppercase font-black text-primary tracking-wider">
                     Varejo ×{quickCalcRetailMarkup}
                     {quickCalcResult.isBelowMinRetail && (
                       <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo.">
@@ -746,7 +756,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   <span className="block text-[9px] text-white/50 mt-0.5">
                     {formatBRL(quickCalcResult.retailUnit)} / un.
                   </span>
-                  <span className="block text-[8px] text-emerald-400 font-black mt-1">
+                  <span className="block text-[11px] text-emerald-400 font-black mt-1">
                     Lucro: {formatBRL(quickCalcResult.profitRetail)} (
                     {quickCalcResult.profitRetailPct.toFixed(0)}
                     %)
@@ -775,30 +785,24 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <Layers className="w-4 h-4 shrink-0 text-primary" /> Esteira de
               Produção
             </h3>
-            <p className="text-[10px] text-white/20 uppercase font-bold tracking-widest">
+            <p className="text-[10px] text-dim uppercase font-bold tracking-widest">
               Controle logístico e manufatura diretamente no dashboard inicial
             </p>
           </div>
-          <span className="w-fit text-[8px] font-black uppercase tracking-widest text-white/30 bg-white/5 border border-white/5 rounded-full px-3 py-1">
+          <span className="w-fit text-[11px] font-black uppercase tracking-widest text-secondary bg-white/5 border border-white/5 rounded-full px-3 py-1">
             Arraste para ver etapas
           </span>
         </div>
 
-        <div className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0">
+        <div className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0" role="list" aria-label="Esteira de produção - Kanban">
           {KANBAN_STAGES.map((stage) => {
-            const stageOrders = orders.filter(
-              (o) =>
-                o.status === stage.id &&
-                (searchTerm === "" ||
-                  o.userName
-                    ?.toLowerCase()
-                    .includes(searchTerm.toLowerCase()) ||
-                  o.id.toLowerCase().includes(searchTerm.toLowerCase()))
-            );
+            const stageOrders = ordersByStatus.get(stage.id) || [];
             const Icon = stage.icon;
             return (
               <div
                 key={stage.id}
+                role="listitem"
+                aria-label={`${stage.label}: ${stageOrders.length} pedidos`}
                 className="min-w-[245px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[26px] sm:rounded-[32px] flex flex-col h-[390px] sm:h-[420px]"
               >
                 <div className="p-4 border-b border-white/5 bg-white/[0.01]">
@@ -818,14 +822,18 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   {stageOrders.map((o) => (
                     <div
                       key={o.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Pedido ${o.id.slice(0, 8)} de ${o.userName}, R$ ${(o.total || 0).toFixed(2)}, status ${stage.label}`}
                       onClick={() => {
                         onTabChange("orders");
                         onSelectOrder(o);
                       }}
-                      className="glass p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)]"
+                      onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onTabChange("orders"); onSelectOrder(o); } }}
+                      className="bg-surface-card p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)] min-h-[44px]"
                     >
                       <div className="flex justify-between items-start mb-2">
-                        <p className="text-[8px] font-mono text-white/30">
+                        <p className="text-[11px] font-mono text-secondary">
                           #{o.id.slice(0, 8)}
                         </p>
                         <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">
@@ -835,18 +843,18 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">
                         {o.userName}
                       </h5>
-                      <p className="text-[9px] text-white/30 line-clamp-1 mb-3 mt-1 font-bold">
+                      <p className="text-[9px] text-secondary line-clamp-1 mb-3 mt-1 font-bold">
                         {o.items
                           ?.map((i: OrderItem) => i.name || i.fileName)
                           .join(" • ")}
                       </p>
                       <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                        <p className="text-[8px] font-mono text-white/20">
+                        <p className="text-[11px] font-mono text-dim">
                           {new Date(
                             o.createdAt?.seconds * 1000
                           ).toLocaleDateString()}
                         </p>
-                        <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-white/20 group-hover:bg-primary group-hover:text-white transition-all">
+                        <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">
                           <ArrowRight className="w-2.5 h-2.5" />
                         </div>
                       </div>
@@ -854,7 +862,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   ))}
                   {stageOrders.length === 0 && (
                     <div className="py-12 text-center">
-                      <p className="text-[8px] font-black uppercase text-white/10 tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto">
+                      <p className="text-[11px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto">
                         Sem Pedidos
                       </p>
                     </div>
@@ -868,7 +876,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
 
       {/* CHARTS ROW */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
-        <div className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]">
+        <div className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]" role="img" aria-label="Gráfico de receita acumulada por data">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
@@ -912,7 +920,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           </ResponsiveContainer>
         </div>
 
-        <div className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]">
+        <div className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]" role="img" aria-label={`Gráfico de distribuição de pedidos: ${orders.length} no total`}>
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
@@ -933,7 +941,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
             <span className="text-2xl font-black italic">{orders.length}</span>
-            <span className="text-[8px] font-black uppercase text-white/20">
+            <span className="text-[11px] font-black uppercase text-dim">
               Pedidos
             </span>
           </div>

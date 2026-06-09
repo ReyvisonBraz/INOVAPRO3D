@@ -208,10 +208,10 @@ export default function ProductDetail() {
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center px-6">
                   <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mx-auto mb-3">
-                    <Box className="w-6 h-6 text-white/20" />
+                    <Box className="w-6 h-6 text-dim" />
                   </div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-white/25">Visualização 3D</p>
-                  <p className="text-[9px] text-white/10 font-medium mt-1">Modelo não disponível</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Visualização 3D</p>
+                  <p className="text-xs text-subtle font-medium mt-1">Modelo não disponível</p>
                 </div>
               </div>
             ) : (
@@ -272,10 +272,10 @@ export default function ProductDetail() {
                 <button
                   type="button"
                   onClick={() => setActiveMediaTab('3d')}
-                  className={`flex-shrink-0 w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center text-[9px] font-black uppercase tracking-widest ${
+                  className={`flex-shrink-0 w-14 h-14 rounded-2xl border-2 transition-all flex items-center justify-center text-xs font-black uppercase tracking-widest ${
                     activeMediaTab === '3d'
                       ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-white/10 bg-white/[0.04] text-white/30 hover:border-white/25 hover:bg-white/[0.08]'
+                      : 'border-white/10 bg-white/[0.04] text-secondary hover:border-white/25 hover:bg-white/[0.08]'
                   }`}
                 >
                   3D
@@ -305,17 +305,17 @@ export default function ProductDetail() {
           {/* HEADER */}
           <div>
             <div className="flex flex-wrap items-center gap-2 mb-3">
-              <span className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-[9px] font-black text-primary uppercase tracking-widest">
+              <span className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-black text-primary uppercase tracking-widest">
                 {product.category}
               </span>
-              <span className="text-[9px] text-white/20 font-mono">REF: {product.id.slice(0, 8)}</span>
+              <span className="text-xs text-dim font-mono">REF: {product.id.slice(0, 8)}</span>
               {product.stock === 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-[9px] font-black text-red-400 uppercase tracking-widest">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-black text-red-400 uppercase tracking-widest">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
                   Esgotado • Encomenda sob demanda
                 </span>
               ) : typeof product.stock === 'number' && product.stock <= 3 && product.stock > 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[9px] font-black text-amber-400 uppercase tracking-widest animate-pulse">
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-xs font-black text-amber-400 uppercase tracking-widest animate-pulse">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
                   Apenas {product.stock} em estoque!
                 </span>
@@ -331,11 +331,11 @@ export default function ProductDetail() {
 
           {/* MATERIAL SELECTION */}
           <div className="space-y-2.5">
-            <p className="text-[9px] text-primary/60 uppercase font-black tracking-widest flex items-center gap-1.5">
+            <p className="text-xs text-primary/60 uppercase font-black tracking-widest flex items-center gap-1.5">
               <Settings2 className="w-3 h-3" />
               Configurar Fabricação
             </p>
-            <p className="text-[9px] text-white/25 uppercase font-bold tracking-wider">Material</p>
+            <p className="text-xs text-secondary uppercase font-bold tracking-wider">Material</p>
             <div className="grid grid-cols-1 gap-2">
               {materials.map(m => (
                 <button
@@ -351,7 +351,7 @@ export default function ProductDetail() {
                     <div className="w-3 h-3 rounded-full border border-white/10 shrink-0" style={{ backgroundColor: m.color }} />
                     <div>
                       <p className="font-bold text-xs uppercase tracking-tight">{m.name}</p>
-                      <p className="text-[9px] text-white/30 uppercase tracking-wide">{m.desc || 'Acabamento de alta qualidade'}</p>
+                      <p className="text-xs text-secondary uppercase tracking-wide">{m.desc || 'Acabamento de alta qualidade'}</p>
                     </div>
                   </div>
                   {selectedMaterial?.id === m.id && <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />}
@@ -363,7 +363,7 @@ export default function ProductDetail() {
           {/* BUY BLOCK — price + qty + button all together */}
           <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-4">
             <div>
-              <p className="text-[9px] text-white/25 uppercase font-black tracking-widest">Orçamento estimado</p>
+              <p className="text-xs text-secondary uppercase font-black tracking-widest">Orçamento estimado</p>
               <div className="flex items-baseline gap-1.5 mt-1">
                 <span className="text-base font-mono text-white/35">R$</span>
                 <span className="text-3xl sm:text-4xl font-black text-white leading-none">
@@ -491,7 +491,7 @@ export default function ProductDetail() {
 
           {/* DIMENSIONS */}
           <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
-            <p className="text-[9px] text-white/25 uppercase font-black tracking-widest">Dimensões do Modelo</p>
+            <p className="text-xs text-secondary uppercase font-black tracking-widest">Dimensões do Modelo</p>
             <div className="flex items-center gap-2 flex-wrap">
               {[
                 { label: "L", value: product.baseDimensions?.x || 120 },
@@ -499,9 +499,9 @@ export default function ProductDetail() {
                 { label: "A", value: product.baseDimensions?.z || 150 },
               ].map(dim => (
                 <div key={dim.label} className="flex items-baseline gap-0.5 rounded-lg bg-white/[0.04] border border-white/[0.04] px-2.5 py-1.5">
-                  <span className="text-[8px] font-black uppercase text-white/30">{dim.label}</span>
+                  <span className="text-[11px] font-black uppercase text-secondary">{dim.label}</span>
                   <span className="text-sm font-mono font-black text-white ml-0.5">{dim.value}</span>
-                  <span className="text-[8px] text-white/30 ml-0.5">mm</span>
+                  <span className="text-[11px] text-secondary ml-0.5">mm</span>
                 </div>
               ))}
             </div>
@@ -509,13 +509,13 @@ export default function ProductDetail() {
               href={waLink("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-primary/60 hover:text-primary transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-primary/60 hover:text-primary transition-colors"
             >
               Tamanho personalizado? Solicite →
             </a>
           </div>
 
-          <div className="flex items-center gap-2 text-[9px] text-white/15 uppercase font-black tracking-wider px-3 py-2 bg-white/[0.01] rounded-xl border border-white/[0.02]">
+          <div className="flex items-center gap-2 text-xs text-dim uppercase font-black tracking-wider px-3 py-2 bg-white/[0.01] rounded-xl border border-white/[0.02]">
             <Maximize2 className="w-3 h-3 opacity-50 shrink-0" />
             Vol. Máx.: 300 × 300 × 350 mm
           </div>
@@ -541,7 +541,7 @@ export default function ProductDetail() {
               <button
                 type="button"
                 onClick={() => setShowAddedModal(false)}
-                className="absolute right-4 top-4 rounded-full p-2 text-white/30 transition-colors hover:bg-white/5 hover:text-white"
+                className="absolute right-4 top-4 rounded-full p-2 text-secondary transition-colors hover:bg-white/5 hover:text-white"
                 aria-label="Fechar"
               >
                 <X className="h-5 w-5" />
