@@ -5,16 +5,28 @@ import { getStorage } from 'firebase/storage';
 
 const env = (import.meta as any).env ?? {};
 
+// Support both the new VITE_FIREBASE_* env vars and the legacy JSON config
+// that may be injected via window.__FIREBASE_CONFIG__ at runtime.
+const legacyConfig = (typeof window !== 'undefined' && (window as any).__FIREBASE_CONFIG__) ?? {};
+
 const firebaseConfig = {
-  apiKey:            env.VITE_FIREBASE_API_KEY,
-  authDomain:        env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId:         env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket:     env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId:             env.VITE_FIREBASE_APP_ID,
+  apiKey:            env.VITE_FIREBASE_API_KEY            ?? legacyConfig.apiKey,
+  authDomain:        env.VITE_FIREBASE_AUTH_DOMAIN        ?? legacyConfig.authDomain,
+  projectId:         env.VITE_FIREBASE_PROJECT_ID         ?? legacyConfig.projectId,
+  storageBucket:     env.VITE_FIREBASE_STORAGE_BUCKET     ?? legacyConfig.storageBucket,
+  messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID ?? legacyConfig.messagingSenderId,
+  appId:             env.VITE_FIREBASE_APP_ID             ?? legacyConfig.appId,
 };
 
-const firestoreDatabaseId: string = env.VITE_FIREBASE_DATABASE_ID ?? '(default)';
+const firestoreDatabaseId: string =
+  env.VITE_FIREBASE_DATABASE_ID ?? legacyConfig.firestoreDatabaseId ?? '(default)';
+
+if (!firebaseConfig.apiKey) {
+  console.error(
+    '[INOVAPRO3D] Firebase não configurado. Adicione as variáveis VITE_FIREBASE_* ' +
+    'no painel do Vercel (ou no arquivo .env local).'
+  );
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
