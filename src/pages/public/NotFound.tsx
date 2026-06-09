@@ -1,7 +1,7 @@
 import { PageSEO } from "../../components/seo/PageSEO";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowRight, Box, Home, HelpCircle, MessageCircle } from "lucide-react";
+import { ArrowRight, Box, Home, MessageCircle } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { waLink } from "../../lib/config";
 

@@ -10,6 +10,7 @@ import {
   MapPin,
   Lock,
   ChevronRight,
+  Truck,
   CreditCard as PaymentIcon,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
