@@ -155,6 +155,20 @@ export default function Checkout() {
       if (!res.ok) throw new Error(await res.text());
       const { clientSecret: secret } = await res.json() as { clientSecret: string };
 
+      // Notify admin via Telegram (fire-and-forget)
+      fetch('/api/notify/new-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderRef.id,
+          customerName: checkoutUser.displayName || checkoutUser.email,
+          customerEmail: checkoutUser.email,
+          total: total + shippingRate,
+          itemCount: items.length,
+          paymentMethod: 'stripe',
+        }),
+      }).catch(() => {});
+
       setStripeOrderId(orderRef.id);
       setClientSecret(secret);
       clearCart();
@@ -193,6 +207,20 @@ export default function Checkout() {
         paymentMethod: "pix_manual",
         createdAt: serverTimestamp(),
       });
+      // Notify admin via Telegram (fire-and-forget)
+      fetch('/api/notify/new-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: orderRef.id,
+          customerName: checkoutUser.displayName || checkoutUser.email,
+          customerEmail: checkoutUser.email,
+          total: total + shippingRate,
+          itemCount: items.length,
+          paymentMethod: 'pix_manual',
+        }),
+      }).catch(() => {});
+
       setCreatedOrderId(orderRef.id);
       setStep(3);
       clearCart();
