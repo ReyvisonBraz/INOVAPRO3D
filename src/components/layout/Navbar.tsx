@@ -323,7 +323,7 @@ function NavPill({
   name: string;
   path: string;
   active: boolean;
-  icon?: React.ElementType;
+  icon?: React.ComponentType<{ className?: string }>;
 }) {
   return (
     <Link

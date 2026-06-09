@@ -7,6 +7,54 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
+  // Stripe webhook needs raw body — register BEFORE express.json()
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (stripeSecret) {
+    const StripeLib = (await import('stripe')).default;
+    const stripe = new StripeLib(stripeSecret);
+    const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+    // ── Create Payment Intent ──────────────────────────────────
+    app.post('/api/stripe/create-payment-intent', express.json(), async (req, res) => {
+      const { amount, orderId, customerEmail } = req.body as {
+        amount: number; orderId: string; customerEmail?: string;
+      };
+      if (!amount || !orderId) {
+        res.status(400).json({ error: 'amount e orderId são obrigatórios' });
+        return;
+      }
+      try {
+        const paymentIntent = await stripe.paymentIntents.create({
+          amount: Math.round(amount * 100), // centavos
+          currency: 'brl',
+          payment_method_types: ['card', 'pix'],
+          receipt_email: customerEmail,
+          metadata: { orderId, platform: 'inovapro3d' },
+        });
+        res.json({ clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id });
+      } catch (err: unknown) {
+        res.status(400).json({ error: err instanceof Error ? err.message : 'Erro desconhecido' });
+      }
+    });
+
+    // ── Webhook ────────────────────────────────────────────────
+    app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+      if (!webhookSecret) { res.status(400).send('Webhook secret não configurado'); return; }
+      const sig = req.headers['stripe-signature'] as string;
+      let event: ReturnType<typeof stripe.webhooks.constructEvent>;
+      try {
+        event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
+      } catch (err: unknown) {
+        res.status(400).send(`Webhook Error: ${err instanceof Error ? err.message : err}`);
+        return;
+      }
+      // Log event — Firestore update via Firebase Admin SDK can be added here
+      const orderId = (event.data.object as { metadata?: { orderId?: string } }).metadata?.orderId;
+      console.log(`Stripe: ${event.type} | order: ${orderId ?? 'n/a'}`);
+      res.json({ received: true });
+    });
+  }
+
   app.use(express.json());
 
   // Status and diagnostics endpoint.
