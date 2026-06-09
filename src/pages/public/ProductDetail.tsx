@@ -1,19 +1,15 @@
-import React, { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import {
   ArrowRight,
   ChevronLeft,
   ChevronRight,
-  Layers,
   Weight,
   Clock,
   Settings2,
   ShoppingCart,
   CheckCircle2,
-  Zap,
-  Shield,
-  Info,
   Maximize2,
   Box,
   X,
@@ -37,7 +33,6 @@ export default function ProductDetail() {
   const { addItem } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [productionTime, setProductionTime] = useState<number>(7);
   const [loading, setLoading] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -108,18 +103,13 @@ export default function ProductDetail() {
       if (!id) return;
       try {
         const docRef = doc(db, "products", id);
-        const [prodSnap, matSnap, settingsSnap] = await Promise.all([
+        const [prodSnap, matSnap] = await Promise.all([
           getDoc(docRef),
           getDocs(collection(db, "materials")),
-          getDoc(doc(db, "settings", "production"))
         ]);
 
         if (prodSnap.exists()) {
           setProduct({ id: prodSnap.id, ...prodSnap.data() } as Product);
-        }
-
-        if (settingsSnap.exists()) {
-          setProductionTime(settingsSnap.data().avgDays || 7);
         }
 
         const matList = matSnap.docs.map(d => ({ id: d.id, ...d.data() } as Material));

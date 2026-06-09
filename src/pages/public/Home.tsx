@@ -26,7 +26,6 @@ import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui
 import { useCart } from "../../contexts/CartContext";
 import { db } from "../../services/firebase";
 import type { Product, ShowcaseItem } from "../../types/domain";
-import { formatBRL as brl } from "../../lib/pricing";
 
 const heroCopyOptions = [
   {

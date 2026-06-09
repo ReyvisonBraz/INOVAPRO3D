@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   CreditCard, 
-  Truck, 
   CheckCircle2, 
   ArrowRight,
   ShieldCheck,
@@ -121,7 +120,7 @@ export default function Checkout() {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchSettings = async () => {
       try {
         const snap = await getDoc(doc(db, "settings", "shipping"));
@@ -195,7 +194,7 @@ export default function Checkout() {
         
         <div className="flex items-center gap-4 sm:gap-6 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
            {[1, 2, 3].map((s) => (
-             <React.Fragment key={s}>
+             <Fragment key={s}>
                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
                  step === s ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20' : 
                  step > s ? 'bg-green-500 text-white' : 'bg-white/5 text-white/20'
@@ -203,7 +202,7 @@ export default function Checkout() {
                  {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
                </div>
                {s < 3 && <div className={`w-6 sm:w-8 h-[2px] rounded-full ${step > s ? 'bg-green-500' : 'bg-white/10'}`} />}
-             </React.Fragment>
+             </Fragment>
            ))}
         </div>
       </div>

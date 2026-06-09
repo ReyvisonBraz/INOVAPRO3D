@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, useLocation } from "react-route
 import { AnimatePresence, motion } from "framer-motion";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
+import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import FloatingSupport from "./components/ui/FloatingSupport";
 import { Toaster } from "sonner";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -88,6 +89,7 @@ function RouterContent() {
           )}
 
           <main className="relative">
+            <ErrorBoundary>
             <Suspense fallback={<RouteLoader />}>
               <Routes>
                 <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
@@ -121,6 +123,7 @@ function RouterContent() {
                 <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
               </Routes>
             </Suspense>
+            </ErrorBoundary>
           </main>
 
           {!isAdminPage && (
