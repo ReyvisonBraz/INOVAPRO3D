@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { collection, getDocs } from "firebase/firestore";
 import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft, SlidersHorizontal } from "lucide-react";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
-import { modelCache } from "../../lib/modelCache";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
@@ -14,7 +13,7 @@ import type { Product, ShowcaseItem } from "../../types/domain";
 
 // ── Category section with auto-cycling image banner ──────────────────────────
 
-function CategorySection({
+const CategorySection = memo(function CategorySection({
   category,
   products,
   onAdd,
@@ -95,21 +94,13 @@ function CategorySection({
 
       {/* Products */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-        {products.map((product, idx) => (
-          <motion.div
-            key={product.id}
-            initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-40px" }}
-            transition={{ duration: 0.35, delay: Math.min(idx, 4) * 0.06 }}
-          >
-            <ProductCard product={product} onAdd={onAdd} />
-          </motion.div>
+        {products.map((product) => (
+          <ProductCard key={product.id} product={product} onAdd={onAdd} />
         ))}
       </div>
     </section>
   );
-}
+});
 
 // ── Main Catalog ──────────────────────────────────────────────────────────────
 
@@ -136,8 +127,6 @@ export default function Catalog() {
           .map(d => ({ id: d.id, ...d.data() } as Product))
           .filter(p => p.active !== false);
         setProducts(newProducts);
-        const urls = newProducts.map(p => p.modelUrl).filter((u): u is string => !!u);
-        if (urls.length > 0) modelCache.prefetch(urls);
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, "products/showcase");
       } finally {
@@ -158,10 +147,10 @@ export default function Catalog() {
     [products],
   );
 
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = useCallback((product: Product) => {
     addItem({ id: product.id, name: product.name, price: product.basePrice, quantity: 1, image: product.images[0], type: "PRODUCT" });
     toast.success(`${product.name} adicionado!`, { icon: <ShoppingCart className="w-4 h-4" /> });
-  };
+  }, [addItem]);
 
   // Sort helper — applied within each category
   const sortProducts = (list: Product[]) => {
