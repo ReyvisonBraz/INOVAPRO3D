@@ -3,6 +3,7 @@ import {
   Box,
   CheckCircle2,
   FileText,
+  Folder,
   HelpCircle,
   History,
   Layers,
@@ -26,6 +27,7 @@ export type AdminTabId =
   | "orders"
   | "quotes"
   | "products"
+  | "categories"
   | "materials"
   | "showcase"
   | "crm"
@@ -51,6 +53,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { id: "orders", name: "Pedidos", icon: Package },
   { id: "quotes", name: "Orçamentos", icon: FileText },
   { id: "products", name: "Catálogo", icon: Printer },
+  { id: "categories", name: "Pastas", icon: Folder },
   { id: "materials", name: "Materiais", icon: Box },
   { id: "showcase", name: "Vitrine", icon: Sparkles },
   { id: "crm", name: "Clientes", icon: Users },

@@ -63,6 +63,7 @@ import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import type {
   AuditLog,
+  Category,
   Customer,
   FAQ,
   GlobalSettings,
@@ -77,6 +78,7 @@ import type {
 import AdminOverviewPanel from "./components/AdminOverviewPanel";
 import AdminOrdersPanel from "./components/AdminOrdersPanel";
 import AdminProductsPanel from "./components/AdminProductsPanel";
+import AdminCategoriesPanel from "./components/AdminCategoriesPanel";
 import AdminMaterialsPanel from "./components/AdminMaterialsPanel";
 import AdminQuotesPanel from "./components/AdminQuotesPanel";
 import AdminSupportPanel from "./components/AdminSupportPanel";
@@ -95,6 +97,7 @@ export default function AdminDashboard() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [, setIsLive] = useState(false);
@@ -113,6 +116,13 @@ export default function AdminDashboard() {
   const [editingItems, setEditingItems] = useState(false);
   const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Quote | Ticket | null>(null);
+
+  // ── Category state ──
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [isEditingCategory, setIsEditingCategory] = useState(false);
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [newCategory, setNewCategory] = useState({ name: "", image: "", active: true });
+  const [isUploadingCategoryImage, setIsUploadingCategoryImage] = useState(false);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -133,7 +143,7 @@ export default function AdminDashboard() {
   // ── Data fetching ──
   const fetchData = useCallback(async () => {
     try {
-      const [ordersSnap, quotesSnap, productsSnap, showcaseSnap, materialsSnap, customersSnap, ticketsSnap, faqsSnap, logsSnap] = await Promise.all([
+      const [ordersSnap, quotesSnap, productsSnap, showcaseSnap, materialsSnap, customersSnap, ticketsSnap, faqsSnap, logsSnap, categoriesSnap] = await Promise.all([
         getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50))),
         getDocs(query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(50))),
         getDocs(collection(db, "products")),
@@ -143,6 +153,7 @@ export default function AdminDashboard() {
         getDocs(query(collection(db, "tickets"), orderBy("createdAt", "desc"))),
         getDocs(collection(db, "faqs")),
         getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
+        getDocs(collection(db, "categories")),
       ]);
 
       setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)).filter(o => !(o as any)._deleted));
@@ -154,6 +165,7 @@ export default function AdminDashboard() {
       setTickets(ticketsSnap.docs.map((t) => ({ id: t.id, ...t.data() } as Ticket)));
       setFaqs(faqsSnap.docs.map((f) => ({ id: f.id, ...f.data() } as FAQ)));
       setLogs(logsSnap.docs.map((l) => ({ id: l.id, ...l.data() } as AuditLog)));
+      setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Category)));
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, "admin/data");
     } finally {
@@ -244,6 +256,57 @@ export default function AdminDashboard() {
     },
     [fetchData]
   );
+
+  // ── Category handlers ──
+  const handleCategorySubmit = useCallback(async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newCategory.name.trim()) return;
+    try {
+      const data = { ...newCategory, name: newCategory.name.trim().toUpperCase(), order: categories.length, updatedAt: serverTimestamp() };
+      if (isEditingCategory && editingCategoryId) {
+        await updateDoc(doc(db, "categories", editingCategoryId), data);
+        toast.success("Pasta atualizada!");
+      } else {
+        await addDoc(collection(db, "categories"), { ...data, active: true, createdAt: serverTimestamp() });
+        toast.success("Pasta criada!");
+      }
+      setIsAddingCategory(false); setIsEditingCategory(false); setEditingCategoryId(null);
+      setNewCategory({ name: "", image: "", active: true });
+      await fetchData();
+    } catch (err: any) { toast.error(err?.message || "Erro ao salvar pasta."); }
+  }, [newCategory, isEditingCategory, editingCategoryId, categories.length, fetchData]);
+
+  const handleCategoryImageUpload = useCallback(async (file: File | null) => {
+    if (!file) return;
+    setIsUploadingCategoryImage(true);
+    try {
+      const path = `categories/covers/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
+      const fileRef = storageRef(storage, path);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+      setNewCategory(prev => ({ ...prev, image: url }));
+      toast.success("Capa enviada!");
+    } catch { toast.error("Erro ao enviar imagem."); }
+    finally { setIsUploadingCategoryImage(false); }
+  }, []);
+
+  const handleToggleCategoryActive = useCallback(async (id: string, current: boolean) => {
+    await updateDoc(doc(db, "categories", id), { active: !current, updatedAt: serverTimestamp() });
+    setCategories(prev => prev.map(c => c.id === id ? { ...c, active: !current } : c));
+    toast.success(current ? "Pasta ocultada." : "Pasta visível.");
+  }, []);
+
+  const handleReorderCategory = useCallback(async (id: string, direction: "up" | "down") => {
+    const sorted = [...categories].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+    const idx = sorted.findIndex(c => c.id === id);
+    if (idx < 0) return;
+    const target = direction === "up" ? Math.max(0, idx - 1) : Math.min(sorted.length - 1, idx + 1);
+    if (target === idx) return;
+    [sorted[idx], sorted[target]] = [sorted[target], sorted[idx]];
+    const updates = sorted.map((c, i) => updateDoc(doc(db, "categories", c.id), { order: i }));
+    await Promise.all(updates);
+    setCategories(sorted.map((c, i) => ({ ...c, order: i })));
+  }, [categories]);
 
   const handleSyncData = useCallback(async () => {
     await fetchData();
@@ -980,11 +1043,24 @@ export default function AdminDashboard() {
             {activeTab === "products" && (
               <AdminProductsPanel
                 products={products}
+                categories={categories.filter(c => c.active !== false).map(c => c.name)}
                 onDuplicate={handleDuplicateProduct}
                 onEdit={handleEditProduct}
                 onDelete={(id) => triggerConfirm("Excluir Produto", "Tem certeza que deseja excluir este produto permanentemente?", () => deleteItem("products", id), true)}
                 onUpdateStock={handleUpdateStock}
                 onAddProduct={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }}
+              />
+            )}
+            {activeTab === "categories" && (
+              <AdminCategoriesPanel
+                categories={categories}
+                productsCount={products.reduce((acc, p) => { acc[p.category] = (acc[p.category] || 0) + 1; return acc; }, {} as Record<string, number>)}
+                onAdd={() => { setNewCategory({ name: "", image: "", active: true }); setIsEditingCategory(false); setEditingCategoryId(null); setIsAddingCategory(true); }}
+                onEdit={(cat) => { setNewCategory({ name: cat.name, image: cat.image || "", active: cat.active !== false }); setEditingCategoryId(cat.id); setIsEditingCategory(true); setIsAddingCategory(true); }}
+                onDelete={(id) => triggerConfirm("Excluir Pasta", "Tem certeza que deseja excluir esta pasta? Os produtos não serão removidos.", () => deleteItem("categories", id), true)}
+                onToggleActive={handleToggleCategoryActive}
+                onReorder={handleReorderCategory}
+                onSetCover={(cat) => { setNewCategory({ name: cat.name, image: cat.image || "", active: cat.active !== false }); setEditingCategoryId(cat.id); setIsEditingCategory(true); setIsAddingCategory(true); }}
               />
             )}
             {activeTab === "materials" && (
@@ -1617,6 +1693,62 @@ export default function AdminDashboard() {
                   <textarea rows={3} value={newProduct.description} onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all resize-none" />
                 </div>
                 <Button type="submit" className="w-full h-16 rounded-[24px] text-xs font-black uppercase tracking-[0.2em] italic">Finalizar Protocolo de Registro</Button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+
+        {/* Category Form Modal */}
+        {isAddingCategory && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
+            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-surface border border-white/10 rounded-[48px] p-10 max-w-md w-full relative my-auto">
+              <button onClick={() => { setIsAddingCategory(false); setIsEditingCategory(false); setEditingCategoryId(null); }} className="absolute top-8 right-8 text-dim hover:text-white transition-all"><X className="w-6 h-6" /></button>
+              <h2 className="text-3xl font-black italic tracking-tighter mb-8 leading-none">
+                {isEditingCategory ? "Editar Pasta" : "Nova Pasta"}
+                <br />
+                <span className="text-primary text-sm uppercase tracking-widest mt-2 block">
+                  {isEditingCategory ? "Alterar nome ou capa" : "Organização do Catálogo"}
+                </span>
+              </h2>
+              <form onSubmit={handleCategorySubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase text-dim">Nome da Pasta</label>
+                  <input
+                    required
+                    value={newCategory.name}
+                    onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Ex: DECORAÇÃO"
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold uppercase outline-none focus:border-primary/50 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase text-dim">Imagem de Capa (URL ou upload)</label>
+                  {newCategory.image && (
+                    <div className="relative rounded-2xl overflow-hidden aspect-[21/9] mb-2">
+                      <img src={newCategory.image} alt="Preview" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => setNewCategory(prev => ({ ...prev, image: "" }))} className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-lg text-white"><X className="w-3 h-3" /></button>
+                    </div>
+                  )}
+                  <input
+                    type="url"
+                    value={newCategory.image}
+                    onChange={(e) => setNewCategory(prev => ({ ...prev, image: e.target.value }))}
+                    placeholder="https://..."
+                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs"
+                  />
+                  <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] p-4">
+                    <label className="flex items-center justify-between gap-3 cursor-pointer">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-dim">Upload de imagem</span>
+                      <span className="px-4 py-2 rounded-xl bg-primary/10 text-primary text-[10px] font-black uppercase tracking-widest border border-primary/20">
+                        {isUploadingCategoryImage ? "Enviando..." : "Escolher arquivo"}
+                      </span>
+                      <input type="file" accept="image/*" disabled={isUploadingCategoryImage} onChange={(e) => { handleCategoryImageUpload(e.target.files?.[0] || null); e.target.value = ""; }} className="sr-only" />
+                    </label>
+                  </div>
+                </div>
+                <button type="submit" className="w-full h-16 rounded-[24px] bg-primary hover:bg-primary-dark text-white text-xs font-black uppercase tracking-[0.2em] italic shadow-xl shadow-primary/20 transition-all active:scale-[0.98]">
+                  {isEditingCategory ? "Salvar Alterações" : "Criar Pasta"}
+                </button>
               </form>
             </motion.div>
           </div>

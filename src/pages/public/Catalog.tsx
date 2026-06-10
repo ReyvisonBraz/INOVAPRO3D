@@ -9,23 +9,25 @@ import { toast } from "sonner";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { Reveal } from "../../components/ui/Reveal";
 import { ProductCard } from "../../components/ui/ProductCard";
-import type { Product, ShowcaseItem } from "../../types/domain";
+import type { Product, ShowcaseItem, Category } from "../../types/domain";
 
 // ── Category section with auto-cycling image banner ──────────────────────────
 
 const CategorySection = memo(function CategorySection({
   category,
   products,
+  coverImage,
   onAdd,
 }: {
   category: string;
   products: Product[];
+  coverImage?: string;
   onAdd: (p: Product) => void;
 }) {
-  const images = useMemo(
-    () => products.flatMap(p => p.images?.filter(Boolean) ?? []).slice(0, 20),
-    [products],
-  );
+  const images = useMemo(() => {
+    if (coverImage) return [coverImage];
+    return products.flatMap(p => p.images?.filter(Boolean) ?? []).slice(0, 20);
+  }, [products, coverImage]);
   const [imgIdx, setImgIdx] = useState(0);
 
   useEffect(() => {
@@ -108,6 +110,7 @@ export default function Catalog() {
   const { addItem } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
+  const [categoriesData, setCategoriesData] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -118,9 +121,10 @@ export default function Catalog() {
   const fetchData = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
-    const [sResult, pResult] = await Promise.allSettled([
+    const [sResult, pResult, cResult] = await Promise.allSettled([
       getDocs(collection(db, "showcase")),
       getDocs(collection(db, "products")),
+      getDocs(collection(db, "categories")),
     ]);
     if (sResult.status === "fulfilled") {
       setShowcase(sResult.value.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem)));
@@ -135,6 +139,9 @@ export default function Catalog() {
       console.error("[Catalog] products fetch failed:", pResult.reason);
       setFetchError("Falha ao carregar produtos.");
     }
+    if (cResult.status === "fulfilled") {
+      setCategoriesData(cResult.value.docs.map(d => ({ id: d.id, ...d.data() } as Category)).filter(c => c.active !== false));
+    }
     setLoading(false);
   }, []);
 
@@ -146,10 +153,17 @@ export default function Catalog() {
     return () => clearInterval(timer);
   }, [showcase.length]);
 
-  const categories = useMemo(
-    () => Array.from(new Set(products.map(p => p.category).filter((c): c is string => !!c))).sort(),
-    [products],
-  );
+  const categories = useMemo(() => {
+    const orderMap = new Map(categoriesData.map(c => [c.name, c.order ?? 999]));
+    return Array.from(new Set(products.map(p => p.category).filter((c): c is string => !!c)))
+      .sort((a, b) => (orderMap.get(a) ?? 999) - (orderMap.get(b) ?? 999));
+  }, [products, categoriesData]);
+
+  const categoryCover = useMemo(() => {
+    const map = new Map<string, string>();
+    categoriesData.forEach(c => { if (c.image) map.set(c.name, c.image); });
+    return map;
+  }, [categoriesData]);
 
   const handleAddToCart = useCallback((product: Product) => {
     addItem({ id: product.id, name: product.name, price: product.basePrice, quantity: 1, image: product.images[0], type: "PRODUCT" });
@@ -381,6 +395,7 @@ export default function Catalog() {
                 <CategorySection
                   category={category}
                   products={catProducts}
+                  coverImage={categoryCover.get(category)}
                   onAdd={handleAddToCart}
                 />
               </motion.div>

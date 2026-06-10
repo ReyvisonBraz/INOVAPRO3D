@@ -131,6 +131,16 @@ export interface Product {
   updatedAt?: FirestoreDate;
 }
 
+export interface Category {
+  id: string;
+  name: string;
+  image?: string;
+  order?: number;
+  active?: boolean;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
 export interface Material {
   id: string;
   name: string;
