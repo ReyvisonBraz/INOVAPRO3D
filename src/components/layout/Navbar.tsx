@@ -99,7 +99,7 @@ export function Navbar() {
       <nav
         className={`fixed left-0 right-0 top-0 z-50 flex h-16 items-center justify-between px-4 transition-all duration-500 sm:px-6 lg:px-8 ${
           scrolled
-            ? "border-b border-white/[0.08] bg-[#020617]/78 py-2 shadow-2xl shadow-black/20 backdrop-blur-md"
+            ? "border-b border-white/[0.08] bg-[#020617]/78 py-2 shadow-2xl shadow-black/20 backdrop-blur-xl"
             : "bg-transparent py-4"
         }`}
       >
@@ -246,7 +246,26 @@ export function Navbar() {
                 </>
               )}
 
-              {!user && (
+              {user ? (
+                <>
+                  <div className="my-3 h-px bg-white/10" />
+                  <Link
+                    to="/meus-pedidos"
+                    className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-white/70 transition-colors hover:text-white"
+                  >
+                    <UserIcon className="h-5 w-5 text-primary" />
+                    Meus Pedidos
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-red-500/10 bg-red-500/5 px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-red-400 transition-colors hover:bg-red-500/10"
+                  >
+                    <LogOut className="h-5 w-5" />
+                    Sair da Conta
+                  </button>
+                </>
+              ) : (
                 <Button
                   size="sm"
                   isShimmer

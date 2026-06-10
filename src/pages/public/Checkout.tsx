@@ -279,16 +279,19 @@ export default function Checkout() {
             Revise a entrega, confirme o pagamento e acompanhe em Meus Pedidos.
           </p>
         </div>
-        <div className="flex items-center gap-4 sm:gap-6 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
-          {[1, 2, 3].map((s) => (
+        <div className="flex items-center gap-3 sm:gap-4 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
+          {([{n:1,label:'Entrega'},{n:2,label:'Pagamento'},{n:3,label:'Confirmação'}]).map(({n:s,label}) => (
             <Fragment key={s}>
-              <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
-                step === s ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20' :
-                step > s ? 'bg-green-500 text-white' : 'bg-white/5 text-white/20'
-              }`}>
-                {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
+              <div className="flex flex-col items-center gap-1.5">
+                <div className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
+                  step === s ? 'bg-primary text-white scale-110 shadow-xl shadow-primary/20' :
+                  step > s ? 'bg-green-500 text-white' : 'bg-white/5 text-white/20'
+                }`}>
+                  {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
+                </div>
+                <span className={`text-[9px] font-black uppercase tracking-widest hidden sm:block ${step === s ? 'text-primary' : step > s ? 'text-green-500' : 'text-white/20'}`}>{label}</span>
               </div>
-              {s < 3 && <div className={`w-6 sm:w-8 h-[2px] rounded-full ${step > s ? 'bg-green-500' : 'bg-white/10'}`} />}
+              {s < 3 && <div className={`w-6 sm:w-8 h-[2px] rounded-full mb-4 ${step > s ? 'bg-green-500' : 'bg-white/10'}`} />}
             </Fragment>
           ))}
         </div>
@@ -520,27 +523,27 @@ export default function Checkout() {
                 {items.map(item => (
                   <div key={item.id} className="flex justify-between items-start gap-4">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs sm:text-sm font-bold uppercase truncate tracking-tight">{item.name}</p>
-                      <p className="text-[8px] sm:text-[10px] text-white/30 font-mono">QTD: {item.quantity}</p>
+                      <p className="text-xs sm:text-sm font-bold truncate tracking-tight">{item.name}</p>
+                      <p className="text-[10px] sm:text-xs text-white/30 font-mono mt-0.5">Qtd: {item.quantity}</p>
                     </div>
-                    <p className="text-xs sm:text-sm font-mono font-black text-white/60 shrink-0">
+                    <p className="text-xs sm:text-sm font-mono font-black text-white/70 shrink-0">
                       {(item.price * item.quantity).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </p>
                   </div>
                 ))}
               </div>
               <div className="pt-6 sm:pt-10 border-t border-white/5 space-y-3 sm:space-y-4">
-                <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
+                <div className="flex justify-between text-[10px] sm:text-xs font-semibold text-white/40">
                   <span>Entrega</span>
-                  <span className={shippingRate === 0 ? "text-green-500" : ""}>
-                    {shippingRate === 0 ? "Frete Grátis" : shippingRate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  <span className={shippingRate === 0 ? "text-green-400 font-black" : ""}>
+                    {shippingRate === 0 ? "Grátis" : shippingRate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </span>
                 </div>
-                <div className="flex justify-between text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/20">
-                  <span>Taxas</span><span>Incluídas</span>
+                <div className="flex justify-between text-[10px] sm:text-xs font-semibold text-white/40">
+                  <span>Taxas</span><span>Inclusas</span>
                 </div>
                 <div className="pt-4 sm:pt-6">
-                  <p className="text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-white/30 mb-2">Total</p>
+                  <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-white/30 mb-2">Total</p>
                   <div className="flex items-baseline gap-2">
                     <span className="text-base sm:text-lg text-white/40 font-mono">R$</span>
                     <p className="text-4xl sm:text-5xl font-display font-black text-shimmer leading-none">

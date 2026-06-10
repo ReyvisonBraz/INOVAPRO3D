@@ -56,7 +56,7 @@ export function Footer() {
 
             {/* Newsletter */}
             <div className="space-y-3 pt-4">
-              <p className="text-[8px] font-black uppercase tracking-[0.3em] text-white/30">Receba novidades</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">Receba novidades</p>
               {subscribed ? (
                 <div className="flex items-center gap-2 py-3 text-green-400">
                   <CheckCircle2 className="w-4 h-4 shrink-0" />
@@ -165,8 +165,8 @@ export function Footer() {
             <span className="text-white/10 italic">Soluções em Impressão 3D</span>
           </p>
           <div className="flex flex-wrap gap-4 sm:gap-8 lg:gap-12 text-[10px] text-white/20 font-black uppercase tracking-[0.3em]">
-            <Link to="/conhecimento" className="hover:text-white/50 transition-colors">Política de Privacidade</Link>
-            <Link to="/conhecimento" className="hover:text-white/50 transition-colors">Termos de Uso</Link>
+            <Link to="/conhecimento#privacidade" className="hover:text-white/50 transition-colors">Política de Privacidade</Link>
+            <Link to="/conhecimento#termos" className="hover:text-white/50 transition-colors">Termos de Uso</Link>
           </div>
         </div>
       </div>

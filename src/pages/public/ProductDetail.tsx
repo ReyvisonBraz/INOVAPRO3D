@@ -16,7 +16,9 @@ import {
   X,
   Share2,
   Copy,
-  Check
+  Check,
+  ShieldCheck,
+  Truck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
@@ -429,6 +431,20 @@ export default function ProductDetail() {
             </div>
           </div>
 
+          {/* TRUST BADGES */}
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { icon: ShieldCheck, label: "Qualidade garantida" },
+              { icon: Truck, label: "Entrega rastreada" },
+              { icon: CheckCircle2, label: "Reimpressão garantida" },
+            ].map(({ icon: Icon, label }) => (
+              <div key={label} className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05] text-center">
+                <Icon className="w-4 h-4 text-primary/70" />
+                <span className="text-[10px] font-semibold text-white/40 leading-tight">{label}</span>
+              </div>
+            ))}
+          </div>
+
           {/* SPEC CHIPS + SHARE */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.05]">
@@ -555,17 +571,17 @@ export default function ProductDetail() {
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/60 mb-1">Mesma Categoria</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/60 mb-1">Mesma Categoria</p>
               <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">Você também pode gostar</h2>
             </div>
             <Link
               to={`/catalogo?categoria=${encodeURIComponent(product.category)}`}
-              className="text-[9px] font-black uppercase tracking-widest text-white/30 hover:text-primary transition-colors flex items-center gap-1"
+              className="text-xs font-black uppercase tracking-widest text-white/30 hover:text-primary transition-colors flex items-center gap-1"
             >
               Ver todos <ChevronRight className="w-3 h-3" />
             </Link>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {relatedProducts.map((rel, i) => (
               <motion.div
                 key={rel.id}

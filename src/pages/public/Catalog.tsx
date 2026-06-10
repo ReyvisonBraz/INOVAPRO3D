@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { collection, getDocs } from "firebase/firestore";
-import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft, SlidersHorizontal } from "lucide-react";
+import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft } from "lucide-react";
 import { db } from "../../services/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
@@ -219,7 +219,7 @@ export default function Catalog() {
             </div>
           </Reveal>
           <Reveal direction="up" delay={0.1}>
-            <h1 className="text-2xl sm:text-3xl font-black font-display uppercase tracking-tight text-white mb-2">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black font-display uppercase tracking-tight text-white mb-2 leading-none">
               Inventário 3D
             </h1>
           </Reveal>
@@ -314,13 +314,6 @@ export default function Catalog() {
                 <option value="price-desc">Maior preço</option>
                 <option value="newest">Recentes</option>
               </select>
-              <button
-                type="button"
-                className="flex items-center gap-1.5 px-3 py-2.5 bg-white/5 border border-white/[0.08] rounded-xl text-white/40 hover:text-white hover:border-white/15 transition-all"
-                aria-label="Filtros"
-              >
-                <SlidersHorizontal className="w-3.5 h-3.5" />
-              </button>
             </div>
 
             {/* Category tabs */}

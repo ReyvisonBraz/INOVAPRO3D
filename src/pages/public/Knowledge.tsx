@@ -234,8 +234,12 @@ export default function HowItWorks() {
             viewport={{ once: true }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
-            <ImgPlaceholder label="Foto da impressora Bambu Lab P2S" aspectClass="aspect-[4/3]" />
-            <p className="text-[9px] text-white/20 font-medium mt-3 text-center italic">Bambu Lab P2S — Impressora de alta velocidade e precisão industrial</p>
+            <div className="aspect-[4/3] w-full rounded-3xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/10 flex flex-col items-center justify-center gap-3">
+              <Box className="w-10 h-10 text-primary/25" />
+              <span className="text-xs font-black uppercase tracking-widest text-primary/30 text-center px-6">Bambu Lab P2S</span>
+              <span className="text-[10px] text-white/20 font-medium text-center px-8 leading-relaxed">Impressora de alta velocidade — adicione uma foto real aqui no admin</span>
+            </div>
+            <p className="text-[10px] text-white/20 font-medium mt-3 text-center italic">Bambu Lab P2S — Impressora de alta velocidade e precisão industrial</p>
           </motion.div>
         </div>
       </section>
@@ -281,8 +285,12 @@ export default function HowItWorks() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <ImgPlaceholder label="Foto de close-up: detalhe de peça impressa" aspectClass="aspect-[4/3]" />
-            <p className="text-[9px] text-white/20 font-medium mt-3 text-center italic">Detalhe de impressão — resolução de camada 0.1mm</p>
+            <div className="aspect-[4/3] w-full rounded-3xl bg-gradient-to-br from-white/5 via-white/[0.02] to-transparent border border-white/[0.08] flex flex-col items-center justify-center gap-3">
+              <Box className="w-10 h-10 text-white/10" />
+              <span className="text-xs font-black uppercase tracking-widest text-white/15 text-center px-6">Close-up de peça impressa</span>
+              <span className="text-[10px] text-white/10 font-medium text-center px-8 leading-relaxed">Adicione uma foto de detalhe aqui no admin</span>
+            </div>
+            <p className="text-[10px] text-white/20 font-medium mt-3 text-center italic">Detalhe de impressão — resolução de camada 0.1mm</p>
           </motion.div>
 
           <motion.div
