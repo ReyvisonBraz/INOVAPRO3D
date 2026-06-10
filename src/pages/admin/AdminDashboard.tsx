@@ -402,6 +402,36 @@ export default function AdminDashboard() {
         technical: { ...current.technical, ...(data.technical || {}) },
       }));
 
+      // Converte automaticamente as imagens externas para WebP no Storage.
+      // Mantém a URL original como fallback caso a conversão falhe (CORS, etc).
+      if (importedImages.length > 0) {
+        const toastId = toast.loading(`Otimizando ${importedImages.length} ${importedImages.length === 1 ? "imagem" : "imagens"} para WebP...`);
+        try {
+          const { getStorage } = await import("firebase/storage");
+          const bucket = getStorage();
+          let okCount = 0;
+          const converted = await Promise.all(
+            importedImages.map(async (img: string) => {
+              try {
+                const r = await importAndConvertImage(img, bucket);
+                okCount++;
+                return r.url;
+              } catch {
+                return img; // mantém original se a conversão falhar
+              }
+            })
+          );
+          setNewProduct((current) => ({ ...current, images: converted }));
+          if (okCount === importedImages.length) {
+            toast.success(`${okCount} ${okCount === 1 ? "imagem otimizada" : "imagens otimizadas"} para WebP!`, { id: toastId });
+          } else {
+            toast.warning(`${okCount}/${importedImages.length} imagens convertidas. As demais mantêm o link original.`, { id: toastId });
+          }
+        } catch {
+          toast.error("Não foi possível otimizar as imagens. Os links originais foram mantidos.", { id: toastId });
+        }
+      }
+
       const importedTech = { ...(data.technical || {}) };
       const weightG = Number(importedTech.weight) || 0;
       const hMatch = String(importedTech.printTime || "").match(/(\d+)\s*h/i);
