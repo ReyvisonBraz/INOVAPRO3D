@@ -145,7 +145,7 @@ export default function AdminDashboard() {
         getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
       ]);
 
-      setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)));
+      setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)).filter(o => !(o as any)._deleted));
       setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)));
       setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() } as Product)));
       setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() } as ShowcaseItem)));
@@ -229,7 +229,11 @@ export default function AdminDashboard() {
     async (type: string, id: string) => {
       try {
         console.log("[deleteItem] Deleting", type, id);
-        await deleteDoc(doc(db, type, id));
+        if (type === "orders" || type === "quotes") {
+          await updateDoc(doc(db, type, id), { status: type === "orders" ? "CANCELED" : "DISCARDED", _deleted: true, deletedAt: serverTimestamp() });
+        } else {
+          await deleteDoc(doc(db, type, id));
+        }
         console.log("[deleteItem] Delete succeeded, refreshing data...");
         await fetchData();
         toast.success("Item excluído com sucesso!");
