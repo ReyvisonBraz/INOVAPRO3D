@@ -195,7 +195,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
             <div
               key={p.id}
               className={cn(
-                "bg-surface-card rounded-2xl border transition-all flex flex-col",
+                "bg-surface-card rounded-2xl border transition-all flex flex-col group/card",
                 isSelected
                   ? "border-primary/40 ring-1 ring-primary/20"
                   : "border-white/[0.06] hover:border-primary/20"
@@ -203,7 +203,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
             >
               {/* Image */}
               <div className="relative aspect-square rounded-t-2xl overflow-hidden bg-black/40 border-b border-white/[0.06]">
-                <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500" />
                 
                 {/* Selection checkbox */}
                 {selectMode && (
