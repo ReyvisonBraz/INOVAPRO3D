@@ -3,6 +3,10 @@ import {
   BookOpen,
   Box,
   Calculator,
+  ChevronDown,
+  ChevronRight,
+  Folder,
+  FolderOpen,
   Home,
   type LucideIcon,
   LogOut,
@@ -11,14 +15,18 @@ import {
   User as UserIcon,
   X,
 } from "lucide-react";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "../../services/firebase";
 import { BrandLogo } from "../brand/BrandLogo";
 import { Button } from "../ui/Button";
 import { CartSheet } from "./CartSheet";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
+import { buildCategoryTree, categoryNameToSlug, type CategoryTreeNode } from "../../lib/categoryTree";
+import type { Category } from "../../types/domain";
 
 export function Navbar() {
   const { user, profile, loginWithGoogle, logout, updateProfile } = useAuth();
@@ -60,9 +68,39 @@ export function Navbar() {
     setShowPhoneOnboarding(Boolean(user && profile && !profile.phone && !isDismissed));
   }, [user, profile, isDismissed]);
 
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([]);
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
+  const catalogRef = useRef<HTMLDivElement>(null);
+
+  const fetchCategories = useCallback(async () => {
+    try {
+      const snap = await getDocs(collection(db, "categories"));
+      const cats = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as Category))
+        .filter(c => c.active !== false);
+      setCategories(cats);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
+
+  useEffect(() => {
+    setCategoryTree(buildCategoryTree(categories));
+  }, [categories]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (catalogRef.current && !catalogRef.current.contains(event.target as Node)) {
+        setIsCatalogOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const navLinks = [
     { name: "Início", path: "/", icon: Home },
-    { name: "Catálogo", path: "/catalogo", icon: Box },
     { name: "Como Funciona", path: "/conhecimento", icon: BookOpen },
   ];
 
@@ -117,6 +155,63 @@ export function Navbar() {
               active={location.pathname === link.path}
             />
           ))}
+
+          <div ref={catalogRef} className="relative">
+            <button
+              onClick={() => setIsCatalogOpen(v => !v)}
+              className={`relative flex h-10 items-center gap-2 rounded-full px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${
+                location.pathname === "/catalogo" || isCatalogOpen
+                  ? "bg-white text-slate-950 shadow-lg shadow-white/10"
+                  : "text-white/[0.52] hover:bg-white/[0.08] hover:text-white"
+              }`}
+            >
+              <Folder className="h-3.5 w-3.5" />
+              Catálogo
+              <ChevronDown className={`h-3 w-3 transition-transform ${isCatalogOpen ? "rotate-180" : ""}`} />
+              {(location.pathname === "/catalogo" || isCatalogOpen) && (
+                <motion.div layoutId="active-nav" className="absolute inset-0 -z-10 rounded-full bg-white" />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {isCatalogOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 6, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 6, scale: 0.97 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 origin-top"
+                >
+                  <div className="rounded-2xl border border-white/10 bg-[#0c0d14] p-2 shadow-xl shadow-black/50 backdrop-blur-2xl max-h-[60vh] overflow-y-auto no-scrollbar">
+                    <Link
+                      to="/catalogo"
+                      onClick={() => setIsCatalogOpen(false)}
+                      className="flex items-center gap-3 rounded-xl px-4 py-3 text-[10px] font-black uppercase tracking-widest text-primary/80 hover:bg-white/[0.05] hover:text-primary transition-all mb-1"
+                    >
+                      <Box className="h-4 w-4" />
+                      Ver todo o catálogo
+                    </Link>
+
+                    {categoryTree.length === 0 && (
+                      <p className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-dim text-center">
+                        Nenhuma pasta criada
+                      </p>
+                    )}
+
+                    {categoryTree.map(node => (
+                      <CatalogDropdownItem
+                        key={node.category.id}
+                        node={node}
+                        depth={0}
+                        onClose={() => setIsCatalogOpen(false)}
+                      />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
           {profile?.role === "ADMIN" && (
             <>
               {adminLinks.map((link) => (
@@ -216,7 +311,7 @@ export function Navbar() {
               </Link>
             </div>
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 overflow-y-auto no-scrollbar" style={{ maxHeight: "calc(100vh - 280px)" }}>
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
@@ -226,6 +321,18 @@ export function Navbar() {
                   <link.icon className="h-5 w-5 text-primary" />
                   {link.name}
                 </Link>
+              ))}
+
+              <Link
+                to="/catalogo"
+                className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-white/70 transition-colors hover:text-white"
+              >
+                <Folder className="h-5 w-5 text-primary" />
+                Catálogo
+              </Link>
+
+              {categoryTree.map(node => (
+                <MobileCategoryItem key={node.category.id} node={node} depth={0} onClose={() => setIsMobileMenuOpen(false)} />
               ))}
 
               {profile?.role === "ADMIN" && (
@@ -356,6 +463,130 @@ function NavPill({
       {name}
       {active && <motion.div layoutId="active-nav" className="absolute inset-0 -z-10 rounded-full bg-white" />}
     </Link>
+  );
+}
+
+function CatalogDropdownItem({
+  node,
+  depth,
+  onClose,
+}: {
+  node: CategoryTreeNode;
+  depth: number;
+  onClose: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasChildren = node.children.length > 0;
+  const slug = categoryNameToSlug(node.category.name);
+
+  return (
+    <div>
+      <Link
+        to={`/catalogo?categoria=${slug}`}
+        onClick={onClose}
+        className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-white/60 hover:bg-white/[0.05] hover:text-white transition-all"
+        style={{ paddingLeft: `${12 + depth * 16}px` }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v); }}
+            className="p-0.5 rounded hover:bg-white/10 transition-colors"
+          >
+            {expanded ? <FolderOpen className="h-3.5 w-3.5 text-primary" /> : <Folder className="h-3.5 w-3.5 text-dim" />}
+          </button>
+        ) : (
+          <Folder className="h-3.5 w-3.5 text-dim" />
+        )}
+        <span className="flex-1 truncate">{node.category.name}</span>
+        {hasChildren && (
+          <ChevronRight className={`h-3 w-3 text-dim transition-transform ${expanded ? "rotate-90" : ""}`} />
+        )}
+      </Link>
+
+      <AnimatePresence>
+        {expanded && hasChildren && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            {node.children.map(child => (
+              <CatalogDropdownItem
+                key={child.category.id}
+                node={child}
+                depth={depth + 1}
+                onClose={onClose}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function MobileCategoryItem({
+  node,
+  depth,
+  onClose,
+}: {
+  node: CategoryTreeNode;
+  depth: number;
+  onClose: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const hasChildren = node.children.length > 0;
+  const slug = categoryNameToSlug(node.category.name);
+
+  return (
+    <div>
+      <Link
+        to={`/catalogo?categoria=${slug}`}
+        onClick={onClose}
+        className="flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-5 py-3.5 text-xs font-black uppercase tracking-[0.14em] text-white/60 transition-colors hover:text-white"
+        style={{ marginLeft: `${depth * 12}px` }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v); }}
+            className="p-0.5"
+          >
+            {expanded ? <FolderOpen className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-dim" />}
+          </button>
+        ) : (
+          <Folder className="h-4 w-4 text-dim" />
+        )}
+        <span className="flex-1">{node.category.name}</span>
+        {hasChildren && (
+          <ChevronDown className={`h-4 w-4 text-dim transition-transform ${expanded ? "rotate-180" : ""}`} />
+        )}
+      </Link>
+
+      <AnimatePresence>
+        {expanded && hasChildren && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            {node.children.map(child => (
+              <MobileCategoryItem
+                key={child.category.id}
+                node={child}
+                depth={depth + 1}
+                onClose={onClose}
+              />
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
 

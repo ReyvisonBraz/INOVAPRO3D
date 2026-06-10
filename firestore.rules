@@ -99,6 +99,18 @@ service cloud.firestore {
              data.createdAt == request.time;
     }
 
+    function isValidCategory(data) {
+      return data.name is string &&
+             data.name.size() >= 1 &&
+             data.name.size() <= 80 &&
+             data.keys().hasAll(['name', 'createdAt']) &&
+             optionalString(data.slug, 80) &&
+             optionalString(data.parentId, 128) &&
+             optionalString(data.image, 2048) &&
+             optionalString(data.description, 500) &&
+             data.active is bool;
+    }
+
     // DEFAULT DENY
     match /{document=**} {
       allow read, write: if false;
@@ -133,7 +145,8 @@ service cloud.firestore {
     // CATEGORIES
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAdmin() && isValidCategory(incoming());
+      allow update: if isAdmin();
     }
 
     // COUPONS

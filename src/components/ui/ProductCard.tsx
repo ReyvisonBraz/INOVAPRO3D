@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Box,
+  Folder,
   ShoppingBag,
   X,
   ChevronLeft,
@@ -14,6 +15,7 @@ import {
 import type { Product } from "../../types/domain";
 import { cn } from "../../lib/utils";
 import { formatBRL as brl } from "../../lib/pricing";
+import { categoryNameToSlug } from "../../lib/categoryTree";
 
 // ─────────────────────────────────────────────────────────────
 // MODAL DE PRÉVIA DO PRODUTO
@@ -379,9 +381,17 @@ export const ProductCard = memo(function ProductCard({
 
           {/* Chip de categoria */}
           {product.category && (
-            <span className="absolute bottom-2 left-2 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white/60 backdrop-blur-sm">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate(`/catalogo?categoria=${categoryNameToSlug(product.category)}`);
+              }}
+              className="absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-black/70 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white/60 backdrop-blur-sm opacity-0 group-hover/card:opacity-100 transition-opacity duration-300 hover:text-primary hover:bg-black/90 cursor-pointer border border-transparent hover:border-primary/30"
+              title={`Ver todos em ${product.category}`}
+            >
+              <Folder className="w-3 h-3" />
               {product.category}
-            </span>
+            </button>
           )}
 
           {/* Dots de progresso das imagens */}

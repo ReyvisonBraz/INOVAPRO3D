@@ -122,16 +122,6 @@ function MaterialCard({ color, name, tag, desc, best }: { color: string; name: s
   );
 }
 
-/* ─── IMAGE PLACEHOLDER ─────────────────────────────────────── */
-function ImgPlaceholder({ label, aspectClass = "aspect-video" }: { label: string; aspectClass?: string }) {
-  return (
-    <div className={`${aspectClass} w-full rounded-3xl bg-white/[0.02] border-2 border-dashed border-white/10 flex flex-col items-center justify-center gap-3 text-white/20`}>
-      <Box className="w-8 h-8" />
-      <span className="text-[10px] font-black uppercase tracking-widest text-center px-4">{label}</span>
-    </div>
-  );
-}
-
 /* ─── MAIN PAGE ─────────────────────────────────────────────── */
 export default function HowItWorks() {
   const [search, setSearch] = useState("");

@@ -6,9 +6,11 @@ import { db } from "../../services/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { Reveal } from "../../components/ui/Reveal";
 import { ProductCard } from "../../components/ui/ProductCard";
+import { buildCategoryTree, getCategoryPath, categoryNameToSlug } from "../../lib/categoryTree";
 import type { Product, ShowcaseItem, Category } from "../../types/domain";
 
 // ── Category section with auto-cycling image banner ──────────────────────────
@@ -17,11 +19,13 @@ const CategorySection = memo(function CategorySection({
   category,
   products,
   coverImage,
+  isSubcategory,
   onAdd,
 }: {
   category: string;
   products: Product[];
   coverImage?: string;
+  isSubcategory?: boolean;
   onAdd: (p: Product) => void;
 }) {
   const images = useMemo(() => {
@@ -37,9 +41,8 @@ const CategorySection = memo(function CategorySection({
   }, [images.length]);
 
   return (
-    <section className="mb-12 sm:mb-16">
-      {/* Banner */}
-      <div className="relative h-[110px] sm:h-[150px] rounded-2xl overflow-hidden mb-5 border border-white/[0.07]">
+    <section className="mb-10 sm:mb-14">
+      <div className={`relative rounded-2xl overflow-hidden mb-5 border border-white/[0.07] ${isSubcategory ? "h-[90px] sm:h-[110px]" : "h-[110px] sm:h-[150px]"}`}>
         {images.length > 0 ? (
           <AnimatePresence mode="wait">
             <motion.img
@@ -62,20 +65,21 @@ const CategorySection = memo(function CategorySection({
 
         <div className="absolute inset-0 flex items-center justify-between px-5 sm:px-7">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-primary mb-1">Categoria</p>
-            <h2 className="text-xl sm:text-2xl font-black font-display uppercase tracking-tight text-white leading-none">
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-primary mb-1">
+              {isSubcategory ? "Subcategoria" : "Categoria"}
+            </p>
+            <h2 className={`font-black font-display uppercase tracking-tight text-white leading-none ${isSubcategory ? "text-lg sm:text-xl" : "text-xl sm:text-2xl"}`}>
               {category}
             </h2>
           </div>
           <div className="text-right">
-            <p className="text-2xl sm:text-3xl font-black font-display text-dim">{products.length}</p>
+            <p className={`font-black font-display text-dim ${isSubcategory ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl"}`}>{products.length}</p>
             <p className="text-[11px] font-black uppercase tracking-widest text-secondary">
               {products.length === 1 ? "produto" : "produtos"}
             </p>
           </div>
         </div>
 
-        {/* Image dots */}
         {images.length > 1 && (
           <div className="absolute bottom-2.5 right-3 flex gap-1">
             {images.slice(0, 8).map((_, i) => (
@@ -94,7 +98,6 @@ const CategorySection = memo(function CategorySection({
         )}
       </div>
 
-      {/* Products */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         {products.map((product) => (
           <ProductCard key={product.id} product={product} onAdd={onAdd} />
@@ -108,6 +111,7 @@ const CategorySection = memo(function CategorySection({
 
 export default function Catalog() {
   const { addItem } = useCart();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [products, setProducts] = useState<Product[]>([]);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [categoriesData, setCategoriesData] = useState<Category[]>([]);
@@ -117,6 +121,8 @@ export default function Catalog() {
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc" | "newest">("name");
   const [activeSlide, setActiveSlide] = useState(0);
+
+  const urlCategory = searchParams.get("categoria") || "";
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -153,6 +159,60 @@ export default function Catalog() {
     return () => clearInterval(timer);
   }, [showcase.length]);
 
+  const categoryTree = useMemo(() => buildCategoryTree(categoriesData), [categoriesData]);
+
+  const catByName = useMemo(() => {
+    const map = new Map<string, Category>();
+    categoriesData.forEach(c => map.set(c.name, c));
+    return map;
+  }, [categoriesData]);
+
+  const catBySlug = useMemo(() => {
+    const map = new Map<string, Category>();
+    categoriesData.forEach(c => {
+      const slug = c.slug || categoryNameToSlug(c.name);
+      map.set(slug, c);
+    });
+    return map;
+  }, [categoriesData]);
+
+  const childNamesByParent = useMemo(() => {
+    const map = new Map<string, string[]>();
+    categoriesData.forEach(c => {
+      if (c.parentId) {
+        const parent = categoriesData.find(p => p.id === c.parentId);
+        if (parent) {
+          if (!map.has(parent.name)) map.set(parent.name, []);
+          map.get(parent.name)!.push(c.name);
+        }
+      }
+    });
+    return map;
+  }, [categoriesData]);
+
+  const descendantNames = useMemo(() => {
+    const map = new Map<string, string[]>();
+    const collect = (parentName: string): string[] => {
+      const children = childNamesByParent.get(parentName) || [];
+      const all: string[] = [...children];
+      children.forEach(c => all.push(...collect(c)));
+      return all;
+    };
+    catByName.forEach((_, name) => {
+      map.set(name, collect(name));
+    });
+    return map;
+  }, [childNamesByParent, catByName]);
+
+  const rootCategoryNames = useMemo(() => {
+    const names = new Set<string>();
+    categoryTree.forEach(node => {
+      names.add(node.category.name);
+      node.children.forEach(child => names.add(child.category.name));
+    });
+    return names;
+  }, [categoryTree]);
+
   const categories = useMemo(() => {
     const orderMap = new Map(categoriesData.map(c => [c.name, c.order ?? 999]));
     return Array.from(new Set(products.map(p => p.category).filter((c): c is string => !!c)))
@@ -165,12 +225,39 @@ export default function Catalog() {
     return map;
   }, [categoriesData]);
 
+  const breadcrumb = useMemo(() => {
+    if (selectedCategory === "TODOS") return [];
+    const cat = catByName.get(selectedCategory);
+    if (!cat) return [selectedCategory];
+    const path = getCategoryPath(categoriesData, cat.id);
+    return path.map(c => c.name);
+  }, [selectedCategory, catByName, categoriesData]);
+
+  useEffect(() => {
+    if (urlCategory && catBySlug.has(urlCategory)) {
+      const cat = catBySlug.get(urlCategory)!;
+      setSelectedCategory(cat.name);
+    } else if (urlCategory === "") {
+      setSelectedCategory("TODOS");
+    }
+  }, [urlCategory, catBySlug]);
+
+  const handleCategorySelect = (catName: string) => {
+    setSelectedCategory(catName);
+    if (catName === "TODOS") {
+      setSearchParams({});
+    } else {
+      const cat = catByName.get(catName);
+      const slug = cat?.slug || categoryNameToSlug(catName);
+      setSearchParams({ categoria: slug });
+    }
+  };
+
   const handleAddToCart = useCallback((product: Product) => {
     addItem({ id: product.id, name: product.name, price: product.basePrice, quantity: 1, image: product.images[0], type: "PRODUCT" });
     toast.success(`${product.name} adicionado!`, { icon: <ShoppingCart className="w-4 h-4" /> });
   }, [addItem]);
 
-  // Sort helper — applied within each category
   const sortProducts = (list: Product[]) => {
     if (sortBy === "price-asc") return [...list].sort((a, b) => (a.basePrice || 0) - (b.basePrice || 0));
     if (sortBy === "price-desc") return [...list].sort((a, b) => (b.basePrice || 0) - (a.basePrice || 0));
@@ -178,27 +265,59 @@ export default function Catalog() {
     return [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   };
 
-  // Groups: { category → sorted+filtered products }
   const groups = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    const activeCats = selectedCategory === "TODOS" ? categories : [selectedCategory];
-    return activeCats
-      .map(cat => ({
-        category: cat,
-        products: sortProducts(
+
+    if (selectedCategory === "TODOS") {
+      const groupsList: { category: string; products: Product[]; isSub: boolean }[] = [];
+      for (const cat of categories) {
+        const catProducts = sortProducts(
           products.filter(
-            p =>
-              p.category === cat &&
-              (!term ||
-                p.name.toLowerCase().includes(term) ||
-                p.description?.toLowerCase().includes(term)),
+            p => p.category === cat &&
+            (!term || p.name.toLowerCase().includes(term) || p.description?.toLowerCase().includes(term)),
           ),
+        );
+        if (catProducts.length > 0) {
+          groupsList.push({ category: cat, products: catProducts, isSub: false });
+        }
+      }
+      return groupsList;
+    }
+
+    const selectedCat = catByName.get(selectedCategory);
+    if (!selectedCat) return [];
+
+    const descendants = descendantNames.get(selectedCategory) || [];
+    const allNames = [selectedCategory, ...descendants];
+
+    const groupsList: { category: string; products: Product[]; isSub: boolean }[] = [];
+
+    for (const name of allNames) {
+      const catProducts = sortProducts(
+        products.filter(
+          p => p.category === name &&
+          (!term || p.name.toLowerCase().includes(term) || p.description?.toLowerCase().includes(term)),
         ),
-      }))
-      .filter(g => g.products.length > 0);
-  }, [products, categories, selectedCategory, searchTerm, sortBy]);
+      );
+      if (catProducts.length > 0) {
+        groupsList.push({
+          category: name,
+          products: catProducts,
+          isSub: name !== selectedCategory,
+        });
+      }
+    }
+
+    return groupsList;
+  }, [products, categories, selectedCategory, searchTerm, sortBy, catByName, descendantNames]);
 
   const totalVisible = groups.reduce((s, g) => s + g.products.length, 0);
+
+  const tabCategories = useMemo(() => {
+    if (selectedCategory === "TODOS") return rootCategoryNames;
+    const childNames = childNamesByParent.get(selectedCategory) || [];
+    return [selectedCategory, ...childNames];
+  }, [selectedCategory, rootCategoryNames, childNamesByParent]);
 
   return (
     <div className="min-h-screen bg-surface">
@@ -208,7 +327,6 @@ export default function Catalog() {
         path="/catalogo"
       />
 
-      {/* HEADER */}
       <div className="relative overflow-hidden pt-20 pb-8 sm:pt-24 sm:pb-10">
         <FloatingBackground variant="grid" subtle />
         <div className="container-section relative z-10">
@@ -240,7 +358,6 @@ export default function Catalog() {
 
       <div className="container-section pb-16">
 
-        {/* SHOWCASE BANNER */}
         {showcase.length > 0 && (
           <section className="mb-8 sm:mb-12" aria-label="Destaques">
             <div className="relative h-[160px] sm:h-[240px] lg:h-[320px] rounded-2xl overflow-hidden border border-white/[0.07]">
@@ -257,9 +374,11 @@ export default function Catalog() {
                   <img src={showcase[activeSlide].image} loading="lazy" decoding="async" className="w-full h-full object-cover" alt={showcase[activeSlide].title} />
                   <div className="absolute bottom-4 left-4 sm:bottom-8 sm:left-8 z-20 max-w-xl">
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-                      <span className="inline-block px-2 py-0.5 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded mb-2">
-                        {showcase[activeSlide].category}
-                      </span>
+                      {showcase[activeSlide].category && (
+                        <span className="inline-block px-2 py-0.5 bg-primary text-white text-[11px] font-black uppercase tracking-widest rounded mb-2">
+                          {showcase[activeSlide].category}
+                        </span>
+                      )}
                       <h2 className="text-lg sm:text-2xl lg:text-3xl font-black font-display uppercase tracking-tight text-white leading-none">
                         {showcase[activeSlide].title}
                       </h2>
@@ -288,7 +407,6 @@ export default function Catalog() {
           </section>
         )}
 
-        {/* SEARCH + SORT */}
         <Reveal direction="up" delay={0}>
           <div className="flex flex-col gap-3 mb-6 sm:mb-8">
             <div className="flex items-center gap-2">
@@ -296,7 +414,7 @@ export default function Catalog() {
                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-secondary pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Buscar modelos…"
+                  placeholder="Buscar modelos..."
                   aria-label="Buscar modelos"
                   className="w-full bg-white/5 border border-white/[0.08] rounded-xl px-4 py-2.5 pl-10 text-xs outline-none focus:border-primary/50 transition-all placeholder:text-secondary text-white"
                   value={searchTerm}
@@ -316,10 +434,35 @@ export default function Catalog() {
               </select>
             </div>
 
-            {/* Category tabs */}
+            {breadcrumb.length > 1 && (
+              <nav className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest" aria-label="Caminho de categorias">
+                <button
+                  onClick={() => handleCategorySelect("TODOS")}
+                  className="text-dim hover:text-white transition-colors"
+                >
+                  Catálogo
+                </button>
+                {breadcrumb.map((name, idx) => (
+                  <span key={name} className="flex items-center gap-1.5">
+                    <ChevronRight className="h-3 w-3 text-white/20" />
+                    {idx === breadcrumb.length - 1 ? (
+                      <span className="text-primary">{name}</span>
+                    ) : (
+                      <button
+                        onClick={() => handleCategorySelect(name)}
+                        className="text-white/50 hover:text-white transition-colors"
+                      >
+                        {name}
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </nav>
+            )}
+
             <nav className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar" aria-label="Filtrar por categoria">
               <button
-                onClick={() => setSelectedCategory("TODOS")}
+                onClick={() => handleCategorySelect("TODOS")}
                 className={`px-3 py-2.5 rounded-lg text-[11px] sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                   selectedCategory === "TODOS"
                     ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
@@ -328,10 +471,10 @@ export default function Catalog() {
               >
                 Todos
               </button>
-              {categories.map(cat => (
+              {Array.from(tabCategories).map(cat => (
                 <button
                   key={cat}
-                  onClick={() => setSelectedCategory(cat)}
+                  onClick={() => handleCategorySelect(cat)}
                   className={`px-3 py-2.5 rounded-lg text-[11px] sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
                     selectedCategory === cat
                       ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
@@ -351,7 +494,6 @@ export default function Catalog() {
           </div>
         </Reveal>
 
-        {/* LOADING SKELETON */}
         {loading && (
           <div className="space-y-12">
             {[1, 2].map(i => (
@@ -373,10 +515,9 @@ export default function Catalog() {
           </div>
         )}
 
-        {/* CATEGORY GROUPS */}
         {!loading && groups.length > 0 && (
           <AnimatePresence mode="popLayout">
-            {groups.map(({ category, products: catProducts }) => (
+            {groups.map(({ category, products: catProducts, isSub }) => (
               <motion.div
                 key={category}
                 layout
@@ -389,6 +530,7 @@ export default function Catalog() {
                   category={category}
                   products={catProducts}
                   coverImage={categoryCover.get(category)}
+                  isSubcategory={isSub}
                   onAdd={handleAddToCart}
                 />
               </motion.div>
@@ -396,7 +538,6 @@ export default function Catalog() {
           </AnimatePresence>
         )}
 
-        {/* ERROR STATE */}
         {!loading && fetchError && products.length === 0 && (
           <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
             <p className="text-sm text-white/40 font-medium">Não foi possível carregar os produtos.</p>
@@ -410,7 +551,6 @@ export default function Catalog() {
           </div>
         )}
 
-        {/* EMPTY STATE */}
         {!loading && !fetchError && groups.length === 0 && (
           <Reveal direction="up" delay={0.1}>
             <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center">
@@ -429,7 +569,7 @@ export default function Catalog() {
               {(searchTerm || selectedCategory !== "TODOS") && (
                 <button
                   type="button"
-                  onClick={() => { setSearchTerm(""); setSelectedCategory("TODOS"); }}
+                  onClick={() => { setSearchTerm(""); handleCategorySelect("TODOS"); }}
                   className="mt-4 px-4 py-2 rounded-lg bg-white/5 border border-white/[0.08] text-xs font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white/80 transition-all"
                 >
                   Limpar filtros

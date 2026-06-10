@@ -135,7 +135,10 @@ export interface Product {
 export interface Category {
   id: string;
   name: string;
+  slug?: string;
+  parentId?: string | null;
   image?: string;
+  description?: string;
   order?: number;
   active?: boolean;
   createdAt?: FirestoreDate;

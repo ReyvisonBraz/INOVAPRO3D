@@ -59,6 +59,7 @@ import { ADMIN_MENU_ITEMS } from "./adminConfig";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { AdminSidebar } from "./components/AdminSidebar";
+import { generateSlug } from "../../lib/categoryTree";
 import type {
   AuditLog,
   Category,
@@ -119,7 +120,7 @@ export default function AdminDashboard() {
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState({ name: "", image: "", active: true });
+  const [newCategory, setNewCategory] = useState({ name: "", image: "", active: true, parentId: "" });
   const [isUploadingCategoryImage, setIsUploadingCategoryImage] = useState(false);
 
   useEffect(() => {
@@ -265,7 +266,17 @@ export default function AdminDashboard() {
     e.preventDefault();
     if (!newCategory.name.trim()) return;
     try {
-      const data = { ...newCategory, name: newCategory.name.trim().toUpperCase(), order: categories.length, updatedAt: serverTimestamp() };
+      const name = newCategory.name.trim().toUpperCase();
+      const slug = generateSlug(name);
+      const data = {
+        name,
+        slug,
+        image: newCategory.image,
+        active: newCategory.active,
+        parentId: newCategory.parentId || null,
+        order: categories.length,
+        updatedAt: serverTimestamp(),
+      };
       if (isEditingCategory && editingCategoryId) {
         await updateDoc(doc(db, "categories", editingCategoryId), data);
         toast.success("Pasta atualizada!");
@@ -274,7 +285,7 @@ export default function AdminDashboard() {
         toast.success("Pasta criada!");
       }
       setIsAddingCategory(false); setIsEditingCategory(false); setEditingCategoryId(null);
-      setNewCategory({ name: "", image: "", active: true });
+      setNewCategory({ name: "", image: "", active: true, parentId: "" });
       await fetchData();
     } catch (err: any) { toast.error(err?.message || "Erro ao salvar pasta."); }
   }, [newCategory, isEditingCategory, editingCategoryId, categories.length, fetchData]);
@@ -1057,12 +1068,12 @@ export default function AdminDashboard() {
               <AdminCategoriesPanel
                 categories={categories}
                 productsCount={products.reduce((acc, p) => { acc[p.category] = (acc[p.category] || 0) + 1; return acc; }, {} as Record<string, number>)}
-                onAdd={() => { setNewCategory({ name: "", image: "", active: true }); setIsEditingCategory(false); setEditingCategoryId(null); setIsAddingCategory(true); }}
-                onEdit={(cat) => { setNewCategory({ name: cat.name, image: cat.image || "", active: cat.active !== false }); setEditingCategoryId(cat.id); setIsEditingCategory(true); setIsAddingCategory(true); }}
+                onAdd={() => { setNewCategory({ name: "", image: "", active: true, parentId: "" }); setIsEditingCategory(false); setEditingCategoryId(null); setIsAddingCategory(true); }}
+                onEdit={(cat) => { setNewCategory({ name: cat.name, image: cat.image || "", active: cat.active !== false, parentId: cat.parentId || "" }); setEditingCategoryId(cat.id); setIsEditingCategory(true); setIsAddingCategory(true); }}
                 onDelete={(id) => triggerConfirm("Excluir Pasta", "Tem certeza que deseja excluir esta pasta? Os produtos não serão removidos.", () => deleteItem("categories", id), true)}
                 onToggleActive={handleToggleCategoryActive}
                 onReorder={handleReorderCategory}
-                onSetCover={(cat) => { setNewCategory({ name: cat.name, image: cat.image || "", active: cat.active !== false }); setEditingCategoryId(cat.id); setIsEditingCategory(true); setIsAddingCategory(true); }}
+                onSetCover={(cat) => { setNewCategory({ name: cat.name, image: cat.image || "", active: cat.active !== false, parentId: cat.parentId || "" }); setEditingCategoryId(cat.id); setIsEditingCategory(true); setIsAddingCategory(true); }}
               />
             )}
             {activeTab === "materials" && (
@@ -1712,7 +1723,7 @@ export default function AdminDashboard() {
                   {isEditingCategory ? "Alterar nome ou capa" : "Organização do Catálogo"}
                 </span>
               </h2>
-              <form onSubmit={handleCategorySubmit} className="space-y-6">
+               <form onSubmit={handleCategorySubmit} className="space-y-6">
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-dim">Nome da Pasta</label>
                   <input
@@ -1722,6 +1733,24 @@ export default function AdminDashboard() {
                     placeholder="Ex: DECORAÇÃO"
                     className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold uppercase outline-none focus:border-primary/50 transition-all"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[11px] font-black uppercase text-dim">Pasta Superior (opcional)</label>
+                  <select
+                    value={newCategory.parentId}
+                    onChange={(e) => setNewCategory(prev => ({ ...prev, parentId: e.target.value }))}
+                    className="w-full bg-[#050508] border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-display"
+                  >
+                    <option value="">Nenhuma (raiz)</option>
+                    {categories
+                      .filter(c => c.id !== editingCategoryId && c.active !== false)
+                      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+                      .map(c => (
+                        <option key={c.id} value={c.id}>
+                          {c.parentId ? "— " : ""}{c.name}
+                        </option>
+                      ))}
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-[11px] font-black uppercase text-dim">Imagem de Capa (URL ou upload)</label>

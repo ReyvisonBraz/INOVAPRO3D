@@ -1,4 +1,4 @@
-import { memo, type FC } from "react";
+import { memo, type FC, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Plus, Trash2, Edit, Eye, EyeOff, ArrowUp, ArrowDown, Image, Upload } from "lucide-react";
 import { cn } from "../../../lib/utils";
@@ -26,6 +26,27 @@ const AdminCategoriesPanel: FC<AdminCategoriesPanelProps> = memo(({
   onSetCover,
 }) => {
   const sorted = [...categories].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
+
+  const childrenCount = useMemo(() => {
+    const map: Record<string, number> = {};
+    categories.forEach(c => {
+      if (c.parentId) {
+        map[c.parentId] = (map[c.parentId] || 0) + 1;
+      }
+    });
+    return map;
+  }, [categories]);
+
+  const parentMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    categories.forEach(c => {
+      if (c.parentId) {
+        const parent = categories.find(p => p.id === c.parentId);
+        if (parent) map[c.id] = parent.name;
+      }
+    });
+    return map;
+  }, [categories]);
 
   return (
     <motion.div
@@ -91,6 +112,12 @@ const AdminCategoriesPanel: FC<AdminCategoriesPanelProps> = memo(({
                     <h4 className="text-sm font-black uppercase truncate">{cat.name}</h4>
                     <p className="text-[11px] text-dim mt-0.5">
                       {count} produto{count !== 1 ? "s" : ""}
+                      {childrenCount[cat.id] > 0 && (
+                        <span className="text-primary/60"> · {childrenCount[cat.id]} subpasta{childrenCount[cat.id] !== 1 ? "s" : ""}</span>
+                      )}
+                      {parentMap[cat.id] && (
+                        <span className="text-white/20"> · em {parentMap[cat.id]}</span>
+                      )}
                     </p>
                   </div>
                   <button
