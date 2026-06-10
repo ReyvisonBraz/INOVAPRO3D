@@ -195,7 +195,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
             <div
               key={p.id}
               className={cn(
-                "bg-surface-card rounded-2xl border transition-all flex flex-col group/card",
+                "bg-surface-card rounded-2xl border transition-all flex flex-col group",
                 isSelected
                   ? "border-primary/40 ring-1 ring-primary/20"
                   : "border-white/[0.06] hover:border-primary/20"
@@ -203,7 +203,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
             >
               {/* Image */}
               <div className="relative aspect-square rounded-t-2xl overflow-hidden bg-black/40 border-b border-white/[0.06]">
-                <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover group-hover/card:scale-105 transition-transform duration-500" />
+                <img src={p.images?.[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                 
                 {/* Selection checkbox */}
                 {selectMode && (
@@ -220,8 +220,8 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
                   </button>
                 )}
 
-                {/* Quick actions (hover) */}
-                <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover/card:opacity-100 transition-opacity">
+                {/* Quick actions (show on image hover) */}
+                <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                   <button onClick={() => onDuplicate(p)} className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 text-dim hover:text-blue-400 transition-colors" title="Duplicar">
                     <Layers className="w-3.5 h-3.5" />
                   </button>
@@ -234,12 +234,12 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
                 </div>
 
                 {/* Category badge with quick-change dropdown */}
-                <div className="absolute bottom-3 left-3 group/cat">
+                <div className="absolute bottom-3 left-3 group">
                   <div className="flex items-center gap-1 px-3 py-1 bg-primary/90 text-white text-[10px] font-black uppercase rounded-full tracking-widest italic cursor-pointer">
                     {p.category || "Sem cat."}
-                    <ChevronDown className="w-3 h-3 opacity-60 group-hover/cat:opacity-100" />
+                    <ChevronDown className="w-3 h-3 opacity-60 group-hover:opacity-100" />
                   </div>
-                  <div className="absolute bottom-full left-0 mb-1 w-44 bg-[#0A0A0F] border border-white/10 rounded-xl p-1.5 shadow-2xl opacity-0 invisible group-hover/cat:opacity-100 group-hover/cat:visible transition-all z-50 max-h-56 overflow-y-auto no-scrollbar">
+                  <div className="absolute bottom-full left-0 mb-1 w-44 bg-[#0A0A0F] border border-white/10 rounded-xl p-1.5 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 max-h-56 overflow-y-auto no-scrollbar">
                     {categories.map(cat => (
                       <button
                         key={cat}
