@@ -1116,8 +1116,18 @@ export default function AdminDashboard() {
                 onDuplicate={handleDuplicateProduct}
                 onEdit={handleEditProduct}
                 onDelete={(id) => triggerConfirm("Excluir Produto", "Tem certeza que deseja excluir este produto permanentemente?", () => deleteItem("products", id), true)}
+                onBatchDelete={(ids) => triggerConfirm("Excluir Produtos", `Tem certeza que deseja excluir ${ids.length} produto(s) permanentemente?`, () => { ids.forEach(id => deleteItem("products", id)); }, true)}
                 onUpdateStock={handleUpdateStock}
                 onAddProduct={() => { resetNewProduct(); setSelectedProduct(null); setIsEditingProduct(false); setIsAddingProduct(true); }}
+                onMoveToCategory={(ids, cat) => {
+                  ids.forEach(id => updateDoc(doc(db, "products", id), { category: cat, updatedAt: serverTimestamp() }));
+                  setProducts(prev => prev.map(p => ids.includes(p.id) ? { ...p, category: cat } : p));
+                  toast.success(`${ids.length} produto(s) movido(s) para ${cat}`);
+                }}
+                onChangeCategory={(id, cat) => {
+                  updateDoc(doc(db, "products", id), { category: cat, updatedAt: serverTimestamp() });
+                  setProducts(prev => prev.map(p => p.id === id ? { ...p, category: cat } : p));
+                }}
               />
             )}
             {activeTab === "categories" && (
