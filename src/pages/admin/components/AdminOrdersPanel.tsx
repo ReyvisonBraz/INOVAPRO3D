@@ -1,5 +1,6 @@
 import { memo, type FC, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { cn } from "../../../lib/utils";
 import {
   Wallet, CheckCircle2, ListTodo, Zap, Layers, Truck, Shield,
   ArrowRight, XCircle, Trash2, Search, ChevronDown, ChevronUp,
@@ -69,6 +70,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [localSearch, setLocalSearch] = useState("");
+  const [dragOverStage, setDragOverStage] = useState<string | null>(null);
 
   const filterStatuses: (OrderStatus | "ALL")[] = ["ALL", "PENDING_PAYMENT", "PAID", "QUEUE", "PRINTING", "FINISHING", "SHIPPED", "COMPLETED", "CANCELED"];
 
@@ -386,7 +388,23 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
             const stageOrders = filteredOrders.filter(o => o.status === stage.id);
             const Icon = stage.icon;
             return (
-              <div key={stage.id} className="min-w-[260px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[32px] flex flex-col h-[65vh] sm:h-[70vh]">
+              <div
+                key={stage.id}
+                className={cn(
+                  "min-w-[260px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border rounded-[32px] flex flex-col h-[60vh] sm:h-[65vh] transition-all",
+                  dragOverStage === stage.id ? "border-primary/50 bg-primary/[0.02]" : "border-white/5"
+                )}
+                onDragOver={(e) => { e.preventDefault(); setDragOverStage(stage.id); }}
+                onDragLeave={() => setDragOverStage(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragOverStage(null);
+                  const orderId = e.dataTransfer.getData("text/plain");
+                  if (orderId && stage.id !== orders.find(o => o.id === orderId)?.status) {
+                    onUpdateStatus(orderId, stage.id);
+                  }
+                }}
+              >
                 <div className="p-4 sm:p-5 border-b border-white/5 bg-white/[0.02]">
                   <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
@@ -400,14 +418,16 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
                   {stageOrders.map(o => (
                     <div
                       key={o.id}
-                      className="bg-surface-card p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)] relative"
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.setData("text/plain", o.id); }}
+                      className="bg-surface-card p-3 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-grab active:cursor-grabbing transition-all group relative select-none"
                     >
-                      {/* Quick actions */}
-                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                      {/* Quick actions — below price, right side */}
+                      <div className="absolute bottom-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                         {o.status !== "CANCELED" && o.status !== "COMPLETED" && (
                           <button
                             onClick={(e) => { e.stopPropagation(); onCancelOrder(o); }}
-                            className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                            className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
                             title="Cancelar"
                           >
                             <XCircle className="w-3 h-3" />
@@ -415,21 +435,33 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
                         )}
                         <button
                           onClick={(e) => { e.stopPropagation(); onDeleteOrder(o); }}
-                          className="p-1.5 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                          className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
                           title="Excluir"
                         >
                           <Trash2 className="w-3 h-3" />
                         </button>
                       </div>
-                      <div onClick={() => onSelectOrder(o)}>
-                        <div className="flex justify-between items-start mb-2">
-                          <p className="text-[11px] font-mono text-secondary">#{o.id.slice(0, 8)}</p>
-                          <p className="text-[11px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">
-                            R$ {(o.total || 0).toFixed(2)}
-                          </p>
+                      <div onClick={() => onSelectOrder(o)} className="cursor-pointer">
+                        {/* Product image + header row */}
+                        <div className="flex items-start gap-2.5 mb-2">
+                          {o.items?.[0]?.image && (
+                            <img
+                              src={o.items[0].image}
+                              alt=""
+                              className="w-10 h-10 rounded-xl object-cover border border-white/5 shrink-0 bg-black/20"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex justify-between items-start gap-2">
+                              <p className="text-[11px] font-mono text-secondary">#{o.id.slice(0, 8)}</p>
+                              <p className="text-[11px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md shrink-0">
+                                R$ {(o.total || 0).toFixed(2)}
+                              </p>
+                            </div>
+                            <h5 className="text-xs font-black uppercase truncate text-white/80 mt-0.5">{o.userName}</h5>
+                          </div>
                         </div>
-                        <h5 className="text-xs font-black uppercase truncate text-white/80">{o.userName}</h5>
-                        <p className="text-[11px] text-secondary line-clamp-1 mb-3 mt-1 font-bold">
+                        <p className="text-[11px] text-secondary line-clamp-1 mb-2 font-bold">
                           {o.items?.map((i: OrderItem) => i.name || i.fileName).join(" • ")}
                         </p>
                         <div className="flex items-center justify-between border-t border-white/5 pt-2">
@@ -444,7 +476,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
                   {stageOrders.length === 0 && (
                     <div className="py-10 text-center">
                       <p className="text-[10px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-2/3 mx-auto">
-                        Vazio
+                        Arraste pedidos aqui
                       </p>
                     </div>
                   )}
