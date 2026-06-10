@@ -228,17 +228,14 @@ export default function AdminDashboard() {
   const deleteItem = useCallback(
     async (type: string, id: string) => {
       try {
-        console.log("[deleteItem] Deleting", type, id);
         if (type === "orders" || type === "quotes") {
           await updateDoc(doc(db, type, id), { status: type === "orders" ? "CANCELED" : "DISCARDED", _deleted: true, deletedAt: serverTimestamp() });
         } else {
           await deleteDoc(doc(db, type, id));
         }
-        console.log("[deleteItem] Delete succeeded, refreshing data...");
         await fetchData();
         toast.success("Item excluído com sucesso!");
       } catch (err: any) {
-        console.error("[deleteItem] Failed:", err?.code || err?.message || err);
         const msg = err?.code === "permission-denied"
           ? "Sem permissão para excluir. Verifique as regras do Firestore."
           : err?.message || "Erro ao excluir item.";
@@ -771,8 +768,7 @@ export default function AdminDashboard() {
     title: string, description: string, onConfirm: () => void,
     isDanger = false, confirmText = "Confirmar", cancelText = "Cancelar"
   ) => {
-    console.log("[triggerConfirm] Opening dialog:", title);
-    setConfirmState({ isOpen: true, title, description, confirmText, cancelText, isDanger, onConfirm: () => { console.log("[triggerConfirm] Executing confirmed action"); onConfirm(); setConfirmState(null); } });
+    setConfirmState({ isOpen: true, title, description, confirmText, cancelText, isDanger, onConfirm: () => { onConfirm(); setConfirmState(null); } });
   }, []);
 
   // ── Filtered data ──
