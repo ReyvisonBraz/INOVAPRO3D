@@ -18,7 +18,6 @@ import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage
 import { db, handleFirestoreError, OperationType, auth, storage } from "../../services/firebase";
 import {
   RefreshCw,
-  LogOut,
   Search,
   Menu,
   X,
@@ -31,23 +30,10 @@ import {
   Calculator,
   Plus,
   Upload,
-  TrendingUp,
-  Package,
-  FileText,
-  Folder,
-  Printer,
-  Box,
-  Sparkles,
-  Users,
-  AlertCircle,
-  HelpCircle,
-  Settings,
-  History,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
-import { Link } from "react-router-dom";
 import { cn } from "../../lib/utils";
 import {
   MATERIAL_PRESETS,
@@ -70,9 +56,9 @@ import {
   type AdminTabId,
 } from "../../lib/adminHelpers";
 import { ADMIN_MENU_ITEMS } from "./adminConfig";
-import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
+import { AdminSidebar } from "./components/AdminSidebar";
 import type {
   AuditLog,
   Category,
@@ -898,106 +884,13 @@ export default function AdminDashboard() {
         )}
       </AnimatePresence>
 
-      {/* SIDEBAR — fixed on desktop, grouped menus */}
-      <aside
-        className={cn(
-          "w-56 border-r border-white/[0.06] bg-[#050508] flex flex-col fixed inset-y-0 z-[70] transition-transform duration-300 ease-out lg:translate-x-0",
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        )}
-      >
-        <div className="px-4 pt-5 pb-4 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5" onClick={() => setIsSidebarOpen(false)}>
-            <BrandMark className="h-5 w-5" />
-            <h1 className="text-base font-black font-display uppercase italic tracking-tighter">
-              INOVAPRO<span className="text-primary">Admin</span>
-            </h1>
-          </Link>
-          <button onClick={() => setIsSidebarOpen(false)} className="lg:hidden p-1.5 text-dim hover:text-white rounded-lg hover:bg-white/5">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <nav className="flex-1 px-3 space-y-4 overflow-y-auto no-scrollbar">
-          {[
-            {
-              label: "Vendas",
-              items: [
-                { id: "overview", name: "Painel", icon: TrendingUp },
-                { id: "orders", name: "Pedidos", icon: Package },
-                { id: "quotes", name: "Orçamentos", icon: FileText },
-              ],
-            },
-            {
-              label: "Catálogo",
-              items: [
-                { id: "categories", name: "Pastas", icon: Folder },
-                { id: "products", name: "Catálogo", icon: Printer },
-                { id: "materials", name: "Materiais", icon: Box },
-                { id: "showcase", name: "Vitrine", icon: Sparkles },
-              ],
-            },
-            {
-              label: "Relacionamento",
-              items: [
-                { id: "crm", name: "Clientes", icon: Users },
-                { id: "support", name: "Suporte", icon: AlertCircle },
-                { id: "faqs", name: "FAQs", icon: HelpCircle },
-              ],
-            },
-            {
-              label: "Sistema",
-              items: [
-                { id: "settings", name: "Ajustes", icon: Settings },
-                { id: "logs", name: "Auditoria", icon: History },
-              ],
-            },
-          ].map((group) => (
-            <div key={group.label}>
-              <p className="px-3 mb-1 text-[9px] font-black uppercase tracking-[0.15em] text-white/15">
-                {group.label}
-              </p>
-              <div className="space-y-0.5">
-                {group.items.map((item) => (
-                  <button
-                    key={item.id}
-                    onClick={() => { setActiveTab(item.id as AdminTabId); setIsSidebarOpen(false); }}
-                    className={cn(
-                      "w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[11px] font-bold transition-all",
-                      activeTab === item.id
-                        ? "bg-primary/15 text-primary border border-primary/20"
-                        : "text-dim hover:text-white hover:bg-white/[0.04] border border-transparent",
-                    )}
-                  >
-                    <item.icon className="w-4 h-4 shrink-0" />
-                    <span className="truncate">{item.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          ))}
-        </nav>
-
-        <div className="p-3 border-t border-white/[0.06]">
-          <div className="flex items-center gap-2.5 p-2 mb-1">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/20 flex items-center justify-center text-xs font-black text-primary shrink-0">
-              {(auth.currentUser?.displayName || auth.currentUser?.email || "A")[0].toUpperCase()}
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold text-white truncate leading-tight">
-                {auth.currentUser?.displayName || auth.currentUser?.email || "Admin"}
-              </p>
-              <p className="text-[10px] text-dim truncate leading-tight">{auth.currentUser?.email}</p>
-            </div>
-          </div>
-          <button
-            className="flex items-center gap-2 w-full p-2 hover:bg-white/5 rounded-lg transition-colors text-dim hover:text-red-400"
-            onClick={() => auth.signOut()}
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Sair</span>
-          </button>
-        </div>
-      </aside>
+      <AdminSidebar
+        activeTab={activeTab}
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        onSelectTab={(tab) => setActiveTab(tab)}
+        onLogout={() => auth.signOut()}
+      />
 
       {/* MAIN CONTENT */}
       <main className="relative z-10 flex-1 lg:ml-56 min-h-screen min-w-0">
