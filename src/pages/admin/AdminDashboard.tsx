@@ -143,7 +143,7 @@ export default function AdminDashboard() {
   // ── Data fetching ──
   const fetchData = useCallback(async () => {
     try {
-      const [ordersSnap, quotesSnap, productsSnap, showcaseSnap, materialsSnap, customersSnap, ticketsSnap, faqsSnap, logsSnap, categoriesSnap] = await Promise.all([
+      const [ordersSnap, quotesSnap, productsSnap, showcaseSnap, materialsSnap, customersSnap, ticketsSnap, faqsSnap, logsSnap] = await Promise.all([
         getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50))),
         getDocs(query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(50))),
         getDocs(collection(db, "products")),
@@ -153,11 +153,10 @@ export default function AdminDashboard() {
         getDocs(query(collection(db, "tickets"), orderBy("createdAt", "desc"))),
         getDocs(collection(db, "faqs")),
         getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
-        getDocs(collection(db, "categories")),
       ]);
 
       setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)).filter(o => !(o as any)._deleted));
-      setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)));
+      setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)).filter(q => !(q as any)._deleted));
       setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() } as Product)));
       setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() } as ShowcaseItem)));
       setMaterials(materialsSnap.docs.map((m) => ({ id: m.id, ...m.data() } as Material)));
@@ -165,12 +164,16 @@ export default function AdminDashboard() {
       setTickets(ticketsSnap.docs.map((t) => ({ id: t.id, ...t.data() } as Ticket)));
       setFaqs(faqsSnap.docs.map((f) => ({ id: f.id, ...f.data() } as FAQ)));
       setLogs(logsSnap.docs.map((l) => ({ id: l.id, ...l.data() } as AuditLog)));
-      setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Category)));
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, "admin/data");
     } finally {
       setLoading(false);
     }
+
+    try {
+      const categoriesSnap = await getDocs(collection(db, "categories"));
+      setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Category)));
+    } catch { /* categories collection may not exist yet */ }
   }, []);
 
   useEffect(() => {
@@ -852,8 +855,8 @@ export default function AdminDashboard() {
 
   const STATIC_CATEGORIES = ["DECORAÇÃO", "UTILITÁRIOS", "ACTION FIGURES", "ORGANIZADORES", "MODA", "GAMES", "PERSONALIZADO", "OUTROS"];
   const allCategories = useMemo(
-    () => Array.from(new Set([...STATIC_CATEGORIES, ...customCategories])).sort(),
-    [customCategories]
+    () => Array.from(new Set([...STATIC_CATEGORIES, ...customCategories, ...categories.filter(c => c.active !== false).map(c => c.name)])).sort(),
+    [customCategories, categories]
   );
 
   // ── Menu ──

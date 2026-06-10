@@ -48,7 +48,8 @@ export type QuoteStatus =
   | "SENT_TO_CUSTOMER"
   | "CONVERTED_TO_ORDER"
   | "REJECTED"
-  | "CANCELED";
+  | "CANCELED"
+  | "DISCARDED";
 
 export interface ShippingAddress {
   zipCode: string;
