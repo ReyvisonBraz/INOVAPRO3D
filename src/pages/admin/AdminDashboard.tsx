@@ -245,10 +245,12 @@ export default function AdminDashboard() {
       try {
         if (type === "orders" || type === "quotes") {
           await updateDoc(doc(db, type, id), { status: type === "orders" ? "CANCELED" : "DISCARDED", _deleted: true, deletedAt: serverTimestamp() });
+          if (type === "orders") setOrders(prev => prev.filter(o => o.id !== id));
+          if (type === "quotes") setQuotes(prev => prev.filter(q => q.id !== id));
         } else {
           await deleteDoc(doc(db, type, id));
+          await fetchData();
         }
-        await fetchData();
         toast.success("Item excluído com sucesso!");
       } catch (err: any) {
         const msg = err?.code === "permission-denied"
