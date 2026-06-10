@@ -173,7 +173,7 @@ service cloud.firestore {
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAdmin() || (isSignedIn() && isValidOrderCreate(incoming()));
       allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn();
     }
 
     // QUOTES
@@ -182,7 +182,7 @@ service cloud.firestore {
       allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isAdmin() || (isSignedIn() && isValidQuoteCreate(incoming()));
       allow update: if isAdmin();
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn();
     }
   }
 }
