@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -282,7 +282,7 @@ function ProductModal({
 // ─────────────────────────────────────────────────────────────
 // CARD DO PRODUTO (catálogo)
 // ─────────────────────────────────────────────────────────────
-export function ProductCard({
+export const ProductCard = memo(function ProductCard({
   product,
   onAdd,
   className,
@@ -473,6 +473,6 @@ export function ProductCard({
       </AnimatePresence>
     </>
   );
-}
+});
 
 export default ProductCard;

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
-import { STLViewer } from "../../components/ui/STLViewer";
+const STLViewer = lazy(() => import("../../components/ui/STLViewer").then(m => ({ default: m.STLViewer })));
 import { Button } from "../../components/ui/Button";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
@@ -224,7 +224,9 @@ export default function ProductDetail() {
             }}
           >
             {activeMediaTab === '3d' && hasModelUrl ? (
-              <STLViewer url={hasModelUrl} color={selectedMaterial?.color || '#2563EB'} scale={1} />
+              <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" /></div>}>
+                <STLViewer url={hasModelUrl} color={selectedMaterial?.color || '#2563EB'} scale={1} />
+              </Suspense>
             ) : activeMediaTab === '3d' ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center px-6">
@@ -313,7 +315,7 @@ export default function ProductDetail() {
                       : 'border-white/10 opacity-50 hover:opacity-80 hover:border-white/25'
                   }`}
                 >
-                  <img src={img} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <img src={img} alt={`Foto ${idx + 1}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" loading="lazy" decoding="async" width={56} height={56} />
                 </button>
               ))}
             </div>
@@ -690,6 +692,10 @@ export default function ProductDetail() {
                   src={product.images[0]}
                   alt=""
                   className="h-10 w-10 shrink-0 rounded-xl border border-white/10 object-cover"
+                  loading="lazy"
+                  decoding="async"
+                  width={40}
+                  height={40}
                 />
               )}
               <div className="min-w-0 flex-1">
