@@ -33,16 +33,27 @@ export function formatCatalogDescription(raw: string): string {
   return (lastBreak > 200 ? truncated.slice(0, lastBreak + 1) : truncated + "...").trim();
 }
 
+function toProxiedUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === window.location.hostname) return url;
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  } catch {
+    return url;
+  }
+}
+
 export async function importAndConvertImage(
   url: string,
   storageBucket: any
 ): Promise<{ url: string; converted: boolean }> {
+  const imgSrc = toProxiedUrl(url);
   const img = new Image();
   img.crossOrigin = "anonymous";
   await new Promise<void>((resolve, reject) => {
     img.onload = () => resolve();
     img.onerror = () => reject(new Error("cors"));
-    img.src = url;
+    img.src = imgSrc;
   });
 
   const MAX = 1200;

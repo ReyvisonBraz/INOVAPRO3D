@@ -132,6 +132,31 @@ async function startServer() {
     });
   });
 
+  // Proxy external images so the browser can load them CORS-safely for canvas conversion
+  app.get("/api/proxy-image", async (req, res) => {
+    const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
+    if (!rawUrl) { res.status(400).json({ error: "url obrigatória" }); return; }
+    let parsed: URL;
+    try { parsed = new URL(rawUrl); } catch { res.status(400).json({ error: "url inválida" }); return; }
+    if (!["http:", "https:"].includes(parsed.protocol)) { res.status(400).json({ error: "protocolo inválido" }); return; }
+    try {
+      const upstream = await fetch(rawUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; INOVAPRO3D/1.0; +https://inovapro3d.com)" },
+        redirect: "follow",
+      });
+      if (!upstream.ok) { res.status(upstream.status).json({ error: "upstream error" }); return; }
+      const contentType = upstream.headers.get("content-type") || "image/jpeg";
+      if (!contentType.startsWith("image/")) { res.status(415).json({ error: "não é imagem" }); return; }
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Access-Control-Allow-Origin", "*");
+      res.setHeader("Cache-Control", "public, max-age=3600");
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      res.send(buf);
+    } catch (err) {
+      res.status(502).json({ error: err instanceof Error ? err.message : "erro ao buscar imagem" });
+    }
+  });
+
   app.get("/api/model-metadata", async (req, res) => {
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
 
