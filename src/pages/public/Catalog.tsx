@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { collection, getDocs } from "firebase/firestore";
 import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft, SlidersHorizontal } from "lucide-react";
-import { db, handleFirestoreError, OperationType } from "../../services/firebase";
+import { db } from "../../services/firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
@@ -109,32 +109,36 @@ export default function Catalog() {
   const [products, setProducts] = useState<Product[]>([]);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc" | "newest">("name");
   const [activeSlide, setActiveSlide] = useState(0);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        const [sSnap, pSnap] = await Promise.all([
-          getDocs(collection(db, "showcase")),
-          getDocs(collection(db, "products")),
-        ]);
-        setShowcase(sSnap.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem)));
-        const newProducts = pSnap.docs
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setFetchError(null);
+    const [sResult, pResult] = await Promise.allSettled([
+      getDocs(collection(db, "showcase")),
+      getDocs(collection(db, "products")),
+    ]);
+    if (sResult.status === "fulfilled") {
+      setShowcase(sResult.value.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem)));
+    }
+    if (pResult.status === "fulfilled") {
+      setProducts(
+        pResult.value.docs
           .map(d => ({ id: d.id, ...d.data() } as Product))
-          .filter(p => p.active !== false);
-        setProducts(newProducts);
-      } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, "products/showcase");
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchData();
+          .filter(p => p.active !== false)
+      );
+    } else {
+      console.error("[Catalog] products fetch failed:", pResult.reason);
+      setFetchError("Falha ao carregar produtos.");
+    }
+    setLoading(false);
   }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
     if (showcase.length === 0) return;
@@ -384,8 +388,22 @@ export default function Catalog() {
           </AnimatePresence>
         )}
 
+        {/* ERROR STATE */}
+        {!loading && fetchError && products.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+            <p className="text-sm text-white/40 font-medium">Não foi possível carregar os produtos.</p>
+            <button
+              type="button"
+              onClick={fetchData}
+              className="px-6 py-3 rounded-xl bg-primary text-white text-xs font-black uppercase tracking-widest hover:bg-primary/80 transition-colors"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
         {/* EMPTY STATE */}
-        {!loading && groups.length === 0 && (
+        {!loading && !fetchError && groups.length === 0 && (
           <Reveal direction="up" delay={0.1}>
             <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center">
               <div className="relative mb-4">

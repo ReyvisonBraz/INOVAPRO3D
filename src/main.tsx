@@ -5,10 +5,10 @@ import './index.css';
 import { testConnection } from './services/firebase.ts';
 import { seedProducts } from './services/seed.ts';
 
-// Test Firebase connection on startup
-testConnection().then(() => {
-  seedProducts();
-});
+// Testes de conexão e seed só em desenvolvimento
+if (import.meta.env.DEV) {
+  testConnection().then(() => seedProducts());
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

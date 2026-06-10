@@ -4,9 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
-    <!-- Preconnect para fontes Google (reduz round-trip bloqueante) -->
+    <!-- Anti-flash: aplica dark antes de qualquer paint -->
+    <script>
+      (function(){
+        var t = localStorage.getItem('inovapro3d-theme');
+        document.documentElement.classList.add(t === 'light' ? 'light' : 'dark');
+        document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark';
+      })();
+    </script>
+
+    <!-- Preconnect para fontes Google -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Fontes carregadas de forma não-bloqueante com display=optional (sem FOUT) -->
+    <link rel="preload" as="style"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=optional"
+      onload="this.rel='stylesheet'" />
+    <noscript>
+      <link rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=optional" />
+    </noscript>
 
     <!-- Identidade / PWA -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />

@@ -31,6 +31,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     root.dataset.theme = theme;
     root.style.colorScheme = theme;
     window.localStorage.setItem("inovapro3d-theme", theme);
+    // Habilita transition só após primeiro render (evita flash no carregamento)
+    requestAnimationFrame(() => document.body.classList.add("theme-ready"));
   }, [theme]);
 
   const value = useMemo(
