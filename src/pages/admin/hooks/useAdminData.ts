@@ -5,6 +5,7 @@ import { db, handleFirestoreError, OperationType } from "../../../services/fireb
 import type {
   AuditLog,
   Category,
+  Coupon,
   Customer,
   FAQ,
   Material,
@@ -29,6 +30,7 @@ export function useAdminData() {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [faqs, setFaqs] = useState<FAQ[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -65,6 +67,11 @@ export function useAdminData() {
       const categoriesSnap = await getDocs(collection(db, "categories"));
       setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Category)));
     } catch { /* categories collection may not exist yet */ }
+
+    try {
+      const couponsSnap = await getDocs(query(collection(db, "coupons"), orderBy("createdAt", "desc")));
+      setCoupons(couponsSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Coupon)));
+    } catch { /* coupons collection may not exist yet */ }
   }, []);
 
   useEffect(() => {
@@ -102,6 +109,7 @@ export function useAdminData() {
     tickets,
     faqs,
     categories, setCategories,
+    coupons,
     logs,
     loading,
     fetchData,

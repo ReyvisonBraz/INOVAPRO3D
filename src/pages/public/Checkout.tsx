@@ -11,8 +11,11 @@ import {
   Lock,
   ChevronRight,
   Truck,
+  Tag,
+  X,
   CreditCard as PaymentIcon,
 } from "lucide-react";
+import { useCoupon } from "../../hooks/useCoupon";
 import { motion, AnimatePresence } from "framer-motion";
 import { Elements } from "@stripe/react-stripe-js";
 import { useCart } from "../../contexts/CartContext";
@@ -41,6 +44,9 @@ export default function Checkout() {
   const [address, setAddress] = useState<ShippingAddress>({
     zipCode: '', street: '', number: '', neighborhood: '', city: '', state: ''
   });
+
+  const coupon = useCoupon(total + shippingRate);
+  const finalTotal = total + shippingRate - coupon.discount;
 
   // Stripe state
   const [clientSecret, setClientSecret] = useState<string | null>(null);
@@ -136,7 +142,11 @@ export default function Checkout() {
         userName: checkoutUser.displayName || checkoutUser.email,
         userEmail: checkoutUser.email,
         items,
-        total: total + shippingRate,
+        total: finalTotal,
+        subtotal: total,
+        shippingRate,
+        couponCode: coupon.coupon?.code ?? null,
+        couponDiscount: coupon.discount > 0 ? coupon.discount : null,
         shippingAddress: needsShipping ? address : null,
         status: "PENDING_PAYMENT",
         paymentMethod: "stripe",
@@ -147,7 +157,7 @@ export default function Checkout() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          amount: total + shippingRate,
+          amount: finalTotal,
           orderId: orderRef.id,
           customerEmail: checkoutUser.email,
         }),
@@ -164,7 +174,7 @@ export default function Checkout() {
           orderId: orderRef.id,
           customerName: checkoutUser.displayName || checkoutUser.email,
           customerEmail: checkoutUser.email,
-          total: total + shippingRate,
+          total: finalTotal,
           itemCount: items.length,
           paymentMethod: 'stripe',
         }),
@@ -202,7 +212,11 @@ export default function Checkout() {
         userName: checkoutUser.displayName || checkoutUser.email,
         userEmail: checkoutUser.email,
         items,
-        total: total + shippingRate,
+        total: finalTotal,
+        subtotal: total,
+        shippingRate,
+        couponCode: coupon.coupon?.code ?? null,
+        couponDiscount: coupon.discount > 0 ? coupon.discount : null,
         shippingAddress: needsShipping ? address : null,
         status: "PENDING_PAYMENT",
         paymentMethod: "pix_manual",
@@ -216,7 +230,7 @@ export default function Checkout() {
           orderId: orderRef.id,
           customerName: checkoutUser.displayName || checkoutUser.email,
           customerEmail: checkoutUser.email,
-          total: total + shippingRate,
+          total: finalTotal,
           itemCount: items.length,
           paymentMethod: 'pix_manual',
         }),
@@ -364,7 +378,7 @@ export default function Checkout() {
                     <Elements stripe={stripePromise} options={{ clientSecret, appearance: stripeAppearance, locale: 'pt-BR' }}>
                       <StripePaymentForm
                         orderId={stripeOrderId!}
-                        amount={total + shippingRate}
+                        amount={finalTotal}
                         onSuccess={handleStripeSuccess}
                         onError={msg => toast.error(msg)}
                         onBack={() => { setClientSecret(null); setStep(1); }}
@@ -520,6 +534,45 @@ export default function Checkout() {
                   </div>
                 ))}
               </div>
+              {/* Coupon input */}
+              {step < 3 && (
+                <div className="pt-4 border-t border-white/5">
+                  {coupon.coupon ? (
+                    <div className="flex items-center justify-between gap-3 p-3 rounded-2xl bg-green-500/10 border border-green-500/20">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Tag className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                        <span className="text-[10px] font-black text-green-400 uppercase tracking-wider truncate">{coupon.coupon.code}</span>
+                      </div>
+                      <button onClick={coupon.clear} className="p-1 hover:bg-white/10 rounded-lg transition-colors shrink-0">
+                        <X className="w-3 h-3 text-white/40" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          placeholder="Código do cupom"
+                          value={coupon.code}
+                          onChange={e => coupon.setCode(e.target.value.toUpperCase())}
+                          onKeyDown={e => e.key === "Enter" && coupon.apply()}
+                          className="flex-1 bg-white/[0.03] border border-white/5 rounded-xl px-3 py-2.5 text-xs font-mono focus:border-primary focus:bg-primary/5 outline-none transition-all placeholder:text-white/20 uppercase"
+                        />
+                        <button
+                          onClick={coupon.apply}
+                          disabled={coupon.loading || !coupon.code.trim()}
+                          className="px-3 py-2.5 rounded-xl bg-white/5 hover:bg-primary/20 hover:text-primary text-white/40 text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-30"
+                        >
+                          {coupon.loading ? "..." : "Aplicar"}
+                        </button>
+                      </div>
+                      {coupon.error && (
+                        <p className="text-[10px] text-red-400 font-medium px-1">{coupon.error}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="pt-6 sm:pt-10 border-t border-white/5 space-y-3 sm:space-y-4">
                 <div className="flex justify-between text-[10px] sm:text-xs font-semibold text-white/40">
                   <span>Entrega</span>
@@ -527,6 +580,12 @@ export default function Checkout() {
                     {shippingRate === 0 ? "Grátis" : shippingRate.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                   </span>
                 </div>
+                {coupon.discount > 0 && (
+                  <div className="flex justify-between text-[10px] sm:text-xs font-semibold text-green-400">
+                    <span>Cupom ({coupon.coupon?.code})</span>
+                    <span>− {coupon.discount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-[10px] sm:text-xs font-semibold text-white/40">
                   <span>Taxas</span><span>Inclusas</span>
                 </div>
@@ -535,7 +594,7 @@ export default function Checkout() {
                   <div className="flex items-baseline gap-2">
                     <span className="text-base sm:text-lg text-white/40 font-mono">R$</span>
                     <p className="text-4xl sm:text-5xl font-display font-black text-shimmer leading-none">
-                      {(total + shippingRate).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      {finalTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                 </div>
@@ -554,7 +613,7 @@ export default function Checkout() {
               <div>
                 <p className="text-[8px] font-black uppercase tracking-widest text-white/30 mb-1">Total</p>
                 <p className="text-2xl font-display font-black text-primary">
-                  {(total + shippingRate).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                  {finalTotal.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                 </p>
               </div>
               <Button

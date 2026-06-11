@@ -21,6 +21,7 @@ const MENU_GROUPS = [
       { id: "products" as AdminTabId, name: "Catálogo", icon: "Printer" },
       { id: "materials" as AdminTabId, name: "Materiais", icon: "Box" },
       { id: "showcase" as AdminTabId, name: "Vitrine", icon: "Sparkles" },
+      { id: "coupons" as AdminTabId, name: "Cupons", icon: "Tag" },
     ],
   },
   {
@@ -42,12 +43,12 @@ const MENU_GROUPS = [
 
 import {
   TrendingUp, Package, FileText, Folder, Printer, Box,
-  Sparkles, Users, AlertCircle, HelpCircle, Settings, History,
+  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   TrendingUp, Package, FileText, Folder, Printer, Box,
-  Sparkles, Users, AlertCircle, HelpCircle, Settings, History,
+  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History,
 };
 
 interface AdminSidebarProps {

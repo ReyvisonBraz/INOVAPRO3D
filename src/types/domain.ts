@@ -176,10 +176,15 @@ export interface ShowcaseItem {
 
 export interface Coupon {
   id: string;
-  code?: string;
-  discount?: number;
-  active?: boolean;
-  expiresAt?: Timestamp | FieldValue;
+  code: string;
+  type: "percentage" | "fixed";
+  value: number;
+  minOrderValue?: number;
+  maxUses?: number | null;
+  usedCount?: number;
+  active: boolean;
+  description?: string;
+  expiresAt?: Timestamp | null;
   createdAt?: FirestoreDate;
 }
 

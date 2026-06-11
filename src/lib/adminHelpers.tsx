@@ -1,6 +1,6 @@
 import { memo, useState, useEffect } from "react";
 
-export type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'categories' | 'materials' | 'showcase' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs';
+export type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'categories' | 'materials' | 'showcase' | 'coupons' | 'crm' | 'support' | 'faqs' | 'settings' | 'logs';
 
 export const PT_LOWERCASE_WORDS = new Set(["de", "da", "do", "dos", "das", "a", "o", "as", "os", "e", "ou", "em", "com", "para", "por", "sem", "sob", "sobre", "num", "numa", "no", "na", "nos", "nas"]);
 

@@ -13,6 +13,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Tag,
   TrendingUp,
   Truck,
   Users,
@@ -30,6 +31,7 @@ export type AdminTabId =
   | "categories"
   | "materials"
   | "showcase"
+  | "coupons"
   | "crm"
   | "support"
   | "faqs"
@@ -56,6 +58,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { id: "categories", name: "Pastas", icon: Folder },
   { id: "materials", name: "Materiais", icon: Box },
   { id: "showcase", name: "Vitrine", icon: Sparkles },
+  { id: "coupons", name: "Cupons", icon: Tag },
   { id: "crm", name: "Clientes", icon: Users },
   { id: "support", name: "Suporte", icon: AlertCircle },
   { id: "faqs", name: "FAQs", icon: HelpCircle },

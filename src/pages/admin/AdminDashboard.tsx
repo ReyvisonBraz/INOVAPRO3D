@@ -49,6 +49,7 @@ import { useCategoryAdmin } from "./hooks/useCategoryAdmin";
 import { useProductAdmin } from "./hooks/useProductAdmin";
 import { useQuoteAdmin } from "./hooks/useQuoteAdmin";
 import { useQuickCalc } from "./hooks/useQuickCalc";
+import { useCouponAdmin } from "./hooks/useCouponAdmin";
 import AdminOverviewPanel from "./components/AdminOverviewPanel";
 import AdminOrdersPanel from "./components/AdminOrdersPanel";
 import AdminProductsPanel from "./components/AdminProductsPanel";
@@ -61,13 +62,14 @@ import AdminFAQPanel from "./components/AdminFAQPanel";
 import AdminShowcasePanel from "./components/AdminShowcasePanel";
 import AdminLogsPanel from "./components/AdminLogsPanel";
 import AdminSettingsPanel from "./components/AdminSettingsPanel";
+import { AdminCouponsPanel } from "./components/AdminCouponsPanel";
 
 export default function AdminDashboard() {
   // ── Dados de todas as coleções + listener de pedidos novos ──
   const {
     orders, setOrders, quotes, setQuotes, products, setProducts, showcase,
-    materials, customers, tickets, faqs, categories, setCategories, logs,
-    loading, fetchData, handleSyncData,
+    materials, customers, tickets, faqs, categories, setCategories, coupons,
+    logs, loading, fetchData, handleSyncData,
   } = useAdminData();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -318,6 +320,15 @@ export default function AdminDashboard() {
     quickCalcResult, quickMachineBreak,
     handleSendQuickWhatsAppQuote,
   } = useQuickCalc(machineConfig);
+
+  const {
+    isAdding: isCouponAdding, setIsAdding: setCouponAdding,
+    form: couponForm, setForm: setCouponForm,
+    openForm: openCouponForm,
+    handleCreate: handleCreateCoupon,
+    handleToggle: handleToggleCoupon,
+    handleDelete: handleDeleteCoupon,
+  } = useCouponAdmin(fetchData);
 
   const handleTabChange = useCallback((tab: string) => setActiveTab(tab as AdminTabId), []);
   const handleSelectOrderAndTab = useCallback((o: Order) => { setActiveTab("orders"); setSelectedOrder(o); }, []);
@@ -583,6 +594,19 @@ export default function AdminDashboard() {
                 onDeleteShowcase={(id) => deleteItem("showcase", id)}
                 onAddShowcase={() => { setNewShowcase({ title: "", subtitle: "", image: "", link: "", active: true }); setIsAddingShowcase(true); }}
                 onEditShowcase={(item) => { setSelectedShowcase(item); setNewShowcase({ title: item.title || "", subtitle: item.subtitle || "", image: item.image || "", link: item.link || "", active: item.active !== undefined ? item.active : true }); setIsEditingShowcase(true); }}
+              />
+            )}
+            {activeTab === "coupons" && (
+              <AdminCouponsPanel
+                coupons={coupons}
+                isAdding={isCouponAdding}
+                form={couponForm}
+                setForm={setCouponForm}
+                onOpen={openCouponForm}
+                onCreate={handleCreateCoupon}
+                onToggle={handleToggleCoupon}
+                onDelete={handleDeleteCoupon}
+                onClose={() => setCouponAdding(false)}
               />
             )}
             {activeTab === "logs" && (
