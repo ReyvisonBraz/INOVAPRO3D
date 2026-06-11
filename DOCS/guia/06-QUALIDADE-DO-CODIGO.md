@@ -93,7 +93,8 @@ Para um e-commerce (dinheiro real, estoque real), os primeiros testes deveriam c
 - [ ] Criar `<GlassCard>` e usar nos lugares novos daqui pra frente
 
 ### Fase 2 — Quebrar os gigantes (1–2 semanas)
-- [ ] Extrair os 5 hooks do AdminDashboard (maior impacto do projeto!)
+- [x] Extrair hooks do AdminDashboard ✅ (jun/2026) — 6 hooks em `pages/admin/hooks/`;
+      arquivo caiu de 1.818 → 1.244 linhas (JSX dos modais fica como próxima etapa)
 - [ ] Dividir o FilamentCalculator em 4–5 seções
 - [ ] Criar `useFirestoreCollection()` e migrar as buscas aos poucos
 

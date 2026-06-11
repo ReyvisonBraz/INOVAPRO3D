@@ -1,21 +1,14 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
   collection,
-  query,
-  getDocs,
   getDoc,
   setDoc,
-  orderBy,
   updateDoc,
   doc,
-  limit,
   addDoc,
   serverTimestamp,
-  deleteDoc,
-  onSnapshot,
 } from "firebase/firestore";
-import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
-import { db, handleFirestoreError, OperationType, auth, storage } from "../../services/firebase";
+import { db, auth, handleFirestoreError, OperationType } from "../../services/firebase";
 import {
   RefreshCw,
   Search,
@@ -35,45 +28,27 @@ import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import {
-  MATERIAL_PRESETS,
-  DEFAULT_MACHINE,
-  DEFAULT_ENERGY,
-  DEFAULT_FAILURE_RATE,
-  machineHourBreakdown,
-  computePricing,
-  formatBRL,
-  parseTimeToHours,
-  type MaterialKey,
-  type MachineConfig,
-} from "../../lib/pricing";
-import {
-  formatCatalogTitle,
-  formatCatalogDescription,
-  importAndConvertImage,
-  translateToBR,
-  NumInput,
-  type AdminTabId,
-} from "../../lib/adminHelpers";
+import { DEFAULT_MACHINE, parseTimeToHours, type MachineConfig } from "../../lib/pricing";
+import { formatCatalogTitle, formatCatalogDescription, translateToBR, NumInput, type AdminTabId } from "../../lib/adminHelpers";
 import { ADMIN_MENU_ITEMS } from "./adminConfig";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { AdminSidebar } from "./components/AdminSidebar";
-import { generateSlug } from "../../lib/categoryTree";
 import type {
-  AuditLog,
-  Category,
   Customer,
-  FAQ,
   GlobalSettings,
-  Material,
   Order,
   OrderItem,
-  Product,
   Quote,
   ShowcaseItem,
   Ticket,
 } from "../../types/domain";
+import { useAdminData } from "./hooks/useAdminData";
+import { useAdminActions } from "./hooks/useAdminActions";
+import { useCategoryAdmin } from "./hooks/useCategoryAdmin";
+import { useProductAdmin } from "./hooks/useProductAdmin";
+import { useQuoteAdmin } from "./hooks/useQuoteAdmin";
+import { useQuickCalc } from "./hooks/useQuickCalc";
 import AdminOverviewPanel from "./components/AdminOverviewPanel";
 import AdminOrdersPanel from "./components/AdminOrdersPanel";
 import AdminProductsPanel from "./components/AdminProductsPanel";
@@ -88,18 +63,13 @@ import AdminLogsPanel from "./components/AdminLogsPanel";
 import AdminSettingsPanel from "./components/AdminSettingsPanel";
 
 export default function AdminDashboard() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
-  const [materials, setMaterials] = useState<Material[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [faqs, setFaqs] = useState<FAQ[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [logs, setLogs] = useState<AuditLog[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [, setIsLive] = useState(false);
+  // ── Dados de todas as coleções + listener de pedidos novos ──
+  const {
+    orders, setOrders, quotes, setQuotes, products, setProducts, showcase,
+    materials, customers, tickets, faqs, categories, setCategories, logs,
+    loading, fetchData, handleSyncData,
+  } = useAdminData();
+
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -116,12 +86,13 @@ export default function AdminDashboard() {
   const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<Quote | Ticket | null>(null);
 
-  // ── Category state ──
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [isEditingCategory, setIsEditingCategory] = useState(false);
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState({ name: "", image: "", active: true, parentId: "" });
-  const [isUploadingCategoryImage, setIsUploadingCategoryImage] = useState(false);
+  // ── Pastas/categorias ──
+  const {
+    isAddingCategory, setIsAddingCategory, isEditingCategory, setIsEditingCategory,
+    editingCategoryId, setEditingCategoryId, newCategory, setNewCategory,
+    isUploadingCategoryImage, handleCategorySubmit, handleCategoryImageUpload,
+    handleToggleCategoryActive, handleReorderCategory,
+  } = useCategoryAdmin({ categories, setCategories, fetchData });
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -138,67 +109,6 @@ export default function AdminDashboard() {
     };
     fetchSettings();
   }, []);
-
-  // ── Data fetching ──
-  const fetchData = useCallback(async () => {
-    try {
-      const [ordersSnap, quotesSnap, productsSnap, showcaseSnap, materialsSnap, customersSnap, ticketsSnap, faqsSnap, logsSnap] = await Promise.all([
-        getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50))),
-        getDocs(query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(50))),
-        getDocs(collection(db, "products")),
-        getDocs(collection(db, "showcase")),
-        getDocs(collection(db, "materials")),
-        getDocs(collection(db, "customers")),
-        getDocs(query(collection(db, "tickets"), orderBy("createdAt", "desc"))),
-        getDocs(collection(db, "faqs")),
-        getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
-      ]);
-
-      setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)).filter(o => !o._deleted));
-      setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)).filter(q => !q._deleted));
-      setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() } as Product)));
-      setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() } as ShowcaseItem)));
-      setMaterials(materialsSnap.docs.map((m) => ({ id: m.id, ...m.data() } as Material)));
-      setCustomers(customersSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Customer)));
-      setTickets(ticketsSnap.docs.map((t) => ({ id: t.id, ...t.data() } as Ticket)));
-      setFaqs(faqsSnap.docs.map((f) => ({ id: f.id, ...f.data() } as FAQ)));
-      setLogs(logsSnap.docs.map((l) => ({ id: l.id, ...l.data() } as AuditLog)));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.GET, "admin/data");
-    } finally {
-      setLoading(false);
-    }
-
-    try {
-      const categoriesSnap = await getDocs(collection(db, "categories"));
-      setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Category)));
-    } catch { /* categories collection may not exist yet */ }
-  }, []);
-
-  useEffect(() => {
-    fetchData();
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(1));
-    let isInitialLoad = true;
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        setIsLive(true);
-        if (isInitialLoad) {
-          isInitialLoad = false;
-          return;
-        }
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === "added") {
-            const orderData = change.doc.data();
-            toast.info(`Novo pedido de ${orderData.userName || "Cliente"}!`);
-            fetchData();
-          }
-        });
-      },
-      () => setIsLive(false)
-    );
-    return () => unsubscribe();
-  }, [fetchData]);
 
   // ── Handlers ──
   const handleSaveSettings = useCallback(async () => {
@@ -219,385 +129,28 @@ export default function AdminDashboard() {
     }
   }, [machineConfig]);
 
-  const updateStatus = useCallback(
-    async (type: string, id: string, newStatus: string | Record<string, unknown>) => {
-      try {
-        const payload = typeof newStatus === "object" ? newStatus : { status: newStatus };
-        await updateDoc(doc(db, type, id), payload);
-        fetchData();
-        if (type === "orders" && selectedOrder?.id === id) {
-          setSelectedOrder((prev) => (prev ? { ...prev, ...payload } : null));
-        }
-        if (type === "quotes" && selectedCustomer?.id === id) {
-          setSelectedCustomer((prev) => (prev ? { ...prev, ...payload } : null));
-        }
+  // ── Ações sobre registros (status, exclusão, rastreio) ──
+  const { updateStatus, deleteItem, handleUpdateTracking } = useAdminActions({
+    orders, fetchData, selectedOrder, setSelectedOrder,
+    selectedCustomer, setSelectedCustomer, setOrders, setQuotes,
+  });
 
-        if (type === "orders" && typeof newStatus === "string") {
-          const order = orders.find(o => o.id === id) ?? selectedOrder;
-          const phoneRaw = (order?.phone ?? "").replace(/\D/g, "");
-          if (phoneRaw.length >= 10) {
-            const orderId = id.slice(0, 8).toUpperCase();
-            const origin = window.location.origin;
-            const STATUS_MESSAGES: Partial<Record<string, string>> = {
-              PAID:      `✅ Pagamento confirmado! Seu pedido #${orderId} foi aprovado e já entrou na fila de produção. Acompanhe em ${origin}/meus-pedidos`,
-              QUEUE:     `🖨️ Seu pedido #${orderId} entrou na fila de impressão! Acompanhe em ${origin}/meus-pedidos`,
-              PRINTING:  `⚡ Impressão iniciada! Seu pedido #${orderId} está sendo fabricado agora. Acompanhe em ${origin}/meus-pedidos`,
-              FINISHING: `🔧 Acabamento em andamento! Seu pedido #${orderId} está na fase de finalização.`,
-              SHIPPED:   `🚚 Pedido enviado! Seu pedido #${orderId} está a caminho. Acompanhe em ${origin}/meus-pedidos`,
-              COMPLETED: `✅ Pedido entregue! Obrigado por escolher a INOVAPRO3D. Seu pedido #${orderId} foi concluído com sucesso! ⭐`,
-              CANCELED:  `❌ Seu pedido #${orderId} foi cancelado. Em caso de dúvidas, entre em contato conosco.`,
-            };
-            const text = STATUS_MESSAGES[newStatus] ?? `📦 Atualização do seu pedido #${orderId}: status alterado para "${newStatus}". Acompanhe em ${origin}/meus-pedidos`;
-            const waUrl = `https://api.whatsapp.com/send?phone=55${phoneRaw}&text=${encodeURIComponent(text)}`;
-            toast.success("Status atualizado!", {
-              action: { label: "Notificar via WhatsApp", onClick: () => window.open(waUrl, "_blank") },
-            });
-            return;
-          }
-        }
-
-        toast.success("Registro atualizado com sucesso!");
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `${type}/${id}`);
-      }
-    },
-    [fetchData, orders, selectedOrder, selectedCustomer]
-  );
-
-  const deleteItem = useCallback(
-    async (type: string, id: string) => {
-      try {
-        if (type === "orders" || type === "quotes") {
-          await updateDoc(doc(db, type, id), { status: type === "orders" ? "CANCELED" : "DISCARDED", _deleted: true, deletedAt: serverTimestamp() });
-          if (type === "orders") setOrders(prev => prev.filter(o => o.id !== id));
-          if (type === "quotes") setQuotes(prev => prev.filter(q => q.id !== id));
-        } else {
-          await deleteDoc(doc(db, type, id));
-          await fetchData();
-        }
-        toast.success("Item excluído com sucesso!");
-      } catch (err: any) {
-        const msg = err?.code === "permission-denied"
-          ? "Sem permissão para excluir. Verifique as regras do Firestore."
-          : err?.message || "Erro ao excluir item.";
-        toast.error(msg);
-      }
-    },
-    [fetchData]
-  );
-
-  // ── Category handlers ──
-  const handleCategorySubmit = useCallback(async (e: FormEvent) => {
-    e.preventDefault();
-    if (!newCategory.name.trim()) return;
-    try {
-      const name = newCategory.name.trim().toUpperCase();
-      const slug = generateSlug(name);
-      const data = {
-        name,
-        slug,
-        image: newCategory.image,
-        active: newCategory.active,
-        parentId: newCategory.parentId || null,
-        order: categories.length,
-        updatedAt: serverTimestamp(),
-      };
-      if (isEditingCategory && editingCategoryId) {
-        await updateDoc(doc(db, "categories", editingCategoryId), data);
-        toast.success("Pasta atualizada!");
-      } else {
-        await addDoc(collection(db, "categories"), { ...data, active: true, createdAt: serverTimestamp() });
-        toast.success("Pasta criada!");
-      }
-      setIsAddingCategory(false); setIsEditingCategory(false); setEditingCategoryId(null);
-      setNewCategory({ name: "", image: "", active: true, parentId: "" });
-      await fetchData();
-    } catch (err: any) { toast.error(err?.message || "Erro ao salvar pasta."); }
-  }, [newCategory, isEditingCategory, editingCategoryId, categories.length, fetchData]);
-
-  const handleCategoryImageUpload = useCallback(async (file: File | null) => {
-    if (!file) return;
-    setIsUploadingCategoryImage(true);
-    try {
-      const path = `categories/covers/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-      const fileRef = storageRef(storage, path);
-      await uploadBytes(fileRef, file);
-      const url = await getDownloadURL(fileRef);
-      setNewCategory(prev => ({ ...prev, image: url }));
-      toast.success("Capa enviada!");
-    } catch { toast.error("Erro ao enviar imagem."); }
-    finally { setIsUploadingCategoryImage(false); }
-  }, []);
-
-  const handleToggleCategoryActive = useCallback(async (id: string, current: boolean) => {
-    await updateDoc(doc(db, "categories", id), { active: !current, updatedAt: serverTimestamp() });
-    setCategories(prev => prev.map(c => c.id === id ? { ...c, active: !current } : c));
-    toast.success(current ? "Pasta ocultada." : "Pasta visível.");
-  }, []);
-
-  const handleReorderCategory = useCallback(async (id: string, direction: "up" | "down") => {
-    const sorted = [...categories].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
-    const idx = sorted.findIndex(c => c.id === id);
-    if (idx < 0) return;
-    const target = direction === "up" ? Math.max(0, idx - 1) : Math.min(sorted.length - 1, idx + 1);
-    if (target === idx) return;
-    [sorted[idx], sorted[target]] = [sorted[target], sorted[idx]];
-    const updates = sorted.map((c, i) => updateDoc(doc(db, "categories", c.id), { order: i }));
-    await Promise.all(updates);
-    setCategories(sorted.map((c, i) => ({ ...c, order: i })));
-  }, [categories]);
-
-  const handleSyncData = useCallback(async () => {
-    await fetchData();
-    toast.success("Dados sincronizados com o servidor central");
-  }, [fetchData]);
-
-  // ── Product state ──
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isAddingProduct, setIsAddingProduct] = useState(false);
-  const [isEditingProduct, setIsEditingProduct] = useState(false);
-  const [productImportUrl, setProductImportUrl] = useState("");
-  const [isImportingProduct, setIsImportingProduct] = useState(false);
-  const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
-  const [translatingField, setTranslatingField] = useState<"name" | "description" | null>(null);
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
-
-  const defaultProduct = {
-    name: "",
-    description: "",
-    basePrice: 0,
-    category: "DECORAÇÃO",
-    images: [""],
-    active: true,
-    stock: 0,
-    tags: [] as string[],
-    technical: { infill: 20, resolution: "0.20mm", printTime: "2h 30m", weight: 80 },
-    sourceUrl: "",
-    modelUrl: "",
-    baseDimensions: { x: 120, y: 120, z: 150 },
-  };
-  const [newProduct, setNewProduct] = useState(defaultProduct);
-  const [newImageUrl, setNewImageUrl] = useState("");
-  const [importingImage, setImportingImage] = useState(false);
-
-  const resetNewProduct = useCallback(() => {
-    setNewProduct(defaultProduct);
-    setProductImportUrl("");
-  }, []);
-
-  const handleProductSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      try {
-        if (isEditingProduct && selectedProduct) {
-          await updateDoc(doc(db, "products", selectedProduct.id), { ...newProduct, updatedAt: serverTimestamp() });
-          toast.success("Produto atualizado com sucesso!");
-        } else {
-          await addDoc(collection(db, "products"), { ...newProduct, createdAt: serverTimestamp() });
-          toast.success("Produto adicionado ao catálogo!");
-        }
-        setIsAddingProduct(false);
-        setIsEditingProduct(false);
-        setNewProduct(defaultProduct);
-        setProductImportUrl("");
-        fetchData();
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, "products");
-      }
-    },
-    [isEditingProduct, selectedProduct, newProduct, fetchData]
-  );
-
-  const handleImportProductMetadata = useCallback(async () => {
-    const url = productImportUrl.trim();
-    if (!url) {
-      toast.error("Informe o link do modelo antes de importar.");
-      return;
-    }
-    try {
-      setIsImportingProduct(true);
-      const response = await fetch(`/api/model-metadata?url=${encodeURIComponent(url)}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Não foi possível importar este link.");
-
-      const importedImages = Array.isArray(data.images)
-        ? data.images.filter((image: unknown): image is string => typeof image === "string" && image.length > 0)
-        : [];
-
-      setNewProduct((current) => ({
-        ...current,
-        name: formatCatalogTitle(data.title || current.name),
-        description: formatCatalogDescription(data.description || current.description),
-        images: importedImages.length > 0 ? importedImages : current.images,
-        sourceUrl: data.sourceUrl || url,
-        modelUrl: data.modelUrl || current.modelUrl,
-        tags: Array.from(new Set([
-          ...current.tags, data.sourceHost, data.author, data.license,
-          ...(Array.isArray(data.tags) ? data.tags : []),
-        ].filter(Boolean))),
-        technical: { ...current.technical, ...(data.technical || {}) },
-      }));
-
-      // Converte automaticamente as imagens externas para WebP no Storage.
-      // Mantém a URL original como fallback caso a conversão falhe (CORS, etc).
-      if (importedImages.length > 0) {
-        const toastId = toast.loading(`Otimizando ${importedImages.length} ${importedImages.length === 1 ? "imagem" : "imagens"} para WebP...`);
-        try {
-          const { getStorage } = await import("firebase/storage");
-          const bucket = getStorage();
-          let okCount = 0;
-          const converted = await Promise.all(
-            importedImages.map(async (img: string) => {
-              try {
-                const r = await importAndConvertImage(img, bucket);
-                okCount++;
-                return r.url;
-              } catch {
-                return img; // mantém original se a conversão falhar
-              }
-            })
-          );
-          setNewProduct((current) => ({ ...current, images: converted }));
-          if (okCount === importedImages.length) {
-            toast.success(`${okCount} ${okCount === 1 ? "imagem otimizada" : "imagens otimizadas"} para WebP!`, { id: toastId });
-          } else {
-            toast.warning(`${okCount}/${importedImages.length} imagens convertidas. As demais mantêm o link original.`, { id: toastId });
-          }
-        } catch {
-          toast.error("Não foi possível otimizar as imagens. Os links originais foram mantidos.", { id: toastId });
-        }
-      }
-
-      const importedTech = { ...(data.technical || {}) };
-      const weightG = Number(importedTech.weight) || 0;
-      const hMatch = String(importedTech.printTime || "").match(/(\d+)\s*h/i);
-      const mMatch = String(importedTech.printTime || "").match(/(\d+)\s*m/i);
-      const printTimeH = (hMatch ? Number(hMatch[1]) : 0) + (mMatch ? Number(mMatch[1]) / 60 : 0);
-      if (weightG > 0 && printTimeH > 0) {
-        try {
-          const suggested = computePricing({
-            material: "pla", weightGrams: weightG, hours: printTimeH, quantity: 1,
-            reservePct: MATERIAL_PRESETS.pla.defaultReservePct,
-            failureRatePct: DEFAULT_FAILURE_RATE,
-            machine: DEFAULT_MACHINE,
-            kwhCost: DEFAULT_ENERGY.kwhCost,
-            startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts,
-            startupMinutes: DEFAULT_ENERGY.startupMinutes,
-            laborHours: 0, laborRate: 0, extraSupplies: 0,
-            wholesaleMarkup: 1.8, retailMarkup: 2.5, minPrice: 15,
-          });
-          setNewProduct((p) => ({ ...p, basePrice: parseFloat(suggested.retailUnit.toFixed(2)) }));
-          toast.info(`Preço sugerido: R$ ${suggested.retailUnit.toFixed(2)} (varejo unitário)`, { duration: 5000 });
-        } catch (err) { console.error("Price suggestion failed:", err); }
-      }
-      toast.success("Metadados importados. Revise o preço antes de salvar.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Falha ao importar metadados.");
-    } finally {
-      setIsImportingProduct(false);
-    }
-  }, [productImportUrl]);
-
-  const handleProductImageUpload = useCallback(async (file: File | null) => {
-    if (!file || !auth.currentUser) return;
-    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
-    const MAX_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_SIZE) { toast.error("Imagem excede 5MB. Reduza o tamanho antes de enviar."); return; }
-    try {
-      setIsUploadingProductImage(true);
-      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-      const safeName = file.name.replace(/\.[^.]+$/, "").normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-")
-        .replace(/^-+|-+$/g, "").toLowerCase().slice(0, 60) || "imagem";
-      const path = `products/manual/${auth.currentUser.uid}/${Date.now()}-${safeName}.${extension}`;
-      const fileRef = storageRef(storage, path);
-      await uploadBytes(fileRef, file, { contentType: file.type, customMetadata: { uploadedBy: auth.currentUser.uid, source: "admin-product-form" } });
-      const downloadUrl = await getDownloadURL(fileRef);
-      setNewProduct((current) => ({ ...current, images: [...current.images.filter(Boolean), downloadUrl] }));
-      toast.success("Imagem enviada e adicionada ao produto.");
-    } catch {
-      toast.error("Erro ao enviar imagem.");
-    } finally {
-      setIsUploadingProductImage(false);
-    }
-  }, []);
-
-  const handleImportImageUrl = useCallback(async (url: string, addFn: (u: string) => void) => {
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    setImportingImage(true);
-    try {
-      const { getStorage } = await import("firebase/storage");
-      const result = await importAndConvertImage(trimmed, getStorage());
-      addFn(result.url);
-      toast.success("Imagem convertida para WebP e salva no Storage!");
-    } catch {
-      addFn(trimmed);
-      toast.warning("CORS bloqueou a conversão — URL original mantida.", { duration: 3500 });
-    } finally {
-      setImportingImage(false);
-      setNewImageUrl("");
-    }
-  }, []);
-
-  const handleDuplicateProduct = useCallback((product: Product) => {
-    const { id, createdAt, updatedAt, ...rest } = product;
-    setNewProduct({
-      ...rest,
-      name: `${rest.name} (Cópia)`,
-      sourceUrl: rest.sourceUrl || "",
-      modelUrl: rest.modelUrl || "",
-      active: rest.active !== undefined ? rest.active : true,
-      stock: rest.stock || 0,
-      tags: rest.tags || [],
-      technical: {
-        infill: rest.technical?.infill ?? 20,
-        resolution: rest.technical?.resolution || "0.20mm",
-        printTime: rest.technical?.printTime || "2h 30m",
-        weight: rest.technical?.weight ?? 80,
-      },
-      baseDimensions: rest.baseDimensions || { x: 120, y: 120, z: 150 },
-      images: rest.images || [""],
-    });
-    setIsAddingProduct(true);
-    toast.info("Protótipo duplicado. Ajuste os detalhes antes de salvar.");
-  }, []);
-
-  const handleEditProduct = useCallback((product: Product) => {
-    setSelectedProduct(product);
-    setIsEditingProduct(true);
-    setProductImportUrl(product.sourceUrl || "");
-    setNewProduct({
-      name: product.name || "",
-      description: product.description || "",
-      basePrice: product.basePrice || 0,
-      category: product.category || "DECORAÇÃO",
-      images: product.images || [""],
-      active: product.active !== undefined ? product.active : true,
-      stock: product.stock || 0,
-      tags: product.tags || [],
-      technical: {
-        infill: product.technical?.infill ?? 20,
-        resolution: product.technical?.resolution || "0.20mm",
-        printTime: product.technical?.printTime || "2h 30m",
-        weight: product.technical?.weight ?? 80,
-      },
-      sourceUrl: product.sourceUrl || "",
-      modelUrl: product.modelUrl || "",
-      baseDimensions: product.baseDimensions || { x: 120, y: 120, z: 150 },
-    });
-  }, []);
-
-  const handleUpdateStock = useCallback(async (id: string, currentStock: number, delta: number) => {
-    try {
-      const newStock = Math.max(0, currentStock + delta);
-      await updateDoc(doc(db, "products", id), { stock: newStock, updatedAt: serverTimestamp() });
-      toast.success("Estoque atualizado!");
-      fetchData();
-    } catch {
-      toast.error("Falha ao atualizar estoque.");
-    }
-  }, [fetchData]);
+  // ── Produtos: formulário, importação por link e imagens ──
+  const {
+    setSelectedProduct,
+    isAddingProduct, setIsAddingProduct,
+    isEditingProduct, setIsEditingProduct,
+    productImportUrl, setProductImportUrl,
+    isImportingProduct, isUploadingProductImage,
+    translatingField, setTranslatingField,
+    setCustomCategories,
+    newProduct, setNewProduct,
+    newImageUrl, setNewImageUrl,
+    importingImage, allCategories,
+    resetNewProduct, handleProductSubmit, handleImportProductMetadata,
+    handleProductImageUpload, handleImportImageUrl,
+    handleDuplicateProduct, handleEditProduct, handleUpdateStock,
+  } = useProductAdmin({ categories, fetchData });
 
   // ── Materials ──
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
@@ -731,161 +284,40 @@ export default function AdminDashboard() {
     }
   }, [newFAQ, fetchData]);
 
-  // ── Quotes ──
-  const [editingQuoteTotal, setEditingQuoteTotal] = useState(45.90);
-  const [editingQuoteWeight, setEditingQuoteWeight] = useState(30);
-  const [editingQuoteTime, setEditingQuoteTime] = useState("2h 30m");
-  const [editingQuoteInfill, setEditingQuoteInfill] = useState(20);
-  const [editingQuotePhone, setEditingQuotePhone] = useState("");
-  const [editingQuoteNotes, setEditingQuoteNotes] = useState("");
-  const [isCalcAssistantOpen, setIsCalcAssistantOpen] = useState(false);
-  const [calcFilamentPrice, setCalcFilamentPrice] = useState(0.15);
-  const [calcHourCost, setCalcHourCost] = useState(4.50);
-  const [calcSetupFee, setCalcSetupFee] = useState(10.00);
-  const [calcMargin, setCalcMargin] = useState(50);
-  const [approvalStatus, setApprovalStatus] = useState<{
-    success: boolean; orderId?: string; finalPrice?: number; finalInfill?: number;
-    finalTime?: string; finalWeight?: number; finalPhone?: string; finalNotes?: string;
-  } | null>(null);
+  // ── Orçamentos: edição, aprovação e WhatsApp ──
+  const {
+    editingQuoteTotal, setEditingQuoteTotal,
+    editingQuoteWeight, setEditingQuoteWeight,
+    editingQuoteTime, setEditingQuoteTime,
+    editingQuoteInfill, setEditingQuoteInfill,
+    editingQuotePhone, setEditingQuotePhone,
+    editingQuoteNotes, setEditingQuoteNotes,
+    isCalcAssistantOpen, setIsCalcAssistantOpen,
+    calcFilamentPrice, setCalcFilamentPrice,
+    calcHourCost, setCalcHourCost,
+    calcSetupFee, setCalcSetupFee,
+    calcMargin, setCalcMargin,
+    approvalStatus, setApprovalStatus,
+    handleWhatsAppQuote, handleApproveQuote, handleSaveQuoteSpecifications,
+  } = useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer, activeTab, fetchData });
 
-  useEffect(() => {
-    if (selectedCustomer && activeTab === "quotes") {
-      setEditingQuoteTotal(selectedCustomer.estimatedPrice || selectedCustomer.total || 45.90);
-      setEditingQuoteWeight(selectedCustomer.weight || 30);
-      setEditingQuoteTime(selectedCustomer.printTime || "2h 30m");
-      setEditingQuoteInfill(selectedCustomer.infill || 20);
-      setEditingQuoteNotes(selectedCustomer.adminNotes || "");
-      const matchedCustomer = customers.find((c) =>
-        (c.email && selectedCustomer.userEmail && c.email.toLowerCase() === selectedCustomer.userEmail.toLowerCase()) ||
-        (c.id === selectedCustomer.userId)
-      );
-      setEditingQuotePhone(matchedCustomer?.phone || selectedCustomer.phone || "");
-    }
-  }, [selectedCustomer, activeTab, customers]);
-
-  useEffect(() => {
-    if (!selectedCustomer) setApprovalStatus(null);
-  }, [selectedCustomer]);
-
-  const handleWhatsAppQuote = useCallback(
-    (q: Quote | Ticket, finalPrice: number, orderId?: string, phoneOverride?: string,
-     infillOverride?: number, timeOverride?: string, weightOverride?: number) => {
-      const rawPhone = phoneOverride !== undefined ? phoneOverride : editingQuotePhone;
-      const phoneClean = (rawPhone || "").replace(/\D/g, "");
-      if (!phoneClean) { toast.error("Preencha o celular do cliente."); return; }
-      const orderMsg = orderId ? ` e o pedido oficial #${orderId.slice(0, 8)} foi gerado` : "";
-      const infillToUse = infillOverride ?? editingQuoteInfill;
-      const timeToUse = timeOverride ?? editingQuoteTime;
-      const weightToUse = weightOverride ?? editingQuoteWeight;
-      const text = `Olá, *${q.userName}*!\n\nSeu orçamento para a peça *${q.fileName}* foi analisado pela equipe *INOVAPRO3D*${orderMsg}.\n\n*Detalhes do Projeto:*\n• Preenchimento (Infill): ${infillToUse}%\n• Tempo de Impressão: ${timeToUse}\n• Peso Estimado: ${weightToUse}g\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace(".", ",")}\n\nAcesse o painel para verificar os detalhes e acompanhar a manufatura.\n\nFicamos à disposição! 🚀`;
-      window.open(`https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`, "_blank");
-    },
-    [editingQuotePhone, editingQuoteInfill, editingQuoteTime, editingQuoteWeight]
-  );
-
-  const handleApproveQuote = useCallback(async (quote: Quote | Ticket) => {
-    try {
-      const isSelected = selectedCustomer?.id === quote.id;
-      const finalPrice = isSelected ? editingQuoteTotal : (quote.estimatedPrice || quote.total || 45.90);
-      const finalInfill = isSelected ? editingQuoteInfill : (quote.infill || 20);
-      const finalTime = isSelected ? editingQuoteTime : (quote.printTime || "2h 30m");
-      const finalWeight = isSelected ? editingQuoteWeight : (quote.weight || 30);
-      const finalNotes = isSelected ? editingQuoteNotes : (quote.adminNotes || "");
-      const matchedCustomer = customers.find((c) =>
-        (c.email && quote.userEmail && c.email.toLowerCase() === quote.userEmail.toLowerCase()) || (c.id === quote.userId)
-      );
-      const finalPhone = isSelected ? editingQuotePhone : (matchedCustomer?.phone || quote.phone || "");
-
-      const orderRef = await addDoc(collection(db, "orders"), {
-        userId: quote.userId || "guest", userEmail: quote.userEmail || "",
-        userName: quote.userName || "Visitante",
-        items: [{
-          name: quote.fileName || "Impressão Personalizada", quantity: 1, price: finalPrice,
-          image: "https://images.unsplash.com/photo-1615810231586-52233952673d?q=80&w=400",
-          options: { material: quote.materialId || "PLA Pro", infill: finalInfill, printTime: finalTime, weight: finalWeight, adminNotes: finalNotes },
-        }],
-        total: finalPrice, status: "PENDING_PAYMENT", quoteId: quote.id,
-        createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
-      });
-      await updateDoc(doc(db, "quotes", quote.id), {
-        status: "APPROVED", convertedOrderId: orderRef.id, total: finalPrice,
-        printTime: finalTime, weight: finalWeight, infill: finalInfill, adminNotes: finalNotes, updatedAt: serverTimestamp(),
-      });
-      await addDoc(collection(db, "logs"), {
-        action: "TRANSFORM_QUOTE_TO_ORDER",
-        details: `Orçamento de ${quote.userName} convertido em pedido #${orderRef.id}`,
-        adminId: auth.currentUser?.uid, userEmail: quote.userEmail, createdAt: serverTimestamp(),
-      });
-      toast.success("Orçamento aprovado e faturado com sucesso!");
-      setApprovalStatus({ success: true, orderId: orderRef.id, finalPrice, finalInfill, finalTime, finalWeight, finalPhone, finalNotes });
-      fetchData();
-    } catch {
-      toast.error("Falha na conversão do orçamento.");
-    }
-  }, [selectedCustomer, editingQuoteTotal, editingQuoteInfill, editingQuoteTime, editingQuoteWeight, editingQuoteNotes, editingQuotePhone, customers, fetchData]);
-
-  const handleSaveQuoteSpecifications = useCallback(async (quote: Quote | Ticket) => {
-    try {
-      const phoneClean = editingQuotePhone.replace(/\D/g, "");
-      await updateDoc(doc(db, "quotes", quote.id), {
-        total: editingQuoteTotal, infill: editingQuoteInfill, printTime: editingQuoteTime,
-        weight: editingQuoteWeight, adminNotes: editingQuoteNotes, phone: phoneClean, updatedAt: serverTimestamp(),
-      });
-      setSelectedCustomer((prev) => prev ? { ...prev, total: editingQuoteTotal, infill: editingQuoteInfill, printTime: editingQuoteTime, weight: editingQuoteWeight, adminNotes: editingQuoteNotes, phone: phoneClean } : null);
-      fetchData();
-      toast.success("Especificações do orçamento salvas!");
-    } catch {
-      toast.error("Falha ao salvar especificações.");
-    }
-  }, [editingQuoteTotal, editingQuoteInfill, editingQuoteTime, editingQuoteWeight, editingQuoteNotes, editingQuotePhone, fetchData]);
-
-  const handleUpdateTracking = useCallback(async (id: string, trackingCode: string) => {
-    try {
-      await updateDoc(doc(db, "orders", id), { trackingCode, updatedAt: serverTimestamp() });
-      toast.success("Código de rastreio atualizado!");
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, "orders");
-    }
-  }, []);
-
-  // ── Quick Calc ──
-  const [quickCalcWeight, setQuickCalcWeight] = useState(80);
-  const [quickCalcTime, setQuickCalcTime] = useState("2h 30m");
-  const [quickCalcPhone, setQuickCalcPhone] = useState("");
-  const [quickCalcCustomerName, setQuickCalcCustomerName] = useState("");
-  const [quickCalcPieceName, setQuickCalcPieceName] = useState("");
-  const [quickCalcBatchQty, setQuickCalcBatchQty] = useState(1);
-  const [quickCalcMaterial, setQuickCalcMaterial] = useState<MaterialKey>("pla");
-  const [quickCalcMaterialReserve, setQuickCalcMaterialReserve] = useState(15);
-  const [quickCalcFailureRate, setQuickCalcFailureRate] = useState(DEFAULT_FAILURE_RATE);
-  const [quickCalcMinPrice, setQuickCalcMinPrice] = useState(35);
-  const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState(1.6);
-  const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState(2.5);
-
-  const quickMachine = machineConfig;
-  const quickCalcResult = useMemo(() => computePricing({
-    material: quickCalcMaterial, weightGrams: Math.max(0, Number(quickCalcWeight) || 0),
-    hours: Math.max(0, parseTimeToHours(quickCalcTime)),
-    quantity: Math.max(1, Math.floor(Number(quickCalcBatchQty) || 1)),
-    reservePct: Math.max(0, Number(quickCalcMaterialReserve) || 0),
-    failureRatePct: Math.max(0, Number(quickCalcFailureRate) || 0),
-    kwhCost: DEFAULT_ENERGY.kwhCost,
-    startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts, startupMinutes: DEFAULT_ENERGY.startupMinutes,
-    machine: quickMachine, laborHours: 0, laborRate: 0, extraSupplies: 0,
-    wholesaleMarkup: Math.max(0, Number(quickCalcWholesaleMarkup) || 0),
-    retailMarkup: Math.max(0, Number(quickCalcRetailMarkup) || 0),
-    minPrice: Math.max(0, Number(quickCalcMinPrice) || 0),
-  }), [quickCalcMaterial, quickCalcWeight, quickCalcTime, quickCalcBatchQty, quickCalcMaterialReserve, quickCalcFailureRate, quickCalcWholesaleMarkup, quickCalcRetailMarkup, quickCalcMinPrice, quickMachine]);
-  const quickMachineBreak = useMemo(() => machineHourBreakdown(quickMachine), [quickMachine]);
-
-  const handleSendQuickWhatsAppQuote = useCallback(() => {
-    const phoneClean = quickCalcPhone.replace(/\D/g, "");
-    if (!phoneClean) { toast.error("Preencha o WhatsApp do cliente."); return; }
-    const clientName = quickCalcCustomerName || "Cliente";
-    const pieceName = quickCalcPieceName || "Peça personalizada";
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Material: ${MATERIAL_PRESETS[quickCalcMaterial].label}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Peso do job/lote: ${quickCalcResult.weightGrams.toFixed(1).replace(".", ",")}g\n- Tempo de impressão: ${quickCalcTime || "0h"} (${quickCalcResult.hours.toFixed(2).replace(".", ",")}h)\n\n*Investimento final (varejo):*\nTotal: ${formatBRL(quickCalcResult.retailTotal)}\nUnitário: ${formatBRL(quickCalcResult.retailUnit)}\n\nProposta baseada em cálculo técnico com material ${MATERIAL_PRESETS[quickCalcMaterial].label}, energia e hora-máquina P2S.`;
-    window.open(`https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`, "_blank");
-  }, [quickCalcPhone, quickCalcCustomerName, quickCalcPieceName, quickCalcMaterial, quickCalcTime, quickCalcResult]);
+  // ── Calculadora rápida de orçamento ──
+  const {
+    quickCalcWeight, setQuickCalcWeight,
+    quickCalcTime, setQuickCalcTime,
+    quickCalcPhone, setQuickCalcPhone,
+    quickCalcCustomerName, setQuickCalcCustomerName,
+    quickCalcPieceName, setQuickCalcPieceName,
+    quickCalcBatchQty, setQuickCalcBatchQty,
+    quickCalcMaterial, setQuickCalcMaterial,
+    quickCalcMaterialReserve, setQuickCalcMaterialReserve,
+    quickCalcFailureRate, setQuickCalcFailureRate,
+    quickCalcMinPrice, setQuickCalcMinPrice,
+    quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup,
+    quickCalcRetailMarkup, setQuickCalcRetailMarkup,
+    quickCalcResult, quickMachineBreak,
+    handleSendQuickWhatsAppQuote,
+  } = useQuickCalc(machineConfig);
 
   const handleTabChange = useCallback((tab: string) => setActiveTab(tab as AdminTabId), []);
   const handleSelectOrderAndTab = useCallback((o: Order) => { setActiveTab("orders"); setSelectedOrder(o); }, []);
@@ -918,12 +350,6 @@ export default function AdminDashboard() {
     (q.userName && q.userName.toLowerCase().includes(searchTerm.toLowerCase())) ||
     (q.fileName && q.fileName.toLowerCase().includes(searchTerm.toLowerCase()))
   ), [quotes, searchTerm]);
-
-  const STATIC_CATEGORIES = ["DECORAÇÃO", "UTILITÁRIOS", "ACTION FIGURES", "ORGANIZADORES", "MODA", "GAMES", "PERSONALIZADO", "OUTROS"];
-  const allCategories = useMemo(
-    () => Array.from(new Set([...STATIC_CATEGORIES, ...customCategories, ...categories.filter(c => c.active !== false).map(c => c.name)])).sort(),
-    [customCategories, categories]
-  );
 
   // ── Menu ──
   const activeMenuItem = ADMIN_MENU_ITEMS.find((item) => item.id === activeTab);
