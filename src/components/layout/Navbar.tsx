@@ -15,17 +15,16 @@ import {
   User as UserIcon,
   X,
 } from "lucide-react";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { collection, getDocs } from "firebase/firestore";
-import { db } from "../../services/firebase";
 import { BrandLogo } from "../brand/BrandLogo";
 import { Button } from "../ui/Button";
 import { CartSheet } from "./CartSheet";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { buildCategoryTree, categoryNameToSlug, type CategoryTreeNode } from "../../lib/categoryTree";
+import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import type { Category } from "../../types/domain";
 
 export function Navbar() {
@@ -68,22 +67,13 @@ export function Navbar() {
     setShowPhoneOnboarding(Boolean(user && profile && !profile.phone && !isDismissed));
   }, [user, profile, isDismissed]);
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const { data: categories } = useFirestoreCollection<Category>("categories", {
+    transform: (cats) => cats.filter(c => c.active !== false),
+    silent: true,
+  });
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([]);
   const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const catalogRef = useRef<HTMLDivElement>(null);
-
-  const fetchCategories = useCallback(async () => {
-    try {
-      const snap = await getDocs(collection(db, "categories"));
-      const cats = snap.docs
-        .map(d => ({ id: d.id, ...d.data() } as Category))
-        .filter(c => c.active !== false);
-      setCategories(cats);
-    } catch { /* silent */ }
-  }, []);
-
-  useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
   useEffect(() => {
     setCategoryTree(buildCategoryTree(categories));

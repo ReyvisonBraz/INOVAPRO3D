@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
+import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import {
   ArrowRight,
   ChevronLeft,
@@ -35,7 +36,12 @@ export default function ProductDetail() {
   const location = useLocation();
   const { addItem } = useCart();
   const [product, setProduct] = useState<Product | null>(null);
-  const [materials, setMaterials] = useState<Material[]>([]);
+  const { data: materials } = useFirestoreCollection<Material>("materials", {
+    transform: (items) =>
+      items.length > 0
+        ? items
+        : [{ id: 'pla', name: 'PLA Pro', color: '#2563EB', priceMult: 1, desc: 'Superior estético.' } as Material],
+  });
   const [loading, setLoading] = useState(true);
   const [selectedMaterial, setSelectedMaterial] = useState<Material | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -102,16 +108,18 @@ export default function ProductDetail() {
     }
   }, [product?.id]);
 
+  // Pré-seleciona o primeiro material assim que a lista chega
+  useEffect(() => {
+    if (materials.length > 0) {
+      setSelectedMaterial((prev) => prev ?? materials[0]);
+    }
+  }, [materials]);
+
   useEffect(() => {
     const fetchData = async () => {
       if (!id) return;
       try {
-        const docRef = doc(db, "products", id);
-        const [prodSnap, matSnap] = await Promise.all([
-          getDoc(docRef),
-          getDocs(collection(db, "materials")),
-        ]);
-
+        const prodSnap = await getDoc(doc(db, "products", id));
         if (prodSnap.exists()) {
           const prod = { id: prodSnap.id, ...prodSnap.data() } as Product;
           setProduct(prod);
@@ -127,18 +135,6 @@ export default function ProductDetail() {
                 .slice(0, 6)
             );
           }
-        }
-
-        const matList = matSnap.docs.map(d => ({ id: d.id, ...d.data() } as Material));
-        if (matList.length > 0) {
-          setMaterials(matList);
-          setSelectedMaterial(matList[0]);
-        } else {
-          const fallback = [
-            { id: 'pla', name: 'PLA Pro', color: '#2563EB', priceMult: 1, desc: 'Superior estético.' },
-          ];
-          setMaterials(fallback);
-          setSelectedMaterial(fallback[0]);
         }
       } catch (error) {
         console.error("Error product detail:", error);

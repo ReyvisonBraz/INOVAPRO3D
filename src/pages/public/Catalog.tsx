@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, memo } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
-import { collection, getDocs } from "firebase/firestore";
 import { Search, ShoppingCart, Box, ChevronRight, ChevronLeft } from "lucide-react";
-import { db } from "../../services/firebase";
+import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
@@ -112,46 +111,26 @@ const CategorySection = memo(function CategorySection({
 export default function Catalog() {
   const { addItem } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
-  const [categoriesData, setCategoriesData] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const { data: showcase } = useFirestoreCollection<ShowcaseItem>("showcase", { silent: true });
+  const {
+    data: products,
+    loading: productsLoading,
+    error: fetchError,
+    refetch: fetchData,
+  } = useFirestoreCollection<Product>("products", {
+    transform: (items) => items.filter(p => p.active !== false),
+  });
+  const { data: categoriesData } = useFirestoreCollection<Category>("categories", {
+    transform: (items) => items.filter(c => c.active !== false),
+    silent: true,
+  });
+  const loading = productsLoading;
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc" | "newest">("name");
   const [activeSlide, setActiveSlide] = useState(0);
 
   const urlCategory = searchParams.get("categoria") || "";
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setFetchError(null);
-    const [sResult, pResult, cResult] = await Promise.allSettled([
-      getDocs(collection(db, "showcase")),
-      getDocs(collection(db, "products")),
-      getDocs(collection(db, "categories")),
-    ]);
-    if (sResult.status === "fulfilled") {
-      setShowcase(sResult.value.docs.map(d => ({ id: d.id, ...d.data() } as ShowcaseItem)));
-    }
-    if (pResult.status === "fulfilled") {
-      setProducts(
-        pResult.value.docs
-          .map(d => ({ id: d.id, ...d.data() } as Product))
-          .filter(p => p.active !== false)
-      );
-    } else {
-      console.error("[Catalog] products fetch failed:", pResult.reason);
-      setFetchError("Falha ao carregar produtos.");
-    }
-    if (cResult.status === "fulfilled") {
-      setCategoriesData(cResult.value.docs.map(d => ({ id: d.id, ...d.data() } as Category)).filter(c => c.active !== false));
-    }
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
     if (showcase.length === 0) return;

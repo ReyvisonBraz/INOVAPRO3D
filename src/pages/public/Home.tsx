@@ -17,14 +17,14 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
-import { collection, getDocs, orderBy, query } from "firebase/firestore";
+import { orderBy } from "firebase/firestore";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/Button";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { ProductCard } from "../../components/ui/ProductCard";
 import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
 import { useCart } from "../../contexts/CartContext";
-import { db } from "../../services/firebase";
+import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import type { Product, ShowcaseItem } from "../../types/domain";
 
 const heroCopyOptions = [
@@ -64,11 +64,21 @@ const heroCopyOptions = [
 ];
 
 export default function Home() {
-  const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: showcase, loading: showcaseLoading } = useFirestoreCollection<ShowcaseItem>("showcase", {
+    constraints: [orderBy("createdAt", "desc")],
+  });
+  const { data: products, loading: productsLoading } = useFirestoreCollection<Product>("products", {
+    transform: (items) =>
+      items
+        .filter((product) => product.active !== false)
+        .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
+  });
+  const loading = showcaseLoading || productsLoading;
+  const categories = useMemo(
+    () => Array.from(new Set(showcase.map((item) => item.category).filter(Boolean))) as string[],
+    [showcase],
+  );
   const [filter, setFilter] = useState("ALL");
-  const [categories, setCategories] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const { addItem } = useCart();
 
@@ -90,36 +100,6 @@ export default function Home() {
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.22], [0, -90]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0.2]);
-
-  useEffect(() => {
-    const fetchShowcase = async () => {
-      try {
-        const snap = await getDocs(
-          query(collection(db, "showcase"), orderBy("createdAt", "desc")),
-        );
-        const items = snap.docs.map((doc) => ({ id: doc.id, ...doc.data() } as ShowcaseItem));
-        setShowcase(items);
-        setCategories(Array.from(new Set(items.map((item) => item.category).filter(Boolean))) as string[]);
-      } catch (err) {
-        console.error("Error fetching showcase:", err);
-      }
-    };
-
-    const fetchProducts = async () => {
-      try {
-        const snap = await getDocs(collection(db, "products"));
-        const items = snap.docs
-          .map((doc) => ({ id: doc.id, ...doc.data() } as Product))
-          .filter((product) => product.active !== false)
-          .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-        setProducts(items);
-      } catch (err) {
-        console.error("Error fetching products:", err);
-      }
-    };
-
-    Promise.all([fetchShowcase(), fetchProducts()]).finally(() => setLoading(false));
-  }, []);
 
   const featuredProducts = products.slice(0, 8);
   const filteredItems = filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);

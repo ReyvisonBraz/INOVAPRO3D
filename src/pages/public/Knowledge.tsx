@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { collection, getDocs, limit, query } from "firebase/firestore";
-import { db } from "../../services/firebase";
+import { limit } from "firebase/firestore";
+import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import { Button } from "../../components/ui/Button";
 import {
   Search, X, Box, HelpCircle, Settings, Atom,
@@ -125,18 +125,11 @@ function MaterialCard({ color, name, tag, desc, best }: { color: string; name: s
 /* ─── MAIN PAGE ─────────────────────────────────────────────── */
 export default function HowItWorks() {
   const [search, setSearch] = useState("");
-  const [exampleProducts, setExampleProducts] = useState<Product[]>([]);
-
-  useEffect(() => {
-    getDocs(query(collection(db, "products"), limit(8)))
-      .then(snap => setExampleProducts(
-        snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as Product))
-          .filter(p => p.images?.[0])
-          .slice(0, 6)
-      ))
-      .catch(() => {});
-  }, []);
+  const { data: exampleProducts } = useFirestoreCollection<Product>("products", {
+    constraints: [limit(8)],
+    transform: (items) => items.filter(p => p.images?.[0]).slice(0, 6),
+    silent: true,
+  });
 
   const filtered = useMemo(() => {
     const q = search.toLowerCase().trim();
