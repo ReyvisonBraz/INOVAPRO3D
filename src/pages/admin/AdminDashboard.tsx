@@ -154,8 +154,8 @@ export default function AdminDashboard() {
         getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
       ]);
 
-      setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)).filter(o => !(o as any)._deleted));
-      setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)).filter(q => !(q as any)._deleted));
+      setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)).filter(o => !o._deleted));
+      setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)).filter(q => !q._deleted));
       setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() } as Product)));
       setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() } as ShowcaseItem)));
       setMaterials(materialsSnap.docs.map((m) => ({ id: m.id, ...m.data() } as Material)));

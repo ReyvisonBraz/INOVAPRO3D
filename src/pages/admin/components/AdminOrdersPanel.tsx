@@ -93,7 +93,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
     result.sort((a, b) => {
       let cmp = 0;
       if (sortField === "createdAt") {
-        cmp = ((a.createdAt as any)?.seconds || 0) - ((b.createdAt as any)?.seconds || 0);
+        cmp = (a.createdAt?.seconds || 0) - (b.createdAt?.seconds || 0);
       } else if (sortField === "total") {
         cmp = (a.total || 0) - (b.total || 0);
       } else if (sortField === "userName") {

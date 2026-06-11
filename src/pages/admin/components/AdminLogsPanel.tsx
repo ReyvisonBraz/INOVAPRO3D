@@ -22,7 +22,7 @@ const AdminLogsPanel: FC<AdminLogsPanelProps> = memo(({ logs }) => {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-1">
                   <span className="text-[10px] font-black uppercase tracking-widest text-primary italic">{log.action}</span>
-                  <span className="text-[11px] text-dim font-bold uppercase">{new Date((log.createdAt as any)?.seconds * 1000).toLocaleString()}</span>
+                  <span className="text-[11px] text-dim font-bold uppercase">{new Date((log.createdAt?.seconds ?? 0) * 1000).toLocaleString()}</span>
                 </div>
                 <p className="text-xs text-white/60 leading-relaxed">{log.reply || log.details || 'Ação sistêmica registrada sob protocolo central.'}</p>
               </div>

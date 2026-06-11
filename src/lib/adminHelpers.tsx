@@ -33,28 +33,37 @@ export function formatCatalogDescription(raw: string): string {
   return (lastBreak > 200 ? truncated.slice(0, lastBreak + 1) : truncated + "...").trim();
 }
 
-function toProxiedUrl(url: string): string {
+function isExternalUrl(url: string): boolean {
   try {
-    const parsed = new URL(url);
-    if (parsed.hostname === window.location.hostname) return url;
-    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+    return new URL(url).hostname !== window.location.hostname;
   } catch {
-    return url;
+    return false;
   }
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("cors"));
+    img.src = src;
+  });
 }
 
 export async function importAndConvertImage(
   url: string,
   storageBucket: any
 ): Promise<{ url: string; converted: boolean }> {
-  const imgSrc = toProxiedUrl(url);
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-  await new Promise<void>((resolve, reject) => {
-    img.onload = () => resolve();
-    img.onerror = () => reject(new Error("cors"));
-    img.src = imgSrc;
-  });
+  // Try direct load first (works for CORS-friendly hosts); fall back to the
+  // server proxy for hosts that block cross-origin canvas access.
+  let img: HTMLImageElement;
+  try {
+    img = await loadImage(url);
+  } catch (err) {
+    if (!isExternalUrl(url)) throw err;
+    img = await loadImage(`/api/proxy-image?url=${encodeURIComponent(url)}`);
+  }
 
   const MAX = 1200;
   const scale = Math.min(1, MAX / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));

@@ -77,6 +77,8 @@ export interface Order {
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
   trackingCode?: string;
+  _deleted?: boolean;
+  deletedAt?: FirestoreDate;
 }
 
 export interface Quote {
@@ -99,6 +101,8 @@ export interface Quote {
   message?: string;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
+  _deleted?: boolean;
+  deletedAt?: FirestoreDate;
 }
 
 export interface ProductTechnicalSpec {

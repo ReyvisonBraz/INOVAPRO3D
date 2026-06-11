@@ -12,7 +12,7 @@
 
 ## 🔴 Problemas IMPORTANTES (corrigir em breve)
 
-### 1. Qualquer pessoa pode te mandar notificações falsas no Telegram
+### 1. Qualquer pessoa pode te mandar notificações falsas no Telegram — 🟡 MITIGADO
 
 **Onde:** `server.ts` — endpoint `POST /api/notify/new-order`
 
@@ -20,21 +20,28 @@
 Qualquer pessoa na internet que descubra o endereço pode disparar mensagens
 de "pedido novo" falsas no seu Telegram, te enchendo de spam.
 
-**A correção:** exigir que a requisição venha com o token de login do Firebase
-e validar no servidor, ou pelo menos uma chave secreta compartilhada.
+**Mitigação aplicada (jun/2026):** limite de 5 requisições por minuto por IP
+(rate limiting). Spam em massa não é mais possível, mas notificações falsas
+isoladas ainda são. A correção completa (validar o token de login do Firebase
+no servidor) fica para quando adicionarmos o `firebase-admin`.
 
-### 2. O proxy de imagens aceita qualquer endereço (risco SSRF)
+### 2. O proxy de imagens aceita qualquer endereço (risco SSRF) — ✅ CORRIGIDO
 
 **Onde:** `server.ts` — endpoint `GET /api/proxy-image?url=...`
 
 **O problema:** criamos esse endpoint para a conversão de imagens em WebP
-funcionar (os sites externos bloqueavam o navegador). Mas ele aceita
-**qualquer URL**. Um atacante poderia usar o seu servidor para acessar
-endereços internos da infraestrutura (ataque chamado SSRF).
+funcionar (os sites externos bloqueavam o navegador). Mas ele aceitava
+**qualquer URL** — um atacante poderia usar o servidor para acessar endereços
+internos da infraestrutura (ataque chamado SSRF).
 
-**A correção:** permitir apenas os mesmos sites da importação de modelos
-(makerworld.com, bambulab.com etc. — a lista já existe em
-`MODEL_IMPORT_ALLOWED_HOSTS`).
+**Correção aplicada (jun/2026):**
+- Só aceita HTTPS e hosts da lista permitida (MakerWorld, Bambu Lab e seus
+  CDNs, Thingiverse, Printables, Cults3D, MyMiniFactory — configurável via
+  `IMAGE_PROXY_ALLOWED_HOSTS`)
+- Limite de 60 requisições/minuto por IP
+- Limite de 15 MB por imagem
+- A conversão tenta carregar direto primeiro; o proxy é só o plano B para
+  hosts que bloqueiam o navegador
 
 ### 3. Os cupons de desconto são públicos
 
@@ -48,22 +55,22 @@ cupons que você nem divulgou.
 durante o checkout (o cliente digita o código, o servidor responde só
 "válido/inválido").
 
-### 4. GEMINI_API_KEY exposta no site (se preenchida)
+### 4. GEMINI_API_KEY exposta no site (se preenchida) — ✅ CORRIGIDO
 
 **Onde:** `vite.config.ts`
 
-**O problema:** o arquivo de configuração injeta a `GEMINI_API_KEY` no código
-do site. Hoje ela não é usada em lugar nenhum, mas se um dia você colocar uma
-chave real ali, **qualquer visitante poderá vê-la** e usar sua cota do Google.
+**O problema:** o arquivo de configuração injetava a `GEMINI_API_KEY` no código
+do site. Ela não era usada em lugar nenhum, mas se um dia uma chave real fosse
+colocada ali, **qualquer visitante poderia vê-la** e usar sua cota do Google.
 
-**A correção:** remover essa linha do `vite.config.ts`. Se um dia usar Gemini,
-chamar somente pelo servidor.
+**Correção aplicada (jun/2026):** linha removida do `vite.config.ts`. Se um dia
+usar Gemini, chamar somente pelo servidor.
 
 ## 🟡 Pontos de atenção (menores)
 
 | O quê | Onde | Risco |
 |---|---|---|
-| Endpoint de debug público | `GET /api/debug/markers` | Expõe versão e integrações. Remover ou proteger |
+| ~~Endpoint de debug público~~ | ~~`GET /api/debug/markers`~~ | ✅ Removido (jun/2026) — não era usado por nada |
 | Coleção `settings` pública | `firestore.rules` | OK se só tiver frete/banner; nunca guardar nada sensível ali |
 | Sem cabeçalhos de segurança (CSP, HSTS) | `server.ts` / `vercel.json` | Proteção extra contra ataques de injeção; adicionar depois |
 | Sem limite de requisições (rate limiting) | Todos os endpoints | Alguém pode martelar os endpoints; mitigar com Vercel/Cloudflare |
@@ -80,8 +87,9 @@ chamar somente pelo servidor.
 
 ## Ordem sugerida de correção
 
-1. Restringir o `proxy-image` à lista de hosts permitidos (rápido, ~10 linhas)
-2. Remover `GEMINI_API_KEY` do `vite.config.ts` (1 linha)
-3. Tornar `coupons` admin-only nas regras (3 linhas) — quando for usar cupons de verdade
-4. Proteger `/api/notify/new-order` com verificação de token
-5. Remover/proteger `/api/debug/markers`
+1. ~~Restringir o `proxy-image` à lista de hosts permitidos~~ ✅ Feito (jun/2026)
+2. ~~Remover `GEMINI_API_KEY` do `vite.config.ts`~~ ✅ Feito (jun/2026)
+3. ~~Remover/proteger `/api/debug/markers`~~ ✅ Feito (jun/2026)
+4. ~~Rate limiting nos endpoints~~ ✅ Feito (jun/2026) — notify: 5/min, proxy: 60/min
+5. Tornar `coupons` admin-only nas regras — quando for usar cupons de verdade
+6. Proteger `/api/notify/new-order` com verificação de token Firebase (requer `firebase-admin`)

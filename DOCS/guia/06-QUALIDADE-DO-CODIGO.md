@@ -88,8 +88,8 @@ Para um e-commerce (dinheiro real, estoque real), os primeiros testes deveriam c
 ## Plano de refatoração recomendado (em fases)
 
 ### Fase 1 — Vitórias rápidas (poucas horas)
-- [ ] Apagar `fetchSettings()` duplicado no Checkout
-- [ ] Trocar os 4 `as any` por tipos corretos
+- [x] Apagar `fetchSettings()` duplicado no Checkout ✅ (jun/2026)
+- [x] Trocar os `as any` de datas/_deleted por tipos corretos ✅ (jun/2026)
 - [ ] Criar `<GlassCard>` e usar nos lugares novos daqui pra frente
 
 ### Fase 2 — Quebrar os gigantes (1–2 semanas)

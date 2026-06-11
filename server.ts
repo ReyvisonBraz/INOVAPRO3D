@@ -2,7 +2,41 @@ import "dotenv/config";
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { readModelMetadata } from "./api/_modelMetadata.ts";
+import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts";
+
+// ── Image proxy host allowlist ─────────────────────────────────────────────
+// Model-import hosts plus the CDNs they serve images from.
+const IMAGE_PROXY_EXTRA_HOSTS = (process.env.IMAGE_PROXY_ALLOWED_HOSTS || "bblmw.com,bblmw.cn,thingiverse.com,printables.com,prusa3d.com,cults3d.com,myminifactory.com")
+  .split(",")
+  .map((h) => h.trim().toLowerCase())
+  .filter(Boolean);
+
+function isAllowedImageHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (isAllowedImportHost(host)) return true;
+  return IMAGE_PROXY_EXTRA_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+}
+
+// ── Simple in-memory rate limiter (per IP per route) ───────────────────────
+const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+function rateLimit(maxPerMinute: number) {
+  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const key = `${req.path}:${req.ip}`;
+    const now = Date.now();
+    const bucket = rateBuckets.get(key);
+    if (!bucket || now > bucket.resetAt) {
+      rateBuckets.set(key, { count: 1, resetAt: now + 60_000 });
+      next();
+      return;
+    }
+    bucket.count++;
+    if (bucket.count > maxPerMinute) {
+      res.status(429).json({ error: "Muitas requisições. Tente novamente em instantes." });
+      return;
+    }
+    next();
+  };
+}
 
 // ── Telegram helper ────────────────────────────────────────────────────────
 async function sendTelegram(message: string): Promise<void> {
@@ -81,7 +115,7 @@ async function startServer() {
   app.use(express.json());
 
   // ── New order notification ─────────────────────────────────────────────────
-  app.post('/api/notify/new-order', async (req, res) => {
+  app.post('/api/notify/new-order', rateLimit(5), async (req, res) => {
     const { orderId, customerName, customerEmail, total, itemCount, paymentMethod } = req.body as {
       orderId: string; customerName: string; customerEmail: string;
       total: number; itemCount: number; paymentMethod: string;
@@ -122,23 +156,14 @@ async function startServer() {
     });
   });
 
-  // Lightweight diagnostics for the admin/debug UI.
-  app.get("/api/debug/markers", (_req, res) => {
-    res.json({
-      active_integrations: ["Firebase Auth", "Firestore"],
-      pending_integrations: ["Mercado Pago Pix/Webhook"],
-      ui_version: "2.0.0-refined",
-      theme: "industrial-dark",
-    });
-  });
-
   // Proxy external images so the browser can load them CORS-safely for canvas conversion
-  app.get("/api/proxy-image", async (req, res) => {
+  app.get("/api/proxy-image", rateLimit(60), async (req, res) => {
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
     if (!rawUrl) { res.status(400).json({ error: "url obrigatória" }); return; }
     let parsed: URL;
     try { parsed = new URL(rawUrl); } catch { res.status(400).json({ error: "url inválida" }); return; }
-    if (!["http:", "https:"].includes(parsed.protocol)) { res.status(400).json({ error: "protocolo inválido" }); return; }
+    if (parsed.protocol !== "https:") { res.status(400).json({ error: "protocolo inválido" }); return; }
+    if (!isAllowedImageHost(parsed.hostname)) { res.status(403).json({ error: "host não permitido" }); return; }
     try {
       const upstream = await fetch(rawUrl, {
         headers: { "User-Agent": "Mozilla/5.0 (compatible; INOVAPRO3D/1.0; +https://inovapro3d.com)" },
@@ -147,10 +172,14 @@ async function startServer() {
       if (!upstream.ok) { res.status(upstream.status).json({ error: "upstream error" }); return; }
       const contentType = upstream.headers.get("content-type") || "image/jpeg";
       if (!contentType.startsWith("image/")) { res.status(415).json({ error: "não é imagem" }); return; }
+      const MAX_BYTES = 15 * 1024 * 1024;
+      const contentLength = Number(upstream.headers.get("content-length") || 0);
+      if (contentLength > MAX_BYTES) { res.status(413).json({ error: "imagem grande demais" }); return; }
       res.setHeader("Content-Type", contentType);
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cache-Control", "public, max-age=3600");
       const buf = Buffer.from(await upstream.arrayBuffer());
+      if (buf.byteLength > MAX_BYTES) { res.status(413).json({ error: "imagem grande demais" }); return; }
       res.send(buf);
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : "erro ao buscar imagem" });

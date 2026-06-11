@@ -180,18 +180,6 @@ export default function Checkout() {
     }
   };
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const snap = await getDoc(doc(db, "settings", "shipping"));
-        if (snap.exists()) {
-          setShippingRate(snap.data().flatRate || 0);
-        }
-      } catch { /* silent */ }
-    };
-    fetchSettings();
-  }, []);
-
   const handleStripeSuccess = async () => {
     if (stripeOrderId) {
       try { await updateDoc(doc(db, 'orders', stripeOrderId), { status: 'PAID' }); } catch { /* webhook handles */ }
