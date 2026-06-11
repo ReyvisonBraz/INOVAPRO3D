@@ -68,13 +68,21 @@ export default function App() {
   );
 }
 
+function ProfileModalGate() {
+  const { needsProfileCompletion } = useAuth();
+  const [dismissed, setDismissed] = useState(false);
+  if (!needsProfileCompletion || dismissed) return null;
+  return (
+    <AnimatePresence>
+      <CompleteProfileModal onDismiss={() => setDismissed(true)} />
+    </AnimatePresence>
+  );
+}
+
 function RouterContent() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith('/admin');
   const { theme } = useTheme();
-  const { needsProfileCompletion } = useAuth();
-  const [profileModalDismissed, setProfileModalDismissed] = useState(false);
-  const showProfileModal = needsProfileCompletion && !profileModalDismissed;
 
   return (
     <AuthProvider>
@@ -103,27 +111,27 @@ function RouterContent() {
                 <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
                 <Route path="/calculadora" element={<PageWrapper><FilamentCalculator /></PageWrapper>} />
                 <Route path="/upload" element={<Navigate to="/catalogo" replace />} />
-                <Route 
-                  path="/checkout" 
+                <Route
+                  path="/checkout"
                   element={
                     <PageWrapper><Checkout /></PageWrapper>
-                  } 
+                  }
                 />
-                <Route 
-                  path="/meus-pedidos" 
+                <Route
+                  path="/meus-pedidos"
                   element={
                     <ProtectedRoute>
                       <PageWrapper><MyOrders /></PageWrapper>
                     </ProtectedRoute>
-                  } 
+                  }
                 />
-                <Route 
-                  path="/admin" 
+                <Route
+                  path="/admin"
                   element={
                     <ProtectedRoute requireAdmin>
                       <PageWrapper><AdminDashboard /></PageWrapper>
                     </ProtectedRoute>
-                  } 
+                  }
                 />
                 <Route path="/conhecimento" element={<PageWrapper><Knowledge /></PageWrapper>} />
                 <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
@@ -137,14 +145,10 @@ function RouterContent() {
               <Footer />
             </footer>
           )}
-          
+
           <FloatingSupport />
           <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
-          <AnimatePresence>
-            {showProfileModal && (
-              <CompleteProfileModal onDismiss={() => setProfileModalDismissed(true)} />
-            )}
-          </AnimatePresence>
+          <ProfileModalGate />
         </div>
       </CartProvider>
     </AuthProvider>
