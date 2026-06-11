@@ -231,12 +231,37 @@ export default function AdminDashboard() {
         if (type === "quotes" && selectedCustomer?.id === id) {
           setSelectedCustomer((prev) => (prev ? { ...prev, ...payload } : null));
         }
+
+        if (type === "orders" && typeof newStatus === "string") {
+          const order = orders.find(o => o.id === id) ?? selectedOrder;
+          const phoneRaw = (order?.phone ?? "").replace(/\D/g, "");
+          if (phoneRaw.length >= 10) {
+            const orderId = id.slice(0, 8).toUpperCase();
+            const origin = window.location.origin;
+            const STATUS_MESSAGES: Partial<Record<string, string>> = {
+              PAID:      `✅ Pagamento confirmado! Seu pedido #${orderId} foi aprovado e já entrou na fila de produção. Acompanhe em ${origin}/meus-pedidos`,
+              QUEUE:     `🖨️ Seu pedido #${orderId} entrou na fila de impressão! Acompanhe em ${origin}/meus-pedidos`,
+              PRINTING:  `⚡ Impressão iniciada! Seu pedido #${orderId} está sendo fabricado agora. Acompanhe em ${origin}/meus-pedidos`,
+              FINISHING: `🔧 Acabamento em andamento! Seu pedido #${orderId} está na fase de finalização.`,
+              SHIPPED:   `🚚 Pedido enviado! Seu pedido #${orderId} está a caminho. Acompanhe em ${origin}/meus-pedidos`,
+              COMPLETED: `✅ Pedido entregue! Obrigado por escolher a INOVAPRO3D. Seu pedido #${orderId} foi concluído com sucesso! ⭐`,
+              CANCELED:  `❌ Seu pedido #${orderId} foi cancelado. Em caso de dúvidas, entre em contato conosco.`,
+            };
+            const text = STATUS_MESSAGES[newStatus] ?? `📦 Atualização do seu pedido #${orderId}: status alterado para "${newStatus}". Acompanhe em ${origin}/meus-pedidos`;
+            const waUrl = `https://api.whatsapp.com/send?phone=55${phoneRaw}&text=${encodeURIComponent(text)}`;
+            toast.success("Status atualizado!", {
+              action: { label: "Notificar via WhatsApp", onClick: () => window.open(waUrl, "_blank") },
+            });
+            return;
+          }
+        }
+
         toast.success("Registro atualizado com sucesso!");
       } catch (err) {
         handleFirestoreError(err, OperationType.UPDATE, `${type}/${id}`);
       }
     },
-    [fetchData, selectedOrder, selectedCustomer]
+    [fetchData, orders, selectedOrder, selectedCustomer]
   );
 
   const deleteItem = useCallback(

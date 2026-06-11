@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
-import { collection, query, where, getDocs, orderBy } from "firebase/firestore";
+import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
+import { toast } from "sonner";
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -19,33 +20,51 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/Button";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 import type { Order, OrderItem, OrderStatus } from "../../types/domain";
 
 export default function MyOrders() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const prevStatusesRef = useRef<Record<string, string>>({});
 
   useEffect(() => {
-    const fetchOrders = async () => {
-      if (!user) return;
-      const path = "orders";
-      try {
-        const q = query(
-          collection(db, path), 
-          where("userId", "==", user.uid),
-          orderBy("createdAt", "desc")
-        );
-        const querySnapshot = await getDocs(q);
-        setOrders(querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Order)));
-      } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, path);
-      } finally {
+    if (!user) return;
+    const q = query(
+      collection(db, "orders"),
+      where("userId", "==", user.uid),
+      orderBy("createdAt", "desc")
+    );
+    const unsub = onSnapshot(
+      q,
+      (snapshot) => {
+        const updated = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Order));
+        const prev = prevStatusesRef.current;
+        updated.forEach(order => {
+          if (prev[order.id] && prev[order.id] !== order.status) {
+            const STATUS_LABELS: Partial<Record<string, string>> = {
+              PAID: "Pagamento Aprovado",
+              QUEUE: "Fila de Impressão",
+              PRINTING: "Imprimindo",
+              FINISHING: "Acabamento",
+              SHIPPED: "Enviado / Em Trânsito",
+              COMPLETED: "Finalizado & Entregue",
+              CANCELED: "Cancelado",
+            };
+            const label = STATUS_LABELS[order.status] ?? order.status;
+            toast.info(`Pedido #${order.id.slice(0, 8).toUpperCase()} atualizado: ${label}`);
+          }
+        });
+        prevStatusesRef.current = Object.fromEntries(updated.map(o => [o.id, o.status]));
+        setOrders(updated);
+        setLoading(false);
+      },
+      (err) => {
+        handleFirestoreError(err, OperationType.LIST, "orders");
         setLoading(false);
       }
-    };
-    fetchOrders();
+    );
+    return unsub;
   }, [user]);
 
   const getStatusIcon = (status: OrderStatus) => {
