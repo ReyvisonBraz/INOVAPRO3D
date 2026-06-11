@@ -7,6 +7,8 @@ export type UserRole = "CUSTOMER" | "ADMIN" | "OPERATOR";
 export interface UserProfile {
   email: string | null;
   name: string | null;
+  firstName?: string;
+  lastName?: string;
   photoURL: string | null;
   role: UserRole;
   createdAt?: Timestamp | FieldValue;
@@ -15,7 +17,7 @@ export interface UserProfile {
   addresses?: ShippingAddress[];
 }
 
-export type UserProfileUpdate = Partial<Pick<UserProfile, "name" | "phone" | "addresses" | "photoURL">>;
+export type UserProfileUpdate = Partial<Pick<UserProfile, "name" | "firstName" | "lastName" | "phone" | "addresses" | "photoURL">>;
 
 export type CartItemType = "PRODUCT" | "QUOTE";
 

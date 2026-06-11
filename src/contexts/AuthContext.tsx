@@ -14,6 +14,7 @@ interface AuthContextType {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
+  needsProfileCompletion: boolean;
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: UserProfileUpdate) => Promise<void>;
@@ -110,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (data: UserProfileUpdate) => {
     if (!user) return;
     try {
-      const allowedKeys = ['name', 'phone', 'addresses', 'photoURL'];
+      const allowedKeys = ['name', 'firstName', 'lastName', 'phone', 'addresses', 'photoURL'];
       const safeData = Object.fromEntries(
         Object.entries(data).filter(([key]) => allowedKeys.includes(key))
       );
@@ -125,8 +126,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const needsProfileCompletion = !!user && !!profile && !profile.phone;
+
   return (
-    <AuthContext.Provider value={{ user, profile, loading, loginWithGoogle, logout, updateProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, needsProfileCompletion, loginWithGoogle, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );

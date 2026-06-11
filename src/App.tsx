@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from "react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { HelmetProvider } from "react-helmet-async";
@@ -7,10 +7,11 @@ import { Footer } from "./components/layout/Footer";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
 import FloatingSupport from "./components/ui/FloatingSupport";
 import { Toaster } from "sonner";
-import { AuthProvider } from "./contexts/AuthContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import CompleteProfileModal from "./components/auth/CompleteProfileModal";
 
 const Home = lazy(() => import("./pages/public/Home"));
 const Catalog = lazy(() => import("./pages/public/Catalog"));
@@ -71,6 +72,9 @@ function RouterContent() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith('/admin');
   const { theme } = useTheme();
+  const { needsProfileCompletion } = useAuth();
+  const [profileModalDismissed, setProfileModalDismissed] = useState(false);
+  const showProfileModal = needsProfileCompletion && !profileModalDismissed;
 
   return (
     <AuthProvider>
@@ -136,6 +140,11 @@ function RouterContent() {
           
           <FloatingSupport />
           <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
+          <AnimatePresence>
+            {showProfileModal && (
+              <CompleteProfileModal onDismiss={() => setProfileModalDismissed(true)} />
+            )}
+          </AnimatePresence>
         </div>
       </CartProvider>
     </AuthProvider>
