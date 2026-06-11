@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -21,35 +21,22 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
 import {
-  computePricing,
-  DEFAULT_ENERGY,
-  DEFAULT_FAILURE_RATE,
-  DEFAULT_MACHINE,
   formatBRL,
   formatHoursToHHMM,
   HELP,
-  machineHourBreakdown,
   MATERIAL_PRESETS,
-  parseTimeToHours,
   type MaterialKey,
 } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { Reveal } from "../../components/ui/Reveal";
-import { db } from "../../services/firebase";
-import { doc, getDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { toast } from "sonner";
+import { useCalculatorState, safeNumber } from "./calculator/useCalculatorState";
 
 const decimal = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 3,
   maximumFractionDigits: 3,
 });
 
-function safeNumber(value: number, fallback = 0) {
-  return Number.isFinite(value) ? value : fallback;
-}
-
-const CONFIG_KEY = "inovapro3d:calc-config";
 
 function HelpTip({ text }: { text: string }) {
   return (
@@ -449,313 +436,25 @@ function ReportLine({ label, value }: { label: string; value: React.ReactNode })
 }
 
 export default function FilamentCalculator() {
-  // --- Material / job ---
-  const [material, setMaterial] = useState<MaterialKey>("pla");
-  const [spoolPrice, setSpoolPrice] = useState(MATERIAL_PRESETS.pla.spoolPrice);
-  const [spoolWeight, setSpoolWeight] = useState(1000);
-  const [slicerWeight, setSlicerWeight] = useState(120);
-  const [reservePct, setReservePct] = useState(MATERIAL_PRESETS.pla.defaultReservePct);
-  const [failureRatePct, setFailureRatePct] = useState(DEFAULT_FAILURE_RATE);
-  const [batchQuantity, setBatchQuantity] = useState(1);
-
-  // --- Machine ---
-  const [machinePrice, setMachinePrice] = useState(DEFAULT_MACHINE.price);
-  const [lifespanHours, setLifespanHours] = useState(DEFAULT_MACHINE.lifespanHours);
-  const [nozzlePrice, setNozzlePrice] = useState(DEFAULT_MACHINE.nozzlePrice);
-  const [nozzleLifeHours, setNozzleLifeHours] = useState(DEFAULT_MACHINE.nozzleLifeHours);
-  const [platePrice, setPlatePrice] = useState(DEFAULT_MACHINE.platePrice);
-  const [plateLifeHours, setPlateLifeHours] = useState(DEFAULT_MACHINE.plateLifeHours);
-  const [beltsPrice, setBeltsPrice] = useState(DEFAULT_MACHINE.beltsPrice);
-  const [beltsLifeHours, setBeltsLifeHours] = useState(DEFAULT_MACHINE.beltsLifeHours);
-  const [maintPerHour, setMaintPerHour] = useState(DEFAULT_MACHINE.maintPerHour);
-
-  // --- Energy ---
-  const [printTimeStr, setPrintTimeStr] = useState("3h 28min");
-  const printTime = parseTimeToHours(printTimeStr);
-  const [kwhCost, setKwhCost] = useState(DEFAULT_ENERGY.kwhCost);
-  const [steadyPower, setSteadyPower] = useState(MATERIAL_PRESETS.pla.steadyPowerWatts);
-  const [startupPower, setStartupPower] = useState(1000);
-  const [startupMinutes, setStartupMinutes] = useState(8);
-
-  // --- Labor ---
-  const [requiresLabor, setRequiresLabor] = useState(false);
-  const [laborHours, setLaborHours] = useState(0);
-  const [laborRate, setLaborRate] = useState(30);
-  const [extraSupplies, setExtraSupplies] = useState(0);
-
-  // --- Pricing ---
-  const [wholesaleMarkup, setWholesaleMarkup] = useState(1.6);
-  const [retailMarkup, setRetailMarkup] = useState(2.5);
-  const [minPrice, setMinPrice] = useState(0);
-  const [markupMode, setMarkupMode] = useState<'mult' | 'pct'>('mult');
-
-  // --- Advanced panels (detalhe interno de cada seção) ---
-  const [showAdvancedMachine, setShowAdvancedMachine] = useState(false);
-  const [showAdvancedEnergy, setShowAdvancedEnergy] = useState(false);
-
-  // --- Seções recolhíveis ---
-  const [showMachineConfig, setShowMachineConfig] = useState(false);
-  const [showMaterialConfig, setShowMaterialConfig] = useState(false);
-  const [showEnergyConfig, setShowEnergyConfig] = useState(false);
-  const [showLaborConfig, setShowLaborConfig] = useState(false);
-
-  function selectMaterial(key: MaterialKey) {
-    const preset = MATERIAL_PRESETS[key];
-    setMaterial(key);
-    setSpoolPrice(preset.spoolPrice);
-    setSpoolWeight(preset.spoolWeight);
-    setSteadyPower(preset.steadyPowerWatts);
-    setReservePct(preset.defaultReservePct);
-  }
-
-  // --- Markup helpers (mult ↔ % interconversão) ---
-  const markupLabel = (mult: number) =>
-    markupMode === 'pct'
-      ? `${((mult - 1) * 100).toFixed(0)}%`
-      : `${mult.toFixed(1)}×`;
-
-  const wholesaleDisplay = markupMode === 'pct' ? Math.round((wholesaleMarkup - 1) * 10000) / 100 : wholesaleMarkup;
-  const retailDisplay    = markupMode === 'pct' ? Math.round((retailMarkup    - 1) * 10000) / 100 : retailMarkup;
-
-  function handleWholesaleMarkup(val: number) {
-    setWholesaleMarkup(markupMode === 'pct' ? 1 + val / 100 : val);
-  }
-  function handleRetailMarkup(val: number) {
-    setRetailMarkup(markupMode === 'pct' ? 1 + val / 100 : val);
-  }
-
-  // --- Load persisted business config on mount ---
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(CONFIG_KEY);
-      if (!raw) return;
-      const cfg = JSON.parse(raw);
-      if (typeof cfg !== "object" || cfg === null) return;
-      if (cfg.material === "pla" || cfg.material === "petg") setMaterial(cfg.material);
-      if (Number.isFinite(cfg.spoolPrice)) setSpoolPrice(cfg.spoolPrice);
-      if (Number.isFinite(cfg.spoolWeight)) setSpoolWeight(cfg.spoolWeight);
-      if (Number.isFinite(cfg.reservePct)) setReservePct(cfg.reservePct);
-      if (Number.isFinite(cfg.failureRatePct)) setFailureRatePct(cfg.failureRatePct);
-      if (Number.isFinite(cfg.machinePrice)) setMachinePrice(cfg.machinePrice);
-      if (Number.isFinite(cfg.lifespanHours)) setLifespanHours(cfg.lifespanHours);
-      if (Number.isFinite(cfg.nozzlePrice)) setNozzlePrice(cfg.nozzlePrice);
-      if (Number.isFinite(cfg.nozzleLifeHours)) setNozzleLifeHours(cfg.nozzleLifeHours);
-      if (Number.isFinite(cfg.platePrice)) setPlatePrice(cfg.platePrice);
-      if (Number.isFinite(cfg.plateLifeHours)) setPlateLifeHours(cfg.plateLifeHours);
-      if (Number.isFinite(cfg.beltsPrice)) setBeltsPrice(cfg.beltsPrice);
-      if (Number.isFinite(cfg.beltsLifeHours)) setBeltsLifeHours(cfg.beltsLifeHours);
-      if (Number.isFinite(cfg.maintPerHour)) setMaintPerHour(cfg.maintPerHour);
-      if (Number.isFinite(cfg.kwhCost)) setKwhCost(cfg.kwhCost);
-      if (Number.isFinite(cfg.steadyPower)) setSteadyPower(cfg.steadyPower);
-      if (Number.isFinite(cfg.startupPower)) setStartupPower(cfg.startupPower);
-      if (Number.isFinite(cfg.startupMinutes)) setStartupMinutes(cfg.startupMinutes);
-      if (Number.isFinite(cfg.laborRate)) setLaborRate(cfg.laborRate);
-      if (Number.isFinite(cfg.wholesaleMarkup)) setWholesaleMarkup(cfg.wholesaleMarkup);
-      if (Number.isFinite(cfg.retailMarkup)) setRetailMarkup(cfg.retailMarkup);
-      if (Number.isFinite(cfg.minPrice)) setMinPrice(cfg.minPrice);
-      if (cfg.markupMode === 'mult' || cfg.markupMode === 'pct') setMarkupMode(cfg.markupMode);
-    } catch {
-      // ignore corrupt config
-    }
-  }, []);
-
-  // --- Load machine config from Firestore (overrides localStorage defaults) ---
-  useEffect(() => {
-    getDoc(doc(db, "settings", "machine")).then(snap => {
-      if (!snap.exists()) return;
-      const m = snap.data();
-      if (Number.isFinite(m.price)) setMachinePrice(m.price);
-      if (Number.isFinite(m.lifespanHours)) setLifespanHours(m.lifespanHours);
-      if (Number.isFinite(m.nozzlePrice)) setNozzlePrice(m.nozzlePrice);
-      if (Number.isFinite(m.nozzleLifeHours)) setNozzleLifeHours(m.nozzleLifeHours);
-      if (Number.isFinite(m.platePrice)) setPlatePrice(m.platePrice);
-      if (Number.isFinite(m.plateLifeHours)) setPlateLifeHours(m.plateLifeHours);
-      if (Number.isFinite(m.beltsPrice)) setBeltsPrice(m.beltsPrice);
-      if (Number.isFinite(m.beltsLifeHours)) setBeltsLifeHours(m.beltsLifeHours);
-      if (Number.isFinite(m.maintPerHour)) setMaintPerHour(m.maintPerHour);
-    }).catch(() => { /* silent — use localStorage/DEFAULT_MACHINE values */ });
-  }, []);
-
-  // Save calculation state
-  const [savingCalc, setSavingCalc] = useState(false);
-  const [saveLabel, setSaveLabel] = useState("");
-
-  const handleSaveCalc = async () => {
-    setSavingCalc(true);
-    try {
-      await addDoc(collection(db, "savedCalculations"), {
-        label: saveLabel.trim() || `Orçamento ${new Date().toLocaleDateString("pt-BR")}`,
-        material,
-        weightGrams: slicerWeight,
-        printTimeStr,
-        batchQuantity,
-        reservePct,
-        failureRatePct,
-        machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
-        platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
-        kwhCost, steadyPower, laborHours, laborRate, extraSupplies,
-        wholesaleMarkup, retailMarkup, minPrice,
-        result: {
-          retailUnit: result.retailUnit,
-          retailTotal: result.retailTotal,
-          wholesaleUnit: result.wholesaleUnit,
-          wholesaleTotal: result.wholesaleTotal,
-          totalCost: result.totalCost,
-          unitCost: result.unitCost,
-        },
-        createdAt: serverTimestamp(),
-      });
-      toast.success("Orçamento salvo!", { duration: 2800, position: "bottom-center" });
-      setSaveLabel("");
-    } catch {
-      toast.error("Erro ao salvar orçamento.", { position: "bottom-center" });
-    } finally {
-      setSavingCalc(false);
-    }
-  };
-
-  // --- Persist business config (NOT per-job fields) ---
-  useEffect(() => {
-    try {
-      const cfg = {
-        material,
-        spoolPrice,
-        spoolWeight,
-        reservePct,
-        failureRatePct,
-        machinePrice,
-        lifespanHours,
-        nozzlePrice,
-        nozzleLifeHours,
-        platePrice,
-        plateLifeHours,
-        beltsPrice,
-        beltsLifeHours,
-        maintPerHour,
-        kwhCost,
-        steadyPower,
-        startupPower,
-        startupMinutes,
-        laborRate,
-        wholesaleMarkup,
-        retailMarkup,
-        minPrice,
-        markupMode,
-      };
-      localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg));
-    } catch {
-      // ignore storage failures (private mode, quota)
-    }
-  }, [
-    material,
-    spoolPrice,
-    spoolWeight,
-    reservePct,
-    failureRatePct,
-    machinePrice,
-    lifespanHours,
-    nozzlePrice,
-    nozzleLifeHours,
-    platePrice,
-    plateLifeHours,
-    beltsPrice,
-    beltsLifeHours,
-    maintPerHour,
-    kwhCost,
-    steadyPower,
-    startupPower,
-    startupMinutes,
-    laborRate,
-    wholesaleMarkup,
-    retailMarkup,
-    minPrice,
-    markupMode,
-  ]);
-
-  const machineBreak = machineHourBreakdown({
-    price: machinePrice,
-    lifespanHours,
-    nozzlePrice,
-    nozzleLifeHours,
-    platePrice,
-    plateLifeHours,
-    beltsPrice,
-    beltsLifeHours,
-    maintPerHour,
-  });
-
-  const result = useMemo(
-    () =>
-      computePricing({
-        material,
-        spoolPrice,
-        spoolWeight,
-        steadyPowerWatts: steadyPower,
-        weightGrams: slicerWeight,
-        hours: printTime,
-        quantity: batchQuantity,
-        reservePct,
-        failureRatePct,
-        kwhCost,
-        startupPowerWatts: startupPower,
-        startupMinutes,
-        machine: {
-          price: machinePrice,
-          lifespanHours,
-          nozzlePrice,
-          nozzleLifeHours,
-          platePrice,
-          plateLifeHours,
-          beltsPrice,
-          beltsLifeHours,
-          maintPerHour,
-        },
-        laborHours: requiresLabor ? laborHours : 0,
-        laborRate,
-        extraSupplies: requiresLabor ? extraSupplies : 0,
-        wholesaleMarkup,
-        retailMarkup,
-        minPrice,
-      }),
-    [
-      material,
-      spoolPrice,
-      spoolWeight,
-      steadyPower,
-      slicerWeight,
-      printTime,
-      batchQuantity,
-      reservePct,
-      failureRatePct,
-      kwhCost,
-      startupPower,
-      startupMinutes,
-      machinePrice,
-      lifespanHours,
-      nozzlePrice,
-      nozzleLifeHours,
-      platePrice,
-      plateLifeHours,
-      beltsPrice,
-      beltsLifeHours,
-      maintPerHour,
-      requiresLabor,
-      laborHours,
-      laborRate,
-      extraSupplies,
-      wholesaleMarkup,
-      retailMarkup,
-      minPrice,
-    ],
-  );
-
-  const reserveMultiplier = 1 + Math.max(0, reservePct) / 100;
-  const laborTotal = result.laborCost + result.extraSupplies;
-
-  const generatedAt = new Date().toLocaleString("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
+  const {
+    material, spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
+    slicerWeight, setSlicerWeight, reservePct, setReservePct,
+    failureRatePct, setFailureRatePct, batchQuantity, setBatchQuantity, selectMaterial,
+    machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
+    nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,
+    platePrice, setPlatePrice, plateLifeHours, setPlateLifeHours,
+    beltsPrice, setBeltsPrice, beltsLifeHours, setBeltsLifeHours, maintPerHour, setMaintPerHour,
+    printTimeStr, setPrintTimeStr, printTime, kwhCost, setKwhCost,
+    steadyPower, setSteadyPower, startupPower, setStartupPower, startupMinutes, setStartupMinutes,
+    requiresLabor, setRequiresLabor, laborHours, setLaborHours, laborRate, setLaborRate, extraSupplies, setExtraSupplies,
+    wholesaleMarkup, retailMarkup, minPrice, setMinPrice, markupMode, setMarkupMode,
+    wholesaleDisplay, retailDisplay, markupLabel, handleWholesaleMarkup, handleRetailMarkup,
+    showAdvancedMachine, setShowAdvancedMachine, showAdvancedEnergy, setShowAdvancedEnergy,
+    showMachineConfig, setShowMachineConfig, showMaterialConfig, setShowMaterialConfig,
+    showEnergyConfig, setShowEnergyConfig, showLaborConfig, setShowLaborConfig,
+    savingCalc, saveLabel, setSaveLabel, handleSaveCalc,
+    result, machineBreak, reserveMultiplier, laborTotal, generatedAt,
+  } = useCalculatorState();
 
   return (
     <>
