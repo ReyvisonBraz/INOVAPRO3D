@@ -29,6 +29,7 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
   const [calcHourCost, setCalcHourCost] = useState(4.50);
   const [calcSetupFee, setCalcSetupFee] = useState(10.00);
   const [calcMargin, setCalcMargin] = useState(50);
+  const [isApprovingQuote, setIsApprovingQuote] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<{
     success: boolean; orderId?: string; finalPrice?: number; finalInfill?: number;
     finalTime?: string; finalWeight?: number; finalPhone?: string; finalNotes?: string;
@@ -70,6 +71,8 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
   );
 
   const handleApproveQuote = useCallback(async (quote: Quote | Ticket) => {
+    if (isApprovingQuote) return;
+    setIsApprovingQuote(true);
     try {
       const isSelected = selectedCustomer?.id === quote.id;
       const finalPrice = isSelected ? editingQuoteTotal : (quote.estimatedPrice || quote.total || 45.90);
@@ -107,8 +110,10 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
       fetchData();
     } catch {
       toast.error("Falha na conversão do orçamento.");
+    } finally {
+      setIsApprovingQuote(false);
     }
-  }, [selectedCustomer, editingQuoteTotal, editingQuoteInfill, editingQuoteTime, editingQuoteWeight, editingQuoteNotes, editingQuotePhone, customers, fetchData]);
+  }, [isApprovingQuote, selectedCustomer, editingQuoteTotal, editingQuoteInfill, editingQuoteTime, editingQuoteWeight, editingQuoteNotes, editingQuotePhone, customers, fetchData]);
 
   const handleSaveQuoteSpecifications = useCallback(async (quote: Quote | Ticket) => {
     try {
@@ -137,6 +142,7 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
     calcHourCost, setCalcHourCost,
     calcSetupFee, setCalcSetupFee,
     calcMargin, setCalcMargin,
+    isApprovingQuote,
     approvalStatus, setApprovalStatus,
     handleWhatsAppQuote,
     handleApproveQuote,

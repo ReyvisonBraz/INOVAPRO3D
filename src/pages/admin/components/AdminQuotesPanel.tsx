@@ -8,6 +8,7 @@ interface AdminQuotesPanelProps {
   onSelectQuote: (q: Quote | Ticket) => void;
   onApproveQuote: (q: Quote | Ticket) => void;
   onDeleteQuote: (type: string, id: string) => void;
+  isApprovingQuote?: boolean;
 }
 
 const AdminQuotesPanel = memo(function AdminQuotesPanel({
@@ -15,6 +16,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
   onSelectQuote,
   onApproveQuote,
   onDeleteQuote,
+  isApprovingQuote = false,
 }: AdminQuotesPanelProps) {
   return (
     <motion.div
@@ -60,7 +62,8 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                     {q.status !== "APPROVED" && (
                       <button
                         onClick={() => onApproveQuote(q)}
-                        className="p-3 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white rounded-xl transition-all shadow-lg shadow-green-500/10"
+                        disabled={isApprovingQuote}
+                        className="p-3 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white rounded-xl transition-all shadow-lg shadow-green-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <CheckCircle className="w-4 h-4" />
                       </button>

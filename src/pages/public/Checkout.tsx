@@ -21,7 +21,7 @@ import { Elements } from "@stripe/react-stripe-js";
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../../components/ui/Button";
-import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, getDoc, updateDoc, increment } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { toast } from "sonner";
 import { stripePromise, stripeEnabled, stripeAppearance } from "../../lib/stripe";
@@ -180,6 +180,9 @@ export default function Checkout() {
         }),
       }).catch(() => {});
 
+      if (coupon.coupon) {
+        updateDoc(doc(db, "coupons", coupon.coupon.id), { usedCount: increment(1) }).catch(() => {});
+      }
       setStripeOrderId(orderRef.id);
       setClientSecret(secret);
       clearCart();
@@ -236,6 +239,9 @@ export default function Checkout() {
         }),
       }).catch(() => {});
 
+      if (coupon.coupon) {
+        updateDoc(doc(db, "coupons", coupon.coupon.id), { usedCount: increment(1) }).catch(() => {});
+      }
       setCreatedOrderId(orderRef.id);
       setStep(3);
       clearCart();

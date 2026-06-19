@@ -156,10 +156,13 @@ export default function AdminDashboard() {
 
   // ── Materials ──
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
+  const [isSubmittingMaterial, setIsSubmittingMaterial] = useState(false);
   const [newMaterial, setNewMaterial] = useState({ name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, inStock: true });
 
   const handleMaterialSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
+    if (isSubmittingMaterial) return;
+    setIsSubmittingMaterial(true);
     try {
       await addDoc(collection(db, "materials"), { ...newMaterial, createdAt: serverTimestamp() });
       toast.success("Material adicionado!");
@@ -167,17 +170,22 @@ export default function AdminDashboard() {
       fetchData();
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, "materials");
+    } finally {
+      setIsSubmittingMaterial(false);
     }
-  }, [newMaterial, fetchData]);
+  }, [isSubmittingMaterial, newMaterial, fetchData]);
 
   // ── Showcase ──
   const [isAddingShowcase, setIsAddingShowcase] = useState(false);
   const [isEditingShowcase, setIsEditingShowcase] = useState(false);
+  const [isSubmittingShowcase, setIsSubmittingShowcase] = useState(false);
   const [selectedShowcase, setSelectedShowcase] = useState<ShowcaseItem | null>(null);
   const [newShowcase, setNewShowcase] = useState({ title: "", subtitle: "", image: "", link: "", active: true });
 
   const handleShowcaseSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
+    if (isSubmittingShowcase) return;
+    setIsSubmittingShowcase(true);
     try {
       if (isEditingShowcase && selectedShowcase) {
         await updateDoc(doc(db, "showcase", selectedShowcase.id), newShowcase);
@@ -191,17 +199,22 @@ export default function AdminDashboard() {
       fetchData();
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, "showcase");
+    } finally {
+      setIsSubmittingShowcase(false);
     }
-  }, [isEditingShowcase, selectedShowcase, newShowcase, fetchData]);
+  }, [isSubmittingShowcase, isEditingShowcase, selectedShowcase, newShowcase, fetchData]);
 
   // ── CRM ──
   const [selectedCRMUser, setSelectedCRMUser] = useState<Customer | null>(null);
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
+  const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
   const [newCustomer, setNewCustomer] = useState({ name: "", email: "", phone: "", tags: [] as string[], address: "" });
 
   const handleCustomerSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
+    if (isSubmittingCustomer) return;
+    setIsSubmittingCustomer(true);
     try {
       if (isEditingCustomer && selectedCRMUser) {
         await updateDoc(doc(db, "customers", selectedCRMUser.id), { ...newCustomer, updatedAt: serverTimestamp() });
@@ -216,8 +229,10 @@ export default function AdminDashboard() {
       fetchData();
     } catch {
       toast.error("Erro ao processar operação de cliente.");
+    } finally {
+      setIsSubmittingCustomer(false);
     }
-  }, [isEditingCustomer, selectedCRMUser, newCustomer, fetchData]);
+  }, [isSubmittingCustomer, isEditingCustomer, selectedCRMUser, newCustomer, fetchData]);
 
   const exportCustomersToCSV = useCallback(() => {
     try {
@@ -271,10 +286,13 @@ export default function AdminDashboard() {
 
   // ── FAQs ──
   const [isAddingFAQ, setIsAddingFAQ] = useState(false);
+  const [isSubmittingFAQ, setIsSubmittingFAQ] = useState(false);
   const [newFAQ, setNewFAQ] = useState({ question: "", answer: "" });
 
   const handleFAQSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
+    if (isSubmittingFAQ) return;
+    setIsSubmittingFAQ(true);
     try {
       await addDoc(collection(db, "faqs"), { ...newFAQ, createdAt: serverTimestamp() });
       toast.success("FAQ adicionado!");
@@ -283,8 +301,10 @@ export default function AdminDashboard() {
       fetchData();
     } catch {
       toast.error("Erro ao adicionar FAQ.");
+    } finally {
+      setIsSubmittingFAQ(false);
     }
-  }, [newFAQ, fetchData]);
+  }, [isSubmittingFAQ, newFAQ, fetchData]);
 
   // ── Orçamentos: edição, aprovação e WhatsApp ──
   const {
@@ -299,6 +319,7 @@ export default function AdminDashboard() {
     calcHourCost, setCalcHourCost,
     calcSetupFee, setCalcSetupFee,
     calcMargin, setCalcMargin,
+    isApprovingQuote,
     approvalStatus, setApprovalStatus,
     handleWhatsAppQuote, handleApproveQuote, handleSaveQuoteSpecifications,
   } = useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer, activeTab, fetchData });
@@ -552,6 +573,7 @@ export default function AdminDashboard() {
                 onSelectQuote={setSelectedCustomer}
                 onApproveQuote={handleApproveQuote}
                 onDeleteQuote={(type, id) => deleteItem(type, id)}
+                isApprovingQuote={isApprovingQuote}
               />
             )}
             {activeTab === "support" && (
