@@ -153,23 +153,21 @@ export default function Checkout() {
         createdAt: serverTimestamp(),
       });
 
+      const idToken = await checkoutUser.getIdToken();
       const res = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          amount: finalTotal,
-          orderId: orderRef.id,
-          customerEmail: checkoutUser.email,
-        }),
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        // amount NOT sent — server reads it from Firestore to prevent tampering
+        body: JSON.stringify({ orderId: orderRef.id, customerEmail: checkoutUser.email }),
       });
 
       if (!res.ok) throw new Error(await res.text());
       const { clientSecret: secret } = await res.json() as { clientSecret: string };
 
-      // Notify admin via Telegram (fire-and-forget)
+      // Notify admin via Telegram (fire-and-forget) — token required
       fetch('/api/notify/new-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({
           orderId: orderRef.id,
           customerName: checkoutUser.displayName || checkoutUser.email,
@@ -193,10 +191,7 @@ export default function Checkout() {
     }
   };
 
-  const handleStripeSuccess = async () => {
-    if (stripeOrderId) {
-      try { await updateDoc(doc(db, 'orders', stripeOrderId), { status: 'PAID' }); } catch { /* webhook handles */ }
-    }
+  const handleStripeSuccess = () => {
     setCreatedOrderId(stripeOrderId);
     setStep(3);
   };
@@ -226,9 +221,10 @@ export default function Checkout() {
         createdAt: serverTimestamp(),
       });
       // Notify admin via Telegram (fire-and-forget)
+      const idToken = await checkoutUser.getIdToken();
       fetch('/api/notify/new-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
         body: JSON.stringify({
           orderId: orderRef.id,
           customerName: checkoutUser.displayName || checkoutUser.email,

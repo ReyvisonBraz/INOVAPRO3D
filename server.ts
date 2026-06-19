@@ -3,6 +3,7 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts";
+import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./api/firebaseAdmin.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -52,6 +53,19 @@ async function sendTelegram(message: string): Promise<void> {
   } catch { /* silent — notification failure must never break the order flow */ }
 }
 
+// ── Firebase token verification middleware ─────────────────────────────────
+async function verifyToken(req: express.Request): Promise<string | null> {
+  if (!isAdminSdkConfigured()) return 'unchecked'; // dev fallback — not enforced
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) return null;
+  try {
+    const decoded = await getAdminAuth().verifyIdToken(header.slice(7));
+    return decoded.uid;
+  } catch {
+    return null;
+  }
+}
+
 async function startServer() {
   const app = express();
   const PORT = 3000;
@@ -64,17 +78,41 @@ async function startServer() {
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     // ── Create Payment Intent ──────────────────────────────────
-    app.post('/api/stripe/create-payment-intent', express.json(), async (req, res) => {
-      const { amount, orderId, customerEmail } = req.body as {
-        amount: number; orderId: string; customerEmail?: string;
-      };
-      if (!amount || !orderId) {
-        res.status(400).json({ error: 'amount e orderId são obrigatórios' });
-        return;
+    // Auth required. Amount is read server-side from the order document,
+    // never trusted from the client body.
+    app.post('/api/stripe/create-payment-intent', rateLimit(10), express.json(), async (req, res) => {
+      const uid = await verifyToken(req);
+      if (!uid) { res.status(401).json({ error: 'Não autorizado.' }); return; }
+
+      const { orderId, customerEmail } = req.body as { orderId: string; customerEmail?: string };
+      if (!orderId) { res.status(400).json({ error: 'orderId é obrigatório' }); return; }
+
+      let amount: number;
+      try {
+        if (isAdminSdkConfigured()) {
+          const orderSnap = await getAdminDb().collection('orders').doc(orderId).get();
+          if (!orderSnap.exists) { res.status(404).json({ error: 'Pedido não encontrado.' }); return; }
+          const order = orderSnap.data()!;
+          // Ensure the caller owns the order (skip for dev unchecked)
+          if (uid !== 'unchecked' && order.userId !== uid) {
+            res.status(403).json({ error: 'Acesso negado.' }); return;
+          }
+          amount = Number(order.total);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            res.status(400).json({ error: 'Total do pedido inválido.' }); return;
+          }
+        } else {
+          // Admin SDK not configured — fall back to client amount (dev only)
+          amount = Number(req.body.amount);
+          if (!amount) { res.status(400).json({ error: 'amount obrigatório (dev mode)' }); return; }
+        }
+      } catch (err) {
+        res.status(500).json({ error: 'Erro ao verificar pedido.' }); return;
       }
+
       try {
         const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100), // centavos
+          amount: Math.round(amount * 100),
           currency: 'brl',
           payment_method_types: ['card', 'pix'],
           receipt_email: customerEmail,
@@ -101,9 +139,18 @@ async function startServer() {
       const orderId = obj.metadata?.orderId;
       if (event.type === 'payment_intent.succeeded' && orderId) {
         const amountBRL = obj.amount ? (obj.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '?';
+        // Mark order PAID in Firestore (Admin SDK bypasses security rules)
+        try {
+          await getAdminDb().collection('orders').doc(orderId).update({
+            status: 'PAID',
+            paidAt: new Date(),
+          });
+        } catch (err) {
+          console.error('[webhook] Falha ao marcar pedido PAID:', orderId, err);
+        }
         await sendTelegram(
           `✅ <b>Pagamento Confirmado — INOVAPRO3D</b>\n\n` +
-          `💳 Método: PIX (Stripe)\n` +
+          `💳 Método: Stripe\n` +
           `💰 Valor: R$ ${amountBRL}\n` +
           `🔑 Pedido: <code>${orderId}</code>`
         );
@@ -115,7 +162,11 @@ async function startServer() {
   app.use(express.json());
 
   // ── New order notification ─────────────────────────────────────────────────
+  // Auth required to prevent Telegram spam from unauthenticated callers.
   app.post('/api/notify/new-order', rateLimit(5), async (req, res) => {
+    const uid = await verifyToken(req);
+    if (!uid) { res.status(401).json({ error: 'Não autorizado.' }); return; }
+
     const { orderId, customerName, customerEmail, total, itemCount, paymentMethod } = req.body as {
       orderId: string; customerName: string; customerEmail: string;
       total: number; itemCount: number; paymentMethod: string;
