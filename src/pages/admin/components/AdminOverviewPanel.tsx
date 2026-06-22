@@ -35,12 +35,12 @@ import {
 } from "recharts";
 import {
   MATERIAL_PRESETS,
-  DEFAULT_ENERGY,
   formatBRL,
   HELP,
   type MaterialKey,
   type MachineConfig,
   type MachineHourBreakdown,
+  type PricingSettings,
 } from "../../../lib/pricing";
 import type { Order, OrderItem, Quote } from "../../../types/domain";
 
@@ -66,7 +66,8 @@ interface AdminOverviewPanelProps {
   setQuickCalcCustomerName: (v: string) => void;
   setQuickCalcPieceName: (v: string) => void;
   setQuickCalcBatchQty: (v: number) => void;
-  setQuickCalcMaterial: (v: MaterialKey) => void;
+  selectQuickMaterial: (v: MaterialKey) => void;
+  pricingSettings: PricingSettings;
   setQuickCalcMaterialReserve: (v: number) => void;
   setQuickCalcFailureRate: (v: number) => void;
   setQuickCalcMinPrice: (v: number) => void;
@@ -116,7 +117,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   setQuickCalcCustomerName,
   setQuickCalcPieceName,
   setQuickCalcBatchQty,
-  setQuickCalcMaterial,
+  selectQuickMaterial,
+  pricingSettings,
   setQuickCalcMaterialReserve,
   setQuickCalcFailureRate,
   setQuickCalcMinPrice,
@@ -398,7 +400,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   <button
                     key={key}
                     type="button"
-                    onClick={() => setQuickCalcMaterial(key)}
+                    onClick={() => selectQuickMaterial(key)}
                     className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
                       quickCalcMaterial === key
                         ? "bg-white text-[#07080d] border-white"
@@ -408,7 +410,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     {MATERIAL_PRESETS[key].label}
                     <span className="block text-[11px] font-bold mt-0.5 opacity-70">
                       R$
-                      {(MATERIAL_PRESETS[key].spoolPrice / 10).toFixed(0)}
+                      {(pricingSettings.materials[key].spoolPrice / 10).toFixed(0)}
                       /100g
                     </span>
                   </button>
@@ -479,8 +481,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
-                    {MATERIAL_PRESETS[quickCalcMaterial].steadyPowerWatts}W +
-                    pico 1kW
+                    {pricingSettings.materials[quickCalcMaterial].steadyPowerWatts}W +
+                    pico {(pricingSettings.startupPowerWatts / 1000).toFixed(1)}kW
                   </strong>
                 </div>
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
@@ -491,7 +493,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
-                    {formatBRL(DEFAULT_ENERGY.kwhCost)}/kWh
+                    {formatBRL(pricingSettings.kwhCost)}/kWh
                   </strong>
                 </div>
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
@@ -515,13 +517,13 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
                     Material
                     <span
-                      title={`${MATERIAL_PRESETS[quickCalcMaterial].label}: R$${MATERIAL_PRESETS[quickCalcMaterial].spoolPrice}/kg`}
+                      title={`${MATERIAL_PRESETS[quickCalcMaterial].label}: R$${pricingSettings.materials[quickCalcMaterial].spoolPrice}/kg`}
                     >
                       <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
-                    R${MATERIAL_PRESETS[quickCalcMaterial].spoolPrice}/kg
+                    R${pricingSettings.materials[quickCalcMaterial].spoolPrice}/kg
                   </strong>
                 </div>
               </div>

@@ -7,10 +7,13 @@ import {
   DEFAULT_ENERGY,
   DEFAULT_FAILURE_RATE,
   DEFAULT_MACHINE,
+  DEFAULT_PRICING_SETTINGS,
   machineHourBreakdown,
   MATERIAL_PRESETS,
+  mergePricingSettings,
   parseTimeToHours,
   type MaterialKey,
+  type MaterialSettings,
 } from "../../../lib/pricing";
 
 const CONFIG_KEY = "inovapro3d:calc-config";
@@ -20,6 +23,11 @@ function safeNumber(value: number, fallback = 0) {
 }
 
 export function useCalculatorState() {
+  // --- Parâmetros centrais de material (vindos de settings/pricing) ---
+  const [materialSettings, setMaterialSettings] = useState<Record<MaterialKey, MaterialSettings>>(
+    DEFAULT_PRICING_SETTINGS.materials,
+  );
+
   // --- Material / job ---
   const [material, setMaterial] = useState<MaterialKey>("pla");
   const [spoolPrice, setSpoolPrice] = useState(MATERIAL_PRESETS.pla.spoolPrice);
@@ -72,9 +80,9 @@ export function useCalculatorState() {
   const [savingCalc, setSavingCalc] = useState(false);
   const [saveLabel, setSaveLabel] = useState("");
 
-  // --- Material preset selector ---
+  // --- Material preset selector (usa os parâmetros centrais do admin) ---
   function selectMaterial(key: MaterialKey) {
-    const preset = MATERIAL_PRESETS[key];
+    const preset = materialSettings[key];
     setMaterial(key);
     setSpoolPrice(preset.spoolPrice);
     setSpoolWeight(preset.spoolWeight);
@@ -133,6 +141,32 @@ export function useCalculatorState() {
     } catch {
       // ignore corrupt config
     }
+  }, []);
+
+  // --- Load central pricing config from Firestore (admin é a fonte de verdade) ---
+  // Sobrescreve os defaults/localStorage: energia, markups, falha e material.
+  useEffect(() => {
+    getDoc(doc(db, "settings", "pricing")).then((snap) => {
+      if (!snap.exists()) return;
+      const cfg = mergePricingSettings(snap.data());
+      setMaterialSettings(cfg.materials);
+      setKwhCost(cfg.kwhCost);
+      setStartupPower(cfg.startupPowerWatts);
+      setStartupMinutes(cfg.startupMinutes);
+      setFailureRatePct(cfg.failureRatePct);
+      setWholesaleMarkup(cfg.wholesaleMarkup);
+      setRetailMarkup(cfg.retailMarkup);
+      setMinPrice(cfg.minPrice);
+      // Aplica o preset do material atualmente selecionado.
+      setMaterial((cur) => {
+        const mat = cfg.materials[cur];
+        setSpoolPrice(mat.spoolPrice);
+        setSpoolWeight(mat.spoolWeight);
+        setSteadyPower(mat.steadyPowerWatts);
+        setReservePct(mat.defaultReservePct);
+        return cur;
+      });
+    });
   }, []);
 
   // --- Load machine config from Firestore (overrides localStorage defaults) ---
@@ -253,7 +287,7 @@ export function useCalculatorState() {
     material, spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
     slicerWeight, setSlicerWeight, reservePct, setReservePct,
     failureRatePct, setFailureRatePct, batchQuantity, setBatchQuantity,
-    selectMaterial,
+    selectMaterial, materialSettings,
     // machine
     machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
     nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,

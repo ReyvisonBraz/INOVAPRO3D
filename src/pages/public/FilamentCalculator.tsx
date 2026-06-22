@@ -439,7 +439,7 @@ export default function FilamentCalculator() {
   const {
     material, spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
     slicerWeight, setSlicerWeight, reservePct, setReservePct,
-    failureRatePct, setFailureRatePct, batchQuantity, setBatchQuantity, selectMaterial,
+    failureRatePct, setFailureRatePct, batchQuantity, setBatchQuantity, selectMaterial, materialSettings,
     machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
     nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,
     platePrice, setPlatePrice, plateLifeHours, setPlateLifeHours,
@@ -526,7 +526,7 @@ export default function FilamentCalculator() {
                         {preset.label}
                       </p>
                       <p className={cn("mt-1 text-[10px] font-bold", active ? "text-[#07080d]/60" : "text-white/40")}>
-                        R${preset.spoolPrice}/kg · {preset.printTempC}°C
+                        R${materialSettings[key].spoolPrice}/kg · {preset.printTempC}°C
                       </p>
                     </button>
                   );

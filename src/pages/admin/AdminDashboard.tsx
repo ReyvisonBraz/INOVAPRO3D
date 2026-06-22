@@ -28,7 +28,7 @@ import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import { DEFAULT_MACHINE, parseTimeToHours, type MachineConfig } from "../../lib/pricing";
+import { DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS, mergePricingSettings, parseTimeToHours, type MachineConfig, type PricingSettings } from "../../lib/pricing";
 import { formatCatalogTitle, formatCatalogDescription, translateToBR, NumInput, type AdminTabId } from "../../lib/adminHelpers";
 import { ADMIN_MENU_ITEMS } from "./adminConfig";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
@@ -83,6 +83,7 @@ export default function AdminDashboard() {
   });
 
   const [machineConfig, setMachineConfig] = useState<MachineConfig>(DEFAULT_MACHINE);
+  const [pricingSettings, setPricingSettings] = useState<PricingSettings>(DEFAULT_PRICING_SETTINGS);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [editingItems, setEditingItems] = useState(false);
   const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
@@ -99,12 +100,14 @@ export default function AdminDashboard() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const [globalSnap, machineSnap] = await Promise.all([
+        const [globalSnap, machineSnap, pricingSnap] = await Promise.all([
           getDoc(doc(db, "settings", "global")),
           getDoc(doc(db, "settings", "machine")),
+          getDoc(doc(db, "settings", "pricing")),
         ]);
         if (globalSnap.exists()) setGlobalSettings(globalSnap.data() as GlobalSettings);
         if (machineSnap.exists()) setMachineConfig(machineSnap.data() as MachineConfig);
+        if (pricingSnap.exists()) setPricingSettings(mergePricingSettings(pricingSnap.data()));
       } catch (err) {
         console.error("Error fetching settings:", err);
       }
@@ -130,6 +133,15 @@ export default function AdminDashboard() {
       toast.error("Erro ao salvar config da máquina.");
     }
   }, [machineConfig]);
+
+  const handleSavePricingSettings = useCallback(async () => {
+    try {
+      await setDoc(doc(db, "settings", "pricing"), { ...pricingSettings, updatedAt: serverTimestamp() });
+      toast.success("Parâmetros da calculadora salvos! As duas calculadoras já usam estes valores.");
+    } catch {
+      toast.error("Erro ao salvar parâmetros da calculadora.");
+    }
+  }, [pricingSettings]);
 
   // ── Ações sobre registros (status, exclusão, rastreio) ──
   const { updateStatus, deleteItem, handleUpdateTracking } = useAdminActions({
@@ -332,7 +344,7 @@ export default function AdminDashboard() {
     quickCalcCustomerName, setQuickCalcCustomerName,
     quickCalcPieceName, setQuickCalcPieceName,
     quickCalcBatchQty, setQuickCalcBatchQty,
-    quickCalcMaterial, setQuickCalcMaterial,
+    quickCalcMaterial, selectQuickMaterial,
     quickCalcMaterialReserve, setQuickCalcMaterialReserve,
     quickCalcFailureRate, setQuickCalcFailureRate,
     quickCalcMinPrice, setQuickCalcMinPrice,
@@ -340,7 +352,7 @@ export default function AdminDashboard() {
     quickCalcRetailMarkup, setQuickCalcRetailMarkup,
     quickCalcResult, quickMachineBreak,
     handleSendQuickWhatsAppQuote,
-  } = useQuickCalc(machineConfig);
+  } = useQuickCalc(machineConfig, pricingSettings);
 
   const {
     isAdding: isCouponAdding, setIsAdding: setCouponAdding,
@@ -480,7 +492,8 @@ export default function AdminDashboard() {
                 setQuickCalcCustomerName={setQuickCalcCustomerName}
                 setQuickCalcPieceName={setQuickCalcPieceName}
                 setQuickCalcBatchQty={setQuickCalcBatchQty}
-                setQuickCalcMaterial={setQuickCalcMaterial}
+                selectQuickMaterial={selectQuickMaterial}
+                pricingSettings={pricingSettings}
                 setQuickCalcMaterialReserve={setQuickCalcMaterialReserve}
                 setQuickCalcFailureRate={setQuickCalcFailureRate}
                 setQuickCalcMinPrice={setQuickCalcMinPrice}
@@ -638,10 +651,13 @@ export default function AdminDashboard() {
               <AdminSettingsPanel
                 globalSettings={globalSettings}
                 machineConfig={machineConfig}
+                pricingSettings={pricingSettings}
                 onUpdateGlobalSettings={setGlobalSettings}
                 onUpdateMachineConfig={setMachineConfig}
+                onUpdatePricingSettings={setPricingSettings}
                 onSaveGlobalSettings={handleSaveSettings}
                 onSaveMachineConfig={handleSaveMachineConfig}
+                onSavePricingSettings={handleSavePricingSettings}
                 onToggleMaintenance={() => setGlobalSettings({ ...globalSettings, maintenanceMode: !globalSettings.maintenanceMode })}
               />
             )}

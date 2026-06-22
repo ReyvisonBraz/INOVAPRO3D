@@ -149,6 +149,104 @@ export const DEFAULT_ENERGY = {
 export const DEFAULT_FAILURE_RATE = 5;
 
 // ----------------------------------------------------------------------------
+// CONFIGURAÇÃO CENTRAL DE PRECIFICAÇÃO (settings/pricing no Firestore)
+// ----------------------------------------------------------------------------
+// Estes são os parâmetros de NEGÓCIO (não do job): energia, markups, preço
+// mínimo, taxa de falha e os presets de material. O admin edita na aba
+// Configurações e AS DUAS calculadoras (pública e do painel) leem daqui,
+// garantindo que o mesmo job sempre gere o mesmo preço.
+
+/** Parâmetros de um material editáveis pelo admin. */
+export interface MaterialSettings {
+  spoolPrice: number;
+  spoolWeight: number;
+  steadyPowerWatts: number;
+  defaultReservePct: number;
+}
+
+/** Configuração de negócio compartilhada pelas duas calculadoras. */
+export interface PricingSettings {
+  /** Tarifa de energia (R$/kWh). */
+  kwhCost: number;
+  /** Pico de aquecimento (W). */
+  startupPowerWatts: number;
+  /** Duração do pico (min). */
+  startupMinutes: number;
+  /** Taxa de falha padrão (%). */
+  failureRatePct: number;
+  /** Markup de atacado (multiplicador sobre o custo). */
+  wholesaleMarkup: number;
+  /** Markup de varejo (multiplicador sobre o custo). */
+  retailMarkup: number;
+  /** Preço mínimo por pedido (R$). */
+  minPrice: number;
+  /** Presets de material editáveis. */
+  materials: Record<MaterialKey, MaterialSettings>;
+}
+
+/** Defaults usados quando ainda não existe `settings/pricing` no Firestore. */
+export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
+  kwhCost: DEFAULT_ENERGY.kwhCost,
+  startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts,
+  startupMinutes: DEFAULT_ENERGY.startupMinutes,
+  failureRatePct: DEFAULT_FAILURE_RATE,
+  wholesaleMarkup: 1.6,
+  retailMarkup: 2.5,
+  minPrice: 35,
+  materials: {
+    pla: {
+      spoolPrice: MATERIAL_PRESETS.pla.spoolPrice,
+      spoolWeight: MATERIAL_PRESETS.pla.spoolWeight,
+      steadyPowerWatts: MATERIAL_PRESETS.pla.steadyPowerWatts,
+      defaultReservePct: MATERIAL_PRESETS.pla.defaultReservePct,
+    },
+    petg: {
+      spoolPrice: MATERIAL_PRESETS.petg.spoolPrice,
+      spoolWeight: MATERIAL_PRESETS.petg.spoolWeight,
+      steadyPowerWatts: MATERIAL_PRESETS.petg.steadyPowerWatts,
+      defaultReservePct: MATERIAL_PRESETS.petg.defaultReservePct,
+    },
+  },
+};
+
+/**
+ * Combina um documento bruto do Firestore (que pode estar parcial ou ausente)
+ * com os defaults, garantindo um `PricingSettings` sempre válido e completo.
+ */
+export function mergePricingSettings(raw: unknown): PricingSettings {
+  const base = DEFAULT_PRICING_SETTINGS;
+  if (typeof raw !== "object" || raw === null) return base;
+  const r = raw as Record<string, unknown>;
+  const numOr = (v: unknown, fallback: number) =>
+    typeof v === "number" && Number.isFinite(v) ? v : fallback;
+
+  const mergeMaterial = (key: MaterialKey): MaterialSettings => {
+    const def = base.materials[key];
+    const m = (r.materials as Record<string, unknown> | undefined)?.[key] as
+      | Record<string, unknown>
+      | undefined;
+    if (!m) return def;
+    return {
+      spoolPrice: numOr(m.spoolPrice, def.spoolPrice),
+      spoolWeight: numOr(m.spoolWeight, def.spoolWeight),
+      steadyPowerWatts: numOr(m.steadyPowerWatts, def.steadyPowerWatts),
+      defaultReservePct: numOr(m.defaultReservePct, def.defaultReservePct),
+    };
+  };
+
+  return {
+    kwhCost: numOr(r.kwhCost, base.kwhCost),
+    startupPowerWatts: numOr(r.startupPowerWatts, base.startupPowerWatts),
+    startupMinutes: numOr(r.startupMinutes, base.startupMinutes),
+    failureRatePct: numOr(r.failureRatePct, base.failureRatePct),
+    wholesaleMarkup: numOr(r.wholesaleMarkup, base.wholesaleMarkup),
+    retailMarkup: numOr(r.retailMarkup, base.retailMarkup),
+    minPrice: numOr(r.minPrice, base.minPrice),
+    materials: { pla: mergeMaterial("pla"), petg: mergeMaterial("petg") },
+  };
+}
+
+// ----------------------------------------------------------------------------
 // CÁLCULO PRINCIPAL
 // ----------------------------------------------------------------------------
 
