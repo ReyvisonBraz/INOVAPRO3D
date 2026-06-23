@@ -66,6 +66,22 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { id: "logs", name: "Registro de Auditoria", icon: History },
 ];
 
+export const ADMIN_TAB_SUBTITLES: Record<AdminTabId, string> = {
+  overview: "Visão geral de vendas, produção e orçamentos",
+  orders: "Acompanhe e atualize o status dos pedidos",
+  quotes: "Analise e precifique orçamentos de impressão",
+  products: "Gerencie o catálogo de produtos",
+  categories: "Organize as pastas e categorias da loja",
+  materials: "Materiais e filamentos disponíveis",
+  showcase: "Curadoria da vitrine pública",
+  coupons: "Cupons e descontos promocionais",
+  crm: "Base de clientes e relacionamento",
+  support: "Tickets e atendimento ao cliente",
+  faqs: "Perguntas frequentes da loja",
+  settings: "Parâmetros da loja, calculadora e máquina",
+  logs: "Histórico de ações administrativas",
+};
+
 export const PRODUCTION_STAGES: ProductionStage[] = [
   { id: "PENDING_PAYMENT", label: "AGUAR. PAGTO", icon: Wallet },
   { id: "PAID", label: "PAGO", icon: CheckCircle2 },

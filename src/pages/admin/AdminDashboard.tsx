@@ -30,7 +30,7 @@ import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS, mergePricingSettings, parseTimeToHours, type MachineConfig, type PricingSettings } from "../../lib/pricing";
 import { formatCatalogTitle, formatCatalogDescription, translateToBR, NumInput, type AdminTabId } from "../../lib/adminHelpers";
-import { ADMIN_MENU_ITEMS } from "./adminConfig";
+import { ADMIN_MENU_ITEMS, ADMIN_TAB_SUBTITLES } from "./adminConfig";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { AdminSidebar } from "./components/AdminSidebar";
@@ -398,6 +398,11 @@ export default function AdminDashboard() {
   // ── Menu ──
   const activeMenuItem = ADMIN_MENU_ITEMS.find((item) => item.id === activeTab);
 
+  const sidebarCounts = useMemo(() => ({
+    orders: orders.filter((o) => o.status === "PENDING_PAYMENT").length,
+    quotes: quotes.filter((q) => q.status === "PENDING").length,
+  }), [orders, quotes]);
+
   if (loading)
     return (
       <div className="min-h-screen bg-[#050508] flex items-center justify-center">
@@ -426,43 +431,47 @@ export default function AdminDashboard() {
         onClose={() => setIsSidebarOpen(false)}
         onSelectTab={(tab) => setActiveTab(tab)}
         onLogout={() => auth.signOut()}
+        counts={sidebarCounts}
       />
 
       {/* MAIN CONTENT */}
-      <main className="relative z-10 flex-1 lg:ml-56 min-h-screen min-w-0">
+      <main className="relative z-10 flex-1 lg:ml-60 min-h-screen min-w-0">
         {/* HEADER */}
-        <header className="h-14 border-b border-white/[0.06] bg-[#050508]/90 backdrop-blur-md sticky top-0 z-40 px-4 sm:px-6 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <header className="border-b border-white/[0.06] bg-[#050508]/85 backdrop-blur-xl sticky top-0 z-40 px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 bg-white/5 rounded-lg border border-white/10 hover:border-primary/50 transition-all"
+              className="lg:hidden p-2 bg-white/5 rounded-lg border border-white/10 hover:border-primary/50 transition-all shrink-0"
             >
               <Menu className="w-4 h-4 text-primary" />
             </button>
-            <h2 className="text-xs sm:text-sm font-black uppercase tracking-[0.15em] italic truncate">
-              {activeMenuItem?.name || activeTab}
-            </h2>
+            <div className="min-w-0">
+              <h2 className="font-display text-base sm:text-lg font-bold tracking-tight text-white truncate leading-tight">
+                {activeMenuItem?.name || activeTab}
+              </h2>
+              <p className="hidden sm:block text-[11px] font-medium text-white/35 truncate leading-tight">
+                {ADMIN_TAB_SUBTITLES[activeTab]}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-2 flex-1 justify-end">
-            <div className="hidden sm:flex items-center gap-2 bg-white/[0.04] rounded-lg px-3 py-1.5 border border-white/[0.06] focus-within:border-primary/50 transition-all flex-1 max-w-sm">
-              <Search className="w-3 h-3 text-dim shrink-0" />
+          <div className="flex items-center gap-2.5 justify-end shrink-0">
+            <div className="hidden md:flex items-center gap-2 bg-white/[0.03] rounded-xl px-3 h-9 border border-white/[0.08] focus-within:border-primary/40 transition-all w-56 lg:w-64">
+              <Search className="w-3.5 h-3.5 text-white/35 shrink-0" />
               <input
                 type="text"
-                placeholder="Buscar protocolo ou cliente..."
+                placeholder="Buscar pedido ou cliente…"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-transparent border-none outline-none text-[10px] font-bold text-white w-full placeholder:text-dim"
+                className="bg-transparent border-none outline-none text-xs font-medium text-white w-full placeholder:text-white/30"
               />
             </div>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8 px-3 text-[10px] uppercase font-black gap-1.5"
+            <button
               onClick={handleSyncData}
+              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-white/[0.08] bg-white/[0.03] text-[11px] font-semibold text-white/70 hover:text-white hover:border-white/20 hover:bg-white/[0.06] transition-all"
             >
-              <RefreshCw className="w-3 h-3" />
-              <span className="hidden sm:inline">Sinc</span>
-            </Button>
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Atualizar</span>
+            </button>
           </div>
         </header>
 

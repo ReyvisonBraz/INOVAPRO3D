@@ -1,8 +1,5 @@
 import { useMemo, memo } from "react";
 import {
-  Package,
-  FileText,
-  TrendingUp,
   Truck,
   CheckCircle2,
   HelpCircle,
@@ -43,6 +40,7 @@ import {
   type PricingSettings,
 } from "../../../lib/pricing";
 import type { Order, OrderItem, Quote } from "../../../types/domain";
+import { AdminOverviewSummary } from "./AdminOverviewSummary";
 
 interface AdminOverviewPanelProps {
   orders: Order[];
@@ -182,145 +180,28 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
       exit={{ opacity: 0, y: -10 }}
       className="space-y-6"
     >
-      {/* TOP STATS */}
-      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-5 lg:gap-6">
-        <div className="col-span-2 glass rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 relative overflow-hidden group min-h-[150px] sm:min-h-[190px]" role="status" aria-live="polite">
-          <TrendingUp className="absolute top-6 right-6 sm:top-10 sm:right-10 w-16 h-16 sm:w-24 sm:h-24 text-primary opacity-10" aria-hidden="true" />
-          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-2 italic">
-            Receita Acumulada
-          </p>
-          <h2 className="text-3xl sm:text-5xl lg:text-6xl font-display font-black italic tracking-tighter break-words" aria-label={`Receita acumulada: R$ ${orders.filter(o => o.status !== "CANCELED").reduce((acc, o) => acc + (o.total || 0), 0).toFixed(2)}`}>
-            R${" "}
-            {orders
-              .filter(o => o.status !== "CANCELED")
-              .reduce((acc, o) => acc + (o.total || 0), 0)
-              .toFixed(2)}
-          </h2>
-        </div>
-        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-1 italic">
-            Em Produção
-          </p>
-          <h3 className="text-3xl sm:text-4xl font-display font-black italic text-primary" aria-label={`${orders.filter((o) => o.status !== "COMPLETED" && o.status !== "CANCELED").length} pedidos em produção`}>
-            {orders.filter((o) => o.status !== "COMPLETED" && o.status !== "CANCELED").length}
-          </h3>
-        </div>
-        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-5 sm:p-8 lg:p-10 border border-white/5 flex flex-col justify-center min-h-[130px] sm:min-h-[190px]">
-          <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-1 italic">
-            Orçamentos
-          </p>
-          <h3 className="text-3xl sm:text-4xl font-display font-black italic" aria-label={`${quotes.filter((q) => q.status === "PENDING").length} orçamentos pendentes`}>
-            {quotes.filter((q) => q.status === "PENDING").length}
-          </h3>
-        </div>
-      </div>
-
-      {/* RECENT ACTIVITY BENTO */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        {/* Recent Orders */}
-        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
-          <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2" id="recent-orders-title">
-              <Package className="w-3.5 h-3.5 text-primary" aria-hidden="true" /> Últimos Pedidos
-            </h3>
-            <button
-              onClick={() => onTabChange("orders")}
-              className="shrink-0 text-[9px] font-black uppercase text-dim hover:text-white transition-colors rounded-xl px-3 py-2 hover:bg-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              aria-label="Ver todos os pedidos"
-            >
-              Ver Todos
-            </button>
-          </div>
-          <ul className="space-y-3" aria-labelledby="recent-orders-title">
-            {orders.filter(o => o.status !== "CANCELED").slice(0, 4).map((o) => (
-              <li
-                key={o.id}
-                className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 shrink-0 rounded-lg bg-white/5 border border-white/5 flex items-center justify-center font-mono text-[9px] font-bold text-white/40">
-                    #{o.id.slice(0, 4)}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase truncate max-w-[120px]">
-                      {o.userName}
-                    </p>
-                    <p className="text-[11px] text-dim uppercase font-black tracking-widest">
-                      {new Date(
-                        o.createdAt?.seconds * 1000
-                      ).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <p className="shrink-0 text-sm font-display font-black text-primary italic">
-                  R$ {(o.total || 0).toFixed(2)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Recent Quotes */}
-        <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 min-w-0">
-          <div className="flex items-center justify-between gap-3 mb-5 sm:mb-8">
-            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] flex items-center gap-2" id="recent-quotes-title">
-              <FileText className="w-3.5 h-3.5 text-blue-400" aria-hidden="true" /> Consultas de
-              Preço
-            </h3>
-            <button
-              onClick={() => onTabChange("quotes")}
-              className="shrink-0 text-[9px] font-black uppercase text-dim hover:text-white transition-colors rounded-xl px-3 py-2 hover:bg-white/5 min-h-[44px] min-w-[44px] flex items-center justify-center"
-              aria-label="Ver todos os orçamentos pendentes"
-            >
-              Ver Todos
-            </button>
-          </div>
-          <ul className="space-y-3" aria-labelledby="recent-quotes-title">
-            {quotes.slice(0, 4).map((q) => (
-              <li
-                key={q.id}
-                className="flex justify-between items-center gap-3 p-3 sm:p-4 bg-white/[0.01] hover:bg-white/[0.02] rounded-2xl border border-white/5 transition-colors min-w-0"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 shrink-0 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-blue-400" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold uppercase truncate max-w-[120px]">
-                      {q.userName}
-                    </p>
-                    <p className="text-[11px] text-dim uppercase font-black tracking-widest truncate max-w-[150px]">
-                      {q.fileName}
-                    </p>
-                  </div>
-                </div>
-                <span className="shrink-0 text-[11px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400">
-                  PENDENTE
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
+      {/* TOP STATS + RECENT ACTIVITY */}
+      <AdminOverviewSummary orders={orders} quotes={quotes} onSelectTab={onTabChange} />
 
       {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
-      <div className="glass rounded-[28px] sm:rounded-[40px] p-4 sm:p-6 lg:p-8 border border-white/5 bg-gradient-to-b from-white/[0.01] to-black/40 space-y-5 sm:space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/5 pb-4">
+      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.06] pb-4">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-2xl bg-primary/10 border border-primary/10 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-xl bg-primary/12 border border-primary/15 flex items-center justify-center shrink-0">
               <Calculator className="w-4 h-4 text-primary" />
             </div>
             <div className="min-w-0">
-              <h3 className="text-xs font-black uppercase tracking-widest italic text-white">
-                Assistente Cálculo Maker Rápido
+              <h3 className="font-display text-sm font-bold tracking-tight text-white">
+                Cálculo Maker Rápido
               </h3>
-              <p className="text-[9px] text-secondary uppercase font-black tracking-widest">
-                P2S + AMS | Equatorial Pará | custo real com atacado e varejo
+              <p className="text-[11px] font-medium text-white/35">
+                P2S + AMS · custo real com preço de atacado e varejo
               </p>
             </div>
           </div>
-          <span className="w-fit text-[9px] font-black tracking-wider uppercase text-white/50 bg-white/5 px-2.5 py-1 rounded-full border border-white/10">
-            Maker V6.0
+          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            Sincronizado com Ajustes
           </span>
         </div>
 
