@@ -1,7 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
   apiKey:            import.meta.env.VITE_FIREBASE_API_KEY,
@@ -28,7 +27,14 @@ const app = initializeApp(firebaseConfig);
 // Initialize Services
 export const db = getFirestore(app, firestoreDatabaseId);
 export const auth = getAuth(app);
-export const storage = getStorage(app);
+
+// Storage NÃO é inicializado aqui de propósito: importar 'firebase/storage'
+// no topo o colocaria no bundle eager de TODA página. Só o admin faz upload,
+// então o módulo é carregado sob demanda via getStorageInstance().
+export async function getStorageInstance() {
+  const { getStorage } = await import('firebase/storage');
+  return getStorage(app);
+}
 
 /**
  * Test server connection on startup as per guidelines

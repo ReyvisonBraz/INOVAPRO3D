@@ -151,6 +151,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAdmin() && isValidCategory(incoming());
       allow update: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // COUPONS

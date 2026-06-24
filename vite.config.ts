@@ -24,7 +24,9 @@ export default defineConfig(() => {
             if (id.includes('node_modules/three') || id.includes('node_modules/@react-three')) return 'vendor-3d';
             if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'vendor-charts';
             if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
-            if (id.includes('node_modules/firebase')) return 'vendor-firebase';
+            // Storage isolado: só o admin faz upload, então não entra no chunk eager.
+            if (id.includes('firebase/storage') || id.includes('@firebase/storage')) return 'vendor-fb-storage';
+            if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) return 'vendor-firebase';
             if (id.includes('node_modules/react') || id.includes('node_modules/react-dom') || id.includes('node_modules/react-router')) return 'vendor-react';
           },
         },

@@ -2,7 +2,7 @@ import { FormEvent, useCallback, useMemo, useState } from "react";
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
-import { auth, db, handleFirestoreError, OperationType, storage } from "../../../services/firebase";
+import { auth, db, handleFirestoreError, OperationType, getStorageInstance } from "../../../services/firebase";
 import {
   MATERIAL_PRESETS,
   DEFAULT_MACHINE,
@@ -183,7 +183,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
         .replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-")
         .replace(/^-+|-+$/g, "").toLowerCase().slice(0, 60) || "imagem";
       const path = `products/manual/${auth.currentUser.uid}/${Date.now()}-${safeName}.${extension}`;
-      const fileRef = storageRef(storage, path);
+      const fileRef = storageRef(await getStorageInstance(), path);
       await uploadBytes(fileRef, file, { contentType: file.type, customMetadata: { uploadedBy: auth.currentUser.uid, source: "admin-product-form" } });
       const downloadUrl = await getDownloadURL(fileRef);
       setNewProduct((current) => ({ ...current, images: [...current.images.filter(Boolean), downloadUrl] }));

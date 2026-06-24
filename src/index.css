@@ -203,9 +203,17 @@
 .aurora-blob {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(50px);
-  opacity: 0.65;
-  mix-blend-mode: screen;
+  /* blur menor + sem mix-blend-mode = mesma vibe, MUITO mais barato de compor.
+     will-change promove a uma camada de GPU própria, então animar transform
+     não dispara repaint do conteúdo atrás. */
+  filter: blur(38px);
+  opacity: 0.55;
+  will-change: transform;
+}
+
+/* Pausa as animações quando o fundo sai da viewport (ver FloatingBackground). */
+.aurora-wrap.is-paused .aurora-blob {
+  animation-play-state: paused;
 }
 .aurora-1 {
   width: 60vw; height: 55vw; top: -15%; left: -10%;

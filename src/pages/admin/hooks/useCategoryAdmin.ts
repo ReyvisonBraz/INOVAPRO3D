@@ -2,7 +2,7 @@ import { Dispatch, FormEvent, SetStateAction, useCallback, useState } from "reac
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
-import { db, storage } from "../../../services/firebase";
+import { auth, db, getStorageInstance } from "../../../services/firebase";
 import { generateSlug } from "../../../lib/categoryTree";
 import type { Category } from "../../../types/domain";
 
@@ -26,15 +26,15 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
     try {
       const name = newCategory.name.trim().toUpperCase();
       const slug = generateSlug(name);
-      const data = {
+      const data: Record<string, unknown> = {
         name,
         slug,
-        image: newCategory.image,
         active: newCategory.active,
         parentId: newCategory.parentId || null,
         order: categories.length,
         updatedAt: serverTimestamp(),
       };
+      if (newCategory.image) data.image = newCategory.image;
       if (isEditingCategory && editingCategoryId) {
         await updateDoc(doc(db, "categories", editingCategoryId), data);
         toast.success("Pasta atualizada!");
@@ -49,12 +49,13 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
   }, [newCategory, isEditingCategory, editingCategoryId, categories.length, fetchData]);
 
   const handleCategoryImageUpload = useCallback(async (file: File | null) => {
-    if (!file) return;
+    if (!file || !auth.currentUser) return;
+    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
     setIsUploadingCategoryImage(true);
     try {
       const path = `categories/covers/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
-      const fileRef = storageRef(storage, path);
-      await uploadBytes(fileRef, file);
+      const fileRef = storageRef(await getStorageInstance(), path);
+      await uploadBytes(fileRef, file, { contentType: file.type });
       const url = await getDownloadURL(fileRef);
       setNewCategory(prev => ({ ...prev, image: url }));
       toast.success("Capa enviada!");
