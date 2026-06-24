@@ -8,18 +8,14 @@ import {
   ChevronLeft,
   ChevronRight,
   Weight,
-  Clock,
   Settings2,
   ShoppingCart,
   CheckCircle2,
-  Maximize2,
   Box,
   X,
   Share2,
   Copy,
   Check,
-  ShieldCheck,
-  Truck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
@@ -186,7 +182,7 @@ export default function ProductDetail() {
         path={`/produto/${product?.id ?? ""}`}
         image={product?.images?.[0]}
       />
-      <nav aria-label="Breadcrumb" className="mb-8 sm:mb-12">
+      <nav aria-label="Breadcrumb" className="mb-4 sm:mb-8">
         <button
           type="button"
           onClick={() => {
@@ -207,7 +203,7 @@ export default function ProductDetail() {
         <div className="lg:sticky lg:top-28 space-y-6">
           {/* MAIN IMAGE / 3D — with swipe support */}
           <div
-            className="aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25 select-none"
+            className="aspect-[4/3] lg:aspect-square w-full rounded-3xl overflow-hidden glass-card relative bg-black/25 select-none"
             onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
             onTouchEnd={e => {
               if (touchStartX === null || typeof activeMediaTab !== 'number') return;
@@ -329,7 +325,6 @@ export default function ProductDetail() {
               <span className="px-2.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-black text-primary uppercase tracking-widest">
                 {product.category}
               </span>
-              <span className="text-xs text-dim font-mono">REF: {product.id.slice(0, 8)}</span>
               {product.stock === 0 ? (
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-xs font-black text-red-400 uppercase tracking-widest">
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
@@ -427,30 +422,14 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {/* TRUST BADGES */}
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { icon: ShieldCheck, label: "Qualidade garantida" },
-              { icon: Truck, label: "Entrega rastreada" },
-              { icon: CheckCircle2, label: "Reimpressão garantida" },
-            ].map(({ icon: Icon, label }) => (
-              <div key={label} className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-white/[0.03] border border-white/[0.05] text-center">
-                <Icon className="w-4 h-4 text-primary/70" />
-                <span className="text-[10px] font-semibold text-white/40 leading-tight">{label}</span>
-              </div>
-            ))}
-          </div>
-
           {/* SPEC CHIPS + SHARE */}
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.05]">
-              <Weight className="w-3 h-3 text-primary/60 shrink-0" />
-              <span className="text-[10px] font-bold text-white/50">~{product.technical?.weight || 80}g</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.05]">
-              <Clock className="w-3 h-3 text-primary/60 shrink-0" />
-              <span className="text-[10px] font-bold text-white/50">até 5 dias</span>
-            </div>
+            {!!product.technical?.weight && (
+              <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/[0.04] border border-white/[0.05]">
+                <Weight className="w-3 h-3 text-primary/60 shrink-0" />
+                <span className="text-[10px] font-bold text-white/50">~{product.technical.weight}g</span>
+              </div>
+            )}
 
             {/* Share button */}
             <div ref={shareRef} className="relative ml-auto">
@@ -524,36 +503,33 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {/* DIMENSIONS */}
-          <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
-            <p className="text-xs text-secondary uppercase font-black tracking-widest">Dimensões do Modelo</p>
-            <div className="flex items-center gap-2 flex-wrap">
-              {[
-                { label: "L", value: product.baseDimensions?.x || 120 },
-                { label: "C", value: product.baseDimensions?.y || 120 },
-                { label: "A", value: product.baseDimensions?.z || 150 },
-              ].map(dim => (
-                <div key={dim.label} className="flex items-baseline gap-0.5 rounded-lg bg-white/[0.04] border border-white/[0.04] px-2.5 py-1.5">
-                  <span className="text-[11px] font-black uppercase text-secondary">{dim.label}</span>
-                  <span className="text-sm font-mono font-black text-white ml-0.5">{dim.value}</span>
-                  <span className="text-[11px] text-secondary ml-0.5">mm</span>
-                </div>
-              ))}
+          {/* DIMENSIONS — só quando o produto realmente tem medidas cadastradas */}
+          {product.baseDimensions && (product.baseDimensions.x || product.baseDimensions.y || product.baseDimensions.z) && (
+            <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
+              <p className="text-xs text-secondary uppercase font-black tracking-widest">Dimensões do Modelo</p>
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  { label: "L", value: product.baseDimensions.x },
+                  { label: "C", value: product.baseDimensions.y },
+                  { label: "A", value: product.baseDimensions.z },
+                ].filter(dim => !!dim.value).map(dim => (
+                  <div key={dim.label} className="flex items-baseline gap-0.5 rounded-lg bg-white/[0.04] border border-white/[0.04] px-2.5 py-1.5">
+                    <span className="text-[11px] font-black uppercase text-secondary">{dim.label}</span>
+                    <span className="text-sm font-mono font-black text-white ml-0.5">{dim.value}</span>
+                    <span className="text-[11px] text-secondary ml-0.5">mm</span>
+                  </div>
+                ))}
+              </div>
+              <a
+                href={waLink("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-primary/60 hover:text-primary transition-colors"
+              >
+                Tamanho personalizado? Solicite →
+              </a>
             </div>
-            <a
-              href={waLink("Olá INOVAPRO3D! Tenho interesse em um tamanho personalizado para o modelo: " + (product?.name || ""))}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-black uppercase tracking-widest text-primary/60 hover:text-primary transition-colors"
-            >
-              Tamanho personalizado? Solicite →
-            </a>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs text-dim uppercase font-black tracking-wider px-3 py-2 bg-white/[0.01] rounded-xl border border-white/[0.02]">
-            <Maximize2 className="w-3 h-3 opacity-50 shrink-0" />
-            Vol. Máx.: 300 × 300 × 350 mm
-          </div>
+          )}
         </div>
       </div>
 

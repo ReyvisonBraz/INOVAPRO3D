@@ -221,7 +221,7 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
                 )}
 
                 {/* Quick actions (show on image hover) */}
-                <div className="absolute top-3 right-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                <div className="absolute top-3 right-3 flex gap-1.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity z-10">
                   <button onClick={() => onDuplicate(p)} className="p-1.5 rounded-lg bg-black/60 backdrop-blur-sm border border-white/10 text-dim hover:text-blue-400 transition-colors" title="Duplicar">
                     <Layers className="w-3.5 h-3.5" />
                   </button>

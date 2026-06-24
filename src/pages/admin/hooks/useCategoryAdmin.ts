@@ -55,7 +55,7 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
     try {
       const path = `categories/covers/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
       const fileRef = storageRef(await getStorageInstance(), path);
-      await uploadBytes(fileRef, file, { contentType: file.type });
+await uploadBytes(fileRef, file, { contentType: file.type });
       const url = await getDownloadURL(fileRef);
       setNewCategory(prev => ({ ...prev, image: url }));
       toast.success("Capa enviada!");

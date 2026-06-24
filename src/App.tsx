@@ -12,6 +12,10 @@ import { CartProvider } from "./contexts/CartContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import CompleteProfileModal from "./components/auth/CompleteProfileModal";
+import { WelcomeModalPresence } from "./components/welcome/WelcomeModal";
+import { showInstallToast } from "./lib/pwaInstall";
+
+const WELCOME_KEY = "inovapro3d:welcomed";
 
 const Home = lazy(() => import("./pages/public/Home"));
 const Catalog = lazy(() => import("./pages/public/Catalog"));
@@ -77,6 +81,29 @@ function ProfileModalGate() {
       <CompleteProfileModal onDismiss={() => setDismissed(true)} />
     </AnimatePresence>
   );
+}
+
+/** Tela de boas-vindas para novos visitantes (1ª visita, não logado, fora do admin). */
+function WelcomeGate() {
+  const { user, loading } = useAuth();
+  const location = useLocation();
+  const isAdminPage = location.pathname.startsWith("/admin");
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (loading || user || isAdminPage) return;
+    if (localStorage.getItem(WELCOME_KEY)) return;
+    setOpen(true);
+  }, [loading, user, isAdminPage]);
+
+  const handleClose = () => {
+    try { localStorage.setItem(WELCOME_KEY, "1"); } catch { /* modo privado */ }
+    setOpen(false);
+    // Sugere instalar o app pouco depois de fechar a tela de boas-vindas.
+    window.setTimeout(() => showInstallToast(), 1400);
+  };
+
+  return <WelcomeModalPresence open={open} onClose={handleClose} />;
 }
 
 function RouterContent() {
@@ -151,6 +178,7 @@ function RouterContent() {
           <FloatingSupport />
           <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
           <ProfileModalGate />
+          <WelcomeGate />
         </div>
       </CartProvider>
     </AuthProvider>

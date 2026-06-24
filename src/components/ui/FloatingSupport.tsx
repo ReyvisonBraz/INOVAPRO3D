@@ -18,7 +18,7 @@ export default function FloatingSupport() {
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="absolute bottom-14 right-0 w-60 sm:w-72 glass-card rounded-[24px] p-5 border-white/10 shadow-2xl overflow-hidden"
+            className="absolute bottom-14 right-0 w-60 sm:w-72 bg-[#0b0c15] rounded-[24px] p-5 border border-white/15 shadow-2xl shadow-black/60 overflow-hidden"
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
             <h4 className="text-sm font-black uppercase tracking-widest mb-5">Central de Atendimento</h4>

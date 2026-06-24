@@ -96,8 +96,9 @@ function ProductModal({
 
           {/* ── Galeria de imagens ── */}
           <div className="relative bg-black/40 overflow-hidden rounded-t-[28px] sm:rounded-l-[24px] sm:rounded-tr-none">
-            {/* Imagem principal com transição */}
-            <div className="relative aspect-square sm:h-full sm:aspect-auto">
+            {/* Imagem principal com transição — altura limitada no mobile para
+                não empurrar nome/preço/CTA para fora da tela */}
+            <div className="relative aspect-[4/3] max-h-[26vh] sm:max-h-none sm:h-full sm:aspect-auto">
               <AnimatePresence mode="wait">
                 <motion.img
                   key={imgIdx}
@@ -136,7 +137,7 @@ function ProductModal({
                 {hasMultiple && (
                   <p className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-white/50">
                     <Images className="w-2.5 h-2.5" />
-                    {imgIdx + 1} / {images.length} · use as setas ou teclas ← →
+                    {imgIdx + 1} / {images.length}
                   </p>
                 )}
                 {hasMultiple && (
@@ -162,7 +163,7 @@ function ProductModal({
 
             {/* Miniaturas (se 3+ imagens) */}
             {images.length >= 3 && (
-              <div className="flex gap-1.5 p-2 bg-black/50 backdrop-blur-sm overflow-x-auto no-scrollbar">
+              <div className="hidden sm:flex gap-1.5 p-2 bg-black/50 backdrop-blur-sm overflow-x-auto no-scrollbar">
                 {images.map((img, i) => (
                   <button
                     key={i}
@@ -182,96 +183,107 @@ function ProductModal({
           </div>
 
           {/* ── Info do produto ── */}
-          <div className="flex flex-col p-6">
-            {/* Categoria + estoque */}
-            <div className="flex items-center gap-2 flex-wrap mb-4">
-              {product.category && (
-                <span className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-[11px] font-black uppercase tracking-widest text-white/50">
-                  {product.category}
-                </span>
-              )}
-              {outOfStock && (
-                <span className="text-[9px] font-black uppercase tracking-wider text-red-400">
-                  Esgotado
-                </span>
-              )}
-              {lowStock && !outOfStock && (
-                <span className="text-[9px] font-black uppercase tracking-wider text-amber-400">
-                  Últimas {product.stock}
-                </span>
-              )}
-            </div>
-
-            {/* Nome */}
-            <h2 className="text-xl sm:text-2xl font-black font-display uppercase leading-tight tracking-tight text-white mb-2">
-              {product.name}
-            </h2>
-
-            {/* Descrição */}
-            {product.description && (
-              <p className="text-xs text-white/50 leading-relaxed mb-4 line-clamp-4">
-                {product.description}
-              </p>
-            )}
-
-            {/* Specs técnicos */}
-            {product.technical && (
-              <div className="grid grid-cols-2 gap-2 mb-5">
-                {product.technical.printTime && (
-                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Tempo</p>
-                    <p className="text-[10px] font-black text-white/80">{product.technical.printTime}</p>
-                  </div>
+          <div className="flex flex-col">
+            {/* Conteúdo (rola) */}
+            <div className="p-6 pb-4">
+              {/* Categoria + estoque */}
+              <div className="flex items-center gap-2 flex-wrap mb-3">
+                {product.category && (
+                  <span className="px-2.5 py-1 rounded-lg bg-white/[0.05] border border-white/10 text-[11px] font-black uppercase tracking-widest text-white/50">
+                    {product.category}
+                  </span>
                 )}
-                {product.technical.resolution && (
-                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Resolução</p>
-                    <p className="text-[10px] font-black text-white/80">{product.technical.resolution}</p>
-                  </div>
+                {outOfStock && (
+                  <span className="text-[9px] font-black uppercase tracking-wider text-red-400">
+                    Esgotado
+                  </span>
                 )}
-                {!!product.technical.infill && (
-                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Preenchimento</p>
-                    <p className="text-[10px] font-black text-white/80">{product.technical.infill}%</p>
-                  </div>
-                )}
-                {!!product.technical.weight && (
-                  <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Peso</p>
-                    <p className="text-[10px] font-black text-white/80">{product.technical.weight}g</p>
-                  </div>
+                {lowStock && !outOfStock && (
+                  <span className="text-[9px] font-black uppercase tracking-wider text-amber-400">
+                    Últimas {product.stock}
+                  </span>
                 )}
               </div>
-            )}
 
-            <div className="flex-1" />
+              {/* Nome */}
+              <h2 className="text-xl sm:text-2xl font-black font-display uppercase leading-tight tracking-tight text-white mb-2">
+                {product.name}
+              </h2>
 
-            {/* Preço */}
-            <div className="mb-5">
-              <p className="text-[11px] font-black uppercase tracking-wider text-secondary mb-0.5">A partir de</p>
-              <p className="text-3xl font-black text-white">{brl(product.basePrice)}</p>
+              {/* Descrição */}
+              {product.description && (
+                <p className="text-xs text-white/50 leading-relaxed mb-4 line-clamp-2 sm:line-clamp-3">
+                  {product.description}
+                </p>
+              )}
+
+              {/* Specs técnicos */}
+              {product.technical && (
+                <div className="hidden sm:grid grid-cols-2 gap-2">
+                  {product.technical.printTime && (
+                    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Tempo</p>
+                      <p className="text-[10px] font-black text-white/80">{product.technical.printTime}</p>
+                    </div>
+                  )}
+                  {product.technical.resolution && (
+                    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Resolução</p>
+                      <p className="text-[10px] font-black text-white/80">{product.technical.resolution}</p>
+                    </div>
+                  )}
+                  {!!product.technical.infill && (
+                    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Preenchimento</p>
+                      <p className="text-[10px] font-black text-white/80">{product.technical.infill}%</p>
+                    </div>
+                  )}
+                  {!!product.technical.weight && (
+                    <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                      <p className="text-[10px] font-black uppercase tracking-wider text-secondary mb-0.5">Peso</p>
+                      <p className="text-[10px] font-black text-white/80">{product.technical.weight}g</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
-            {/* CTAs */}
-            <div className="flex flex-col gap-2">
+            {/* Rodapé fixo: preço + ações SEMPRE visíveis (não rolam para fora) */}
+            <div className="sticky bottom-0 mt-auto border-t border-white/10 bg-[#0b0c15]/95 backdrop-blur-md p-5 space-y-3">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider text-secondary">A partir de</p>
+                  <p className="text-2xl sm:text-3xl font-black text-white leading-none mt-0.5">{brl(product.basePrice)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onViewFull}
+                  className="flex h-9 items-center gap-1 rounded-xl border border-white/12 bg-white/[0.03] px-3 text-[10px] font-black uppercase tracking-widest text-white/55 hover:bg-white/[0.07] hover:text-white transition-all"
+                >
+                  Ver tudo
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
               {onAdd && !outOfStock && (
                 <button
                   type="button"
                   onClick={() => { onAdd(product); onClose(); }}
-                  className="flex h-12 items-center justify-center gap-2 rounded-2xl bg-primary text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all"
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-white font-black text-[11px] uppercase tracking-widest shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-95 transition-all"
                 >
                   <ShoppingBag className="w-4 h-4" />
                   Adicionar ao carrinho
                 </button>
               )}
-              <button
-                type="button"
-                onClick={onViewFull}
-                className="flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.03] text-white/60 font-black text-[11px] uppercase tracking-widest hover:bg-white/[0.07] hover:text-white transition-all"
-              >
-                Ver produto completo
-                <ArrowUpRight className="w-4 h-4" />
-              </button>
+              {outOfStock && (
+                <button
+                  type="button"
+                  onClick={onViewFull}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-primary/25 bg-primary/10 text-primary font-black text-[11px] uppercase tracking-widest hover:bg-primary/20 transition-all"
+                >
+                  Encomendar sob demanda
+                  <ArrowUpRight className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </div>
