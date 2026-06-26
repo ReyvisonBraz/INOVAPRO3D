@@ -180,6 +180,10 @@ export interface PricingSettings {
   retailMarkup: number;
   /** Preço mínimo por pedido (R$). */
   minPrice: number;
+  /** Desconto (%) para pagamento à vista no PIX, exibido na vitrine. */
+  pixDiscountPct: number;
+  /** Nº máximo de parcelas sem juros exibidas no cartão. */
+  maxInstallments: number;
   /** Presets de material editáveis. */
   materials: Record<MaterialKey, MaterialSettings>;
 }
@@ -193,6 +197,8 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   wholesaleMarkup: 1.6,
   retailMarkup: 2.5,
   minPrice: 35,
+  pixDiscountPct: 5,
+  maxInstallments: 6,
   materials: {
     pla: {
       spoolPrice: MATERIAL_PRESETS.pla.spoolPrice,
@@ -242,6 +248,8 @@ export function mergePricingSettings(raw: unknown): PricingSettings {
     wholesaleMarkup: numOr(r.wholesaleMarkup, base.wholesaleMarkup),
     retailMarkup: numOr(r.retailMarkup, base.retailMarkup),
     minPrice: numOr(r.minPrice, base.minPrice),
+    pixDiscountPct: numOr(r.pixDiscountPct, base.pixDiscountPct),
+    maxInstallments: numOr(r.maxInstallments, base.maxInstallments),
     materials: { pla: mergeMaterial("pla"), petg: mergeMaterial("petg") },
   };
 }

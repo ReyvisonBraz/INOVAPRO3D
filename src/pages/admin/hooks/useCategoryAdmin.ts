@@ -45,21 +45,37 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
       setIsAddingCategory(false); setIsEditingCategory(false); setEditingCategoryId(null);
       setNewCategory({ name: "", image: "", active: true, parentId: "" });
       await fetchData();
-    } catch (err: any) { toast.error(err?.message || "Erro ao salvar pasta."); }
+    } catch (err: any) {
+      console.error("[categoria] falha ao salvar pasta:", err);
+      const code = err?.code ? ` (${err.code})` : "";
+      toast.error(`${err?.message || "Erro ao salvar pasta."}${code}`);
+    }
   }, [newCategory, isEditingCategory, editingCategoryId, categories.length, fetchData]);
 
   const handleCategoryImageUpload = useCallback(async (file: File | null) => {
-    if (!file || !auth.currentUser) return;
+    if (!file) return;
+    if (!auth.currentUser) { toast.error("Sessão expirada. Entre novamente."); return; }
     if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    // A regra do Storage exige < 10 MB. Barramos antes (com margem) para dar
+    // um erro claro em vez de um "permission denied" da regra.
+    const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+    if (file.size > MAX_IMAGE_BYTES) {
+      toast.error("Imagem muito grande. Use uma de até 8 MB.");
+      return;
+    }
     setIsUploadingCategoryImage(true);
     try {
       const path = `categories/covers/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.]/g, "_")}`;
       const fileRef = storageRef(await getStorageInstance(), path);
-await uploadBytes(fileRef, file, { contentType: file.type });
+      await uploadBytes(fileRef, file, { contentType: file.type });
       const url = await getDownloadURL(fileRef);
       setNewCategory(prev => ({ ...prev, image: url }));
       toast.success("Capa enviada!");
-    } catch { toast.error("Erro ao enviar imagem."); }
+    } catch (err: any) {
+      console.error("[categoria] falha no upload da capa:", err);
+      const code = err?.code ? ` (${err.code})` : "";
+      toast.error(`Erro ao enviar imagem${code}.`);
+    }
     finally { setIsUploadingCategoryImage(false); }
   }, []);
 

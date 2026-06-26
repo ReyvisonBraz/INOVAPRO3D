@@ -16,9 +16,13 @@ import {
   Share2,
   Copy,
   Check,
+  Zap,
+  CreditCard,
+  QrCode,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
+import { DEFAULT_PRICING_SETTINGS, mergePricingSettings, formatBRL, type PricingSettings } from "../../lib/pricing";
 const STLViewer = lazy(() => import("../../components/ui/STLViewer").then(m => ({ default: m.STLViewer })));
 import { Button } from "../../components/ui/Button";
 import { useCart } from "../../contexts/CartContext";
@@ -50,6 +54,14 @@ export default function ProductDetail() {
   const [linkCopied, setLinkCopied] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [pricing, setPricing] = useState<PricingSettings>(DEFAULT_PRICING_SETTINGS);
+
+  // Parâmetros de PIX/parcelamento (configuráveis no painel → Ajustes)
+  useEffect(() => {
+    getDoc(doc(db, "settings", "pricing"))
+      .then((snap) => { if (snap.exists()) setPricing(mergePricingSettings(snap.data())); })
+      .catch(() => {});
+  }, []);
 
   // Close share menu when clicking outside
   useEffect(() => {
@@ -142,9 +154,12 @@ export default function ProductDetail() {
   }, [id]);
 
   const totalPrice = product && selectedMaterial ? (product.basePrice * (selectedMaterial.priceMult ?? 1) * quantity) : 0;
+  const pixPrice = totalPrice * (1 - Math.max(0, pricing.pixDiscountPct) / 100);
+  const installments = Math.max(1, Math.floor(pricing.maxInstallments));
+  const installmentValue = totalPrice / installments;
 
-  const handleAddToCart = () => {
-    if (!product || !selectedMaterial) return;
+  const addCurrentToCart = () => {
+    if (!product || !selectedMaterial) return false;
     addItem({
       id: `${product.id}-${selectedMaterial.id}`,
       name: `${product.name} (${selectedMaterial.name})`,
@@ -153,10 +168,26 @@ export default function ProductDetail() {
       image: product.images?.[0] ?? "",
       type: 'PRODUCT'
     });
-    toast.success(`${product.name} adicionado!`, {
-      description: `Material: ${selectedMaterial.name}`,
+    return true;
+  };
+
+  const handleAddToCart = () => {
+    if (!addCurrentToCart()) return;
+    toast.success(`${product?.name} adicionado!`, {
+      description: `Material: ${selectedMaterial?.name}`,
     });
     setShowAddedModal(true);
+  };
+
+  // Comprar agora: adiciona e vai direto ao checkout (máxima velocidade)
+  const handleBuyNow = () => {
+    if (!product) return;
+    if (product.stock === 0) {
+      window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`));
+      return;
+    }
+    if (!addCurrentToCart()) return;
+    navigate('/checkout');
   };
 
   if (loading) return (
@@ -376,50 +407,93 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {/* BUY BLOCK — price + qty + button all together */}
-          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-4 space-y-4">
-            <div>
-              <p className="text-xs text-secondary uppercase font-black tracking-widest">Orçamento estimado</p>
-              <div className="flex items-baseline gap-1.5 mt-1">
-                <span className="text-base font-mono text-white/35">R$</span>
-                <span className="text-3xl sm:text-4xl font-black text-white leading-none">
-                  {(product?.stock === 0 ? 0 : totalPrice).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+          {/* BUY BLOCK — estilo ML: preço, PIX à vista, parcelas e ações */}
+          <div className="rounded-2xl bg-white/[0.03] border border-white/[0.06] p-5 space-y-4">
+            {product.stock === 0 ? (
+              <div>
+                <p className="text-[11px] text-secondary uppercase font-black tracking-widest">Produção sob demanda</p>
+                <p className="text-2xl font-black text-white mt-1">Faça sua encomenda</p>
+                <p className="text-xs text-white/40 mt-1">Orçamento personalizado pelo WhatsApp, sem compromisso.</p>
+              </div>
+            ) : (
+              <div>
+                <p className="text-4xl sm:text-[2.75rem] font-black text-white leading-none tracking-tight">
+                  {formatBRL(totalPrice)}
+                </p>
+                {pricing.pixDiscountPct > 0 && (
+                  <p className="mt-2.5 flex items-center gap-2 text-sm font-bold text-green-400">
+                    <QrCode className="w-4 h-4 shrink-0" />
+                    <span>{formatBRL(pixPrice)} à vista no Pix</span>
+                    <span className="text-[10px] font-black uppercase bg-green-500/15 text-green-300 px-1.5 py-0.5 rounded">
+                      {pricing.pixDiscountPct}% off
+                    </span>
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-white/45">
+                  ou em até{" "}
+                  <span className="font-bold text-white/75">
+                    {installments}x de {formatBRL(installmentValue)}
+                  </span>{" "}
+                  sem juros no cartão
+                </p>
+              </div>
+            )}
+
+            {/* Quantidade */}
+            {product.stock !== 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] font-black uppercase tracking-widest text-secondary">Quantidade</span>
+                <div className="flex items-center rounded-xl border border-white/10 bg-white/[0.04]">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="px-3.5 py-2 hover:bg-white/5 transition-colors font-black text-white/40 text-xl leading-none"
+                    aria-label="Diminuir"
+                  >-</button>
+                  <span className="w-10 text-center font-display font-black text-lg">{quantity}</span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="px-3.5 py-2 hover:bg-white/5 transition-colors font-black text-white/40 text-xl leading-none"
+                    aria-label="Aumentar"
+                  >+</button>
+                </div>
+              </div>
+            )}
+
+            {/* CTAs */}
+            <div className="space-y-2.5">
+              <button
+                ref={addToCartRef}
+                type="button"
+                onClick={handleBuyNow}
+                className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-green-500 text-white font-black text-sm uppercase tracking-wide shadow-lg shadow-green-500/25 hover:bg-green-400 active:scale-[0.99] transition-all"
+              >
+                <Zap className="w-5 h-5" />
+                {product.stock === 0 ? "Encomendar agora" : "Comprar agora"}
+              </button>
+              {product.stock !== 0 && (
+                <button
+                  type="button"
+                  onClick={handleAddToCart}
+                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.03] text-white/70 font-black text-xs uppercase tracking-widest hover:bg-white/[0.07] hover:text-white transition-all"
+                >
+                  <ShoppingCart className="w-4 h-4" />
+                  Adicionar ao carrinho
+                </button>
+              )}
+            </div>
+
+            {/* Formas de pagamento */}
+            {product.stock !== 0 && (
+              <div className="flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-4">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Pague com</span>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-green-500/10 border border-green-500/20 px-2 py-1 text-[10px] font-bold text-green-300">
+                  <QrCode className="w-3 h-3" /> Pix
+                </span>
+                <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] px-2 py-1 text-[10px] font-bold text-white/55">
+                  <CreditCard className="w-3 h-3" /> Cartão até {installments}x
                 </span>
               </div>
-            </div>
-            <div className="flex items-stretch gap-3">
-              <div className={`flex items-center rounded-xl border border-white/10 bg-white/[0.04] shrink-0 ${product?.stock === 0 ? 'opacity-40' : ''}`}>
-                <button
-                  disabled={product?.stock === 0}
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="px-3 h-full hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
-                >-</button>
-                <span className="w-9 text-center font-display font-black text-lg">{product?.stock === 0 ? 0 : quantity}</span>
-                <button
-                  disabled={product?.stock === 0}
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="px-3 h-full hover:bg-white/5 transition-colors font-black text-white/40 text-xl disabled:pointer-events-none"
-                >+</button>
-              </div>
-              <Button
-                ref={addToCartRef}
-                size="lg"
-                className={`flex-1 h-14 rounded-2xl gap-2 text-xs font-black uppercase tracking-tight ${
-                  product?.stock === 0 ? 'bg-primary/10 hover:bg-primary/20 text-primary border border-primary/20' : ''
-                }`}
-                onClick={() => {
-                  if (product?.stock === 0) {
-                    window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar sob demanda o modelo: ${product.name}.`));
-                  } else {
-                    handleAddToCart();
-                  }
-                }}
-                isShimmer={product?.stock !== 0}
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {product?.stock === 0 ? "Encomendar sob demanda" : "Adicionar ao carrinho"}
-              </Button>
-            </div>
+            )}
           </div>
 
           {/* SPEC CHIPS + SHARE */}
@@ -690,25 +764,27 @@ export default function ProductDetail() {
                 <p className="truncate text-[11px] font-black uppercase tracking-tight text-white">
                   {product.name}
                 </p>
-                <p className="font-mono text-sm font-black text-primary">
-                  R$ {(product.stock === 0 ? 0 : totalPrice).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </p>
+                {product.stock === 0 ? (
+                  <p className="text-sm font-black text-white/60">Sob demanda</p>
+                ) : (
+                  <p className="text-sm font-black text-white leading-tight">
+                    {formatBRL(totalPrice)}
+                    {pricing.pixDiscountPct > 0 && (
+                      <span className="ml-1.5 text-[11px] font-bold text-green-400">
+                        · {formatBRL(pixPrice)} no Pix
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
-              <Button
+              <button
                 type="button"
-                className="h-11 shrink-0 gap-2 rounded-2xl px-5 text-[10px] font-black uppercase tracking-widest"
-                disabled={false}
-                onClick={() => {
-                  if (product.stock === 0) {
-                    window.open(waLink(`Olá INOVAPRO3D! Tenho interesse em encomendar: ${product.name}.`));
-                  } else {
-                    handleAddToCart();
-                  }
-                }}
+                onClick={handleBuyNow}
+                className="flex h-11 shrink-0 items-center gap-2 rounded-2xl bg-green-500 px-5 text-[11px] font-black uppercase tracking-widest text-white hover:bg-green-400 active:scale-95 transition-all"
               >
-                <ShoppingCart className="h-4 w-4" />
-                {product.stock === 0 ? "Encomendar" : "Adicionar"}
-              </Button>
+                <Zap className="h-4 w-4" />
+                {product.stock === 0 ? "Encomendar" : "Comprar"}
+              </button>
             </div>
           </motion.div>
         )}

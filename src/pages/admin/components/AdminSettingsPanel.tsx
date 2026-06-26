@@ -50,6 +50,8 @@ const PRICING_FIELDS: { label: string; key: keyof PricingSettings; min: number; 
   { label: "Markup varejo", key: "retailMarkup", min: 0, step: 0.1, suffix: "×", hint: "2.5 = custo × 2,5" },
   { label: "Preço mínimo", key: "minPrice", min: 0, step: 1, suffix: "R$" },
   { label: "Taxa de falha", key: "failureRatePct", min: 0, step: 1, suffix: "%" },
+  { label: "Desconto PIX", key: "pixDiscountPct", min: 0, step: 1, suffix: "%", hint: "à vista na vitrine" },
+  { label: "Parcelas s/ juros", key: "maxInstallments", min: 1, step: 1, suffix: "x", hint: "máx. no cartão" },
 ];
 
 const MATERIAL_FIELDS: { label: string; key: keyof MaterialSettings; min: number; step: number; suffix: string }[] = [
