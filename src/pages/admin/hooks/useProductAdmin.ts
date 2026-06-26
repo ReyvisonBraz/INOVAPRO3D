@@ -32,6 +32,7 @@ const defaultProduct = {
   sourceUrl: "",
   modelUrl: "",
   baseDimensions: { x: 120, y: 120, z: 150 },
+  hideDimensions: false,
 };
 
 interface Deps {
@@ -230,6 +231,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
         weight: rest.technical?.weight ?? 80,
       },
       baseDimensions: rest.baseDimensions || { x: 120, y: 120, z: 150 },
+      hideDimensions: rest.hideDimensions ?? false,
       images: rest.images || [""],
     });
     setIsAddingProduct(true);
@@ -258,6 +260,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
       sourceUrl: product.sourceUrl || "",
       modelUrl: product.modelUrl || "",
       baseDimensions: product.baseDimensions || { x: 120, y: 120, z: 150 },
+      hideDimensions: product.hideDimensions ?? false,
     });
   }, []);
 

@@ -40,10 +40,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             <span>Processando...</span>
           </div>
+        ) : isShimmer ? (
+          <span className="text-shimmer">{children}</span>
         ) : (
-          <span className={cn(isShimmer && "text-shimmer")}>
-            {children}
-          </span>
+          // display:contents → texto e ícone entram direto no flex do botão,
+          // respeitando items-center/justify-center/gap definidos no className.
+          <span className="contents">{children}</span>
         )}
       </button>
     );

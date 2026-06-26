@@ -134,6 +134,8 @@ export interface Product {
   tags?: string[];
   technical?: ProductTechnicalSpec;
   baseDimensions?: ProductDimensions;
+  /** Oculta o bloco de dimensões na página pública do produto. */
+  hideDimensions?: boolean;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
 }

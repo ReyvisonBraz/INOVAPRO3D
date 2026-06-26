@@ -577,8 +577,8 @@ export default function ProductDetail() {
             </div>
           </div>
 
-          {/* DIMENSIONS — só quando o produto realmente tem medidas cadastradas */}
-          {product.baseDimensions && (product.baseDimensions.x || product.baseDimensions.y || product.baseDimensions.z) && (
+          {/* DIMENSIONS — quando há medidas reais e não estiver oculto pelo admin */}
+          {!product.hideDimensions && product.baseDimensions && (product.baseDimensions.x || product.baseDimensions.y || product.baseDimensions.z) && (
             <div className="rounded-xl bg-white/[0.02] border border-white/[0.05] p-4 space-y-2.5">
               <p className="text-xs text-secondary uppercase font-black tracking-widest">Dimensões do Modelo</p>
               <div className="flex items-center gap-2 flex-wrap">

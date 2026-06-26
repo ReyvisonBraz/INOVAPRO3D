@@ -1204,7 +1204,22 @@ export default function AdminDashboard() {
                 <div className="space-y-2"><label className="text-[10px] font-black uppercase tracking-widest text-dim">Link de Origem / Download do Modelo</label><input value={newProduct.sourceUrl || ""} onChange={(e) => setNewProduct({ ...newProduct, sourceUrl: e.target.value })} placeholder="Link da página do modelo ou download externo" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-mono text-xs" /></div>
                 {/* Dimensions */}
                 <div className="grid grid-cols-3 gap-4 bg-white/5 p-4 sm:p-6 rounded-3xl border border-white/5">
-                  <div className="space-y-1 col-span-3"><label className="text-[10px] font-black uppercase tracking-widest text-dim">Dimensões Base do Modelo (mm)</label></div>
+                  <div className="col-span-3 flex items-center justify-between gap-3">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-dim">Dimensões Base do Modelo (mm)</label>
+                    <button
+                      type="button"
+                      onClick={() => setNewProduct({ ...newProduct, hideDimensions: !newProduct.hideDimensions })}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border",
+                        newProduct.hideDimensions
+                          ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                          : "bg-white/5 text-dim border-white/10 hover:text-white"
+                      )}
+                      title="Mostrar ou ocultar as medidas na página pública do produto"
+                    >
+                      {newProduct.hideDimensions ? "Medidas ocultas" : "Medidas visíveis"}
+                    </button>
+                  </div>
                   <div className="space-y-2"><label className="text-[9px] font-black uppercase text-white/40">Eixo X (Largura)</label><NumInput min={0} value={newProduct.baseDimensions?.x || 120} onChange={(v) => setNewProduct({ ...newProduct, baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), x: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center" /></div>
                   <div className="space-y-2"><label className="text-[9px] font-black uppercase text-white/40">Eixo Y (Comprimento)</label><NumInput min={0} value={newProduct.baseDimensions?.y || 120} onChange={(v) => setNewProduct({ ...newProduct, baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), y: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center" /></div>
                   <div className="space-y-2"><label className="text-[9px] font-black uppercase text-white/40">Eixo Z (Altura)</label><NumInput min={0} value={newProduct.baseDimensions?.z || 150} onChange={(v) => setNewProduct({ ...newProduct, baseDimensions: { ...(newProduct.baseDimensions || { x: 120, y: 120, z: 150 }), z: Math.round(v) } })} className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs font-mono font-bold outline-none focus:border-primary/50 transition-colors text-center" /></div>
