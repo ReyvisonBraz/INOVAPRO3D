@@ -4,7 +4,7 @@ import {
   X,
   MessageCircle,
   Instagram,
-  Mail,
+  Facebook,
   Boxes,
   FileText,
   Calculator,
@@ -14,9 +14,7 @@ import {
 import { BrandMark, BrandWordmark } from "../brand/BrandLogo";
 import { FloatingBackground } from "../ui/FloatingBackground";
 import { useAuth } from "../../contexts/AuthContext";
-import { CONTACT, waLink } from "../../lib/config";
-
-const INSTAGRAM_URL = "https://www.instagram.com/inovapro3d";
+import { waLink, SOCIAL } from "../../lib/config";
 
 interface Props {
   /** Chamado quando o usuário fecha/continua (com flag de "logou" ou não). */
@@ -151,16 +149,16 @@ export default function WelcomeModal({ onClose }: Props) {
                 className="hover:border-green-400/30 hover:bg-green-400/10 hover:text-green-300"
               />
               <ContactLink
-                href={INSTAGRAM_URL}
+                href={SOCIAL.instagram}
                 icon={<Instagram className="h-4 w-4" />}
                 label="Instagram"
                 className="hover:border-pink-400/30 hover:bg-pink-400/10 hover:text-pink-300"
               />
               <ContactLink
-                href={`mailto:${CONTACT.email}`}
-                icon={<Mail className="h-4 w-4" />}
-                label="E-mail"
-                className="hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
+                href={SOCIAL.facebook}
+                icon={<Facebook className="h-4 w-4" />}
+                label="Facebook"
+                className="hover:border-blue-500/30 hover:bg-blue-500/10 hover:text-blue-400"
               />
             </div>
           </div>

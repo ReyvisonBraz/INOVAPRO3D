@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Linkedin, Mail, MessageCircle, ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Instagram, Facebook, Mail, MessageCircle, ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
 import { BrandLogo } from "../brand/BrandLogo";
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { toast } from "sonner";
-import { waLink, CONTACT } from "../../lib/config";
+import { waLink, CONTACT, SOCIAL } from "../../lib/config";
 
 export function Footer() {
   const [email, setEmail] = useState("");
@@ -84,9 +84,9 @@ export function Footer() {
 
             <div className="flex gap-3 pt-2">
               <SocialLink href={`https://wa.me/${CONTACT.whatsapp}`} icon={<MessageCircle className="w-3.5 h-3.5" />} label="WhatsApp" />
+              <SocialLink href={SOCIAL.instagram} icon={<Instagram className="w-3.5 h-3.5" />} label="Instagram" />
+              <SocialLink href={SOCIAL.facebook} icon={<Facebook className="w-3.5 h-3.5" />} label="Facebook" />
               <SocialLink href={`mailto:${CONTACT.email}`} icon={<Mail className="w-3.5 h-3.5" />} label="E-mail" />
-              <SocialLink href="https://www.instagram.com/inovapro3d" icon={<Instagram className="w-3.5 h-3.5" />} label="Instagram" />
-              <SocialLink href="https://www.linkedin.com/company/inovapro3d" icon={<Linkedin className="w-3.5 h-3.5" />} label="LinkedIn" />
             </div>
           </div>
 

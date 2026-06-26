@@ -474,9 +474,9 @@ export default function ProductDetail() {
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.03] text-white/70 font-black text-xs uppercase tracking-widest hover:bg-white/[0.07] hover:text-white transition-all"
+                  className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-wide shadow-lg shadow-primary/25 hover:bg-primary-dark active:scale-[0.99] transition-all"
                 >
-                  <ShoppingCart className="w-4 h-4" />
+                  <ShoppingCart className="w-5 h-5" />
                   Adicionar ao carrinho
                 </button>
               )}
