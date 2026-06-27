@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { MessageCircle, X, Mail, HelpCircle, ArrowUpRight } from "lucide-react";
-import { waLink } from "../../lib/config";
+import { waLink, CONTACT } from "../../lib/config";
+import { SocialLinks } from "./SocialLinks";
 
 export default function FloatingSupport() {
   const [isOpen, setIsOpen] = useState(false);
@@ -38,7 +39,7 @@ export default function FloatingSupport() {
               </a>
 
               <a
-                href="mailto:contato@inovapro3d.com.br"
+                href={`mailto:${CONTACT.email}`}
                 className="flex items-center justify-between p-3 rounded-2xl bg-white/5 hover:bg-white/10 transition-all group border border-white/5"
               >
                 <div className="flex items-center gap-3">
@@ -58,6 +59,12 @@ export default function FloatingSupport() {
                 </div>
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </a>
+            </div>
+
+            {/* Siga a gente — destaque das redes */}
+            <div className="mt-5 pt-4 border-t border-white/10">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-3">Siga a gente</p>
+              <SocialLinks showWhatsapp={false} itemClassName="h-9 w-9" iconClassName="w-3.5 h-3.5" />
             </div>
           </motion.div>
         )}

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { Instagram, Facebook, Mail, MessageCircle, ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
+import { Mail, MessageCircle, ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
 import { BrandLogo } from "../brand/BrandLogo";
+import { SocialLinks } from "../ui/SocialLinks";
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
 import { db } from "../../services/firebase";
 import { toast } from "sonner";
-import { waLink, CONTACT, SOCIAL } from "../../lib/config";
+import { waLink, CONTACT } from "../../lib/config";
 
 export function Footer() {
   const [email, setEmail] = useState("");
@@ -82,11 +83,16 @@ export function Footer() {
               )}
             </div>
 
-            <div className="flex gap-3 pt-2">
-              <SocialLink href={`https://wa.me/${CONTACT.whatsapp}`} icon={<MessageCircle className="w-3.5 h-3.5" />} label="WhatsApp" />
-              <SocialLink href={SOCIAL.instagram} icon={<Instagram className="w-3.5 h-3.5" />} label="Instagram" />
-              <SocialLink href={SOCIAL.facebook} icon={<Facebook className="w-3.5 h-3.5" />} label="Facebook" />
-              <SocialLink href={`mailto:${CONTACT.email}`} icon={<Mail className="w-3.5 h-3.5" />} label="E-mail" />
+            <div className="flex flex-wrap gap-3 pt-2">
+              <SocialLinks iconClassName="w-3.5 h-3.5" />
+              <a
+                href={`mailto:${CONTACT.email}`}
+                aria-label="E-mail"
+                title="E-mail"
+                className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] text-white/30 hover:text-white transition-all duration-300"
+              >
+                <Mail className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
 
@@ -171,20 +177,6 @@ export function Footer() {
         </div>
       </div>
     </footer>
-  );
-}
-
-function SocialLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
-  return (
-    <a
-      href={href}
-      target={href.startsWith("http") ? "_blank" : undefined}
-      rel={href.startsWith("http") ? "noopener noreferrer" : undefined}
-      aria-label={label}
-      className="w-10 h-10 rounded-xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center hover:bg-white/[0.08] text-white/30 hover:text-white transition-all duration-300"
-    >
-      {icon}
-    </a>
   );
 }
 
