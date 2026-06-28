@@ -6,6 +6,8 @@ import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts"
 import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./api/firebaseAdmin.ts";
 import { buildErrorReport } from "./api/_reportError.ts";
 import { buildSitemapXml, siteBaseUrl, SITEMAP_STATIC_PATHS, type SitemapUrl } from "./api/_sitemap.ts";
+import { sendEmail } from "./api/_email.ts";
+import { orderConfirmationEmail } from "./api/_emailTemplates.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -192,6 +194,15 @@ async function startServer() {
       `🔑 Pedido: <code>${orderId}</code>\n` +
       `📅 ${now}`
     );
+
+    // E-mail de confirmação para o cliente (SendPulse). No-op se não configurado.
+    if (customerEmail) {
+      const mail = orderConfirmationEmail({
+        orderId, customerName, total, paymentMethod, appUrl: process.env.APP_URL,
+      });
+      await sendEmail({ to: customerEmail, toName: customerName, subject: mail.subject, html: mail.html, text: mail.text });
+    }
+
     res.json({ sent: true });
   });
 

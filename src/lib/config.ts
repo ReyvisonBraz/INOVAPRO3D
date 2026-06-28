@@ -2,7 +2,7 @@
 export const CONTACT = {
   // Formato wa.me: 55 (Brasil) + DDD + número, só dígitos.
   whatsapp: (import.meta as any).env?.VITE_WHATSAPP_PHONE ?? "5591980774776",
-  email: (import.meta as any).env?.VITE_CONTACT_EMAIL ?? "contato@inovapro3d.com.br",
+  email: (import.meta as any).env?.VITE_CONTACT_EMAIL ?? "vendas@inovapro3d.com.br",
   businessName: "INOVAPRO3D",
 };
 

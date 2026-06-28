@@ -80,7 +80,22 @@ firebase deploy --only firestore:rules,storage --project inovapro3d
 
 ---
 
-## 6. 🔔 Telegram (avisos automáticos)
+## 6. ✉️ E-mail transacional (SendPulse)
+
+Envia **confirmação de pedido** automática para o cliente. Sem as chaves, fica
+desligado (não quebra nada). Remetente: `vendas@inovapro3d.com.br` (já ativado no SendPulse).
+
+| Variável | Onde pega |
+|---|---|
+| `SENDPULSE_API_USER_ID` | SendPulse → Configurações da conta → **API** → ID |
+| `SENDPULSE_API_SECRET` | mesma tela → Secret |
+| `EMAIL_FROM` | `vendas@inovapro3d.com.br` (remetente verificado) |
+| `EMAIL_FROM_NAME` | `INOVAPRO3D` |
+
+> Para boa entrega (não cair no spam), verifique o **domínio** no SendPulse
+> (SPF/DKIM no DNS), além do remetente. A caixa de entrada `vendas@` fica no **Zoho Mail**.
+
+## 7. 🔔 Telegram (avisos automáticos)
 
 Usado para: aviso de **novo pedido**, **pagamento confirmado** e **erro no site**.
 
@@ -91,10 +106,10 @@ Usado para: aviso de **novo pedido**, **pagamento confirmado** e **erro no site*
 
 ---
 
-## 7. 📝 Conteúdo / Jurídico (pendente)
+## 8. 📝 Conteúdo / Jurídico (pendente)
 
 - **Política de Privacidade (LGPD)**: o link do banner de cookies aponta para `/conhecimento#privacidade`, mas o texto ainda é um rascunho. Preencher com uma política real (ideal revisar com alguém de jurídico).
-- **Página "Sobre / Quem somos"**: recomendada para passar confiança (ainda não existe).
+- **Página "Sobre / Quem somos"**: ✅ pronta em `/sobre`.
 
 ---
 
@@ -105,6 +120,7 @@ Usado para: aviso de **novo pedido**, **pagamento confirmado** e **erro no site*
 - [ ] `APP_URL` na Vercel
 - [ ] `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` na Vercel
 - [ ] Stripe (chaves + webhook) na Vercel
+- [ ] SendPulse (`SENDPULSE_API_USER_ID` + `SENDPULSE_API_SECRET`) na Vercel + domínio verificado
 - [ ] Telegram (token + chat id) na Vercel
 - [ ] Sitemap cadastrado no Google Search Console
 - [ ] Política de Privacidade preenchida
