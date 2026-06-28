@@ -248,6 +248,33 @@ export interface AuditLog {
   createdAt?: FirestoreDate;
 }
 
+export interface Review {
+  id: string;
+  productId: string;
+  userId: string;
+  userName?: string;
+  userPhoto?: string | null;
+  rating: number; // 1–5
+  comment?: string;
+  createdAt?: FirestoreDate;
+}
+
+export interface ErrorReport {
+  id: string;
+  message?: string;
+  stack?: string;
+  where?: string;
+  route?: string;
+  userAgent?: string;
+  userEmail?: string | null;
+  userId?: string | null;
+  userNote?: string | null;
+  userReported?: boolean;
+  appVersion?: string;
+  resolved?: boolean;
+  createdAt?: FirestoreDate;
+}
+
 export interface GlobalSettings {
   promoBanner?: string;
   minOrderValue?: number;

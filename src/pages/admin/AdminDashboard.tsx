@@ -61,6 +61,7 @@ import AdminCRMPanel from "./components/AdminCRMPanel";
 import AdminFAQPanel from "./components/AdminFAQPanel";
 import AdminShowcasePanel from "./components/AdminShowcasePanel";
 import AdminLogsPanel from "./components/AdminLogsPanel";
+import AdminErrorReportsPanel from "./components/AdminErrorReportsPanel";
 import AdminSettingsPanel from "./components/AdminSettingsPanel";
 import { AdminCouponsPanel } from "./components/AdminCouponsPanel";
 
@@ -75,6 +76,7 @@ export default function AdminDashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [auditView, setAuditView] = useState<"errors" | "audit">("errors");
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
     promoBanner: "Frete Grátis em pedidos acima de R$ 250",
@@ -654,7 +656,29 @@ export default function AdminDashboard() {
               />
             )}
             {activeTab === "logs" && (
-              <AdminLogsPanel logs={logs} />
+              <div className="space-y-5">
+                <div className="inline-flex gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-1">
+                  <button
+                    onClick={() => setAuditView("errors")}
+                    className={cn(
+                      "rounded-xl px-4 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors",
+                      auditView === "errors" ? "bg-white/[0.08] text-white" : "text-white/45 hover:text-white",
+                    )}
+                  >
+                    Relatos de Erro
+                  </button>
+                  <button
+                    onClick={() => setAuditView("audit")}
+                    className={cn(
+                      "rounded-xl px-4 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors",
+                      auditView === "audit" ? "bg-white/[0.08] text-white" : "text-white/45 hover:text-white",
+                    )}
+                  >
+                    Ações (Auditoria)
+                  </button>
+                </div>
+                {auditView === "errors" ? <AdminErrorReportsPanel /> : <AdminLogsPanel logs={logs} />}
+              </div>
             )}
             {activeTab === "settings" && (
               <AdminSettingsPanel

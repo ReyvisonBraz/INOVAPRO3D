@@ -2,6 +2,7 @@ import {
   ArrowRight,
   BookOpen,
   Box,
+  Building2,
   Calculator,
   ChevronDown,
   ChevronRight,
@@ -91,6 +92,7 @@ export function Navbar() {
 
   const navLinks = [
     { name: "Início", path: "/", icon: Home },
+    { name: "Sobre", path: "/sobre", icon: Building2 },
     { name: "Como Funciona", path: "/conhecimento", icon: BookOpen },
   ];
 

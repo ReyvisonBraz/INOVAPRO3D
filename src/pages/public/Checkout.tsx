@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { stripePromise, stripeEnabled, stripeAppearance } from "../../lib/stripe";
 import { StripePaymentForm } from "../../components/checkout/StripePaymentForm";
 import type { ShippingAddress } from "../../types/domain";
+import { trackBeginCheckout, trackPurchase } from "../../lib/analytics";
 
 export default function Checkout() {
   const { items, total, clearCart } = useCart();
@@ -47,6 +48,26 @@ export default function Checkout() {
 
   const coupon = useCoupon(total + shippingRate);
   const finalTotal = total + shippingRate - coupon.discount;
+
+  // Eventos de conversão (analytics/pixels), uma vez cada.
+  const trackedCheckout = useRef(false);
+  const trackedPurchase = useRef(false);
+  const lastTotalRef = useRef(0);
+  useEffect(() => {
+    if (finalTotal > 0) lastTotalRef.current = finalTotal; // guarda antes do carrinho ser limpo
+  }, [finalTotal]);
+  useEffect(() => {
+    if (step >= 2 && !trackedCheckout.current) {
+      trackedCheckout.current = true;
+      trackBeginCheckout(lastTotalRef.current);
+    }
+  }, [step]);
+  useEffect(() => {
+    if (step === 3 && createdOrderId && !trackedPurchase.current) {
+      trackedPurchase.current = true;
+      trackPurchase(lastTotalRef.current, createdOrderId);
+    }
+  }, [step, createdOrderId]);
 
   // Stripe state
   const [clientSecret, setClientSecret] = useState<string | null>(null);

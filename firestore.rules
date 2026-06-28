@@ -115,6 +115,16 @@ service cloud.firestore {
              data.active is bool;
     }
 
+    function isValidReview(data) {
+      return data.productId is string && data.productId.size() <= 128 &&
+             data.userId is string &&
+             data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             (data.comment == null || (data.comment is string && data.comment.size() <= 1000)) &&
+             optionalString(data.userName, 160) &&
+             optionalString(data.userPhoto, 2048) &&
+             data.keys().hasAll(['productId', 'userId', 'rating', 'createdAt']);
+    }
+
     // DEFAULT DENY
     match /{document=**} {
       allow read, write: if false;
@@ -160,6 +170,16 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // REVIEWS — avaliações de produto. Leitura pública; cada usuário gerencia
+    // a própria (id determinístico productId_uid → 1 por produto). Admin modera.
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+                            && isValidReview(incoming())
+                            && incoming().userId == request.auth.uid;
+      allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    }
+
     // NEWSLETTER
     match /newsletter/{docId} {
       allow read: if isAdmin();
@@ -203,6 +223,15 @@ service cloud.firestore {
     match /logs/{logId} {
       allow read: if isAdmin();
       allow write: if isAdmin();
+    }
+
+    // ERROR REPORTS — criados só pelo servidor (Admin SDK ignora estas regras),
+    // então o cliente nunca cria direto (evita spam). O admin lê e gerencia
+    // (marcar como resolvido / excluir) pelo painel.
+    match /errorReports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if false;
+      allow update, delete: if isAdmin();
     }
 
     // ORDERS

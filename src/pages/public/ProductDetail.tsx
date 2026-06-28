@@ -23,6 +23,8 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
 import { DEFAULT_PRICING_SETTINGS, mergePricingSettings, formatBRL, type PricingSettings } from "../../lib/pricing";
+import { trackAddToCart } from "../../lib/analytics";
+import { ProductReviews } from "../../components/product/ProductReviews";
 const STLViewer = lazy(() => import("../../components/ui/STLViewer").then(m => ({ default: m.STLViewer })));
 import { Button } from "../../components/ui/Button";
 import { useCart } from "../../contexts/CartContext";
@@ -168,6 +170,7 @@ export default function ProductDetail() {
       image: product.images?.[0] ?? "",
       type: 'PRODUCT'
     });
+    trackAddToCart(totalPrice, product.name);
     return true;
   };
 
@@ -606,6 +609,9 @@ export default function ProductDetail() {
           )}
         </div>
       </div>
+
+      {/* Avaliações / prova social */}
+      <ProductReviews productId={product.id} />
 
       {/* Related products */}
       {relatedProducts.length > 0 && (

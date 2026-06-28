@@ -14,6 +14,8 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import CompleteProfileModal from "./components/auth/CompleteProfileModal";
 import { WelcomeModalPresence } from "./components/welcome/WelcomeModal";
 import { showInstallToast } from "./lib/pwaInstall";
+import CookieConsent from "./components/CookieConsent";
+import { trackPageView } from "./lib/analytics";
 
 const WELCOME_KEY = "inovapro3d:welcomed";
 
@@ -25,6 +27,7 @@ const Checkout = lazy(() => import("./pages/public/Checkout"));
 const MyOrders = lazy(() => import("./pages/public/MyOrders"));
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const Knowledge = lazy(() => import("./pages/public/Knowledge"));
+const About = lazy(() => import("./pages/public/About"));
 const NotFound = lazy(() => import("./pages/public/NotFound"));
 
 function RouteLoader() {
@@ -43,6 +46,7 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
+    trackPageView(location.pathname + location.search);
   }, [location.pathname]);
 
   return (
@@ -163,6 +167,7 @@ function RouterContent() {
                   }
                 />
                 <Route path="/conhecimento" element={<PageWrapper><Knowledge /></PageWrapper>} />
+                <Route path="/sobre" element={<PageWrapper><About /></PageWrapper>} />
                 <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
               </Routes>
             </Suspense>
@@ -179,6 +184,7 @@ function RouterContent() {
           <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
           <ProfileModalGate />
           <WelcomeGate />
+          <CookieConsent />
         </div>
       </CartProvider>
     </AuthProvider>

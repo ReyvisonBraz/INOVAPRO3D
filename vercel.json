@@ -5,6 +5,10 @@
       "destination": "/api/:path*"
     },
     {
+      "source": "/sitemap.xml",
+      "destination": "/api/sitemap"
+    },
+    {
       "source": "/:path*",
       "destination": "/index.html"
     }

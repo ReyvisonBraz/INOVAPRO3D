@@ -4,6 +4,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts";
 import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./api/firebaseAdmin.ts";
+import { buildErrorReport } from "./api/_reportError.ts";
+import { buildSitemapXml, siteBaseUrl, SITEMAP_STATIC_PATHS, type SitemapUrl } from "./api/_sitemap.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -191,6 +193,50 @@ async function startServer() {
       `📅 ${now}`
     );
     res.json({ sent: true });
+  });
+
+  // ── Relato de erro (automático + reportado pelo usuário) ───────────────────
+  // Sem auth (erros acontecem para visitantes anônimos), mas com rate limit.
+  app.post('/api/report-error', rateLimit(20), async (req, res) => {
+    try {
+      const { valid, data, telegramText } = buildErrorReport(req.body || {});
+      if (!valid) { res.status(400).json({ id: null }); return; }
+      let id: string | null = null;
+      if (isAdminSdkConfigured()) {
+        try {
+          const ref = await getAdminDb().collection('errorReports').add(data);
+          id = ref.id;
+        } catch (err) {
+          console.error('[report-error] falha ao gravar no Firestore:', err);
+        }
+      }
+      await sendTelegram(telegramText + (id ? `🔑 <code>${id}</code>` : ''));
+      res.json({ id });
+    } catch {
+      res.json({ id: null });
+    }
+  });
+
+  // ── Sitemap dinâmico (produtos + rotas estáticas) ──────────────────────────
+  app.get("/sitemap.xml", async (_req, res) => {
+    const base = siteBaseUrl();
+    const urls: SitemapUrl[] = SITEMAP_STATIC_PATHS.map((p) => ({ loc: base + p }));
+    try {
+      if (isAdminSdkConfigured()) {
+        const snap = await getAdminDb().collection("products").get();
+        snap.forEach((doc) => {
+          const d = doc.data() as { active?: boolean; updatedAt?: { toDate?: () => Date } };
+          if (d.active === false) return;
+          let lastmod: string | undefined;
+          try { lastmod = d.updatedAt?.toDate?.().toISOString(); } catch { /* ignora */ }
+          urls.push({ loc: `${base}/produto/${doc.id}`, lastmod });
+        });
+      }
+    } catch (err) {
+      console.error("[sitemap] falha ao listar produtos:", err);
+    }
+    res.setHeader("Content-Type", "application/xml; charset=utf-8");
+    res.send(buildSitemapXml(urls));
   });
 
   // Status and diagnostics endpoint.
