@@ -107,12 +107,12 @@ service cloud.firestore {
       return data.name is string &&
              data.name.size() >= 1 &&
              data.name.size() <= 80 &&
-             data.keys().hasAll(['name', 'createdAt']) &&
+             data.keys().hasOnly(['name', 'slug', 'parentId', 'image', 'description', 'order', 'active', 'createdAt', 'updatedAt']) &&
              optionalString(data.slug, 80) &&
              optionalString(data.parentId, 128) &&
              optionalString(data.image, 2048) &&
              optionalString(data.description, 500) &&
-             data.active is bool;
+             data.createdAt == request.time;
     }
 
     function isValidReview(data) {

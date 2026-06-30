@@ -275,10 +275,13 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
     }
   }, [fetchData]);
 
-  const allCategories = useMemo(
-    () => Array.from(new Set([...STATIC_CATEGORIES, ...customCategories, ...categories.filter(c => c.active !== false).map(c => c.name)])).sort(),
-    [customCategories, categories]
-  );
+  const allCategories = useMemo(() => {
+    const fromCollection = categories.filter(c => c.active !== false)
+      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
+      .map(c => c.name);
+    const base = fromCollection.length > 0 ? fromCollection : STATIC_CATEGORIES;
+    return Array.from(new Set([...base, ...customCategories])).sort();
+  }, [customCategories, categories]);
 
   return {
     selectedProduct, setSelectedProduct,

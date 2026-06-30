@@ -97,11 +97,17 @@ const CategorySection = memo(function CategorySection({
         )}
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-        {products.map((product) => (
-          <ProductCard key={product.id} product={product} onAdd={onAdd} />
-        ))}
-      </div>
+      {products.length > 0 ? (
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} onAdd={onAdd} />
+          ))}
+        </div>
+      ) : (
+        <p className="text-center py-8 text-[11px] font-bold uppercase tracking-widest text-dim">
+          Nenhum produto nesta pasta ainda.
+        </p>
+      )}
     </section>
   );
 });
@@ -194,7 +200,9 @@ export default function Catalog() {
 
   const categories = useMemo(() => {
     const orderMap = new Map(categoriesData.map(c => [c.name, c.order ?? 999]));
-    return Array.from(new Set(products.map(p => p.category).filter((c): c is string => !!c)))
+    const fromCollection = categoriesData.map(c => c.name);
+    const fromProducts = products.map(p => p.category).filter((c): c is string => !!c);
+    return Array.from(new Set([...fromCollection, ...fromProducts]))
       .sort((a, b) => (orderMap.get(a) ?? 999) - (orderMap.get(b) ?? 999));
   }, [products, categoriesData]);
 
@@ -256,9 +264,9 @@ export default function Catalog() {
             (!term || p.name.toLowerCase().includes(term) || p.description?.toLowerCase().includes(term)),
           ),
         );
-        if (catProducts.length > 0) {
-          groupsList.push({ category: cat, products: catProducts, isSub: false });
-        }
+        const collectionCat = catByName.get(cat);
+        if (collectionCat && collectionCat.parentId) continue;
+        groupsList.push({ category: cat, products: catProducts, isSub: false });
       }
       return groupsList;
     }

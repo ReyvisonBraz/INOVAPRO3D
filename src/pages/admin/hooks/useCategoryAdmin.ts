@@ -39,7 +39,7 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
         await updateDoc(doc(db, "categories", editingCategoryId), data);
         toast.success("Pasta atualizada!");
       } else {
-        await addDoc(collection(db, "categories"), { ...data, active: true, createdAt: serverTimestamp() });
+        await addDoc(collection(db, "categories"), { ...data, createdAt: serverTimestamp() });
         toast.success("Pasta criada!");
       }
       setIsAddingCategory(false); setIsEditingCategory(false); setEditingCategoryId(null);
