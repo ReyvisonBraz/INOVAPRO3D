@@ -274,8 +274,16 @@ export function useCalculatorState() {
       const url = await uploadQuoteImage(file);
       setQuoteImageUrl(url);
       toast.success("Imagem anexada.", { duration: 2200, position: "bottom-center" });
-    } catch {
-      toast.error("Falha ao enviar imagem. É preciso estar logado como admin.", { position: "bottom-center" });
+    } catch (err) {
+      console.error("[quote-image-upload]", err);
+      const code = (err as { code?: string })?.code || "";
+      if (code === "storage/unauthenticated") {
+        toast.error("Faça login como admin para anexar imagem.", { position: "bottom-center" });
+      } else if (code === "storage/unauthorized") {
+        toast.error("Upload bloqueado: publique as regras do Storage (firebase deploy --only storage).", { duration: 5000, position: "bottom-center" });
+      } else {
+        toast.error("Falha ao enviar imagem.", { position: "bottom-center" });
+      }
     } finally {
       setUploadingImage(false);
     }

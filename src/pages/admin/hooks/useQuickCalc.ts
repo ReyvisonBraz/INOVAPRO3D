@@ -111,8 +111,16 @@ export function useQuickCalc(
       const url = await uploadQuoteImage(file);
       setQuickCalcImageUrl(url);
       toast.success("Imagem anexada ao orçamento.");
-    } catch {
-      toast.error("Falha ao enviar a imagem.");
+    } catch (err) {
+      console.error("[quote-image-upload]", err);
+      const code = (err as { code?: string })?.code || "";
+      if (code === "storage/unauthenticated") {
+        toast.error("Sessão expirada. Faça login novamente.");
+      } else if (code === "storage/unauthorized") {
+        toast.error("Upload bloqueado: publique as regras do Storage (firebase deploy --only storage).", { duration: 5000 });
+      } else {
+        toast.error("Falha ao enviar a imagem.");
+      }
     } finally {
       setQuickCalcUploadingImage(false);
     }
