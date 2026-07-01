@@ -94,11 +94,21 @@ export interface Quote {
   infill: number;
   estimatedPrice?: number;
   total?: number;
+  /** Preço unitário de varejo (orçamentos vindos da calculadora). */
+  unitPrice?: number;
+  /** Custo real de produção interno (orçamentos vindos da calculadora). */
+  costTotal?: number;
+  /** Quantidade de peças no lote. */
+  quantity?: number;
   weight?: number;
   printTime?: string;
   phone?: string;
   notes?: string;
   adminNotes?: string;
+  /** Imagem opcional do produto anexada ao orçamento. */
+  imageUrl?: string;
+  /** Origem do orçamento: "calculator" quando salvo pela calculadora. */
+  source?: string;
   email?: string;
   message?: string;
   createdAt?: FirestoreDate;

@@ -13,6 +13,10 @@ import {
   ListTodo,
   Shield,
   Trash2,
+  ImagePlus,
+  Loader2,
+  Save,
+  X,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -79,6 +83,12 @@ interface AdminOverviewPanelProps {
   onTabChange: (tab: string) => void;
   onSendWhatsAppQuote: () => void;
   machineConfig: MachineConfig;
+  quickCalcImageUrl: string;
+  setQuickCalcImageUrl: (v: string) => void;
+  quickCalcUploadingImage: boolean;
+  quickCalcSaving: boolean;
+  onUploadImage: (file: File) => void;
+  onSaveQuote: () => void;
 }
 
 const KANBAN_STAGES = [
@@ -130,6 +140,12 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   onTabChange,
   onSendWhatsAppQuote,
   machineConfig,
+  quickCalcImageUrl,
+  setQuickCalcImageUrl,
+  quickCalcUploadingImage,
+  quickCalcSaving,
+  onUploadImage,
+  onSaveQuote,
 }: AdminOverviewPanelProps) {
   const chartData = useMemo(
     () =>
@@ -255,6 +271,54 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-bold"
                 placeholder="Ex: Suporte de Headset"
               />
+            </div>
+            <div>
+              <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
+                Imagem do Produto (opcional)
+                <span title="Foto ou render do produto para anexar ao orçamento salvo.">
+                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
+                </span>
+              </label>
+              {quickCalcImageUrl ? (
+                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black p-2">
+                  <img
+                    src={quickCalcImageUrl}
+                    alt="Prévia do produto"
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/60">
+                    Imagem anexada
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuickCalcImageUrl("")}
+                    className="shrink-0 rounded-lg border border-white/10 p-2 text-white/40 transition hover:border-red-400/30 hover:text-red-300"
+                    aria-label="Remover imagem"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-black px-3 text-[11px] font-bold text-white/50 transition hover:border-white/30 hover:text-white/70">
+                  {quickCalcUploadingImage ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="w-4 h-4" />
+                  )}
+                  {quickCalcUploadingImage ? "Enviando..." : "Anexar imagem"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={quickCalcUploadingImage}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) onUploadImage(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
             </div>
           </div>
 
@@ -606,6 +670,9 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 >
                   <span className="flex items-center gap-1 text-[11px] uppercase font-black text-amber-300 tracking-wider">
                     Atacado ×{quickCalcWholesaleMarkup}
+                    <span title={HELP.wholesaleBox}>
+                      <HelpCircle className="w-2.5 h-2.5 text-amber-300/60 cursor-help" />
+                    </span>
                     {quickCalcResult.isBelowMinWholesale && (
                       <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo.">
                         <AlertCircle className="w-3 h-3 text-yellow-400" />
@@ -618,10 +685,15 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   <span className="block text-[9px] text-white/50 mt-0.5">
                     {formatBRL(quickCalcResult.wholesaleUnit)} / un.
                   </span>
-                  <span className="block text-[11px] text-emerald-400 font-black mt-1">
-                    Lucro: {formatBRL(quickCalcResult.profitWholesale)} (
-                    {quickCalcResult.profitWholesalePct.toFixed(0)}
-                    %)
+                  <span className="mt-1 flex items-center gap-1 text-[11px] font-black text-emerald-400">
+                    Lucro: {formatBRL(quickCalcResult.profitWholesale)}
+                    <span title={HELP.profit}>
+                      <HelpCircle className="w-2.5 h-2.5 text-emerald-400/60 cursor-help" />
+                    </span>
+                  </span>
+                  <span className="block text-[9px] font-mono text-white/40">
+                    margem {quickCalcResult.profitWholesalePct.toFixed(0)}% · markup{" "}
+                    {quickCalcResult.profitWholesaleMarkupPct.toFixed(0)}%
                   </span>
                 </div>
                 <div
@@ -633,6 +705,9 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 >
                   <span className="flex items-center gap-1 text-[11px] uppercase font-black text-primary tracking-wider">
                     Varejo ×{quickCalcRetailMarkup}
+                    <span title={HELP.retailBox}>
+                      <HelpCircle className="w-2.5 h-2.5 text-primary/60 cursor-help" />
+                    </span>
                     {quickCalcResult.isBelowMinRetail && (
                       <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo.">
                         <AlertCircle className="w-3 h-3 text-yellow-400" />
@@ -645,23 +720,44 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   <span className="block text-[9px] text-white/50 mt-0.5">
                     {formatBRL(quickCalcResult.retailUnit)} / un.
                   </span>
-                  <span className="block text-[11px] text-emerald-400 font-black mt-1">
-                    Lucro: {formatBRL(quickCalcResult.profitRetail)} (
-                    {quickCalcResult.profitRetailPct.toFixed(0)}
-                    %)
+                  <span className="mt-1 flex items-center gap-1 text-[11px] font-black text-emerald-400">
+                    Lucro: {formatBRL(quickCalcResult.profitRetail)}
+                    <span title={HELP.profit}>
+                      <HelpCircle className="w-2.5 h-2.5 text-emerald-400/60 cursor-help" />
+                    </span>
+                  </span>
+                  <span className="block text-[9px] font-mono text-white/40">
+                    margem {quickCalcResult.profitRetailPct.toFixed(0)}% · markup{" "}
+                    {quickCalcResult.profitRetailMarkupPct.toFixed(0)}%
                   </span>
                 </div>
               </div>
             </div>
 
-            <Button
-              type="button"
-              disabled={!quickCalcPhone.replace(/\D/g, "")}
-              onClick={onSendWhatsAppQuote}
-              className="w-full min-h-11 h-auto rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Smartphone className="w-4 h-4" /> Enviar Orçamento por WhatsApp
-            </Button>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Button
+                type="button"
+                disabled={quickCalcSaving || !quickCalcCustomerName.trim()}
+                onClick={onSaveQuote}
+                title={!quickCalcCustomerName.trim() ? "Informe o nome do cliente para salvar" : "Salvar na aba Orçamentos"}
+                className="w-full min-h-11 h-auto rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {quickCalcSaving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                {quickCalcSaving ? "Salvando..." : "Salvar Orçamento"}
+              </Button>
+              <Button
+                type="button"
+                disabled={!quickCalcPhone.replace(/\D/g, "")}
+                onClick={onSendWhatsAppQuote}
+                className="w-full min-h-11 h-auto rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Smartphone className="w-4 h-4" /> Enviar por WhatsApp
+              </Button>
+            </div>
           </div>
         </div>
       </div>

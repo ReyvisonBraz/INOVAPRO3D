@@ -11,6 +11,7 @@ import {
   type MachineConfig,
   type PricingSettings,
 } from "../../../lib/pricing";
+import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
 
 /**
  * Calculadora rápida de orçamento do admin: entradas, resultado do motor de
@@ -23,6 +24,7 @@ import {
 export function useQuickCalc(
   machineConfig: MachineConfig,
   pricingSettings: PricingSettings = DEFAULT_PRICING_SETTINGS,
+  onSaved?: () => void,
 ) {
   const [quickCalcWeight, setQuickCalcWeight] = useState(80);
   const [quickCalcTime, setQuickCalcTime] = useState("2h 30m");
@@ -31,6 +33,11 @@ export function useQuickCalc(
   const [quickCalcPieceName, setQuickCalcPieceName] = useState("");
   const [quickCalcBatchQty, setQuickCalcBatchQty] = useState(1);
   const [quickCalcMaterial, setQuickCalcMaterial] = useState<MaterialKey>("pla");
+
+  // Imagem opcional do produto + salvamento do orçamento na aba Orçamentos.
+  const [quickCalcImageUrl, setQuickCalcImageUrl] = useState("");
+  const [quickCalcUploadingImage, setQuickCalcUploadingImage] = useState(false);
+  const [quickCalcSaving, setQuickCalcSaving] = useState(false);
 
   // Valores de negócio: iniciam dos parâmetros centrais, editáveis por job.
   const [quickCalcMaterialReserve, setQuickCalcMaterialReserve] = useState(
@@ -96,6 +103,49 @@ export function useQuickCalc(
     window.open(`https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`, "_blank");
   }, [quickCalcPhone, quickCalcCustomerName, quickCalcPieceName, quickCalcMaterial, quickCalcTime, quickCalcResult]);
 
+  const handleUploadQuickImage = useCallback(async (file: File) => {
+    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    if (file.size > 8 * 1024 * 1024) { toast.error("Imagem muito grande (máx. 8 MB)."); return; }
+    setQuickCalcUploadingImage(true);
+    try {
+      const url = await uploadQuoteImage(file);
+      setQuickCalcImageUrl(url);
+      toast.success("Imagem anexada ao orçamento.");
+    } catch {
+      toast.error("Falha ao enviar a imagem.");
+    } finally {
+      setQuickCalcUploadingImage(false);
+    }
+  }, []);
+
+  const handleSaveQuickQuote = useCallback(async () => {
+    if (!quickCalcCustomerName.trim()) { toast.error("Informe o nome do cliente para salvar."); return; }
+    setQuickCalcSaving(true);
+    try {
+      await saveQuoteFromCalc({
+        clientName: quickCalcCustomerName,
+        phone: quickCalcPhone,
+        pieceName: quickCalcPieceName,
+        materialLabel: MATERIAL_PRESETS[quickCalcMaterial].label,
+        weight: quickCalcResult.weightGrams,
+        printTime: quickCalcTime,
+        quantity: quickCalcResult.quantity,
+        price: quickCalcResult.retailTotal,
+        unitPrice: quickCalcResult.retailUnit,
+        costTotal: quickCalcResult.totalCost,
+        imageUrl: quickCalcImageUrl || undefined,
+        notes: `Custo real ${quickCalcResult.totalCost.toFixed(2)} · atacado ${quickCalcResult.wholesaleTotal.toFixed(2)} · varejo ${quickCalcResult.retailTotal.toFixed(2)} · ${MATERIAL_PRESETS[quickCalcMaterial].label} ${quickCalcResult.weightGrams.toFixed(0)}g · ${quickCalcTime}`,
+      });
+      toast.success("Orçamento salvo na aba Orçamentos!");
+      setQuickCalcImageUrl("");
+      onSaved?.();
+    } catch {
+      toast.error("Falha ao salvar o orçamento.");
+    } finally {
+      setQuickCalcSaving(false);
+    }
+  }, [quickCalcCustomerName, quickCalcPhone, quickCalcPieceName, quickCalcMaterial, quickCalcTime, quickCalcResult, quickCalcImageUrl, onSaved]);
+
   return {
     quickCalcWeight, setQuickCalcWeight,
     quickCalcTime, setQuickCalcTime,
@@ -113,5 +163,8 @@ export function useQuickCalc(
     quickCalcResult,
     quickMachineBreak,
     handleSendQuickWhatsAppQuote,
+    quickCalcImageUrl, setQuickCalcImageUrl,
+    quickCalcUploadingImage, quickCalcSaving,
+    handleUploadQuickImage, handleSaveQuickQuote,
   };
 }

@@ -12,10 +12,14 @@ import {
   Gauge,
   Hash,
   HelpCircle,
+  ImagePlus,
   Layers3,
+  Loader2,
   Package,
+  Save,
   Settings2,
   Wrench,
+  X,
   Zap,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -315,19 +319,22 @@ function CostBar({
   value,
   percent,
   color,
+  help,
 }: {
   label: string;
   value: number;
   percent: number;
   color: string;
+  help?: string;
 }) {
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className={cn("h-2.5 w-2.5 rounded-full", color)} />
-          <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/50">
+          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/50">
             {label}
+            {help && <HelpTip text={help} />}
           </span>
         </div>
         <div className="text-right">
@@ -426,6 +433,29 @@ function PriceBox({
   );
 }
 
+function ProfitLine({
+  profit,
+  marginPct,
+  markupPct,
+}: {
+  profit: number;
+  marginPct: number;
+  markupPct: number;
+}) {
+  return (
+    <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border border-emerald-400/15 bg-emerald-400/[0.06] px-2.5 py-1.5">
+      <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-300/70">
+        Lucro
+        <HelpTip text={HELP.profit} />
+      </span>
+      <span className="text-sm font-black text-emerald-300">{formatBRL(profit)}</span>
+      <span className="ml-auto font-mono text-[10px] font-bold text-white/45">
+        margem {marginPct.toFixed(0)}% · markup {markupPct.toFixed(0)}%
+      </span>
+    </div>
+  );
+}
+
 function ReportLine({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="maker-report-line">
@@ -453,6 +483,8 @@ export default function FilamentCalculator() {
     showMachineConfig, setShowMachineConfig, showMaterialConfig, setShowMaterialConfig,
     showEnergyConfig, setShowEnergyConfig, showLaborConfig, setShowLaborConfig,
     savingCalc, saveLabel, setSaveLabel, handleSaveCalc,
+    clientName, setClientName, clientPhone, setClientPhone,
+    quoteImageUrl, setQuoteImageUrl, uploadingImage, handleUploadImage,
     result, machineBreak, reserveMultiplier, laborTotal, generatedAt,
   } = useCalculatorState();
 
@@ -711,8 +743,9 @@ export default function FilamentCalculator() {
           <aside className="bg-white/[0.03] border border-white/[0.08] rounded-[28px] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] lg:p-6 xl:sticky xl:top-24">
             <div className="flex flex-col gap-5 border-b border-white/[0.08] pb-6 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-white/40">
+                <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.22em] text-white/40">
                   Custo real de produção
+                  <HelpTip text={HELP.totalCost} />
                 </p>
                 <div className="mt-3 flex items-start gap-2">
                   <span className="mt-2 text-xl font-black text-white/40">R$</span>
@@ -723,7 +756,10 @@ export default function FilamentCalculator() {
               </div>
 
               <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-right">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">Por grama</p>
+                <p className="flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-cyan-200">
+                  Por grama
+                  <HelpTip text={HELP.costPerGram} />
+                </p>
                 <p className="mt-1 font-mono text-xl font-black text-cyan-300">
                   R$ {decimal.format(result.costPerGram)}
                 </p>
@@ -736,24 +772,28 @@ export default function FilamentCalculator() {
                 value={result.materialCost}
                 percent={result.shares.material}
                 color="bg-cyan-400"
+                help={HELP.spoolPrice}
               />
               <CostBar
                 label="Energia"
                 value={result.energyCost}
                 percent={result.shares.energy}
                 color="bg-orange-400"
+                help={HELP.kwh}
               />
               <CostBar
                 label="Máquina"
                 value={result.machineCost}
                 percent={result.shares.machine}
                 color="bg-primary"
+                help={HELP.depreciation}
               />
               <CostBar
                 label="Mão de obra"
                 value={laborTotal}
                 percent={result.shares.labor}
                 color="bg-white/40"
+                help={HELP.laborHours}
               />
               {result.failureLoss > 0 && (
                 <CostBar
@@ -761,6 +801,7 @@ export default function FilamentCalculator() {
                   value={result.failureLoss}
                   percent={result.shares.failure}
                   color="bg-amber-400"
+                  help={HELP.failureRate}
                 />
               )}
             </div>
@@ -769,8 +810,9 @@ export default function FilamentCalculator() {
               <div className="mb-4 flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Coins className="h-4 w-4 text-cyan-300" />
-                  <h3 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">
+                  <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.22em] text-white/90">
                     Preço de venda & lucro
+                    <HelpTip text={HELP.sellPrice} />
                   </h3>
                 </div>
                 <div className="flex items-center gap-0.5 rounded-lg border border-white/15 bg-white/[0.04] p-0.5">
@@ -821,9 +863,11 @@ export default function FilamentCalculator() {
                     unit={result.wholesaleUnit}
                     tone="wholesale"
                   />
-                  <p className="mt-2 px-1 text-xs font-black text-emerald-400">
-                    Lucro: {formatBRL(result.profitWholesale)} ({result.profitWholesalePct.toFixed(0)}%)
-                  </p>
+                  <ProfitLine
+                    profit={result.profitWholesale}
+                    marginPct={result.profitWholesalePct}
+                    markupPct={result.profitWholesaleMarkupPct}
+                  />
                   {result.isBelowMinWholesale && (
                     <p className="mt-1 px-1 text-[10px] font-bold text-yellow-300">
                       preço mínimo aplicado
@@ -838,9 +882,11 @@ export default function FilamentCalculator() {
                     unit={result.retailUnit}
                     tone="retail"
                   />
-                  <p className="mt-2 px-1 text-xs font-black text-emerald-400">
-                    Lucro: {formatBRL(result.profitRetail)} ({result.profitRetailPct.toFixed(0)}%)
-                  </p>
+                  <ProfitLine
+                    profit={result.profitRetail}
+                    marginPct={result.profitRetailPct}
+                    markupPct={result.profitRetailMarkupPct}
+                  />
                   {result.isBelowMinRetail && (
                     <p className="mt-1 px-1 text-[10px] font-bold text-yellow-300">
                       preço mínimo aplicado
@@ -870,39 +916,118 @@ export default function FilamentCalculator() {
               Gerar relatório PDF
             </button>
 
-            <div className="mt-3 flex gap-2">
+            <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Save className="h-4 w-4 text-emerald-300" />
+                <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.2em] text-white/90">
+                  Salvar orçamento
+                  <HelpTip text="Salva este orçamento na aba Orçamentos do painel, com o preço de varejo, dados do cliente e imagem. Requer login de admin." />
+                </h3>
+              </div>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <input
+                  type="text"
+                  placeholder="Nome do cliente *"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
+                  className="h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-white placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none"
+                />
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="WhatsApp do cliente"
+                  value={clientPhone}
+                  onChange={(e) => setClientPhone(e.target.value)}
+                  className="h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-mono font-bold text-white placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none"
+                />
+              </div>
               <input
                 type="text"
-                placeholder="Nome do orçamento (opcional)"
+                placeholder="Nome da peça / projeto (opcional)"
                 value={saveLabel}
-                onChange={e => setSaveLabel(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && !savingCalc && handleSaveCalc()}
-                className="h-11 flex-1 min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-white/25"
+                onChange={(e) => setSaveLabel(e.target.value)}
+                className="mt-2.5 h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-white placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none"
               />
+
+              {quoteImageUrl ? (
+                <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2">
+                  <img
+                    src={quoteImageUrl}
+                    alt="Prévia do produto"
+                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                  />
+                  <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/60">
+                    Imagem anexada
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setQuoteImageUrl("")}
+                    className="shrink-0 rounded-lg border border-white/10 p-2 text-white/40 transition hover:border-red-400/30 hover:text-red-300"
+                    aria-label="Remover imagem"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <label className="mt-2.5 flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 text-[11px] font-bold text-white/50 transition hover:border-white/30 hover:text-white/70">
+                  {uploadingImage ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-4 w-4" />
+                  )}
+                  {uploadingImage ? "Enviando..." : "Anexar imagem do produto (opcional)"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadingImage}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleUploadImage(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              )}
+
               <button
                 type="button"
                 onClick={handleSaveCalc}
-                disabled={savingCalc}
-                className="h-11 shrink-0 inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-300 transition hover:bg-emerald-400/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={savingCalc || uploadingImage}
+                className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-emerald-400/30 bg-emerald-400/15 px-4 text-xs font-black uppercase tracking-[0.16em] text-emerald-300 transition hover:bg-emerald-400/25 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {savingCalc ? "..." : "Salvar"}
+                {savingCalc ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" /> Salvar no sistema
+                  </>
+                )}
               </button>
             </div>
 
             <div className="mt-5 grid grid-cols-3 gap-3 text-center">
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Factory className="mx-auto mb-2 h-4 w-4 text-primary" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Lote</p>
+                <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+                  Lote <HelpTip text={HELP.batch} />
+                </p>
                 <p className="font-mono text-sm font-black text-white">{Math.max(1, batchQuantity)} un.</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Layers3 className="mx-auto mb-2 h-4 w-4 text-cyan-300" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Unitário</p>
+                <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+                  Unitário <HelpTip text={HELP.unitCost} />
+                </p>
                 <p className="font-mono text-sm font-black text-white">{formatBRL(result.unitCost)}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Gauge className="mx-auto mb-2 h-4 w-4 text-orange-300" />
-                <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/30">Horas</p>
+                <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+                  Horas <HelpTip text={HELP.time} />
+                </p>
                 <p className="font-mono text-sm font-black text-white">{formatHoursToHHMM(printTime)}</p>
               </div>
             </div>
@@ -915,22 +1040,22 @@ export default function FilamentCalculator() {
       <header className="maker-report-header">
         <div>
           <p className="maker-report-kicker">INOVAPRO3D</p>
-          <h1>Via do Cliente</h1>
-          <p>Proposta comercial para manufatura aditiva</p>
+          <h1>Orçamento</h1>
+          <p>{clientName ? `Cliente: ${clientName}` : "Proposta para manufatura 3D"}</p>
         </div>
         <div className="maker-report-meta">
-          <span>Bambu Lab P2S + AMS</span>
-          <span>Gerado em {generatedAt}</span>
+          <span>{generatedAt}</span>
+          <span>Validade: 7 dias</span>
         </div>
       </header>
 
       <div className="maker-report-highlight maker-report-highlight-client">
         <div>
-          <span>Preço varejo total</span>
+          <span>Valor total</span>
           <strong>{formatBRL(result.retailTotal)}</strong>
         </div>
         <div>
-          <span>Preço unitário</span>
+          <span>Valor por unidade</span>
           <strong>{formatBRL(result.retailUnit)}</strong>
         </div>
         <div>
@@ -941,33 +1066,26 @@ export default function FilamentCalculator() {
 
       <div className="maker-report-grid">
         <section className="maker-report-card">
-          <h2>Resumo do Projeto</h2>
-          <ReportLine label="Processo" value="Impressão 3D FDM" />
-          <ReportLine label="Equipamento" value="Bambu Lab P2S + AMS" />
-          <ReportLine label="Quantidade no lote" value={`${Math.max(1, batchQuantity)} un.`} />
-          <ReportLine label="Tempo estimado de produção" value={formatHoursToHHMM(printTime)} />
+          <h2>Seu Projeto</h2>
+          <ReportLine label="Peça" value={saveLabel.trim() || "Peça personalizada"} />
+          <ReportLine label="Material" value={MATERIAL_PRESETS[material].label} />
+          <ReportLine label="Quantidade" value={`${Math.max(1, batchQuantity)} un.`} />
+          <ReportLine label="Acabamento / pós-processamento" value={requiresLabor ? "Incluso" : "Padrão"} />
         </section>
 
         <section className="maker-report-card">
-          <h2>Especificações Técnicas</h2>
-          <ReportLine label="Peso técnico estimado" value={`${decimal.format(result.weightGrams)}g`} />
-          <ReportLine label="Material" value={MATERIAL_PRESETS[material].label} />
-          <ReportLine label="Pós-processamento" value={requiresLabor ? "Incluso" : "Não incluso"} />
-          <ReportLine label="Validade da proposta" value="7 dias corridos" />
-        </section>
-
-        <section className="maker-report-card maker-report-wide-card">
-          <h2>Condições Comerciais</h2>
-          <ReportLine label="Preço sugerido para venda direta" value={formatBRL(result.retailTotal)} />
-          <ReportLine label="Preço por unidade" value={formatBRL(result.retailUnit)} />
-          <ReportLine label="Preço para lote/revenda" value={formatBRL(result.wholesaleTotal)} />
-          <ReportLine label="Unitário lote/revenda" value={formatBRL(result.wholesaleUnit)} />
+          <h2>Atendimento</h2>
+          {clientName && <ReportLine label="Cliente" value={clientName} />}
+          {clientPhone && <ReportLine label="Contato" value={clientPhone} />}
+          <ReportLine label="Processo" value="Impressão 3D (FDM)" />
+          <ReportLine label="Prazo de produção estimado" value={formatHoursToHHMM(printTime)} />
         </section>
       </div>
 
       <footer className="maker-report-footer">
-        <strong>Observação:</strong> esta via apresenta valores comerciais finais e estimativas técnicas do serviço.
-        Custos internos de produção, margens e composição operacional são reservados à INOVAPRO3D.
+        Obrigado pela preferência! Este orçamento é válido por 7 dias corridos. Valores sujeitos a
+        confirmação após análise final do modelo 3D. Fale com a <strong>INOVAPRO3D</strong> para
+        aprovar e iniciar a produção.
       </footer>
       </article>
 
@@ -1036,9 +1154,9 @@ export default function FilamentCalculator() {
         <section className="maker-report-card">
           <h2>Comercial Interno</h2>
           <ReportLine label={`Atacado ${markupLabel(wholesaleMarkup)} total`} value={formatBRL(result.wholesaleTotal)} />
-          <ReportLine label="Lucro atacado" value={`${formatBRL(result.profitWholesale)} (${result.profitWholesalePct.toFixed(0)}%)`} />
+          <ReportLine label="Lucro atacado" value={`${formatBRL(result.profitWholesale)} · margem ${result.profitWholesalePct.toFixed(0)}%`} />
           <ReportLine label={`Varejo ${markupLabel(retailMarkup)} total`} value={formatBRL(result.retailTotal)} />
-          <ReportLine label="Lucro varejo" value={`${formatBRL(result.profitRetail)} (${result.profitRetailPct.toFixed(0)}%)`} />
+          <ReportLine label="Lucro varejo" value={`${formatBRL(result.profitRetail)} · margem ${result.profitRetailPct.toFixed(0)}%`} />
         </section>
       </div>
 

@@ -29,6 +29,12 @@ service firebase.storage {
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 
+    // Imagens opcionais anexadas a orçamentos salvos pela calculadora.
+    match /quotes/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

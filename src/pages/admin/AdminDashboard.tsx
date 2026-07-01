@@ -354,7 +354,10 @@ export default function AdminDashboard() {
     quickCalcRetailMarkup, setQuickCalcRetailMarkup,
     quickCalcResult, quickMachineBreak,
     handleSendQuickWhatsAppQuote,
-  } = useQuickCalc(machineConfig, pricingSettings);
+    quickCalcImageUrl, setQuickCalcImageUrl,
+    quickCalcUploadingImage, quickCalcSaving,
+    handleUploadQuickImage, handleSaveQuickQuote,
+  } = useQuickCalc(machineConfig, pricingSettings, fetchData);
 
   const {
     isAdding: isCouponAdding, setIsAdding: setCouponAdding,
@@ -528,6 +531,12 @@ export default function AdminDashboard() {
                 )}
                 onTabChange={handleTabChange}
                 onSendWhatsAppQuote={handleSendQuickWhatsAppQuote}
+                quickCalcImageUrl={quickCalcImageUrl}
+                setQuickCalcImageUrl={setQuickCalcImageUrl}
+                quickCalcUploadingImage={quickCalcUploadingImage}
+                quickCalcSaving={quickCalcSaving}
+                onUploadImage={handleUploadQuickImage}
+                onSaveQuote={handleSaveQuickQuote}
               />
             )}
             {activeTab === "orders" && (
@@ -597,6 +606,7 @@ export default function AdminDashboard() {
                 onSelectQuote={setSelectedCustomer}
                 onApproveQuote={handleApproveQuote}
                 onDeleteQuote={(type, id) => deleteItem(type, id)}
+                onWhatsApp={(q) => handleWhatsAppQuote(q, q.total || q.estimatedPrice || 45.9, undefined, q.phone, q.infill, q.printTime, q.weight)}
                 isApprovingQuote={isApprovingQuote}
               />
             )}

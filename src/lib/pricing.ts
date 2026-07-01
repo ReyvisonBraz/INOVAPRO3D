@@ -341,10 +341,16 @@ export interface PricingResult {
 
   profitWholesale: number;
   profitWholesaleUnit: number;
+  /** Margem: lucro ÷ preço de venda (%). */
   profitWholesalePct: number;
+  /** Markup: lucro ÷ custo (%). Bate com o multiplicador que você digita. */
+  profitWholesaleMarkupPct: number;
   profitRetail: number;
   profitRetailUnit: number;
+  /** Margem: lucro ÷ preço de venda (%). */
   profitRetailPct: number;
+  /** Markup: lucro ÷ custo (%). Bate com o multiplicador que você digita. */
+  profitRetailMarkupPct: number;
 }
 
 const num = (v: number, fallback = 0) =>
@@ -436,9 +442,11 @@ export function computePricing(input: PricingInputs): PricingResult {
     profitWholesale,
     profitWholesaleUnit: profitWholesale / quantity,
     profitWholesalePct: (profitWholesale / (wholesaleTotal || 1)) * 100,
+    profitWholesaleMarkupPct: (profitWholesale / safe) * 100,
     profitRetail,
     profitRetailUnit: profitRetail / quantity,
     profitRetailPct: (profitRetail / (retailTotal || 1)) * 100,
+    profitRetailMarkupPct: (profitRetail / safe) * 100,
   };
 }
 
@@ -539,4 +547,24 @@ export const HELP = {
     "Quanto da máquina 'se gasta' a cada hora de impressão. É o preço da P2S diluído na vida útil dela.",
   replacement:
     "Fundo de reposição: cada hora separa um valor para repor bico, placa, correias e manutenção quando desgastarem.",
+  totalCost:
+    "Custo real de produção: soma de material, energia, desgaste da máquina, falhas e mão de obra (quando marcada). É o que sai do seu bolso antes de qualquer lucro.",
+  costPerGram:
+    "Custo total dividido pelo peso da peça. Serve para comparar peças de tamanhos diferentes na mesma base.",
+  unitCost:
+    "Custo real de UMA peça: o custo do lote dividido pela quantidade de peças.",
+  gramCost:
+    "Quanto custa 1 grama do filamento já com a reserva para falhas embutida.",
+  shares:
+    "Como o custo se divide entre material, energia, máquina, mão de obra e falhas. Ajuda a ver onde o dinheiro está indo.",
+  sellPrice:
+    "Preço sugerido de venda = custo real × markup. Nunca fica abaixo do preço mínimo que você definiu.",
+  profit:
+    "Lucro = preço de venda − custo real. A 'margem' é o lucro sobre o preço de venda; o 'markup' é o lucro sobre o custo (é o mesmo número do multiplicador que você digita).",
+  wholesaleBox:
+    "Preço de atacado/B2B: para quem revende ou fecha lotes recorrentes. Markup menor porque o volume compensa.",
+  retailBox:
+    "Preço de varejo: venda direta ao cliente final, sob demanda. Markup maior, cobre atendimento e menor volume.",
+  batch:
+    "Quantidade de peças que saem neste trabalho. O custo e o preço do lote são divididos por aqui para dar o valor unitário.",
 };

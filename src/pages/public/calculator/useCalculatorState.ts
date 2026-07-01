@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDoc, collection, doc, getDoc, serverTimestamp } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { toast } from "sonner";
 import { db } from "../../../services/firebase";
+import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
 import {
   computePricing,
   DEFAULT_ENERGY,
@@ -76,9 +77,13 @@ export function useCalculatorState() {
   const [showEnergyConfig, setShowEnergyConfig] = useState(false);
   const [showLaborConfig, setShowLaborConfig] = useState(false);
 
-  // --- Save calc ---
+  // --- Save calc / orçamento ---
   const [savingCalc, setSavingCalc] = useState(false);
   const [saveLabel, setSaveLabel] = useState("");
+  const [clientName, setClientName] = useState("");
+  const [clientPhone, setClientPhone] = useState("");
+  const [quoteImageUrl, setQuoteImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // --- Material preset selector (usa os parâmetros centrais do admin) ---
   function selectMaterial(key: MaterialKey) {
@@ -254,29 +259,57 @@ export function useCalculatorState() {
   const laborTotal = result.laborCost + result.extraSupplies;
   const generatedAt = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
-  // --- Save to Firestore ---
+  // --- Upload da imagem opcional do produto ---
+  const handleUploadImage = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.", { position: "bottom-center" });
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Imagem muito grande (máx. 8 MB).", { position: "bottom-center" });
+      return;
+    }
+    setUploadingImage(true);
+    try {
+      const url = await uploadQuoteImage(file);
+      setQuoteImageUrl(url);
+      toast.success("Imagem anexada.", { duration: 2200, position: "bottom-center" });
+    } catch {
+      toast.error("Falha ao enviar imagem. É preciso estar logado como admin.", { position: "bottom-center" });
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // --- Salvar orçamento no sistema (aba Orçamentos) ---
   const handleSaveCalc = async () => {
+    if (!clientName.trim()) {
+      toast.error("Informe o nome do cliente para salvar.", { position: "bottom-center" });
+      return;
+    }
     setSavingCalc(true);
     try {
-      await addDoc(collection(db, "savedCalculations"), {
-        label: saveLabel.trim() || `Orçamento ${new Date().toLocaleDateString("pt-BR")}`,
-        material, weightGrams: slicerWeight, printTimeStr, batchQuantity,
-        reservePct, failureRatePct,
-        machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
-        platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
-        kwhCost, steadyPower, laborHours, laborRate, extraSupplies,
-        wholesaleMarkup, retailMarkup, minPrice,
-        result: {
-          retailUnit: result.retailUnit, retailTotal: result.retailTotal,
-          wholesaleUnit: result.wholesaleUnit, wholesaleTotal: result.wholesaleTotal,
-          totalCost: result.totalCost, unitCost: result.unitCost,
-        },
-        createdAt: serverTimestamp(),
+      await saveQuoteFromCalc({
+        clientName,
+        phone: clientPhone,
+        pieceName: saveLabel,
+        materialLabel: MATERIAL_PRESETS[material].label,
+        weight: slicerWeight,
+        printTime: printTimeStr,
+        quantity: batchQuantity,
+        price: result.retailTotal,
+        unitPrice: result.retailUnit,
+        costTotal: result.totalCost,
+        imageUrl: quoteImageUrl || undefined,
+        notes: `Custo real ${result.totalCost.toFixed(2)} · atacado ${result.wholesaleTotal.toFixed(2)} · varejo ${result.retailTotal.toFixed(2)} · ${MATERIAL_PRESETS[material].label} ${slicerWeight}g · ${printTimeStr}`,
       });
-      toast.success("Orçamento salvo!", { duration: 2800, position: "bottom-center" });
+      toast.success("Orçamento salvo na aba Orçamentos!", { duration: 2800, position: "bottom-center" });
       setSaveLabel("");
+      setClientName("");
+      setClientPhone("");
+      setQuoteImageUrl("");
     } catch {
-      toast.error("Erro ao salvar orçamento.", { position: "bottom-center" });
+      toast.error("Erro ao salvar. É preciso estar logado como admin.", { position: "bottom-center" });
     } finally {
       setSavingCalc(false);
     }
@@ -315,6 +348,8 @@ export function useCalculatorState() {
     showLaborConfig, setShowLaborConfig,
     // save
     savingCalc, saveLabel, setSaveLabel, handleSaveCalc,
+    clientName, setClientName, clientPhone, setClientPhone,
+    quoteImageUrl, setQuoteImageUrl, uploadingImage, handleUploadImage,
     // computed
     result, machineBreak, reserveMultiplier, laborTotal, generatedAt,
   };
