@@ -7,13 +7,14 @@ import { seedProducts } from './services/seed.ts';
 import { installGlobalErrorHandlers } from './services/errorReporting.ts';
 import { getConsent } from './lib/consent.ts';
 import { initAnalytics } from './lib/analytics.ts';
+import { initWebPush } from './lib/webPush.ts';
 
 // Captura global de erros não tratados → relata ao backend (Firestore + Telegram).
 installGlobalErrorHandlers();
 
 // Se o usuário já consentiu antes, carrega analytics no boot (antes do render,
 // para os page_views por rota não perderem o disparo inicial).
-if (getConsent() === 'accepted') initAnalytics();
+if (getConsent() === 'accepted') { initAnalytics(); initWebPush(); }
 
 // Testes de conexão e seed só em desenvolvimento
 if (import.meta.env.DEV) {
