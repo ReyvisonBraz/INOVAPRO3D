@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Cookie } from "lucide-react";
 import { getConsent, setConsent } from "../lib/consent";
 import { analyticsConfigured, initAnalytics, trackPageView } from "../lib/analytics";
-import { initWebPush } from "../lib/webPush";
 
 /**
  * Banner de consentimento (LGPD). Aparece na 1ª visita. Só após "Aceitar" os
@@ -22,7 +21,6 @@ export default function CookieConsent() {
     setConsent("accepted");
     setVisible(false);
     initAnalytics();
-    initWebPush();
     trackPageView(location.pathname + location.search);
   };
 
