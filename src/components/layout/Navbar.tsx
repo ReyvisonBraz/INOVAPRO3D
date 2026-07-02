@@ -22,6 +22,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { BrandLogo } from "../brand/BrandLogo";
 import { Button } from "../ui/Button";
 import { CartSheet } from "./CartSheet";
+import { PushBell } from "../notifications/PushBell";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
 import { buildCategoryTree, categoryNameToSlug, type CategoryTreeNode } from "../../lib/categoryTree";
@@ -228,6 +229,8 @@ export function Navbar() {
             Comprar
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </Link>
+
+          <PushBell />
 
           <button
             onClick={() => setIsCartOpen(true)}

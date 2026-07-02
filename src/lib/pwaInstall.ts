@@ -26,6 +26,45 @@ if (typeof window !== "undefined") {
   });
 }
 
+// ── Contador de visitas + gate do convite de instalação ────────────────────
+const VISITS_KEY = "inovapro3d:visits";
+const INSTALL_NUDGED_KEY = "inovapro3d:install-dismissed";
+
+/** Incrementa e retorna o nº de visitas (chamar uma vez no boot). */
+export function recordVisit(): number {
+  try {
+    const n = Number(localStorage.getItem(VISITS_KEY) || 0) + 1;
+    localStorage.setItem(VISITS_KEY, String(n));
+    return n;
+  } catch {
+    return 1;
+  }
+}
+
+function getVisits(): number {
+  try {
+    return Number(localStorage.getItem(VISITS_KEY) || 0);
+  } catch {
+    return 0;
+  }
+}
+
+function installNudged(): boolean {
+  try {
+    return localStorage.getItem(INSTALL_NUDGED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function markInstallNudged(): void {
+  try {
+    localStorage.setItem(INSTALL_NUDGED_KEY, "1");
+  } catch {
+    /* modo privado / quota — ignora */
+  }
+}
+
 /** Já está rodando como app instalado? */
 export function isStandalone(): boolean {
   if (typeof window === "undefined") return false;
@@ -83,4 +122,18 @@ export function showInstallToast() {
       },
     },
   });
+}
+
+/**
+ * Convite de instalação com bom senso: só a partir da 2ª visita, uma única vez,
+ * e nunca quando já instalado. Usado pela orquestração de onboarding para o
+ * "instalar" não pesar na 1ª visita nem se repetir.
+ */
+export function maybeShowInstallToast(): void {
+  if (isStandalone()) return;
+  if (installNudged()) return;
+  if (getVisits() < 2) return;
+  if (!isIOS() && !canInstall()) return;
+  markInstallNudged();
+  showInstallToast();
 }

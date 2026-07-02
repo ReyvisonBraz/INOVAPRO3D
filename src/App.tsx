@@ -13,7 +13,8 @@ import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 import CompleteProfileModal from "./components/auth/CompleteProfileModal";
 import { WelcomeModalPresence } from "./components/welcome/WelcomeModal";
-import { showInstallToast } from "./lib/pwaInstall";
+import { maybeShowInstallToast } from "./lib/pwaInstall";
+import { OnboardingProvider, useOnboarding } from "./contexts/OnboardingContext";
 import CookieConsent from "./components/CookieConsent";
 import { trackPageView } from "./lib/analytics";
 
@@ -92,22 +93,40 @@ function WelcomeGate() {
   const { user, loading } = useAuth();
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith("/admin");
+  const { activeStep, advance } = useOnboarding();
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (loading || user || isAdminPage) return;
-    if (localStorage.getItem(WELCOME_KEY)) return;
-    setOpen(true);
-  }, [loading, user, isAdminPage]);
+    if (activeStep !== "welcome" || loading || open) return;
+    let welcomed = false;
+    try { welcomed = Boolean(localStorage.getItem(WELCOME_KEY)); } catch { /* modo privado */ }
+    if (!user && !isAdminPage && !welcomed) {
+      setOpen(true);
+    } else {
+      advance(); // não vai exibir → passa para o próximo aviso (cookies)
+    }
+  }, [activeStep, loading, open, user, isAdminPage, advance]);
 
   const handleClose = () => {
     try { localStorage.setItem(WELCOME_KEY, "1"); } catch { /* modo privado */ }
     setOpen(false);
-    // Sugere instalar o app pouco depois de fechar a tela de boas-vindas.
-    window.setTimeout(() => showInstallToast(), 1400);
+    advance();
   };
 
   return <WelcomeModalPresence open={open} onClose={handleClose} />;
+}
+
+/** Convite de instalação do app — dispara no seu passo do fluxo (2ª+ visita). */
+function InstallGate() {
+  const { activeStep, advance } = useOnboarding();
+
+  useEffect(() => {
+    if (activeStep !== "install") return;
+    maybeShowInstallToast(); // mostra o toast se fizer sentido; senão, no-op
+    advance();
+  }, [activeStep, advance]);
+
+  return null;
 }
 
 function RouterContent() {
@@ -183,8 +202,11 @@ function RouterContent() {
           <FloatingSupport />
           <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
           <ProfileModalGate />
-          <WelcomeGate />
-          <CookieConsent />
+          <OnboardingProvider>
+            <WelcomeGate />
+            <CookieConsent />
+            <InstallGate />
+          </OnboardingProvider>
         </div>
       </CartProvider>
     </AuthProvider>

@@ -34,11 +34,13 @@ Quem cria o **assinante** é o script hospedado do SendPulse. Se o site chamar
 e documentado em `memory/web-push-sendpulse.md`).
 
 Portanto, **assinar** deve passar pelo fluxo do SendPulse. O caminho suportado
-e confiável é o modo **"Ao clicar em um elemento"**: configura-se no painel um
-seletor CSS, e o clique nesse elemento dispara a inscrição do SendPulse (prompt
-nativo do navegador). Isso **também desliga o popup automático**.
+e confiável é o modo **"Ao clicar em um elemento"**: o SendPulse **não pede
+seletor** — ele observa (listener delegado no documento) qualquer elemento com a
+classe CSS **`sp_notify_prompt`**. Adicionamos essa classe ao sino no código, e o
+clique dispara a inscrição do SendPulse (prompt nativo do navegador). Isso
+**também desliga o popup automático**.
 
-- **Assinar** → responsabilidade do SendPulse (element-click no seletor do sino).
+- **Assinar** → responsabilidade do SendPulse (element-click na classe do sino).
 - **Desassinar** e **ler estado** → responsabilidade nossa, via Web Push API do
   navegador (`pushManager.getSubscription()` / `subscription.unsubscribe()`),
   independente do SendPulse.
@@ -51,8 +53,9 @@ Alternativas descartadas:
 ### Passo manual no SendPulse (pré-requisito, uma vez)
 
 Em *Sites → www.inovapro3d.com.br → Configurações do site → Solicitação de
-inscrição*: trocar para **"Ao clicar em um elemento"** e informar o seletor
-**`#sp-push-bell`**. Isso desativa o popup automático. Documentar em
+inscrição*: marcar **"Ao clicar em um elemento"** e clicar **Salvar**. Não há
+campo de seletor — o SendPulse usa a classe `sp_notify_prompt`, que o sino já
+carrega no código. Isso desativa o popup automático. Documentar em
 `memory/web-push-sendpulse.md`.
 
 ## Componentes
@@ -78,8 +81,11 @@ inscrição do SendPulse é assíncrona).
 
 ### 2. `PushBell` (componente) — `src/components/notifications/PushBell.tsx`
 
-Botão no cabeçalho com `id="sp-push-bell"` (seletor que o SendPulse observa).
-Mesmo estilo visual do botão do carrinho.
+Botão no cabeçalho que recebe a classe **`sp_notify_prompt`** (o gancho que o
+SendPulse observa) **somente quando `status === 'default'`** — assim o SendPulse
+só é acionado quando o objetivo é assinar; nos estados `subscribed`/`blocked` a
+classe some e o clique abre nosso popover. Mesmo estilo visual do botão do
+carrinho.
 
 | status | aparência | clique |
 |---|---|---|
@@ -139,7 +145,8 @@ Modificados:
   `cookies`.
 - `src/lib/pwaInstall.ts` — helpers de contador de visita e gate de exibição do
   toast (visita ≥ 2, dismiss).
-- `memory/web-push-sendpulse.md` — documentar o modo element-click + seletor.
+- `memory/web-push-sendpulse.md` — documentar o modo element-click + classe
+  `sp_notify_prompt`.
 
 ## Casos de borda
 

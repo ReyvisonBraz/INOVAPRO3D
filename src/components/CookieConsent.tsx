@@ -4,29 +4,36 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Cookie } from "lucide-react";
 import { getConsent, setConsent } from "../lib/consent";
 import { analyticsConfigured, initAnalytics, trackPageView } from "../lib/analytics";
+import { useOnboarding } from "../contexts/OnboardingContext";
 
 /**
- * Banner de consentimento (LGPD). Aparece na 1ª visita. Só após "Aceitar" os
+ * Banner de consentimento (LGPD). Faz parte da fila de onboarding: só aparece
+ * quando é o passo "cookies" e ainda não há decisão salva. Só após "Aceitar" os
  * scripts de analytics/marketing são carregados. "Rejeitar" mantém tudo desligado.
  */
 export default function CookieConsent() {
   const [visible, setVisible] = useState(false);
   const location = useLocation();
+  const { activeStep, advance } = useOnboarding();
 
   useEffect(() => {
+    if (activeStep !== "cookies") return;
     if (getConsent() === null) setVisible(true);
-  }, []);
+    else advance(); // decisão já tomada → pula para o próximo aviso
+  }, [activeStep, advance]);
 
   const accept = () => {
     setConsent("accepted");
     setVisible(false);
     initAnalytics();
     trackPageView(location.pathname + location.search);
+    advance();
   };
 
   const reject = () => {
     setConsent("rejected");
     setVisible(false);
+    advance();
   };
 
   return (
