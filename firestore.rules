@@ -108,10 +108,10 @@ service cloud.firestore {
              data.name.size() >= 1 &&
              data.name.size() <= 80 &&
              data.keys().hasOnly(['name', 'slug', 'parentId', 'image', 'description', 'order', 'active', 'createdAt', 'updatedAt']) &&
-             optionalString(data.slug, 80) &&
-             optionalString(data.parentId, 128) &&
-             optionalString(data.image, 2048) &&
-             optionalString(data.description, 500) &&
+             optionalString(data.get('slug', null), 80) &&
+             optionalString(data.get('parentId', null), 128) &&
+             optionalString(data.get('image', null), 2048) &&
+             optionalString(data.get('description', null), 500) &&
              data.createdAt == request.time;
     }
 
@@ -123,6 +123,22 @@ service cloud.firestore {
              optionalString(data.userName, 160) &&
              optionalString(data.userPhoto, 2048) &&
              data.keys().hasAll(['productId', 'userId', 'rating', 'createdAt']);
+    }
+
+    function isValidReviewVote(data) {
+      return data.reviewId is string && data.reviewId.size() <= 256 &&
+             data.productId is string && data.productId.size() <= 128 &&
+             data.userId is string &&
+             data.value is number && (data.value == 1 || data.value == -1) &&
+             data.keys().hasAll(['reviewId', 'productId', 'userId', 'value', 'createdAt']);
+    }
+
+    function isValidReviewReport(data) {
+      return data.reviewId is string && data.reviewId.size() <= 256 &&
+             data.productId is string && data.productId.size() <= 128 &&
+             data.reporterId is string &&
+             optionalString(data.reason, 500) &&
+             data.keys().hasAll(['reviewId', 'productId', 'reporterId', 'createdAt']);
     }
 
     // DEFAULT DENY
@@ -177,7 +193,26 @@ service cloud.firestore {
       allow create, update: if isSignedIn()
                             && isValidReview(incoming())
                             && incoming().userId == request.auth.uid;
+      allow update: if isAdmin(); // moderação (ocultar/reexibir)
       allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+    }
+
+    // VOTOS de "útil / não útil" nas avaliações. 1 por usuário por avaliação.
+    match /reviewVotes/{voteId} {
+      allow read: if true;
+      allow create, update: if isSignedIn()
+                            && isValidReviewVote(incoming())
+                            && incoming().userId == request.auth.uid;
+      allow delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    // DENÚNCIAS de avaliações. Criadas por qualquer logado; só admin lê/modera.
+    match /reviewReports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn()
+                    && isValidReviewReport(incoming())
+                    && incoming().reporterId == request.auth.uid;
+      allow delete: if isAdmin();
     }
 
     // NEWSLETTER

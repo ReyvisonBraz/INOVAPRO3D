@@ -266,6 +266,25 @@ export interface Review {
   userPhoto?: string | null;
   rating: number; // 1–5
   comment?: string;
+  hidden?: boolean; // ocultada pelo admin (moderação)
+  createdAt?: FirestoreDate;
+}
+
+export interface ReviewVote {
+  id: string;
+  reviewId: string;
+  productId: string;
+  userId: string;
+  value: 1 | -1; // 1 = útil, -1 = não útil
+  createdAt?: FirestoreDate;
+}
+
+export interface ReviewReport {
+  id: string;
+  reviewId: string;
+  productId: string;
+  reporterId: string;
+  reason?: string;
   createdAt?: FirestoreDate;
 }
 

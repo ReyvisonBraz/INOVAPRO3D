@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Star, MessageSquare, Trash2, LogIn, Send } from "lucide-react";
+import { Star, MessageSquare, Trash2, LogIn, Send, ThumbsUp, ThumbsDown, Flag } from "lucide-react";
 import { Stars } from "../ui/Stars";
 import { useReviews } from "../../hooks/useReviews";
 import { useAuth } from "../../contexts/AuthContext";
+import { cn } from "../../lib/utils";
 import { toast } from "sonner";
 
 function relativeDate(seconds: number): string {
@@ -13,12 +14,29 @@ function relativeDate(seconds: number): string {
 
 export function ProductReviews({ productId }: { productId: string }) {
   const { user, loginWithGoogle } = useAuth();
-  const { reviews, loading, average, count, myReview, submit, removeMine } = useReviews(productId);
+  const { reviews, loading, average, count, myReview, voteStats, submit, removeMine, vote, report } = useReviews(productId);
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [sending, setSending] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [reported, setReported] = useState<Set<string>>(new Set());
+
+  const handleVote = async (reviewId: string, value: 1 | -1) => {
+    if (!user) { loginWithGoogle().catch(() => {}); return; }
+    try { await vote(reviewId, value); } catch { toast.error("Não foi possível votar."); }
+  };
+
+  const handleReport = async (reviewId: string) => {
+    if (!user) { loginWithGoogle().catch(() => {}); return; }
+    try {
+      await report(reviewId);
+      setReported((p) => new Set(p).add(reviewId));
+      toast.success("Denúncia enviada. Nossa equipe vai revisar. Obrigado!");
+    } catch {
+      toast.error("Não foi possível enviar a denúncia.");
+    }
+  };
 
   const startForm = () => {
     setRating(myReview?.rating ?? 0);
@@ -173,6 +191,54 @@ export function ProductReviews({ productId }: { productId: string }) {
                   </div>
                 </div>
                 {r.comment && <p className="mt-3 text-sm leading-relaxed text-white/60">{r.comment}</p>}
+
+                {/* Útil / não útil + denunciar */}
+                {(() => {
+                  const st = voteStats.get(r.id) ?? { up: 0, down: 0, mine: 0 as 0 | 1 | -1 };
+                  const isOwn = r.userId === user?.uid;
+                  return (
+                    <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-white/[0.05] pt-3">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/25">Isto foi útil?</span>
+                      <button
+                        type="button"
+                        onClick={() => !isOwn && handleVote(r.id, 1)}
+                        disabled={isOwn}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-all",
+                          st.mine === 1 ? "border-green-400/30 bg-green-400/10 text-green-300" : "border-white/10 text-white/45 hover:text-white",
+                          isOwn && "opacity-40 cursor-default",
+                        )}
+                      >
+                        <ThumbsUp className="h-3 w-3" /> {st.up > 0 ? st.up : "Sim"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => !isOwn && handleVote(r.id, -1)}
+                        disabled={isOwn}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-all",
+                          st.mine === -1 ? "border-red-400/30 bg-red-400/10 text-red-300" : "border-white/10 text-white/45 hover:text-white",
+                          isOwn && "opacity-40 cursor-default",
+                        )}
+                      >
+                        <ThumbsDown className="h-3 w-3" /> {st.down > 0 ? st.down : "Não"}
+                      </button>
+                      {!isOwn && (
+                        reported.has(r.id) ? (
+                          <span className="ml-auto text-[10px] font-medium text-white/25">Denunciado ✓</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleReport(r.id)}
+                            className="ml-auto inline-flex items-center gap-1 text-[10px] font-medium text-white/25 hover:text-red-400 transition-colors"
+                          >
+                            <Flag className="h-3 w-3" /> Denunciar
+                          </button>
+                        )
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             ))
           )}

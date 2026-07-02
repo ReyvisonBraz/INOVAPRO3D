@@ -29,6 +29,7 @@ const MENU_GROUPS = [
     items: [
       { id: "crm" as AdminTabId, name: "Clientes", icon: "Users" },
       { id: "support" as AdminTabId, name: "Suporte", icon: "AlertCircle" },
+      { id: "reviews" as AdminTabId, name: "Avaliações", icon: "Star" },
       { id: "faqs" as AdminTabId, name: "FAQs", icon: "HelpCircle" },
     ],
   },
@@ -43,12 +44,12 @@ const MENU_GROUPS = [
 
 import {
   TrendingUp, Package, FileText, Folder, Printer, Box,
-  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History,
+  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History, Star,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   TrendingUp, Package, FileText, Folder, Printer, Box,
-  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History,
+  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History, Star,
 };
 
 interface AdminSidebarProps {

@@ -15,7 +15,6 @@ import { Button } from "../../components/ui/Button";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { toast } from "sonner";
-import type { Order } from "../../types/domain";
 import { trackBeginCheckout, trackPurchase } from "../../lib/analytics";
 
 // PAYMENT_DISABLED: Pagamento (Stripe/PIX) e envio suspension temporária.
@@ -79,7 +78,7 @@ export default function Checkout() {
         status: "PENDING_PAYMENT",
         paymentMethod: "manual",
         createdAt: serverTimestamp(),
-      } as Partial<Order> & Record<string, unknown>);
+      } as Record<string, unknown>);
 
       const idToken = await checkoutUser.getIdToken();
       fetch('/api/notify/new-order', {

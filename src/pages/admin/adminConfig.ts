@@ -13,6 +13,7 @@ import {
   Settings,
   Shield,
   Sparkles,
+  Star,
   Tag,
   TrendingUp,
   Truck,
@@ -35,6 +36,7 @@ export type AdminTabId =
   | "crm"
   | "support"
   | "faqs"
+  | "reviews"
   | "settings"
   | "logs";
 
@@ -62,6 +64,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { id: "crm", name: "Clientes", icon: Users },
   { id: "support", name: "Suporte", icon: AlertCircle },
   { id: "faqs", name: "FAQs", icon: HelpCircle },
+  { id: "reviews", name: "Avaliações", icon: Star },
   { id: "settings", name: "Ajustes", icon: Settings },
   { id: "logs", name: "Registro de Auditoria", icon: History },
 ];
@@ -78,6 +81,7 @@ export const ADMIN_TAB_SUBTITLES: Record<AdminTabId, string> = {
   crm: "Base de clientes e relacionamento",
   support: "Tickets e atendimento ao cliente",
   faqs: "Perguntas frequentes da loja",
+  reviews: "Moderação de avaliações e denúncias",
   settings: "Parâmetros da loja, calculadora e máquina",
   logs: "Histórico de ações administrativas",
 };

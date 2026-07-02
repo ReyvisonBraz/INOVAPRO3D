@@ -62,6 +62,7 @@ import AdminFAQPanel from "./components/AdminFAQPanel";
 import AdminShowcasePanel from "./components/AdminShowcasePanel";
 import AdminLogsPanel from "./components/AdminLogsPanel";
 import AdminErrorReportsPanel from "./components/AdminErrorReportsPanel";
+import AdminReviewsPanel from "./components/AdminReviewsPanel";
 import AdminSettingsPanel from "./components/AdminSettingsPanel";
 import { AdminCouponsPanel } from "./components/AdminCouponsPanel";
 
@@ -664,6 +665,9 @@ export default function AdminDashboard() {
                 onDelete={handleDeleteCoupon}
                 onClose={() => setCouponAdding(false)}
               />
+            )}
+            {activeTab === "reviews" && (
+              <AdminReviewsPanel />
             )}
             {activeTab === "logs" && (
               <div className="space-y-5">
