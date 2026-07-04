@@ -66,12 +66,16 @@ export function useAdminData() {
     try {
       const categoriesSnap = await getDocs(collection(db, "categories"));
       setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Category)));
-    } catch { /* categories collection may not exist yet */ }
+    } catch {
+      toast.warning("Não foi possível carregar as categorias. Tente sincronizar novamente.");
+    }
 
     try {
       const couponsSnap = await getDocs(query(collection(db, "coupons"), orderBy("createdAt", "desc")));
       setCoupons(couponsSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Coupon)));
-    } catch { /* coupons collection may not exist yet */ }
+    } catch {
+      toast.warning("Não foi possível carregar os cupons. Tente sincronizar novamente.");
+    }
   }, []);
 
   useEffect(() => {

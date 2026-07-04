@@ -76,6 +76,10 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
     try {
       const isSelected = selectedCustomer?.id === quote.id;
       const finalPrice = isSelected ? editingQuoteTotal : (quote.estimatedPrice || quote.total || 45.90);
+      if (!Number.isFinite(finalPrice) || finalPrice <= 0) {
+        toast.error("Defina o valor final do orçamento antes de aprovar.");
+        return;
+      }
       const finalInfill = isSelected ? editingQuoteInfill : (quote.infill || 20);
       const finalTime = isSelected ? editingQuoteTime : (quote.printTime || "2h 30m");
       const finalWeight = isSelected ? editingQuoteWeight : (quote.weight || 30);
