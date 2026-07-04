@@ -33,7 +33,7 @@ export function useAdminActions({
     async (type: string, id: string, newStatus: string | Record<string, unknown>) => {
       try {
         const payload = typeof newStatus === "object" ? newStatus : { status: newStatus };
-        await updateDoc(doc(db, type, id), payload);
+        await updateDoc(doc(db, type, id), payload as Record<string, any>);
         fetchData();
         if (type === "orders" && selectedOrder?.id === id) {
           setSelectedOrder((prev) => (prev ? { ...prev, ...payload } : null));

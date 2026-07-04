@@ -103,7 +103,7 @@ export function ProductionKanban({
                     </p>
 
                     <div className={isCompact ? "flex items-center justify-between border-t border-white/5 pt-2" : "flex items-center justify-between border-t border-white/5 pt-3"}>
-                      <p className="text-[11px] font-mono text-dim">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p>
+                      <p className="text-[11px] font-mono text-dim">{new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString()}</p>
                       <div className={isCompact ? "w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all" : "w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all"}>
                         <ArrowRight className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
                       </div>

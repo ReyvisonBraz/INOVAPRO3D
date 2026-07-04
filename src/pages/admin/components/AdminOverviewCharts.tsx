@@ -21,7 +21,7 @@ interface AdminOverviewChartsProps {
 export function AdminOverviewCharts({ orders }: AdminOverviewChartsProps) {
   const chartData = orders
     .map((order) => ({
-      name: new Date(order.createdAt?.seconds * 1000).toLocaleDateString() || "N/A",
+      name: new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString() || "N/A",
       total: order.total || 0,
     }))
     .reverse();

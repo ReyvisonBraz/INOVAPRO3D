@@ -1079,7 +1079,7 @@ export default function AdminDashboard() {
                   <div className="space-y-4">
                     {orders.filter((o) => o.userEmail === selectedCRMUser.email).map((order) => (
                       <div key={order.id} className="glass p-6 rounded-[32px] border border-white/5 flex items-center justify-between hover:bg-white/5 transition-all">
-                        <div><p className="text-[10px] font-mono text-dim mb-1">#{order.id.slice(0, 12)}</p><p className="text-xs font-bold uppercase">{new Date(order.createdAt?.seconds * 1000).toLocaleDateString()}</p></div>
+                        <div><p className="text-[10px] font-mono text-dim mb-1">#{order.id.slice(0, 12)}</p><p className="text-xs font-bold uppercase">{new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString()}</p></div>
                         <div className="text-center"><p className="text-[11px] font-black uppercase text-dim mb-1">Status</p><span className="text-[9px] font-black uppercase px-3 py-1 bg-white/5 rounded-full border border-white/5">{order.status}</span></div>
                         <div className="text-right">
                           <p className="text-sm font-display font-black text-primary">R$ {(order.total || 0).toFixed(2)}</p>

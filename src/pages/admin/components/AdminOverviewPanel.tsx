@@ -152,7 +152,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
       [...orders]
         .map((o) => ({
           name:
-            new Date(o.createdAt?.seconds * 1000).toLocaleDateString() || "N/A",
+            new Date((o.createdAt?.seconds ?? 0) * 1000).toLocaleDateString() || "N/A",
           total: o.total || 0,
         }))
         .reverse(),
@@ -851,7 +851,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       <div className="flex items-center justify-between border-t border-white/5 pt-2">
                         <p className="text-[11px] font-mono text-dim">
                           {new Date(
-                            o.createdAt?.seconds * 1000
+                            (o.createdAt?.seconds ?? 0) * 1000
                           ).toLocaleDateString()}
                         </p>
                         <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">

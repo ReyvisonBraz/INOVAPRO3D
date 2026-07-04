@@ -36,7 +36,7 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
       };
       if (newCategory.image) data.image = newCategory.image;
       if (isEditingCategory && editingCategoryId) {
-        await updateDoc(doc(db, "categories", editingCategoryId), data);
+        await updateDoc(doc(db, "categories", editingCategoryId), data as Record<string, any>);
         toast.success("Pasta atualizada!");
       } else {
         await addDoc(collection(db, "categories"), { ...data, createdAt: serverTimestamp() });

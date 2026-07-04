@@ -390,7 +390,7 @@ export function computePricing(input: PricingInputs): PricingResult {
 
   // --- Taxa de falha: tempo de máquina + energia perdidos numa reimpressão ---
   // (o material desperdiçado já está coberto por reservePct)
-  const failureRatePct = Math.max(0, num(input.failureRatePct));
+  const failureRatePct = Math.max(0, num(input.failureRatePct ?? 0));
   const failureLoss = (machineCost + energyCost) * (failureRatePct / 100);
 
   const totalCost =
