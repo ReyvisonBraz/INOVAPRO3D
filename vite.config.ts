@@ -21,6 +21,16 @@ export default defineConfig(() => {
       rollupOptions: {
         output: {
           manualChunks(id: string) {
+            // Helpers minúsculos usados pelo app eager: se caírem nos chunks
+            // pesados (3d/charts), o entry passa a importá-los estaticamente
+            // e o code-splitting desses chunks deixa de funcionar.
+            if (
+              id.includes('vite/preload-helper') ||
+              id.includes('node_modules/clsx') ||
+              id.includes('node_modules/zustand') ||
+              id.includes('node_modules/@babel/runtime') ||
+              id.includes('node_modules/use-sync-external-store')
+            ) return 'vendor-react';
             if (id.includes('node_modules/three') || id.includes('node_modules/@react-three')) return 'vendor-3d';
             if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) return 'vendor-charts';
             if (id.includes('node_modules/framer-motion')) return 'vendor-motion';
