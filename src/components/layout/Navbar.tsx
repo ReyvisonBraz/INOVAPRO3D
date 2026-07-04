@@ -53,6 +53,7 @@ export function Navbar() {
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
+    setIsCartOpen(false);
   }, [location]);
 
   useEffect(() => {
@@ -257,7 +258,7 @@ export function Navbar() {
           {user ? (
             <ProfileMenu
               user={user}
-              profileRole={profile?.role || "OPERATOR"}
+              profileRole={profile?.role || "CUSTOMER"}
               isOpen={isProfileMenuOpen}
               setIsOpen={setIsProfileMenuOpen}
               logout={logout}

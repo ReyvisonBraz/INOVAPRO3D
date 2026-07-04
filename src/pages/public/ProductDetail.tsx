@@ -25,6 +25,7 @@ import { db } from "../../services/firebase";
 import { DEFAULT_PRICING_SETTINGS, mergePricingSettings, formatBRL, type PricingSettings } from "../../lib/pricing";
 import { trackAddToCart } from "../../lib/analytics";
 import { ProductReviews } from "../../components/product/ProductReviews";
+import { ErrorBoundary } from "../../components/layout/ErrorBoundary";
 const STLViewer = lazy(() => import("../../components/ui/STLViewer").then(m => ({ default: m.STLViewer })));
 import { Button } from "../../components/ui/Button";
 import { useCart } from "../../contexts/CartContext";
@@ -156,7 +157,7 @@ export default function ProductDetail() {
   }, [id]);
 
   const totalPrice = product && selectedMaterial ? (product.basePrice * (selectedMaterial.priceMult ?? 1) * quantity) : 0;
-  const pixPrice = totalPrice * (1 - Math.max(0, pricing.pixDiscountPct) / 100);
+  const pixPrice = totalPrice * (1 - Math.min(100, Math.max(0, pricing.pixDiscountPct)) / 100);
   const installments = Math.max(1, Math.floor(pricing.maxInstallments));
   const installmentValue = totalPrice / installments;
 
@@ -252,9 +253,21 @@ export default function ProductDetail() {
             }}
           >
             {activeMediaTab === '3d' && hasModelUrl ? (
-              <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" /></div>}>
-                <STLViewer url={hasModelUrl} color={selectedMaterial?.color || '#2563EB'} scale={1} />
-              </Suspense>
+              <ErrorBoundary fallback={
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-center px-6">
+                    <div className="w-12 h-12 rounded-2xl bg-white/[0.03] border border-white/5 flex items-center justify-center mx-auto mb-3">
+                      <Box className="w-6 h-6 text-dim" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-secondary">Visualização 3D</p>
+                    <p className="text-xs text-subtle font-medium mt-1">Não foi possível carregar o modelo</p>
+                  </div>
+                </div>
+              }>
+                <Suspense fallback={<div className="w-full h-full flex items-center justify-center"><div className="w-8 h-8 rounded-full border-2 border-primary/30 border-t-primary animate-spin" /></div>}>
+                  <STLViewer url={hasModelUrl} color={selectedMaterial?.color || '#2563EB'} scale={1} />
+                </Suspense>
+              </ErrorBoundary>
             ) : activeMediaTab === '3d' ? (
               <div className="w-full h-full flex items-center justify-center">
                 <div className="text-center px-6">

@@ -39,9 +39,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDoc = await getDoc(userDocRef);
           
           if (!userDoc.exists()) {
+            const nameParts = currentUser.displayName?.trim().split(/\s+/) ?? [];
             const newProfile: UserProfile = {
               email: currentUser.email,
               name: currentUser.displayName,
+              firstName: nameParts[0] ?? undefined,
+              lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
               photoURL: currentUser.photoURL,
               role: 'CUSTOMER',
               createdAt: serverTimestamp(),

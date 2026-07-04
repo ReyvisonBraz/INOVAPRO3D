@@ -4,9 +4,9 @@ import { collection, query, where, onSnapshot, orderBy } from "firebase/firestor
 import { db, handleFirestoreError, OperationType } from "../../services/firebase";
 import { useAuth } from "../../contexts/AuthContext";
 import { toast } from "sonner";
-import { 
-  CheckCircle2, 
-  AlertCircle, 
+import {
+  CheckCircle2,
+  AlertCircle,
   ChevronRight,
   Printer,
   History,
@@ -15,7 +15,9 @@ import {
   ListTodo,
   Wallet,
   Zap,
-  XCircle
+  XCircle,
+  Scissors,
+  PackageCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/Button";
@@ -45,8 +47,10 @@ export default function MyOrders() {
             const STATUS_LABELS: Partial<Record<string, string>> = {
               PAID: "Pagamento Aprovado",
               QUEUE: "Fila de Impressão",
+              SLICING: "Fatiamento (Slicer)",
               PRINTING: "Imprimindo",
               FINISHING: "Acabamento",
+              READY: "Pronto para Envio",
               SHIPPED: "Enviado / Em Trânsito",
               COMPLETED: "Finalizado & Entregue",
               CANCELED: "Cancelado",
@@ -72,8 +76,10 @@ export default function MyOrders() {
       case "PENDING_PAYMENT": return <Wallet className="w-4 h-4" />;
       case "PAID": return <CheckCircle2 className="w-4 h-4" />;
       case "QUEUE": return <ListTodo className="w-4 h-4" />;
+      case "SLICING": return <Scissors className="w-4 h-4 animate-pulse" />;
       case "PRINTING": return <Zap className="w-4 h-4 animate-pulse" />;
       case "FINISHING": return <Layers className="w-4 h-4" />;
+      case "READY": return <PackageCheck className="w-4 h-4" />;
       case "SHIPPED": return <Truck className="w-4 h-4 animate-pulse" />;
       case "COMPLETED": return <CheckCircle2 className="w-4 h-4" />;
       case "CANCELED": return <XCircle className="w-4 h-4" />;
@@ -86,8 +92,10 @@ export default function MyOrders() {
       case "PENDING_PAYMENT": return "Aguardando Pagamento";
       case "PAID": return "Pagamento Aprovado";
       case "QUEUE": return "Fila de Impressão";
+      case "SLICING": return "Fatiamento (Slicer)";
       case "PRINTING": return "Imprimindo (Manufatura)";
       case "FINISHING": return "Acabamento (Q.A.)";
+      case "READY": return "Pronto para Envio";
       case "SHIPPED": return "Enviado / Em Trânsito";
       case "COMPLETED": return "Finalizado & Entregue";
       case "CANCELED": return "Cancelado";
@@ -100,8 +108,10 @@ export default function MyOrders() {
       case "PENDING_PAYMENT": return 0;
       case "PAID": return 1;
       case "QUEUE": return 2;
+      case "SLICING": return 3;
       case "PRINTING": return 3;
       case "FINISHING": return 3;
+      case "READY": return 4;
       case "SHIPPED": return 4;
       case "COMPLETED": return 5;
       case "CANCELED": return -1;

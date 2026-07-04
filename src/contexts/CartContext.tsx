@@ -12,6 +12,7 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 const CART_STORAGE_KEY = 'inovapro3d_cart';
+const MAX_QUANTITY = 99;
 
 function isCartItem(value: unknown): value is CartItem {
   if (!value || typeof value !== 'object') return false;
@@ -64,9 +65,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     setItems(prev => {
       const existing = prev.find(i => i.id === item.id);
       if (existing) {
-        return prev.map(i => i.id === item.id ? { ...i, quantity: i.quantity + item.quantity } : i);
+        return prev.map(i =>
+          i.id === item.id
+            ? { ...i, quantity: Math.min(MAX_QUANTITY, i.quantity + item.quantity) }
+            : i
+        );
       }
-      return [...prev, item];
+      return [...prev, { ...item, quantity: Math.min(MAX_QUANTITY, item.quantity) }];
     });
   };
 
@@ -76,7 +81,11 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   const updateQuantity = (id: string, delta: number) => {
     setItems(prev =>
-      prev.map(i => i.id === id ? { ...i, quantity: Math.max(1, i.quantity + delta) } : i)
+      prev.map(i =>
+        i.id === id
+          ? { ...i, quantity: Math.min(MAX_QUANTITY, Math.max(1, i.quantity + delta)) }
+          : i
+      )
     );
   };
 

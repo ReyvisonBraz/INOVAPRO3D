@@ -225,7 +225,7 @@ service cloud.firestore {
 
     // SAVED CALCULATIONS
     match /savedCalculations/{docId} {
-      allow read, write: if isSignedIn() && resource == null || request.auth.uid == resource.data.userId;
+      allow read, write: if isSignedIn() && (resource == null || request.auth.uid == resource.data.userId);
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
     }
 
