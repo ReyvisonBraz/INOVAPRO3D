@@ -3,13 +3,18 @@ import { cn } from "../../lib/utils";
 /** Ícone 3D da marca — usa o app-icon.png que já tem fundo escuro */
 export function BrandMark({ className }: { className?: string }) {
   return (
-    <img
-      src="/app-icon.png"
-      alt=""
-      aria-hidden="true"
-      className={cn("object-contain", className)}
-      draggable={false}
-    />
+    <picture>
+      <source srcSet="/app-icon-64.webp" type="image/webp" />
+      <img
+        src="/app-icon.png"
+        alt=""
+        aria-hidden="true"
+        width={36}
+        height={36}
+        className={cn("object-contain", className)}
+        draggable={false}
+      />
+    </picture>
   );
 }
 

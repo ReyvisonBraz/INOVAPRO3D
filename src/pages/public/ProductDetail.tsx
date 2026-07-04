@@ -285,6 +285,8 @@ export default function ProductDetail() {
                   src={product.images[activeMediaTab as number]}
                   alt={`${product.name} - Foto Real ${(activeMediaTab as number) + 1}`}
                   className="w-full h-full object-cover"
+                  loading="eager"
+                  decoding="async"
                   initial={{ opacity: 0, x: 24 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -24 }}

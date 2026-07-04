@@ -329,7 +329,7 @@ export default function HowItWorks() {
               >
                 <Link to={`/produto/${p.id}`} className="block group rounded-2xl border border-white/[0.06] bg-white/[0.02] overflow-hidden hover:border-primary/30 transition-all">
                   <div className="aspect-square overflow-hidden bg-black/30">
-                    <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" referrerPolicy="no-referrer" />
+                    <img src={p.images[0]} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
                   </div>
                   <div className="p-3">
                     <p className="text-[10px] font-black uppercase tracking-tight leading-tight line-clamp-2 text-white/60 group-hover:text-white transition-colors">{p.name}</p>

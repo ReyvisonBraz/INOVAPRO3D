@@ -45,7 +45,7 @@ export function useAdminActions({
         if (type === "orders" && typeof newStatus === "string") {
           const order = orders.find(o => o.id === id) ?? selectedOrder;
           const phoneRaw = (order?.phone ?? "").replace(/\D/g, "");
-          if (phoneRaw.length >= 10) {
+          if (phoneRaw.length >= 10 && phoneRaw.length <= 11) {
             const orderId = id.slice(0, 8).toUpperCase();
             const origin = window.location.origin;
             const STATUS_MESSAGES: Partial<Record<string, string>> = {
