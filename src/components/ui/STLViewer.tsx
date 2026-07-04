@@ -108,7 +108,7 @@ export function STLViewer({ url, color, scale }: STLViewerProps) {
       ref={containerRef}
       className="w-full h-full bg-[#050505] rounded-[32px] overflow-hidden border border-white/5 relative group"
     >
-      <Canvas shadows dpr={[1, 2]}>
+      <Canvas shadows dpr={[1, 2]} frameloop={autoRotate ? "always" : "demand"}>
         <PerspectiveCamera makeDefault position={[50, 50, 50]} fov={40} />
         <OrbitControls 
           enablePan={true} 

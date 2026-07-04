@@ -203,10 +203,10 @@
 .aurora-blob {
   position: absolute;
   border-radius: 9999px;
-  /* blur menor + sem mix-blend-mode = mesma vibe, MUITO mais barato de compor.
-     will-change promove a uma camada de GPU própria, então animar transform
-     não dispara repaint do conteúdo atrás. */
-  filter: blur(38px);
+  /* Sem filter: os radial-gradients já têm bordas suaves por si só. O
+     blur(38px) que existia aqui forçava a re-rasterização de camadas de
+     45-60vw a cada frame da animação de scale — era a principal fonte de
+     jank de rolagem no site inteiro, principalmente no mobile. */
   opacity: 0.55;
   will-change: transform;
 }
@@ -321,6 +321,16 @@
 @keyframes homepage-marquee-reverse {
   from { transform: translateX(-50%); }
   to   { transform: translateX(0); }
+}
+
+/* Acessibilidade + bateria: sem animações decorativas contínuas para quem
+   pediu movimento reduzido no sistema. */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-blob,
+  .homepage-marquee,
+  .homepage-marquee-reverse {
+    animation: none;
+  }
 }
 
 /* Conic shimmer para chips/badges */

@@ -139,12 +139,12 @@ function RouterContent() {
       <CartProvider>
         <div className="relative min-h-screen selection:bg-primary/30 text-foreground bg-surface transition-colors duration-300">
           <div className="noise" />
-          {/* BACKGROUND EFFECTS — blobs estáticos (compostos uma vez = baratos).
-              Sem animate-pulse: animar opacidade de um blur de 120px rerenderiza
-              a camada inteira a cada frame e era um dos motivos do travamento. */}
+          {/* BACKGROUND EFFECTS — radial-gradients em vez de filter: blur().
+              O gradiente já nasce difuso, então não há camada para o
+              compositor re-desfocar enquanto o conteúdo rola por cima. */}
           <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
-            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
-            <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-primary-dark/10 rounded-full blur-[100px]" />
+            <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[radial-gradient(circle,rgba(37,99,235,0.10),transparent_70%)]" />
+            <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-[radial-gradient(circle,rgba(30,64,175,0.10),transparent_70%)]" />
             <div className="absolute inset-0 opacity-70 bg-[linear-gradient(to_right,#64748b18_1px,transparent_1px),linear-gradient(to_bottom,#64748b18_1px,transparent_1px)] bg-[size:24px_24px]" />
           </div>
 
