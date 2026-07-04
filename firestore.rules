@@ -80,11 +80,13 @@ service cloud.firestore {
 
     function isValidOrderCreate(data) {
       return data.keys().hasAll(['userId', 'items', 'total', 'status', 'createdAt']) &&
+             data.keys().hasOnly(['userId', 'userName', 'userEmail', 'phone', 'items', 'total', 'subtotal', 'shippingRate', 'couponCode', 'couponDiscount', 'shippingAddress', 'status', 'paymentMethod', 'createdAt']) &&
              data.userId == request.auth.uid &&
              optionalString(data.userName, 160) &&
              optionalString(data.userEmail, 254) &&
+             optionalString(data.get('phone', null), 32) &&
              data.items is list && data.items.size() > 0 && data.items.size() <= 50 &&
-             data.total is number && data.total >= 0 &&
+             data.total is number && data.total > 0 &&
              data.status == 'PENDING_PAYMENT' &&
              data.createdAt == request.time;
     }
@@ -122,7 +124,8 @@ service cloud.firestore {
              (data.comment == null || (data.comment is string && data.comment.size() <= 1000)) &&
              optionalString(data.userName, 160) &&
              optionalString(data.userPhoto, 2048) &&
-             data.keys().hasAll(['productId', 'userId', 'rating', 'createdAt']);
+             data.keys().hasAll(['productId', 'userId', 'rating', 'createdAt']) &&
+             data.keys().hasOnly(['productId', 'userId', 'userName', 'userPhoto', 'rating', 'comment', 'createdAt', 'updatedAt', 'hidden']);
     }
 
     function isValidReviewVote(data) {
@@ -130,7 +133,8 @@ service cloud.firestore {
              data.productId is string && data.productId.size() <= 128 &&
              data.userId is string &&
              data.value is number && (data.value == 1 || data.value == -1) &&
-             data.keys().hasAll(['reviewId', 'productId', 'userId', 'value', 'createdAt']);
+             data.keys().hasAll(['reviewId', 'productId', 'userId', 'value', 'createdAt']) &&
+             data.keys().hasOnly(['reviewId', 'productId', 'userId', 'value', 'createdAt']);
     }
 
     function isValidReviewReport(data) {
@@ -138,7 +142,8 @@ service cloud.firestore {
              data.productId is string && data.productId.size() <= 128 &&
              data.reporterId is string &&
              optionalString(data.reason, 500) &&
-             data.keys().hasAll(['reviewId', 'productId', 'reporterId', 'createdAt']);
+             data.keys().hasAll(['reviewId', 'productId', 'reporterId', 'createdAt']) &&
+             data.keys().hasOnly(['reviewId', 'productId', 'reporterId', 'reason', 'createdAt']);
     }
 
     // DEFAULT DENY
@@ -190,9 +195,18 @@ service cloud.firestore {
     // a própria (id determinístico productId_uid → 1 por produto). Admin modera.
     match /reviews/{reviewId} {
       allow read: if true;
-      allow create, update: if isSignedIn()
-                            && isValidReview(incoming())
-                            && incoming().userId == request.auth.uid;
+      // O dono cria/edita, mas nunca controla o campo `hidden` (moderação):
+      // no create ele não pode existir; no update ele deve ser preservado —
+      // isso impede reexibir uma avaliação ocultada apenas reenviando-a.
+      allow create: if isSignedIn()
+                    && isValidReview(incoming())
+                    && incoming().userId == request.auth.uid
+                    && !('hidden' in incoming());
+      allow update: if isSignedIn()
+                    && isValidReview(incoming())
+                    && incoming().userId == request.auth.uid
+                    && existing().userId == request.auth.uid
+                    && incoming().get('hidden', null) == existing().get('hidden', null);
       allow update: if isAdmin(); // moderação (ocultar/reexibir)
       allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
     }
@@ -224,9 +238,15 @@ service cloud.firestore {
     }
 
     // SAVED CALCULATIONS
+    // Regras separadas por operação: a antiga cláusula `write` com
+    // `resource == null` permitia criar documentos com userId de terceiros
+    // (allow statements são OR — a regra de create não restringia nada).
     match /savedCalculations/{docId} {
-      allow read, write: if isSignedIn() && (resource == null || request.auth.uid == resource.data.userId);
+      allow read, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
       allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update: if isSignedIn()
+                    && request.auth.uid == resource.data.userId
+                    && incoming().userId == existing().userId;
     }
 
     // CUSTOMERS
