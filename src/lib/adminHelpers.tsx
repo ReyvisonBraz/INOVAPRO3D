@@ -41,6 +41,16 @@ function isExternalUrl(url: string): boolean {
   }
 }
 
+/** URL externa que ainda não passou pela otimização (não está no nosso Storage). */
+export function isUnoptimizedExternalUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host !== window.location.hostname && host !== "firebasestorage.googleapis.com";
+  } catch {
+    return false;
+  }
+}
+
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -49,6 +59,33 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     img.onerror = () => reject(new Error("cors"));
     img.src = src;
   });
+}
+
+const WEBP_MAX_DIMENSION = 1200;
+const WEBP_QUALITY = 0.85;
+
+function toWebpBlob(img: HTMLImageElement): Promise<Blob> {
+  const scale = Math.min(1, WEBP_MAX_DIMENSION / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round((img.naturalWidth || WEBP_MAX_DIMENSION) * scale);
+  canvas.height = Math.round((img.naturalHeight || WEBP_MAX_DIMENSION) * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return Promise.reject(new Error("canvas"));
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  return new Promise<Blob>((res, rej) =>
+    canvas.toBlob(b => (b ? res(b) : rej(new Error("blob"))), "image/webp", WEBP_QUALITY)
+  );
+}
+
+/** Redimensiona e converte um arquivo local (upload do admin) para WebP. */
+export async function fileToWebpBlob(file: File): Promise<Blob> {
+  const objectUrl = URL.createObjectURL(file);
+  try {
+    const img = await loadImage(objectUrl);
+    return await toWebpBlob(img);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
 }
 
 export async function importAndConvertImage(
@@ -65,18 +102,7 @@ export async function importAndConvertImage(
     img = await loadImage(`/api/proxy-image?url=${encodeURIComponent(url)}`);
   }
 
-  const MAX = 1200;
-  const scale = Math.min(1, MAX / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round((img.naturalWidth || 1200) * scale);
-  canvas.height = Math.round((img.naturalHeight || 1200) * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("canvas");
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-  const blob = await new Promise<Blob>((res, rej) =>
-    canvas.toBlob(b => (b ? res(b) : rej(new Error("blob"))), "image/webp", 0.85)
-  );
+  const blob = await toWebpBlob(img);
 
   const { ref: storageRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
   const path = `products/imports/${Date.now()}_${Math.random().toString(36).slice(2)}.webp`;

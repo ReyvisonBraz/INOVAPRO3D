@@ -14,6 +14,8 @@ import {
   formatCatalogTitle,
   formatCatalogDescription,
   importAndConvertImage,
+  isUnoptimizedExternalUrl,
+  fileToWebpBlob,
 } from "../../../lib/adminHelpers";
 import type { Category, Product } from "../../../types/domain";
 
@@ -63,11 +65,38 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
     async (e: FormEvent) => {
       e.preventDefault();
       try {
+        // Varredura final: qualquer imagem externa que escapou da conversão
+        // (CORS na importação, URL colada sem converter) ganha uma última
+        // tentativa antes de ir para o Firestore — senão o cliente baixa o
+        // arquivo original full-res (2-10MB nos CDNs da Bambu/MakerWorld).
+        let images = newProduct.images.filter(Boolean);
+        const pending = images.filter(isUnoptimizedExternalUrl);
+        if (pending.length > 0) {
+          const toastId = toast.loading(`Otimizando ${pending.length} ${pending.length === 1 ? "imagem externa" : "imagens externas"}...`);
+          const { getStorage } = await import("firebase/storage");
+          const bucket = getStorage();
+          let fails = 0;
+          images = await Promise.all(images.map(async (img) => {
+            if (!isUnoptimizedExternalUrl(img)) return img;
+            try {
+              return (await importAndConvertImage(img, bucket)).url;
+            } catch {
+              fails++;
+              return img;
+            }
+          }));
+          if (fails === 0) {
+            toast.success("Imagens otimizadas para WebP!", { id: toastId });
+          } else {
+            toast.warning(`${fails} imagem(ns) não puderam ser convertidas e mantêm o link original.`, { id: toastId });
+          }
+        }
+        const payload = { ...newProduct, images };
         if (isEditingProduct && selectedProduct) {
-          await updateDoc(doc(db, "products", selectedProduct.id), { ...newProduct, updatedAt: serverTimestamp() });
+          await updateDoc(doc(db, "products", selectedProduct.id), { ...payload, updatedAt: serverTimestamp() });
           toast.success("Produto atualizado com sucesso!");
         } else {
-          await addDoc(collection(db, "products"), { ...newProduct, createdAt: serverTimestamp() });
+          await addDoc(collection(db, "products"), { ...payload, createdAt: serverTimestamp() });
           toast.success("Produto adicionado ao catálogo!");
         }
         setIsAddingProduct(false);
@@ -179,13 +208,24 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
     if (file.size > MAX_SIZE) { toast.error("Imagem excede 5MB. Reduza o tamanho antes de enviar."); return; }
     try {
       setIsUploadingProductImage(true);
-      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
       const safeName = file.name.replace(/\.[^.]+$/, "").normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-")
         .replace(/^-+|-+$/g, "").toLowerCase().slice(0, 60) || "imagem";
+
+      // Converte para WebP (m\u00e1x 1200px) antes de subir; se o navegador n\u00e3o
+      // conseguir decodificar o formato, sobe o arquivo original mesmo.
+      let payload: Blob = file;
+      let contentType = file.type;
+      let extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      try {
+        payload = await fileToWebpBlob(file);
+        contentType = "image/webp";
+        extension = "webp";
+      } catch { /* mant\u00e9m o arquivo original */ }
+
       const path = `products/manual/${auth.currentUser.uid}/${Date.now()}-${safeName}.${extension}`;
       const fileRef = storageRef(await getStorageInstance(), path);
-      await uploadBytes(fileRef, file, { contentType: file.type, customMetadata: { uploadedBy: auth.currentUser.uid, source: "admin-product-form" } });
+      await uploadBytes(fileRef, payload, { contentType, customMetadata: { uploadedBy: auth.currentUser.uid, source: "admin-product-form" } });
       const downloadUrl = await getDownloadURL(fileRef);
       setNewProduct((current) => ({ ...current, images: [...current.images.filter(Boolean), downloadUrl] }));
       toast.success("Imagem enviada e adicionada ao produto.");
