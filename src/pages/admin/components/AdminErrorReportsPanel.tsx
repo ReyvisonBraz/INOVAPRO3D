@@ -72,6 +72,9 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const stats = useMemo(() => {
+    // Corte de "últimas 24h" para estatísticas; ficar levemente defasado
+    // entre renders é irrelevante.
+    // eslint-disable-next-line react-hooks/purity
     const dayAgo = Date.now() - 24 * 3600 * 1000;
     return {
       total: data.length,

@@ -27,6 +27,10 @@ export function useFirestoreCollection<T extends { id: string }>(
 ) {
   const { enabled = true } = options;
   const optionsRef = useRef(options);
+  // Padrão "latest ref": manter a ref sempre atual permite passar
+  // constraints/transform inline sem disparar re-fetch; mover para um
+  // effect deixaria refetch() ler valor velho.
+  // eslint-disable-next-line react-hooks/refs
   optionsRef.current = options;
 
   const [data, setData] = useState<T[]>([]);

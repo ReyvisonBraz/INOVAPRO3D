@@ -117,6 +117,9 @@ export default function ProductDetail() {
     if (product?.images?.length) {
       setActiveMediaTab(0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset da aba só
+    // quando troca de produto; reagir a images.length re-selecionaria a aba
+    // no meio da navegação do usuário.
   }, [product?.id]);
 
   // Pré-seleciona o primeiro material assim que a lista chega

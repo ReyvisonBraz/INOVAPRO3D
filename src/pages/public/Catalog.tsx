@@ -245,14 +245,14 @@ export default function Catalog() {
     toast.success(`${product.name} adicionado!`, { icon: <ShoppingCart className="w-4 h-4" /> });
   }, [addItem]);
 
-  const sortProducts = (list: Product[]) => {
-    if (sortBy === "price-asc") return [...list].sort((a, b) => (a.basePrice || 0) - (b.basePrice || 0));
-    if (sortBy === "price-desc") return [...list].sort((a, b) => (b.basePrice || 0) - (a.basePrice || 0));
-    if (sortBy === "newest") return list;
-    return [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  };
-
   const groups = useMemo(() => {
+    const sortProducts = (list: Product[]) => {
+      if (sortBy === "price-asc") return [...list].sort((a, b) => (a.basePrice || 0) - (b.basePrice || 0));
+      if (sortBy === "price-desc") return [...list].sort((a, b) => (b.basePrice || 0) - (a.basePrice || 0));
+      if (sortBy === "newest") return list;
+      return [...list].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+    };
+
     const term = searchTerm.toLowerCase();
 
     if (selectedCategory === "TODOS") {

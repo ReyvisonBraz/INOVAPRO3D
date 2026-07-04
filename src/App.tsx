@@ -47,8 +47,11 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "instant" });
-    trackPageView(location.pathname + location.search);
   }, [location.pathname]);
+
+  useEffect(() => {
+    trackPageView(location.pathname + location.search);
+  }, [location.pathname, location.search]);
 
   return (
     <AnimatePresence mode="wait">

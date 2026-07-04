@@ -139,7 +139,6 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   onDeleteOrder,
   onTabChange,
   onSendWhatsAppQuote,
-  machineConfig,
   quickCalcImageUrl,
   setQuickCalcImageUrl,
   quickCalcUploadingImage,

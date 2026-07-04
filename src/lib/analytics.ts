@@ -3,6 +3,9 @@
 // configurado, tudo vira no-op silencioso.
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable prefer-rest-params, prefer-spread, @typescript-eslint/no-unused-expressions --
+   os snippets oficiais do gtag e do Meta Pixel usam `arguments` e `.apply()`
+   por design; reescrevê-los quebraria a compatibilidade documentada. */
 declare global {
   interface Window {
     dataLayer?: any[];
