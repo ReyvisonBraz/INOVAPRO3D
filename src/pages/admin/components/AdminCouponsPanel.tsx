@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Plus, Tag, Trash2, ToggleLeft, ToggleRight, X } from "lucide-react";
 import type { Coupon } from "../../../types/domain";
 import type { NewCouponForm } from "../hooks/useCouponAdmin";
+import { toJsDate } from "../../../lib/utils";
 
 interface Props {
   coupons: Coupon[];
@@ -113,7 +114,7 @@ export function AdminCouponsPanel({ coupons, isAdding, form, setForm, onOpen, on
       ) : (
         <div className="space-y-3">
           {coupons.map(c => {
-            const expiry = c.expiresAt ? (c.expiresAt as any).toDate?.() ?? new Date(c.expiresAt as any) : null;
+            const expiry = toJsDate(c.expiresAt);
             const expired = expiry && expiry < new Date();
             return (
               <div key={c.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all ${c.active && !expired ? "bg-white/[0.03] border-white/8" : "bg-white/[0.015] border-white/5 opacity-60"}`}>

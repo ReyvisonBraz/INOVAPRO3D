@@ -86,10 +86,11 @@ export function useAdminActions({
           await fetchData();
         }
         toast.success("Item excluído com sucesso!");
-      } catch (err: any) {
-        const msg = err?.code === "permission-denied"
+      } catch (err) {
+        const e = err as { code?: string; message?: string };
+        const msg = e.code === "permission-denied"
           ? "Sem permissão para excluir. Verifique as regras do Firestore."
-          : err?.message || "Erro ao excluir item.";
+          : e.message || "Erro ao excluir item.";
         toast.error(msg);
       }
     },

@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "../services/firebase";
 import type { Coupon } from "../types/domain";
+import { toJsDate } from "../lib/utils";
 
 interface CouponState {
   coupon: Coupon | null;
@@ -37,8 +38,8 @@ export function useCoupon(orderTotal: number) {
       const coupon = { id: snap.docs[0].id, ...snap.docs[0].data() } as Coupon;
 
       if (coupon.expiresAt) {
-        const expiry = (coupon.expiresAt as any).toDate?.() ?? new Date(coupon.expiresAt as any);
-        if (expiry < new Date()) {
+        const expiry = toJsDate(coupon.expiresAt);
+        if (expiry && expiry < new Date()) {
           setState(s => ({ ...s, loading: false, error: "Este cupom já expirou." }));
           return;
         }

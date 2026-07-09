@@ -1,6 +1,6 @@
 import { memo, type FC, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { cn } from "../../../lib/utils";
+import { cn, toJsDate } from "../../../lib/utils";
 import {
   Wallet, CheckCircle2, ListTodo, Zap, Layers, Truck, Shield,
   ArrowRight, XCircle, Trash2, Search, ChevronDown, ChevronUp,
@@ -135,9 +135,9 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
     return sortDir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />;
   };
 
-  const formatDate = (ts: any) => {
-    if (!ts) return "—";
-    const d = new Date((ts.seconds || 0) * 1000);
+  const formatDate = (ts: unknown) => {
+    const d = toJsDate(ts);
+    if (!d) return "—";
     return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
 

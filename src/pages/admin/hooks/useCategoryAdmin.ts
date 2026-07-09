@@ -45,10 +45,11 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
       setIsAddingCategory(false); setIsEditingCategory(false); setEditingCategoryId(null);
       setNewCategory({ name: "", image: "", active: true, parentId: "" });
       await fetchData();
-    } catch (err: any) {
+    } catch (err) {
       console.error("[categoria] falha ao salvar pasta:", err);
-      const code = err?.code ? ` (${err.code})` : "";
-      toast.error(`${err?.message || "Erro ao salvar pasta."}${code}`);
+      const e = err as { code?: string; message?: string };
+      const code = e.code ? ` (${e.code})` : "";
+      toast.error(`${e.message || "Erro ao salvar pasta."}${code}`);
     }
   }, [newCategory, isEditingCategory, editingCategoryId, categories.length, fetchData]);
 
@@ -71,9 +72,10 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
       const url = await getDownloadURL(fileRef);
       setNewCategory(prev => ({ ...prev, image: url }));
       toast.success("Capa enviada!");
-    } catch (err: any) {
+    } catch (err) {
       console.error("[categoria] falha no upload da capa:", err);
-      const code = err?.code ? ` (${err.code})` : "";
+      const e = err as { code?: string };
+      const code = e.code ? ` (${e.code})` : "";
       toast.error(`Erro ao enviar imagem${code}.`);
     }
     finally { setIsUploadingCategoryImage(false); }
