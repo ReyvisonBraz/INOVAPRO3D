@@ -12,8 +12,7 @@ import {
 import { useCart } from "../../contexts/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "../../components/ui/Button";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db, handleFirestoreError, OperationType } from "../../services/firebase";
+import { auth } from "../../services/firebase";
 import { toast } from "sonner";
 import { trackBeginCheckout, trackPurchase } from "../../lib/analytics";
 
@@ -64,31 +63,38 @@ export default function Checkout() {
 
     setLoading(true);
     try {
-      const orderRef = await addDoc(collection(db, "orders"), {
-        userId: checkoutUser.uid,
-        userName: checkoutUser.displayName || checkoutUser.email,
-        userEmail: checkoutUser.email,
-        items,
-        total,
-        subtotal: total,
-        shippingRate: 0,
-        couponCode: null,
-        couponDiscount: null,
-        shippingAddress: null,
-        status: "PENDING_PAYMENT",
-        paymentMethod: "manual",
-        createdAt: serverTimestamp(),
-      } as Record<string, unknown>);
-
       const idToken = await checkoutUser.getIdToken();
+      const payloadItems = items.map((i) => ({
+        type: i.type,
+        productId: i.productId,
+        materialId: i.materialId,
+        quantity: i.quantity,
+      }));
+
+      const resp = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
+        body: JSON.stringify({
+          items: payloadItems,
+          userName: checkoutUser.displayName || checkoutUser.email,
+          userEmail: checkoutUser.email,
+        }),
+      });
+      if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        toast.error(err.error || 'Erro ao gerar pedido. Tente novamente.');
+        return;
+      }
+      const { orderId, total: serverTotal } = (await resp.json()) as { orderId: string; total: number };
+
       fetch('/api/notify/new-order', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${idToken}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
         body: JSON.stringify({
-          orderId: orderRef.id,
+          orderId,
           customerName: checkoutUser.displayName || checkoutUser.email,
           customerEmail: checkoutUser.email,
-          total,
+          total: serverTotal,
           itemCount: items.length,
           paymentMethod: 'manual',
         }),
@@ -96,15 +102,14 @@ export default function Checkout() {
 
       if (!trackedPurchase.current) {
         trackedPurchase.current = true;
-        trackPurchase(lastTotalRef.current, orderRef.id);
+        trackPurchase(serverTotal, orderId);
       }
 
-      setCreatedOrderId(orderRef.id);
+      setCreatedOrderId(orderId);
       setStep(2);
       clearCart();
       toast.success("Pedido recebido!", { description: "Entraremos em contato para combinar pagamento e entrega." });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, "orders");
+    } catch {
       toast.error("Erro ao gerar pedido. Tente novamente.");
     } finally { setLoading(false); }
   };
