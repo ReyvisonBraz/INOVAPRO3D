@@ -122,6 +122,7 @@ export default function Home() {
       quantity: 1,
       image: product.images?.[0],
       type: "PRODUCT",
+      productId: product.id,
     });
     toast.success(`${product.name} adicionado ao carrinho`);
   };

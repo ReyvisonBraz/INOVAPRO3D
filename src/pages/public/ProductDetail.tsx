@@ -172,7 +172,9 @@ export default function ProductDetail() {
       price: totalPrice / quantity,
       quantity: quantity,
       image: product.images?.[0] ?? "",
-      type: 'PRODUCT'
+      type: 'PRODUCT',
+      productId: product.id,
+      materialId: selectedMaterial.id,
     });
     trackAddToCart(totalPrice, product.name);
     return true;

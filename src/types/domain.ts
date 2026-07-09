@@ -28,6 +28,10 @@ export interface CartItem {
   quantity: number;
   image?: string;
   type: CartItemType;
+  /** Id do produto de origem (para recálculo de preço no servidor). */
+  productId?: string;
+  /** Id do material selecionado, quando houver. */
+  materialId?: string;
   options?: Record<string, string | number | boolean | null | undefined>;
 }
 

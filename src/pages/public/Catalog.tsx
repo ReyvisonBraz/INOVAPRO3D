@@ -241,7 +241,7 @@ export default function Catalog() {
   };
 
   const handleAddToCart = useCallback((product: Product) => {
-    addItem({ id: product.id, name: product.name, price: product.basePrice, quantity: 1, image: product.images[0], type: "PRODUCT" });
+    addItem({ id: product.id, name: product.name, price: product.basePrice, quantity: 1, image: product.images[0], type: "PRODUCT", productId: product.id });
     toast.success(`${product.name} adicionado!`, { icon: <ShoppingCart className="w-4 h-4" /> });
   }, [addItem]);
 
