@@ -392,6 +392,17 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
+    // Paridade com vercel.json para quando o app é auto-hospedado (npm start).
+    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://apis.google.com https://www.googletagmanager.com https://connect.facebook.net https://analytics.tiktok.com https://web.webpushs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://api.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.tiktok.com https://connect.facebook.net https://www.facebook.com wss://*.firestore.googleapis.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    app.use((_req, res, next) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("X-Frame-Options", "DENY");
+      res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+      res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+      res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(self)");
+      res.setHeader("Content-Security-Policy", CSP);
+      next();
+    });
     const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
     app.get("*", (_req, res) => {
