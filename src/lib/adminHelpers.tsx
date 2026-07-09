@@ -1,4 +1,5 @@
 import { memo, useState, useEffect } from "react";
+import type { FirebaseStorage } from "firebase/storage";
 
 export type AdminTabId = 'overview' | 'orders' | 'quotes' | 'products' | 'categories' | 'materials' | 'showcase' | 'coupons' | 'crm' | 'support' | 'faqs' | 'reviews' | 'settings' | 'logs';
 
@@ -90,7 +91,7 @@ export async function fileToWebpBlob(file: File): Promise<Blob> {
 
 export async function importAndConvertImage(
   url: string,
-  storageBucket: any
+  storageBucket: FirebaseStorage
 ): Promise<{ url: string; converted: boolean }> {
   // Try direct load first (works for CORS-friendly hosts); fall back to the
   // server proxy for hosts that block cross-origin canvas access.

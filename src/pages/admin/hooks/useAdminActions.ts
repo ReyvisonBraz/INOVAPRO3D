@@ -1,5 +1,5 @@
 import { Dispatch, SetStateAction, useCallback } from "react";
-import { doc, updateDoc, deleteDoc, serverTimestamp } from "firebase/firestore";
+import { doc, updateDoc, deleteDoc, serverTimestamp, type UpdateData, type DocumentData } from "firebase/firestore";
 import { toast } from "sonner";
 import { db, handleFirestoreError, OperationType } from "../../../services/firebase";
 import type { Order, Quote, Ticket } from "../../../types/domain";
@@ -33,7 +33,7 @@ export function useAdminActions({
     async (type: string, id: string, newStatus: string | Record<string, unknown>) => {
       try {
         const payload = typeof newStatus === "object" ? newStatus : { status: newStatus };
-        await updateDoc(doc(db, type, id), payload as Record<string, any>);
+        await updateDoc(doc(db, type, id), payload as UpdateData<DocumentData>);
         fetchData();
         if (type === "orders" && selectedOrder?.id === id) {
           setSelectedOrder((prev) => (prev ? { ...prev, ...payload } : null));

@@ -1,5 +1,5 @@
 import { Dispatch, FormEvent, SetStateAction, useCallback, useState } from "react";
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { addDoc, collection, doc, serverTimestamp, updateDoc, type UpdateData, type DocumentData } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import { auth, db, getStorageInstance } from "../../../services/firebase";
@@ -36,7 +36,7 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
       };
       if (newCategory.image) data.image = newCategory.image;
       if (isEditingCategory && editingCategoryId) {
-        await updateDoc(doc(db, "categories", editingCategoryId), data as Record<string, any>);
+        await updateDoc(doc(db, "categories", editingCategoryId), data as UpdateData<DocumentData>);
         toast.success("Pasta atualizada!");
       } else {
         await addDoc(collection(db, "categories"), { ...data, createdAt: serverTimestamp() });
