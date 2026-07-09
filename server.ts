@@ -8,6 +8,7 @@ import { buildErrorReport } from "./api/_reportError.ts";
 import { buildSitemapXml, siteBaseUrl, SITEMAP_STATIC_PATHS, type SitemapUrl } from "./api/_sitemap.ts";
 import { sendEmail } from "./api/_email.ts";
 import { orderConfirmationEmail } from "./api/_emailTemplates.ts";
+import { computeOrderTotal, type OrderLineInput, type ProductRecord, type MaterialRecord } from "./api/_orderPricing.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -164,6 +165,83 @@ async function startServer() {
   }
 
   app.use(express.json());
+
+  // ── Criação de pedido com preço recalculado no servidor ───────────────────
+  // O cliente envia SÓ itens e quantidades. O total é recomputado do catálogo
+  // (Admin SDK bypassa as regras). Fecha a manipulação de preço via localStorage.
+  app.post('/api/orders/create', rateLimit(10), async (req, res) => {
+    const uid = await verifyToken(req);
+    if (!uid) { res.status(401).json({ error: 'Não autorizado.' }); return; }
+    if (!isAdminSdkConfigured() || uid === 'unchecked') {
+      // Sem Admin SDK não há recálculo confiável — recusa explícita (evita fallback inseguro).
+      res.status(503).json({ error: 'Criação de pedido indisponível (servidor não configurado).' });
+      return;
+    }
+
+    const body = req.body as {
+      items?: OrderLineInput[]; userName?: string; userEmail?: string; phone?: string;
+    };
+    const items = Array.isArray(body.items) ? body.items : [];
+
+    const productIds = [...new Set(items.filter((i) => i?.type === 'PRODUCT' && i.productId).map((i) => i.productId as string))];
+    const materialIds = [...new Set(items.map((i) => i?.materialId).filter((x): x is string => !!x))];
+
+    const adminDb = getAdminDb();
+    const products = new Map<string, ProductRecord>();
+    const materials = new Map<string, MaterialRecord>();
+    try {
+      await Promise.all(productIds.map(async (id) => {
+        const snap = await adminDb.collection('products').doc(id).get();
+        if (snap.exists) {
+          const d = snap.data()!;
+          products.set(id, { basePrice: Number(d.basePrice), active: d.active, name: d.name });
+        }
+      }));
+      await Promise.all(materialIds.map(async (id) => {
+        const snap = await adminDb.collection('materials').doc(id).get();
+        if (snap.exists) {
+          const d = snap.data()!;
+          materials.set(id, { priceMult: d.priceMult, name: d.name });
+        }
+      }));
+    } catch {
+      res.status(500).json({ error: 'Erro ao carregar catálogo.' }); return;
+    }
+
+    const result = computeOrderTotal(items, products, materials);
+    if (!result.ok) { res.status(400).json({ error: result.error }); return; }
+
+    try {
+      const orderItems = result.lines.map((l) => ({
+        id: l.materialId ? `${l.productId}-${l.materialId}` : l.productId,
+        productId: l.productId,
+        materialId: l.materialId,
+        name: l.name,
+        price: l.unitPrice,
+        quantity: l.quantity,
+        type: 'PRODUCT',
+      }));
+      const ref = await adminDb.collection('orders').add({
+        userId: uid,
+        userName: body.userName ?? null,
+        userEmail: body.userEmail ?? null,
+        phone: body.phone ?? null,
+        items: orderItems,
+        subtotal: result.total,
+        total: result.total,
+        shippingRate: 0,
+        couponCode: null,
+        couponDiscount: null,
+        shippingAddress: null,
+        status: 'PENDING_PAYMENT',
+        paymentMethod: 'manual',
+        createdAt: new Date(),
+      });
+      res.json({ orderId: ref.id, total: result.total });
+    } catch {
+      res.status(500).json({ error: 'Erro ao criar pedido.' });
+    }
+  });
 
   // ── New order notification ─────────────────────────────────────────────────
   // Auth required to prevent Telegram spam from unauthenticated callers.
