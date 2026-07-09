@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- Provider + hook no mesmo módulo é o padrão idiomático deste projeto (não afeta runtime, só Fast Refresh). */
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 type ThemeMode = "light" | "dark";

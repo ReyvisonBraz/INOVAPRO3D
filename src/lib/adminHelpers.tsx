@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- módulo de helpers do admin que também exporta um componente (NumInput); separar não traria ganho de runtime. */
 import { memo, useState, useEffect } from "react";
 import type { FirebaseStorage } from "firebase/storage";
 

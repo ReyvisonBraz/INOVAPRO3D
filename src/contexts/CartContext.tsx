@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components -- Provider + hook no mesmo módulo é o padrão idiomático deste projeto (não afeta runtime, só Fast Refresh). */
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import type { CartItem } from '../types/domain';
 
