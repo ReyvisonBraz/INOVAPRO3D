@@ -78,19 +78,6 @@ service cloud.firestore {
              optionalString(data.phone, 32);
     }
 
-    function isValidOrderCreate(data) {
-      return data.keys().hasAll(['userId', 'items', 'total', 'status', 'createdAt']) &&
-             data.keys().hasOnly(['userId', 'userName', 'userEmail', 'phone', 'items', 'total', 'subtotal', 'shippingRate', 'couponCode', 'couponDiscount', 'shippingAddress', 'status', 'paymentMethod', 'createdAt']) &&
-             data.userId == request.auth.uid &&
-             optionalString(data.userName, 160) &&
-             optionalString(data.userEmail, 254) &&
-             optionalString(data.get('phone', null), 32) &&
-             data.items is list && data.items.size() > 0 && data.items.size() <= 50 &&
-             data.total is number && data.total > 0 &&
-             data.status == 'PENDING_PAYMENT' &&
-             data.createdAt == request.time;
-    }
-
     function isValidQuoteCreate(data) {
       return data.keys().hasOnly(['userId', 'userName', 'userEmail', 'status', 'fileName', 'materialId', 'infill', 'estimatedPrice', 'createdAt']) &&
              data.keys().hasAll(['userId', 'status', 'fileName', 'materialId', 'infill', 'createdAt']) &&
@@ -289,10 +276,12 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // ORDERS
+    // ORDERS — criação SÓ via servidor (Admin SDK, que recalcula o total) ou
+    // por um admin autenticado. O cliente não grava pedido direto: isso
+    // fechava a manipulação de preço via localStorage.
     match /orders/{orderId} {
       allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow create: if isAdmin() || (isSignedIn() && isValidOrderCreate(incoming()));
+      allow create: if isAdmin();
       allow write: if isAdmin();
     }
 
