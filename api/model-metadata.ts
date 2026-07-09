@@ -1,6 +1,7 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { readModelMetadata } from "./_modelMetadata.js";
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
     res.status(405).json({ error: "Metodo nao permitido." });

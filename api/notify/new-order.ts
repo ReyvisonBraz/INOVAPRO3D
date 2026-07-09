@@ -1,3 +1,4 @@
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, isAdminSdkConfigured } from "../firebaseAdmin.js";
 import { sendEmail } from "../_email.js";
 import { orderConfirmationEmail } from "../_emailTemplates.js";
@@ -30,7 +31,7 @@ function brl(v?: number): string {
   return (v ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método não permitido." });

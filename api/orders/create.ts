@@ -1,6 +1,7 @@
 // Função serverless (Vercel) para criar pedido com o total recalculado no
 // servidor. Espelha o endpoint Express em server.ts — na Vercel o runtime de
 // produção são estas funções de api/, não o Express. Mantenha os dois em sincronia.
+import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../firebaseAdmin.js";
 import { computeOrderTotal, type OrderLineInput, type ProductRecord, type MaterialRecord } from "../_orderPricing.js";
 
@@ -11,7 +12,7 @@ interface CreateOrderPayload {
   phone?: string;
 }
 
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método não permitido." });
