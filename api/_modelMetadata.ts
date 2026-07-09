@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- parsing de JSON externo (MakerWorld/Bambu) profundamente aninhado e sem contrato estável; trocar por unknown exigiria narrowing em dezenas de acessos, sem ganho real de segurança. */
 const DIRECT_MODEL_FILE_PATTERN = /\.(stl|3mf|obj|step|stp|iges|igs|zip)(\?.*)?$/i;
 const DEFAULT_MODEL_IMPORT_HOSTS = ["makerworld.com", "bambulab.com", "bambulab.cn"];
 const BAMBU_API_BASE_URL = "https://api.bambulab.com/v1/design-service/design";
