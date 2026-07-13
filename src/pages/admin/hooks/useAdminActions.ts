@@ -3,6 +3,8 @@ import { doc, updateDoc, deleteDoc, serverTimestamp, type UpdateData, type Docum
 import { toast } from "sonner";
 import { db, handleFirestoreError, OperationType } from "../../../services/firebase";
 import type { Order, Quote, Ticket } from "../../../types/domain";
+import type { OrderStatus } from "../../../types/domain";
+import { InsufficientInventoryError, transitionOrderStatus } from "../../../services/inventory";
 
 interface Deps {
   orders: Order[];
@@ -33,7 +35,13 @@ export function useAdminActions({
     async (type: string, id: string, newStatus: string | Record<string, unknown>) => {
       try {
         const payload = typeof newStatus === "object" ? newStatus : { status: newStatus };
-        await updateDoc(doc(db, type, id), payload as UpdateData<DocumentData>);
+        if (type === "orders" && typeof newStatus === "string") {
+          const order = orders.find((item) => item.id === id) ?? selectedOrder;
+          if (!order) throw new Error("Pedido nao encontrado para atualizar o status.");
+          await transitionOrderStatus(order, newStatus as OrderStatus);
+        } else {
+          await updateDoc(doc(db, type, id), payload as UpdateData<DocumentData>);
+        }
         fetchData();
         if (type === "orders" && selectedOrder?.id === id) {
           setSelectedOrder((prev) => (prev ? { ...prev, ...payload } : null));
@@ -68,6 +76,10 @@ export function useAdminActions({
 
         toast.success("Registro atualizado com sucesso!");
       } catch (err) {
+        if (err instanceof InsufficientInventoryError) {
+          toast.error("Filamento insuficiente", { description: err.shortages.join("; ") });
+          return;
+        }
         handleFirestoreError(err, OperationType.UPDATE, `${type}/${id}`);
       }
     },

@@ -164,6 +164,13 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Livro-razao do estoque. Movimentacoes sao criadas pelas operacoes
+    // administrativas e nao podem ser alteradas depois de registradas.
+    match /inventoryMovements/{movementId} {
+      allow read, create: if isAdmin();
+      allow update, delete: if false;
+    }
+
     // CATEGORIES
     match /categories/{categoryId} {
       allow read: if true;

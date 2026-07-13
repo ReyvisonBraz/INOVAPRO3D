@@ -65,6 +65,8 @@ import AdminErrorReportsPanel from "./components/AdminErrorReportsPanel";
 import AdminReviewsPanel from "./components/AdminReviewsPanel";
 import AdminSettingsPanel from "./components/AdminSettingsPanel";
 import { AdminCouponsPanel } from "./components/AdminCouponsPanel";
+import { AdminManualSaleModal } from "./components/AdminManualSaleModal";
+import { adjustMaterialStock } from "../../services/inventory";
 
 export default function AdminDashboard() {
   // ── Dados de todas as coleções + listener de pedidos novos ──
@@ -78,6 +80,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [auditView, setAuditView] = useState<"errors" | "audit">("errors");
+  const [manualSaleMode, setManualSaleMode] = useState<"order" | "quote" | null>(null);
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
     promoBanner: "Frete Grátis em pedidos acima de R$ 250",
@@ -172,14 +175,15 @@ export default function AdminDashboard() {
   // ── Materials ──
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
   const [isSubmittingMaterial, setIsSubmittingMaterial] = useState(false);
-  const [newMaterial, setNewMaterial] = useState({ name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, inStock: true });
+  const emptyMaterial = { name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, stockGrams: 0, reservedGrams: 0, minimumStockGrams: 200, brand: "", supplier: "", batch: "", location: "", notes: "", inStock: false, active: true };
+  const [newMaterial, setNewMaterial] = useState(emptyMaterial);
 
   const handleMaterialSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     if (isSubmittingMaterial) return;
     setIsSubmittingMaterial(true);
     try {
-      await addDoc(collection(db, "materials"), { ...newMaterial, createdAt: serverTimestamp() });
+      await addDoc(collection(db, "materials"), { ...newMaterial, inStock: newMaterial.stockGrams > 0, createdAt: serverTimestamp(), updatedAt: serverTimestamp() });
       toast.success("Material adicionado!");
       setIsAddingMaterial(false);
       fetchData();
@@ -224,7 +228,8 @@ export default function AdminDashboard() {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: "", email: "", phone: "", tags: [] as string[], address: "" });
+  const emptyCustomer = { name: "", email: "", phone: "", whatsapp: "", tags: [] as string[], address: "", customerType: "PERSON" as "PERSON" | "COMPANY", document: "", zipCode: "", city: "", state: "", source: "", notes: "", internalNotes: "" };
+  const [newCustomer, setNewCustomer] = useState(emptyCustomer);
 
   const handleCustomerSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
@@ -240,14 +245,14 @@ export default function AdminDashboard() {
       }
       setIsAddingCustomer(false);
       setIsEditingCustomer(false);
-      setNewCustomer({ name: "", email: "", phone: "", tags: [], address: "" });
+      setNewCustomer(emptyCustomer);
       fetchData();
     } catch {
       toast.error("Erro ao processar operação de cliente.");
     } finally {
       setIsSubmittingCustomer(false);
     }
-  }, [isSubmittingCustomer, isEditingCustomer, selectedCRMUser, newCustomer, fetchData]);
+  }, [isSubmittingCustomer, isEditingCustomer, selectedCRMUser, newCustomer, fetchData, emptyCustomer]);
 
   const exportCustomersToCSV = useCallback(() => {
     try {
@@ -546,6 +551,7 @@ export default function AdminDashboard() {
                 searchTerm={searchTerm}
                 onSelectOrder={setSelectedOrder}
                 onUpdateStatus={(id, status) => updateStatus("orders", id, status)}
+                onCreateManual={() => setManualSaleMode("order")}
                 onCancelOrder={(o) => triggerConfirm(
                   "Cancelar Pedido",
                   `Deseja cancelar o pedido #${o.id.slice(0, 12)} de ${o.userName}?`,
@@ -597,8 +603,15 @@ export default function AdminDashboard() {
               <AdminMaterialsPanel
                 materials={materials}
                 onDeleteMaterial={(id) => deleteItem("materials", id)}
-                onAddMaterial={() => { setNewMaterial({ name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, inStock: true }); setIsAddingMaterial(true); }}
+                onAddMaterial={() => { setNewMaterial(emptyMaterial); setIsAddingMaterial(true); }}
                 onToggleStock={(id, current) => updateStatus("materials", id, { inStock: !current })}
+                onAdjustStock={async (material) => {
+                  const raw = window.prompt(`Ajuste de ${material.name} em gramas. Use negativo para saida:`, "1000");
+                  if (raw === null) return;
+                  const amount = Number(raw.replace(",", "."));
+                  const reason = window.prompt("Motivo da movimentacao:", amount > 0 ? "Entrada de filamento" : "Ajuste de inventario") ?? "Ajuste manual";
+                  try { await adjustMaterialStock(material.id, amount, reason); toast.success("Estoque atualizado com historico."); fetchData(); } catch (error) { toast.error(error instanceof Error ? error.message : "Falha ao ajustar estoque."); }
+                }}
               />
             )}
             {activeTab === "quotes" && (
@@ -609,6 +622,7 @@ export default function AdminDashboard() {
                 onDeleteQuote={(type, id) => deleteItem(type, id)}
                 onWhatsApp={(q) => handleWhatsAppQuote(q, q.total || q.estimatedPrice || 45.9, undefined, q.phone, q.infill, q.printTime, q.weight)}
                 isApprovingQuote={isApprovingQuote}
+                onCreateManual={() => setManualSaleMode("quote")}
               />
             )}
             {activeTab === "support" && (
@@ -629,7 +643,7 @@ export default function AdminDashboard() {
                 orders={orders}
                 searchTerm={searchTerm}
                 onSelectCRMUser={setSelectedCRMUser}
-                onAddCustomer={() => { setIsAddingCustomer(true); setIsEditingCustomer(false); setNewCustomer({ name: "", email: "", phone: "", tags: [], address: "" }); }}
+                onAddCustomer={() => { setIsAddingCustomer(true); setIsEditingCustomer(false); setNewCustomer(emptyCustomer); }}
                 onExportCSV={exportCustomersToCSV}
               />
             )}
@@ -1060,6 +1074,8 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {manualSaleMode && <AdminManualSaleModal initialMode={manualSaleMode} customers={customers} products={products} materials={materials} onClose={() => setManualSaleMode(null)} onSaved={fetchData} />}
+
         {/* CRM Detail Modal */}
         {selectedCRMUser && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
@@ -1113,7 +1129,13 @@ export default function AdminDashboard() {
                   <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Telefone / WhatsApp</label><input value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} placeholder="(00) 00000-0000" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
                 </div>
                 <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Email de Contato</label><input required type="email" value={newCustomer.email} onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><select value={newCustomer.customerType} onChange={(e) => setNewCustomer({ ...newCustomer, customerType: e.target.value as "PERSON" | "COMPANY" })} className="bg-black border border-white/10 rounded-2xl p-4 text-sm"><option value="PERSON">Pessoa fisica</option><option value="COMPANY">Empresa</option></select><input value={newCustomer.document} onChange={(e) => setNewCustomer({ ...newCustomer, document: e.target.value })} placeholder="CPF / CNPJ" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
+                <div className="grid grid-cols-3 gap-3"><input value={newCustomer.zipCode} onChange={(e) => setNewCustomer({ ...newCustomer, zipCode: e.target.value })} placeholder="CEP" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.city} onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })} placeholder="Cidade" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.state} onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value.toUpperCase().slice(0, 2) })} placeholder="UF" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
+                <input value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} placeholder="Endereco completo" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" />
+                <div className="grid grid-cols-2 gap-4"><input value={newCustomer.source} onChange={(e) => setNewCustomer({ ...newCustomer, source: e.target.value })} placeholder="Origem do cliente" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.whatsapp} onChange={(e) => setNewCustomer({ ...newCustomer, whatsapp: e.target.value })} placeholder="WhatsApp" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Segmentação (Tags separadas por vírgula)</label><input value={newCustomer.tags.join(", ")} onChange={(e) => setNewCustomer({ ...newCustomer, tags: e.target.value.split(",").map((t) => t.trim()).filter((t) => t !== "") })} placeholder="Ex: VIP, B2B, Atacado" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                <textarea value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} placeholder="Observacoes gerais" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm min-h-20" />
+                <textarea value={newCustomer.internalNotes} onChange={(e) => setNewCustomer({ ...newCustomer, internalNotes: e.target.value })} placeholder="Observacoes internas (nao exibidas ao cliente)" className="w-full bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 text-sm min-h-20" />
                 <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest bg-primary shadow-xl shadow-primary/20">Registrar no Database</Button>
               </form>
             </motion.div>
@@ -1133,6 +1155,9 @@ export default function AdminDashboard() {
                   <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Custo p/ Kg</label><NumInput min={0} step={0.01} value={newMaterial.pricePerKg} onChange={(v) => setNewMaterial({ ...newMaterial, pricePerKg: v })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none" /></div>
                 </div>
                 <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim">Cor do Display</label><input type="color" value={newMaterial.color} onChange={(e) => setNewMaterial({ ...newMaterial, color: e.target.value })} className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl overflow-hidden cursor-pointer" /></div>
+                <div className="grid grid-cols-2 gap-4"><div><label className="text-[10px] font-black uppercase text-dim">Saldo inicial (g)</label><NumInput min={0} value={newMaterial.stockGrams} onChange={(v) => setNewMaterial({ ...newMaterial, stockGrams: v })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div><div><label className="text-[10px] font-black uppercase text-dim">Estoque minimo (g)</label><NumInput min={0} value={newMaterial.minimumStockGrams} onChange={(v) => setNewMaterial({ ...newMaterial, minimumStockGrams: v })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div></div>
+                <div className="grid grid-cols-2 gap-4"><input value={newMaterial.brand} onChange={(e) => setNewMaterial({ ...newMaterial, brand: e.target.value })} placeholder="Marca" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newMaterial.supplier} onChange={(e) => setNewMaterial({ ...newMaterial, supplier: e.target.value })} placeholder="Fornecedor" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newMaterial.batch} onChange={(e) => setNewMaterial({ ...newMaterial, batch: e.target.value })} placeholder="Lote" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newMaterial.location} onChange={(e) => setNewMaterial({ ...newMaterial, location: e.target.value })} placeholder="Localizacao" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
+                <textarea value={newMaterial.notes} onChange={(e) => setNewMaterial({ ...newMaterial, notes: e.target.value })} placeholder="Observacoes do filamento" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" />
                 <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest">Registrar Material</Button>
               </form>
             </motion.div>

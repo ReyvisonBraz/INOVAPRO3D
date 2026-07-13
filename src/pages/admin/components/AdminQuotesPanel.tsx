@@ -11,6 +11,7 @@ interface AdminQuotesPanelProps {
   onDeleteQuote: (type: string, id: string) => void;
   onWhatsApp?: (q: Quote) => void;
   isApprovingQuote?: boolean;
+  onCreateManual: () => void;
 }
 
 const STATUS_STYLES: Record<string, { label: string; className: string }> = {
@@ -52,6 +53,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
   onDeleteQuote,
   onWhatsApp,
   isApprovingQuote = false,
+  onCreateManual,
 }: AdminQuotesPanelProps) {
   const pending = quotes.filter((q) => !q.status || q.status === "PENDING" || q.status === "IN_REVIEW").length;
 
@@ -64,6 +66,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
       className="space-y-6"
     >
       <div className="flex flex-wrap items-center gap-3">
+        <button onClick={onCreateManual} className="rounded-2xl bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white">Novo orcamento</button>
         <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
           <p className="text-[9px] font-black uppercase tracking-widest text-dim">Total de orçamentos</p>
           <p className="text-lg font-black text-white">{quotes.length}</p>

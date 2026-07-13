@@ -4,7 +4,7 @@ import { cn, toJsDate } from "../../../lib/utils";
 import {
   Wallet, CheckCircle2, ListTodo, Zap, Layers, Truck, Shield,
   ArrowRight, XCircle, Trash2, Search, ChevronDown, ChevronUp,
-  CheckSquare, Square, Columns, Table, SlidersHorizontal
+  CheckSquare, Square, Columns, Table, SlidersHorizontal, Plus
 } from "lucide-react";
 import type { Order, OrderItem, OrderStatus } from "../../../types/domain";
 
@@ -54,6 +54,7 @@ interface AdminOrdersPanelProps {
   onCancelOrder: (order: Order) => void;
   onDeleteOrder: (order: Order) => void;
   onUpdateStatus: (orderId: string, newStatus: string) => void;
+  onCreateManual: () => void;
 }
 
 const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
@@ -63,6 +64,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
   onCancelOrder,
   onDeleteOrder,
   onUpdateStatus,
+  onCreateManual,
 }) => {
   const [viewMode, setViewMode] = useState<"kanban" | "table">("table");
   const [statusFilter, setStatusFilter] = useState<OrderStatus | "ALL">("ALL");
@@ -155,6 +157,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
 
         {/* View toggle */}
         <div className="flex items-center gap-2">
+          <button onClick={onCreateManual} className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white"><Plus className="h-3.5 w-3.5" /> Novo pedido</button>
           <div className="flex bg-white/5 rounded-xl p-0.5">
             <button
               onClick={() => setViewMode("table")}

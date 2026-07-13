@@ -10,6 +10,7 @@ interface AdminMaterialsPanelProps {
   onDeleteMaterial: (id: string) => void;
   onAddMaterial: () => void;
   onToggleStock: (id: string, current: boolean) => void;
+  onAdjustStock: (material: Material) => void;
 }
 
 const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(({
@@ -17,6 +18,7 @@ const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(({
   onDeleteMaterial,
   onAddMaterial,
   onToggleStock,
+  onAdjustStock,
 }) => {
   return (
     <motion.div key="materials" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
@@ -38,6 +40,8 @@ const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(({
             <div className="w-16 h-16 rounded-full mb-6 border-4 border-white/5 shadow-2xl transition-transform group-hover:scale-110" style={{ backgroundColor: m.color }} />
             <h4 className="text-sm font-black uppercase tracking-tight mb-2">{m.name}</h4>
             <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-6">{m.type || 'PLA Premium'}</p>
+            <div className="mb-4 grid w-full grid-cols-3 gap-2 text-left"><div className="rounded-xl bg-white/5 p-2"><span className="text-[8px] uppercase text-dim">Fisico</span><p className="text-xs font-black">{m.stockGrams ?? 0}g</p></div><div className="rounded-xl bg-white/5 p-2"><span className="text-[8px] uppercase text-dim">Reservado</span><p className="text-xs font-black text-amber-400">{m.reservedGrams ?? 0}g</p></div><div className="rounded-xl bg-white/5 p-2"><span className="text-[8px] uppercase text-dim">Livre</span><p className="text-xs font-black text-green-400">{Math.max(0, (m.stockGrams ?? 0) - (m.reservedGrams ?? 0))}g</p></div></div>
+            <button onClick={() => onAdjustStock(m)} className="mb-3 w-full rounded-xl border border-primary/20 bg-primary/5 py-2 text-[9px] font-black uppercase tracking-widest text-primary">Entrada / ajuste</button>
 
             <div className="w-full flex items-center justify-between p-4 bg-white/5 rounded-3xl border border-white/5">
               <span className="text-[10px] font-black uppercase tracking-widest text-dim">Em Estoque</span>

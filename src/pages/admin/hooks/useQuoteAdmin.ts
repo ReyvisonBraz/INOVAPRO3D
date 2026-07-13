@@ -92,16 +92,18 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
       const orderRef = await addDoc(collection(db, "orders"), {
         userId: quote.userId || "guest", userEmail: quote.userEmail || "",
         userName: quote.userName || "Visitante",
-        items: [{
+        customerId: quote.customerId || matchedCustomer?.id || null,
+        items: quote.items?.length ? quote.items : [{
           name: quote.fileName || "Impressão Personalizada", quantity: 1, price: finalPrice,
           image: "https://images.unsplash.com/photo-1615810231586-52233952673d?q=80&w=400",
           options: { material: quote.materialId || "PLA Pro", infill: finalInfill, printTime: finalTime, weight: finalWeight, adminNotes: finalNotes },
         }],
+        materialUsages: quote.materialUsages || [], source: "quote",
         total: finalPrice, status: "PENDING_PAYMENT", quoteId: quote.id,
         createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
       });
       await updateDoc(doc(db, "quotes", quote.id), {
-        status: "APPROVED", convertedOrderId: orderRef.id, total: finalPrice,
+        status: "CONVERTED_TO_ORDER", convertedOrderId: orderRef.id, total: finalPrice,
         printTime: finalTime, weight: finalWeight, infill: finalInfill, adminNotes: finalNotes, updatedAt: serverTimestamp(),
       });
       await addDoc(collection(db, "logs"), {

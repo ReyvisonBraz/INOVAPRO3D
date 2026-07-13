@@ -68,6 +68,19 @@ export interface ShippingAddress {
 
 export interface OrderItem extends CartItem {
   fileName?: string;
+  description?: string;
+  printTime?: string;
+  infill?: number;
+  materialUsages?: MaterialUsage[];
+}
+
+export interface MaterialUsage {
+  materialId: string;
+  materialName?: string;
+  itemId?: string;
+  estimatedGrams: number;
+  reservedGrams?: number;
+  consumedGrams?: number;
 }
 
 export interface Order {
@@ -76,8 +89,19 @@ export interface Order {
   userName?: string | null;
   userEmail?: string | null;
   phone?: string;
+  customerId?: string;
+  source?: "store" | "manual" | "quote";
   items: OrderItem[];
   total: number;
+  subtotal?: number;
+  discount?: number;
+  surcharge?: number;
+  shippingRate?: number;
+  paymentMethod?: string;
+  deliveryMethod?: "shipping" | "pickup";
+  customerNotes?: string;
+  internalNotes?: string;
+  materialUsages?: MaterialUsage[];
   shippingAddress?: ShippingAddress;
   status: OrderStatus;
   createdAt?: FirestoreDate;
@@ -92,6 +116,7 @@ export interface Quote {
   userId: string;
   userName?: string | null;
   userEmail?: string | null;
+  customerId?: string;
   status: QuoteStatus;
   fileName: string;
   materialId: string;
@@ -115,6 +140,15 @@ export interface Quote {
   source?: string;
   email?: string;
   message?: string;
+  items?: OrderItem[];
+  materialUsages?: MaterialUsage[];
+  subtotal?: number;
+  discount?: number;
+  surcharge?: number;
+  shippingRate?: number;
+  validUntil?: string;
+  paymentTerms?: string;
+  customerNotes?: string;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
   _deleted?: boolean;
@@ -177,6 +211,36 @@ export interface Material {
   pricePerGram?: number;
   pricePerKg?: number;
   inStock?: boolean;
+  brand?: string;
+  line?: string;
+  diameterMm?: number;
+  nominalWeightGrams?: number;
+  stockGrams?: number;
+  reservedGrams?: number;
+  minimumStockGrams?: number;
+  supplier?: string;
+  batch?: string;
+  location?: string;
+  notes?: string;
+  active?: boolean;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export type InventoryMovementType = "ENTRY" | "ADJUSTMENT" | "RESERVATION" | "RELEASE" | "CONSUMPTION" | "LOSS" | "RETURN";
+
+export interface InventoryMovement {
+  id: string;
+  materialId: string;
+  materialName?: string;
+  type: InventoryMovementType;
+  quantityGrams: number;
+  orderId?: string;
+  reason?: string;
+  adminId?: string;
+  stockAfterGrams: number;
+  reservedAfterGrams: number;
+  createdAt?: FirestoreDate;
 }
 
 export interface ShowcaseItem {
@@ -211,6 +275,22 @@ export interface Customer {
   phone?: string;
   tags?: string[];
   address?: string;
+  customerType?: "PERSON" | "COMPANY";
+  document?: string;
+  secondaryPhone?: string;
+  whatsapp?: string;
+  zipCode?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  source?: string;
+  preferredContact?: "WHATSAPP" | "PHONE" | "EMAIL";
+  birthday?: string;
+  notes?: string;
+  internalNotes?: string;
   photoURL?: string;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
