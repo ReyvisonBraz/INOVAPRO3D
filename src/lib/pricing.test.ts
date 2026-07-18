@@ -35,7 +35,7 @@ describe('machineHourBreakdown', () => {
 describe('computePricing — invariantes de custo', () => {
   it('custo total = soma das parcelas', () => {
     const r = computePricing(makeInput());
-    const soma = r.materialCost + r.energyCost + r.machineCost + r.laborCost + r.extraSupplies + r.failureLoss;
+    const soma = r.materialCost + r.energyCost + r.machineCost + r.laborCost + r.extraSupplies + r.packagingCost + r.failureLoss;
     expect(r.totalCost).toBeCloseTo(soma, 6);
   });
 
@@ -54,6 +54,17 @@ describe('computePricing — invariantes de custo', () => {
   it('unitCost = totalCost / quantity', () => {
     const r = computePricing(makeInput({ quantity: 4 }));
     expect(r.unitCost).toBeCloseTo(r.totalCost / 4, 6);
+  });
+
+  it('embalagem entra no custo mesmo sem mão de obra', () => {
+    const sem = computePricing(makeInput({ packagingCost: 0 }));
+    const com = computePricing(makeInput({ packagingCost: 8 }));
+    expect(com.totalCost - sem.totalCost).toBeCloseTo(8, 6);
+  });
+
+  it('risco considera produção e o ponto médio da perda', () => {
+    const r = computePricing(makeInput({ failureRatePct: 10, failureImpactPct: 70 }));
+    expect(r.failureLoss).toBeCloseTo(r.baseProductionCost * (0.1 / 0.9) * 0.7, 6);
   });
 });
 
@@ -75,6 +86,16 @@ describe('computePricing — preços e piso mínimo', () => {
     const r = computePricing(makeInput());
     expect(r.profitRetail).toBeCloseTo(r.retailTotal - r.totalCost, 6);
     expect(r.profitWholesale).toBeCloseTo(r.wholesaleTotal - r.totalCost, 6);
+  });
+  it('piso sustentável remunera as horas ocupadas', () => {
+    const r = computePricing(makeInput({
+      wholesaleMarkup: 1,
+      retailMarkup: 1,
+      minPrice: 0,
+      targetProfitPerMachineHour: 5,
+    }));
+    expect(r.minimumSustainablePrice).toBeCloseTo(r.totalCost + r.hours * 5, 6);
+    expect(r.retailTotal).toBeCloseTo(r.minimumSustainablePrice, 6);
   });
 });
 

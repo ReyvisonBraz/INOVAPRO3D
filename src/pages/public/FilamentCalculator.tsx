@@ -469,7 +469,8 @@ export default function FilamentCalculator() {
   const {
     material, spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
     slicerWeight, setSlicerWeight, reservePct, setReservePct,
-    failureRatePct, setFailureRatePct, batchQuantity, setBatchQuantity, selectMaterial, materialSettings,
+    failureRatePct, setFailureRatePct, failureImpactPct, setFailureImpactPct,
+    batchQuantity, setBatchQuantity, selectMaterial, materialSettings,
     machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
     nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,
     platePrice, setPlatePrice, plateLifeHours, setPlateLifeHours,
@@ -477,6 +478,7 @@ export default function FilamentCalculator() {
     printTimeStr, setPrintTimeStr, printTime, kwhCost, setKwhCost,
     steadyPower, setSteadyPower, startupPower, setStartupPower, startupMinutes, setStartupMinutes,
     requiresLabor, setRequiresLabor, laborHours, setLaborHours, laborRate, setLaborRate, extraSupplies, setExtraSupplies,
+    packagingCost, setPackagingCost, targetProfitPerMachineHour, setTargetProfitPerMachineHour,
     wholesaleMarkup, retailMarkup, minPrice, setMinPrice, markupMode, setMarkupMode,
     wholesaleDisplay, retailDisplay, markupLabel, handleWholesaleMarkup, handleRetailMarkup,
     showAdvancedMachine, setShowAdvancedMachine, showAdvancedEnergy, setShowAdvancedEnergy,
@@ -673,8 +675,10 @@ export default function FilamentCalculator() {
                 <NumberField label="Peso do carretel" suffix="g" value={spoolWeight} onChange={setSpoolWeight} min={1} help={HELP.spoolWeight} />
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <NumberField label="Reserva para falhas" suffix="%" value={reservePct} onChange={setReservePct} step={5} help={HELP.reserve} />
+                <NumberField label="Margem técnica de material" suffix="%" value={reservePct} onChange={setReservePct} step={1} help={HELP.reserve} />
                 <NumberField label="Taxa de falha" suffix="%" value={failureRatePct} onChange={setFailureRatePct} step={1} help={HELP.failureRate} />
+                <NumberField label="Perda média quando falha" suffix="%" value={failureImpactPct} onChange={setFailureImpactPct} step={5} help="Em que ponto a falha costuma ser percebida. 70% significa perder, em média, 70% do material, energia e tempo do job." />
+                <NumberField label="Meta por hora ocupada" prefix="R$" suffix="/h" value={targetProfitPerMachineHour} onChange={setTargetProfitPerMachineHour} step={1} help="Contribuição mínima desejada por hora em que a impressora fica indisponível para outros pedidos." />
               </div>
             </CollapsibleSection>
             </Reveal>
@@ -730,10 +734,11 @@ export default function FilamentCalculator() {
                 </div>
                 <Toggle checked={requiresLabor} onChange={setRequiresLabor} />
               </div>
-              <div className="mt-5 grid gap-4 md:grid-cols-3">
+              <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <NumberField label="Horas de trabalho" suffix="h" value={laborHours} onChange={setLaborHours} step={0.25} disabled={!requiresLabor} help={HELP.laborHours} />
                 <NumberField label="Valor da sua hora" prefix="R$" value={laborRate} onChange={setLaborRate} step={1} help={HELP.laborRate} />
-                <NumberField label="Insumos extras" prefix="R$" value={extraSupplies} onChange={setExtraSupplies} step={0.01} disabled={!requiresLabor} help={HELP.extraSupplies} />
+                <NumberField label="Insumos extras" prefix="R$" value={extraSupplies} onChange={setExtraSupplies} step={0.01} help={HELP.extraSupplies} />
+                <NumberField label="Embalagem" prefix="R$" value={packagingCost} onChange={setPackagingCost} step={0.5} help="Caixa ou envelope, proteção, etiqueta, fita e demais itens usados para entregar o pedido." />
               </div>
             </CollapsibleSection>
             </Reveal>
@@ -893,6 +898,21 @@ export default function FilamentCalculator() {
                     </p>
                   )}
                 </div>
+              </div>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Piso sustentável</p>
+                <p className="mt-1 text-lg font-black text-white">{formatBRL(result.minimumSustainablePrice)}</p>
+                <p className="mt-1 text-[10px] text-white/40">Inclui {formatBRL(result.capacityContributionTarget)} pela ocupação de {result.hours.toFixed(1)}h.</p>
+              </div>
+              <div className={`rounded-xl border p-4 ${result.retailProfitAfterFullReprint >= 0 ? 'border-emerald-400/25 bg-emerald-400/[0.06]' : 'border-red-400/25 bg-red-400/[0.06]'}`}>
+                <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Se houver uma reimpressão completa</p>
+                <p className={`mt-1 text-lg font-black ${result.retailProfitAfterFullReprint >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
+                  {result.retailProfitAfterFullReprint >= 0 ? 'Ainda sobra ' : 'Prejuízo de '}{formatBRL(Math.abs(result.retailProfitAfterFullReprint))}
+                </p>
+                <p className="mt-1 text-[10px] text-white/40">Cenário de varejo, antes de taxas e impostos.</p>
               </div>
             </div>
 

@@ -36,6 +36,7 @@ export function useCalculatorState() {
   const [slicerWeight, setSlicerWeight] = useState(120);
   const [reservePct, setReservePct] = useState(MATERIAL_PRESETS.pla.defaultReservePct);
   const [failureRatePct, setFailureRatePct] = useState(DEFAULT_FAILURE_RATE);
+  const [failureImpactPct, setFailureImpactPct] = useState(DEFAULT_PRICING_SETTINGS.failureImpactPct);
   const [batchQuantity, setBatchQuantity] = useState(1);
 
   // --- Machine ---
@@ -62,6 +63,10 @@ export function useCalculatorState() {
   const [laborHours, setLaborHours] = useState(0);
   const [laborRate, setLaborRate] = useState(30);
   const [extraSupplies, setExtraSupplies] = useState(0);
+  const [packagingCost, setPackagingCost] = useState(DEFAULT_PRICING_SETTINGS.defaultPackagingCost);
+  const [targetProfitPerMachineHour, setTargetProfitPerMachineHour] = useState(
+    DEFAULT_PRICING_SETTINGS.targetProfitPerMachineHour,
+  );
 
   // --- Pricing / markup ---
   const [wholesaleMarkup, setWholesaleMarkup] = useState(1.6);
@@ -125,6 +130,9 @@ export function useCalculatorState() {
       if (Number.isFinite(cfg.spoolWeight)) setSpoolWeight(cfg.spoolWeight);
       if (Number.isFinite(cfg.reservePct)) setReservePct(cfg.reservePct);
       if (Number.isFinite(cfg.failureRatePct)) setFailureRatePct(cfg.failureRatePct);
+      if (Number.isFinite(cfg.failureImpactPct)) setFailureImpactPct(cfg.failureImpactPct);
+      if (Number.isFinite(cfg.packagingCost)) setPackagingCost(cfg.packagingCost);
+      if (Number.isFinite(cfg.targetProfitPerMachineHour)) setTargetProfitPerMachineHour(cfg.targetProfitPerMachineHour);
       if (Number.isFinite(cfg.machinePrice)) setMachinePrice(cfg.machinePrice);
       if (Number.isFinite(cfg.lifespanHours)) setLifespanHours(cfg.lifespanHours);
       if (Number.isFinite(cfg.nozzlePrice)) setNozzlePrice(cfg.nozzlePrice);
@@ -159,6 +167,9 @@ export function useCalculatorState() {
       setStartupPower(cfg.startupPowerWatts);
       setStartupMinutes(cfg.startupMinutes);
       setFailureRatePct(cfg.failureRatePct);
+      setFailureImpactPct(cfg.failureImpactPct);
+      setPackagingCost(cfg.defaultPackagingCost);
+      setTargetProfitPerMachineHour(cfg.targetProfitPerMachineHour);
       setWholesaleMarkup(cfg.wholesaleMarkup);
       setRetailMarkup(cfg.retailMarkup);
       setMinPrice(cfg.minPrice);
@@ -197,22 +208,24 @@ export function useCalculatorState() {
       localStorage.setItem(
         CONFIG_KEY,
         JSON.stringify({
-          material, spoolPrice, spoolWeight, reservePct, failureRatePct,
+          material, spoolPrice, spoolWeight, reservePct, failureRatePct, failureImpactPct,
           machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
           platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
           kwhCost, steadyPower, startupPower, startupMinutes,
-          laborRate, wholesaleMarkup, retailMarkup, minPrice, markupMode,
+          laborRate, packagingCost, targetProfitPerMachineHour,
+          wholesaleMarkup, retailMarkup, minPrice, markupMode,
         }),
       );
     } catch {
       // ignore storage failures (private mode, quota)
     }
   }, [
-    material, spoolPrice, spoolWeight, reservePct, failureRatePct,
+    material, spoolPrice, spoolWeight, reservePct, failureRatePct, failureImpactPct,
     machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
     platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
     kwhCost, steadyPower, startupPower, startupMinutes,
-    laborRate, wholesaleMarkup, retailMarkup, minPrice, markupMode,
+    laborRate, packagingCost, targetProfitPerMachineHour,
+    wholesaleMarkup, retailMarkup, minPrice, markupMode,
   ]);
 
   // --- Computed values ---
@@ -232,7 +245,7 @@ export function useCalculatorState() {
         weightGrams: slicerWeight,
         hours: printTime,
         quantity: batchQuantity,
-        reservePct, failureRatePct, kwhCost,
+        reservePct, failureRatePct, failureImpactPct, kwhCost,
         startupPowerWatts: startupPower, startupMinutes,
         machine: {
           price: machinePrice, lifespanHours,
@@ -242,21 +255,23 @@ export function useCalculatorState() {
         },
         laborHours: requiresLabor ? laborHours : 0,
         laborRate,
-        extraSupplies: requiresLabor ? extraSupplies : 0,
+        extraSupplies,
+        packagingCost,
+        targetProfitPerMachineHour,
         wholesaleMarkup, retailMarkup, minPrice,
       }),
     [
       material, spoolPrice, spoolWeight, steadyPower, slicerWeight, printTime,
-      batchQuantity, reservePct, failureRatePct, kwhCost, startupPower, startupMinutes,
+      batchQuantity, reservePct, failureRatePct, failureImpactPct, kwhCost, startupPower, startupMinutes,
       machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
       platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
-      requiresLabor, laborHours, laborRate, extraSupplies,
+      requiresLabor, laborHours, laborRate, extraSupplies, packagingCost, targetProfitPerMachineHour,
       wholesaleMarkup, retailMarkup, minPrice,
     ],
   );
 
   const reserveMultiplier = 1 + Math.max(0, reservePct) / 100;
-  const laborTotal = result.laborCost + result.extraSupplies;
+  const laborTotal = result.laborCost + result.extraSupplies + result.packagingCost;
   const generatedAt = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
   // --- Upload da imagem opcional do produto ---
@@ -327,7 +342,8 @@ export function useCalculatorState() {
     // material
     material, spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
     slicerWeight, setSlicerWeight, reservePct, setReservePct,
-    failureRatePct, setFailureRatePct, batchQuantity, setBatchQuantity,
+    failureRatePct, setFailureRatePct, failureImpactPct, setFailureImpactPct,
+    batchQuantity, setBatchQuantity,
     selectMaterial, materialSettings,
     // machine
     machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
@@ -342,6 +358,8 @@ export function useCalculatorState() {
     // labor
     requiresLabor, setRequiresLabor, laborHours, setLaborHours,
     laborRate, setLaborRate, extraSupplies, setExtraSupplies,
+    packagingCost, setPackagingCost,
+    targetProfitPerMachineHour, setTargetProfitPerMachineHour,
     // pricing
     wholesaleMarkup, retailMarkup, minPrice, setMinPrice,
     markupMode, setMarkupMode,

@@ -50,6 +50,9 @@ const PRICING_FIELDS: { label: string; key: keyof PricingSettings; min: number; 
   { label: "Markup varejo", key: "retailMarkup", min: 0, step: 0.1, suffix: "×", hint: "2.5 = custo × 2,5" },
   { label: "Preço mínimo", key: "minPrice", min: 0, step: 1, suffix: "R$" },
   { label: "Taxa de falha", key: "failureRatePct", min: 0, step: 1, suffix: "%" },
+  { label: "Perda média da falha", key: "failureImpactPct", min: 0, step: 5, suffix: "%", hint: "quanto do job costuma ser perdido" },
+  { label: "Embalagem padrão", key: "defaultPackagingCost", min: 0, step: 0.5, suffix: "R$", hint: "por pedido" },
+  { label: "Meta por hora ocupada", key: "targetProfitPerMachineHour", min: 0, step: 1, suffix: "R$/h", hint: "contribuição mínima" },
   { label: "Desconto PIX", key: "pixDiscountPct", min: 0, step: 1, suffix: "%", hint: "à vista na vitrine" },
   { label: "Parcelas s/ juros", key: "maxInstallments", min: 1, step: 1, suffix: "x", hint: "máx. no cartão" },
 ];
@@ -58,7 +61,7 @@ const MATERIAL_FIELDS: { label: string; key: keyof MaterialSettings; min: number
   { label: "Preço do rolo", key: "spoolPrice", min: 0, step: 1, suffix: "R$" },
   { label: "Peso do rolo", key: "spoolWeight", min: 1, step: 50, suffix: "g" },
   { label: "Potência média", key: "steadyPowerWatts", min: 0, step: 10, suffix: "W" },
-  { label: "Reserva de falha", key: "defaultReservePct", min: 0, step: 1, suffix: "%" },
+  { label: "Margem técnica", key: "defaultReservePct", min: 0, step: 1, suffix: "%" },
 ];
 
 const inputCls =

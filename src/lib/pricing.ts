@@ -174,6 +174,9 @@ export interface PricingSettings {
   startupMinutes: number;
   /** Taxa de falha padrão (%). */
   failureRatePct: number;
+  failureImpactPct: number;
+  defaultPackagingCost: number;
+  targetProfitPerMachineHour: number;
   /** Markup de atacado (multiplicador sobre o custo). */
   wholesaleMarkup: number;
   /** Markup de varejo (multiplicador sobre o custo). */
@@ -194,6 +197,9 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts,
   startupMinutes: DEFAULT_ENERGY.startupMinutes,
   failureRatePct: DEFAULT_FAILURE_RATE,
+  failureImpactPct: 70,
+  defaultPackagingCost: 6,
+  targetProfitPerMachineHour: 5,
   wholesaleMarkup: 1.6,
   retailMarkup: 2.5,
   minPrice: 35,
@@ -245,6 +251,9 @@ export function mergePricingSettings(raw: unknown): PricingSettings {
     startupPowerWatts: numOr(r.startupPowerWatts, base.startupPowerWatts),
     startupMinutes: numOr(r.startupMinutes, base.startupMinutes),
     failureRatePct: numOr(r.failureRatePct, base.failureRatePct),
+    failureImpactPct: numOr(r.failureImpactPct, base.failureImpactPct),
+    defaultPackagingCost: numOr(r.defaultPackagingCost, base.defaultPackagingCost),
+    targetProfitPerMachineHour: numOr(r.targetProfitPerMachineHour, base.targetProfitPerMachineHour),
     wholesaleMarkup: numOr(r.wholesaleMarkup, base.wholesaleMarkup),
     retailMarkup: numOr(r.retailMarkup, base.retailMarkup),
     minPrice: numOr(r.minPrice, base.minPrice),
@@ -288,6 +297,7 @@ export interface PricingInputs {
   laborRate: number;
   /** Insumos extras do job (parafusos, tinta, ímã) em R$. */
   extraSupplies: number;
+  packagingCost?: number;
 
   /**
    * Taxa de falha de impressão (%). Captura o tempo de máquina + energia
@@ -295,6 +305,8 @@ export interface PricingInputs {
    * material — esse desperdício já é coberto por `reservePct`.
    */
   failureRatePct?: number;
+  failureImpactPct?: number;
+  targetProfitPerMachineHour?: number;
 
   /** Multiplicador de atacado (B2B) sobre o custo. */
   wholesaleMarkup: number;
@@ -317,9 +329,17 @@ export interface PricingResult {
   machineCost: number;
   laborCost: number;
   extraSupplies: number;
+  packagingCost: number;
   /** Custo do tempo de máquina + energia perdidos em falhas de impressão. */
   failureLoss: number;
   failureRatePct: number;
+  failureImpactPct: number;
+  baseProductionCost: number;
+  capacityContributionTarget: number;
+  minimumSustainablePrice: number;
+  fullReprintCost: number;
+  wholesaleProfitAfterFullReprint: number;
+  retailProfitAfterFullReprint: number;
   totalCost: number;
   unitCost: number;
   costPerGram: number;
@@ -387,24 +407,32 @@ export function computePricing(input: PricingInputs): PricingResult {
   // --- Mão de obra + insumos ---
   const laborCost = Math.max(0, num(input.laborHours)) * Math.max(0, num(input.laborRate));
   const extraSupplies = Math.max(0, num(input.extraSupplies));
+  const packagingCost = Math.max(0, num(input.packagingCost ?? 0));
 
   // --- Taxa de falha: tempo de máquina + energia perdidos numa reimpressão ---
   // (o material desperdiçado já está coberto por reservePct)
-  const failureRatePct = Math.max(0, num(input.failureRatePct ?? 0));
-  const failureLoss = (machineCost + energyCost) * (failureRatePct / 100);
+  const failureRatePct = Math.min(95, Math.max(0, num(input.failureRatePct ?? 0)));
+  const failureImpactPct = Math.min(100, Math.max(0, num(input.failureImpactPct ?? 70)));
+  const baseProductionCost = materialCost + energyCost + machineCost;
+  const expectedFailedRuns =
+    (failureRatePct / 100) / Math.max(0.05, 1 - failureRatePct / 100);
+  const failureLoss = baseProductionCost * expectedFailedRuns * (failureImpactPct / 100);
 
   const totalCost =
-    materialCost + energyCost + machineCost + laborCost + extraSupplies + failureLoss;
+    baseProductionCost + laborCost + extraSupplies + packagingCost + failureLoss;
   const safe = totalCost > 0 ? totalCost : 1;
   const unitCost = totalCost / quantity;
   const costPerGram = weightGrams > 0 ? totalCost / weightGrams : 0;
 
   // --- Preços (com piso mínimo) ---
   const minPrice = Math.max(0, num(input.minPrice));
+  const capacityContributionTarget =
+    hours * Math.max(0, num(input.targetProfitPerMachineHour ?? 0));
+  const minimumSustainablePrice = totalCost + capacityContributionTarget;
   const wholesaleRaw = totalCost * Math.max(0, num(input.wholesaleMarkup));
   const retailRaw = totalCost * Math.max(0, num(input.retailMarkup));
-  const wholesaleTotal = Math.max(wholesaleRaw, minPrice);
-  const retailTotal = Math.max(retailRaw, minPrice);
+  const wholesaleTotal = Math.max(wholesaleRaw, minPrice, minimumSustainablePrice);
+  const retailTotal = Math.max(retailRaw, minPrice, minimumSustainablePrice);
 
   const profitWholesale = wholesaleTotal - totalCost;
   const profitRetail = retailTotal - totalCost;
@@ -421,8 +449,18 @@ export function computePricing(input: PricingInputs): PricingResult {
     machineCost,
     laborCost,
     extraSupplies,
+    packagingCost,
     failureLoss,
     failureRatePct,
+    failureImpactPct,
+    baseProductionCost,
+    capacityContributionTarget,
+    minimumSustainablePrice,
+    fullReprintCost: baseProductionCost,
+    wholesaleProfitAfterFullReprint:
+      wholesaleTotal - (totalCost - failureLoss + baseProductionCost),
+    retailProfitAfterFullReprint:
+      retailTotal - (totalCost - failureLoss + baseProductionCost),
     totalCost,
     unitCost,
     costPerGram,
@@ -430,7 +468,7 @@ export function computePricing(input: PricingInputs): PricingResult {
       material: (materialCost / safe) * 100,
       energy: (energyCost / safe) * 100,
       machine: (machineCost / safe) * 100,
-      labor: ((laborCost + extraSupplies) / safe) * 100,
+      labor: ((laborCost + extraSupplies + packagingCost) / safe) * 100,
       failure: (failureLoss / safe) * 100,
     },
     wholesaleTotal,
@@ -508,9 +546,9 @@ export const HELP = {
   quantity:
     "Quantas peças saem nesta impressão. O custo total é dividido por aqui para dar o preço por unidade.",
   reserve:
-    "Margem de segurança sobre o material para cobrir falhas e reimpressões. PLA com perfil bom: 10–15%. PETG ou peça difícil: 20–30%.",
+    "Margem técnica sobre o peso do fatiador para cobrir pequenas variações, purga adicional e perdas operacionais. Se o Bambu Studio já inclui suportes e purga, use 3–8%.",
   failureRate:
-    "Quantas impressões, em média, falham e precisam ser refeitas (%). Aqui entra o tempo de máquina e a energia perdidos — o material já está na 'reserva'. Perfil estável: 3–8%. Peça difícil ou nova: 10–20%.",
+    "Probabilidade de uma tentativa falhar e exigir reimpressão. O cálculo considera material, energia e máquina conforme o ponto médio da falha. Perfil validado: 3–8%. Peça grande ou nova: 10–20%.",
   kwh:
     "Preço do kWh na sua conta de luz. Equatorial Pará (CELPA) 2025→2026: R$0,97/kWh na tarifa residencial B1 com ICMS 25% + PIS/COFINS, sem bandeira tarifária.",
   steadyPower:
