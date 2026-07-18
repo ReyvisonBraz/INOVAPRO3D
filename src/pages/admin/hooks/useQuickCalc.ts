@@ -11,6 +11,7 @@ import {
   type MachineConfig,
   type PricingSettings,
 } from "../../../lib/pricing";
+import type { Material, MaterialUsage } from "../../../types/domain";
 import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
 
 /**
@@ -24,6 +25,7 @@ import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
 export function useQuickCalc(
   machineConfig: MachineConfig,
   pricingSettings: PricingSettings = DEFAULT_PRICING_SETTINGS,
+  inventoryMaterials: Material[] = [],
   onSaved?: () => void,
 ) {
   const [quickCalcWeight, setQuickCalcWeight] = useState(80);
@@ -33,6 +35,7 @@ export function useQuickCalc(
   const [quickCalcPieceName, setQuickCalcPieceName] = useState("");
   const [quickCalcBatchQty, setQuickCalcBatchQty] = useState(1);
   const [quickCalcMaterial, setQuickCalcMaterial] = useState<MaterialKey>("pla");
+  const [quickMaterialUsages, setQuickMaterialUsages] = useState<MaterialUsage[]>([]);
 
   // Imagem opcional do produto + salvamento do orçamento na aba Orçamentos.
   const [quickCalcImageUrl, setQuickCalcImageUrl] = useState("");
@@ -73,9 +76,16 @@ export function useQuickCalc(
   const quickMachine = machineConfig;
   const quickCalcResult = useMemo(() => {
     const mat = pricingSettings.materials[quickCalcMaterial];
+    const allocated = quickMaterialUsages.reduce((sum, usage) => sum + Math.max(0, Number(usage.estimatedGrams) || 0), 0);
+    const allocatedCost = quickMaterialUsages.reduce((sum, usage) => {
+      const stockMaterial = inventoryMaterials.find((entry) => entry.id === usage.materialId);
+      const pricePerGram = Number(stockMaterial?.pricePerGram ?? 0) || Number(stockMaterial?.pricePerKg ?? 0) / 1000;
+      return sum + Math.max(0, Number(usage.estimatedGrams) || 0) * pricePerGram;
+    }, 0);
+    const effectiveSpoolPrice = allocated > 0 && allocatedCost > 0 ? (allocatedCost / allocated) * 1000 : mat.spoolPrice;
     return computePricing({
       material: quickCalcMaterial,
-      spoolPrice: mat.spoolPrice,
+      spoolPrice: effectiveSpoolPrice,
       spoolWeight: mat.spoolWeight,
       steadyPowerWatts: mat.steadyPowerWatts,
       weightGrams: Math.max(0, Number(quickCalcWeight) || 0),
@@ -94,7 +104,7 @@ export function useQuickCalc(
       retailMarkup: Math.max(0, Number(quickCalcRetailMarkup) || 0),
       minPrice: Math.max(0, Number(quickCalcMinPrice) || 0),
     });
-  }, [quickCalcMaterial, quickCalcWeight, quickCalcTime, quickCalcBatchQty, quickCalcMaterialReserve, quickCalcFailureRate, quickCalcWholesaleMarkup, quickCalcRetailMarkup, quickCalcMinPrice, quickMachine, pricingSettings]);
+  }, [quickCalcMaterial, quickCalcWeight, quickCalcTime, quickCalcBatchQty, quickCalcMaterialReserve, quickCalcFailureRate, quickCalcWholesaleMarkup, quickCalcRetailMarkup, quickCalcMinPrice, quickMaterialUsages, inventoryMaterials, quickMachine, pricingSettings]);
   const quickMachineBreak = useMemo(() => machineHourBreakdown(quickMachine), [quickMachine]);
 
   const handleSendQuickWhatsAppQuote = useCallback(() => {
@@ -131,6 +141,11 @@ export function useQuickCalc(
 
   const handleSaveQuickQuote = useCallback(async () => {
     if (!quickCalcCustomerName.trim()) { toast.error("Informe o nome do cliente para salvar."); return; }
+    const allocated = quickMaterialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
+    if (quickMaterialUsages.length > 0 && Math.abs(allocated - quickCalcResult.weightGrams) > 0.5) {
+      toast.error(`Distribua os ${quickCalcResult.weightGrams.toFixed(1)}g completos entre os filamentos do estoque.`);
+      return;
+    }
     setQuickCalcSaving(true);
     try {
       await saveQuoteFromCalc({
@@ -145,6 +160,7 @@ export function useQuickCalc(
         unitPrice: quickCalcResult.retailUnit,
         costTotal: quickCalcResult.totalCost,
         imageUrl: quickCalcImageUrl || undefined,
+        materialUsages: quickMaterialUsages,
         notes: `Custo real ${quickCalcResult.totalCost.toFixed(2)} · atacado ${quickCalcResult.wholesaleTotal.toFixed(2)} · varejo ${quickCalcResult.retailTotal.toFixed(2)} · ${MATERIAL_PRESETS[quickCalcMaterial].label} ${quickCalcResult.weightGrams.toFixed(0)}g · ${quickCalcTime}`,
       });
       toast.success("Orçamento salvo na aba Orçamentos!");
@@ -155,7 +171,7 @@ export function useQuickCalc(
     } finally {
       setQuickCalcSaving(false);
     }
-  }, [quickCalcCustomerName, quickCalcPhone, quickCalcPieceName, quickCalcMaterial, quickCalcTime, quickCalcResult, quickCalcImageUrl, onSaved]);
+  }, [quickCalcCustomerName, quickCalcPhone, quickCalcPieceName, quickCalcMaterial, quickCalcTime, quickCalcResult, quickCalcImageUrl, quickMaterialUsages, onSaved]);
 
   return {
     quickCalcWeight, setQuickCalcWeight,
@@ -165,6 +181,7 @@ export function useQuickCalc(
     quickCalcPieceName, setQuickCalcPieceName,
     quickCalcBatchQty, setQuickCalcBatchQty,
     quickCalcMaterial, setQuickCalcMaterial, selectQuickMaterial,
+    quickMaterialUsages, setQuickMaterialUsages,
     quickCalcMaterialReserve, setQuickCalcMaterialReserve,
     quickCalcFailureRate, setQuickCalcFailureRate,
     quickCalcMinPrice, setQuickCalcMinPrice,

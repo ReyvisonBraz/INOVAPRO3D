@@ -471,6 +471,7 @@ export default function FilamentCalculator() {
     slicerWeight, setSlicerWeight, reservePct, setReservePct,
     failureRatePct, setFailureRatePct, failureImpactPct, setFailureImpactPct,
     batchQuantity, setBatchQuantity, selectMaterial, materialSettings,
+    inventoryMaterials, materialUsages, setMaterialUsages,
     machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
     nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,
     platePrice, setPlatePrice, plateLifeHours, setPlateLifeHours,
@@ -489,6 +490,20 @@ export default function FilamentCalculator() {
     quoteImageUrl, setQuoteImageUrl, uploadingImage, handleUploadImage,
     result, machineBreak, reserveMultiplier, laborTotal, generatedAt,
   } = useCalculatorState();
+  const [stockMaterialId, setStockMaterialId] = useState("");
+  const [stockUsageGrams, setStockUsageGrams] = useState(0);
+  const allocatedGrams = materialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
+
+  const addStockUsage = () => {
+    const selected = inventoryMaterials.find((entry) => entry.id === stockMaterialId);
+    if (!selected || stockUsageGrams <= 0) return;
+    setMaterialUsages((current) => [
+      ...current.filter((entry) => entry.materialId !== selected.id),
+      { materialId: selected.id, materialName: selected.name, estimatedGrams: stockUsageGrams },
+    ]);
+    setStockMaterialId("");
+    setStockUsageGrams(0);
+  };
 
   return (
     <>
@@ -679,6 +694,21 @@ export default function FilamentCalculator() {
                 <NumberField label="Taxa de falha" suffix="%" value={failureRatePct} onChange={setFailureRatePct} step={1} help={HELP.failureRate} />
                 <NumberField label="Perda média quando falha" suffix="%" value={failureImpactPct} onChange={setFailureImpactPct} step={5} help="Em que ponto a falha costuma ser percebida. 70% significa perder, em média, 70% do material, energia e tempo do job." />
                 <NumberField label="Meta por hora ocupada" prefix="R$" suffix="/h" value={targetProfitPerMachineHour} onChange={setTargetProfitPerMachineHour} step={1} help="Contribuição mínima desejada por hora em que a impressora fica indisponível para outros pedidos." />
+              </div>
+              <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/[0.05] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div><p className="text-xs font-black text-white/90">Filamentos do estoque</p><p className="mt-1 text-[10px] text-white/40">Distribua o peso informado entre os filamentos cadastrados. O orçamento não reserva saldo.</p></div>
+                  <span className={`rounded-lg px-2 py-1 text-[10px] font-bold ${Math.abs(allocatedGrams - slicerWeight) < 0.01 ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>{allocatedGrams.toFixed(1)}g de {slicerWeight.toFixed(1)}g</span>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_130px_auto]">
+                  <select value={stockMaterialId} onChange={(event) => setStockMaterialId(event.target.value)} className="rounded-xl border border-white/10 bg-[#0b0d14] px-3 py-3 text-xs text-white">
+                    <option value="">Selecionar filamento cadastrado...</option>
+                    {inventoryMaterials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} — {Math.max(0, Number(entry.stockGrams || 0) - Number(entry.reservedGrams || 0))}g livres</option>)}
+                  </select>
+                  <input type="number" min={0} step="0.1" value={stockUsageGrams || ""} onChange={(event) => setStockUsageGrams(Number(event.target.value) || 0)} placeholder="Gramas" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs outline-none focus:border-blue-400/50" />
+                  <button type="button" onClick={addStockUsage} disabled={!stockMaterialId || stockUsageGrams <= 0} className="rounded-xl bg-blue-500 px-4 py-3 text-[10px] font-black uppercase disabled:opacity-40">Adicionar</button>
+                </div>
+                {materialUsages.length > 0 && <div className="mt-3 space-y-2">{materialUsages.map((usage) => <div key={usage.materialId} className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2 text-xs"><span className="text-white/70">{usage.materialName}</span><span className="flex items-center gap-3 font-mono text-white"><strong>{usage.estimatedGrams}g</strong><button type="button" aria-label={`Remover ${usage.materialName}`} onClick={() => setMaterialUsages((current) => current.filter((entry) => entry.materialId !== usage.materialId))} className="text-white/35 hover:text-red-300"><X className="h-3.5 w-3.5" /></button></span></div>)}</div>}
               </div>
             </CollapsibleSection>
             </Reveal>

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 import { toast } from "sonner";
 import { db } from "../../../services/firebase";
 import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
@@ -16,6 +16,7 @@ import {
   type MaterialKey,
   type MaterialSettings,
 } from "../../../lib/pricing";
+import type { Material, MaterialUsage } from "../../../types/domain";
 
 const CONFIG_KEY = "inovapro3d:calc-config";
 
@@ -38,6 +39,8 @@ export function useCalculatorState() {
   const [failureRatePct, setFailureRatePct] = useState(DEFAULT_FAILURE_RATE);
   const [failureImpactPct, setFailureImpactPct] = useState(DEFAULT_PRICING_SETTINGS.failureImpactPct);
   const [batchQuantity, setBatchQuantity] = useState(1);
+  const [inventoryMaterials, setInventoryMaterials] = useState<Material[]>([]);
+  const [materialUsages, setMaterialUsages] = useState<MaterialUsage[]>([]);
 
   // --- Machine ---
   const [machinePrice, setMachinePrice] = useState(DEFAULT_MACHINE.price);
@@ -185,6 +188,18 @@ export function useCalculatorState() {
     });
   }, []);
 
+  // Filamentos reais cadastrados no painel. O orçamento apenas registra a
+  // previsão; a reserva/baixa acontece nas transições do pedido.
+  useEffect(() => {
+    getDocs(collection(db, "materials"))
+      .then((snapshot) => setInventoryMaterials(
+        snapshot.docs
+          .map((item) => ({ id: item.id, ...item.data() } as Material))
+          .filter((item) => item.active !== false),
+      ))
+      .catch(() => setInventoryMaterials([]));
+  }, []);
+
   // --- Load machine config from Firestore (overrides localStorage defaults) ---
   useEffect(() => {
     getDoc(doc(db, "settings", "machine")).then((snap) => {
@@ -237,10 +252,21 @@ export function useCalculatorState() {
     maintPerHour,
   });
 
+  const inventorySpoolPrice = useMemo(() => {
+    const allocated = materialUsages.reduce((sum, usage) => sum + Math.max(0, Number(usage.estimatedGrams) || 0), 0);
+    if (allocated <= 0) return null;
+    const cost = materialUsages.reduce((sum, usage) => {
+      const stockMaterial = inventoryMaterials.find((entry) => entry.id === usage.materialId);
+      const pricePerGram = Number(stockMaterial?.pricePerGram ?? 0) || Number(stockMaterial?.pricePerKg ?? 0) / 1000;
+      return sum + Math.max(0, Number(usage.estimatedGrams) || 0) * pricePerGram;
+    }, 0);
+    return cost > 0 ? (cost / allocated) * 1000 : null;
+  }, [inventoryMaterials, materialUsages]);
+
   const result = useMemo(
     () =>
       computePricing({
-        material, spoolPrice, spoolWeight,
+        material, spoolPrice: inventorySpoolPrice ?? spoolPrice, spoolWeight,
         steadyPowerWatts: steadyPower,
         weightGrams: slicerWeight,
         hours: printTime,
@@ -261,7 +287,7 @@ export function useCalculatorState() {
         wholesaleMarkup, retailMarkup, minPrice,
       }),
     [
-      material, spoolPrice, spoolWeight, steadyPower, slicerWeight, printTime,
+      material, spoolPrice, inventorySpoolPrice, spoolWeight, steadyPower, slicerWeight, printTime,
       batchQuantity, reservePct, failureRatePct, failureImpactPct, kwhCost, startupPower, startupMinutes,
       machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
       platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
@@ -310,6 +336,11 @@ export function useCalculatorState() {
       toast.error("Informe o nome do cliente para salvar.", { position: "bottom-center" });
       return;
     }
+    const allocated = materialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
+    if (materialUsages.length > 0 && Math.abs(allocated - slicerWeight) > 0.5) {
+      toast.error(`Distribua os ${slicerWeight.toFixed(1)}g completos entre os filamentos do estoque.`, { position: "bottom-center" });
+      return;
+    }
     setSavingCalc(true);
     try {
       await saveQuoteFromCalc({
@@ -324,6 +355,7 @@ export function useCalculatorState() {
         unitPrice: result.retailUnit,
         costTotal: result.totalCost,
         imageUrl: quoteImageUrl || undefined,
+        materialUsages,
         notes: `Custo real ${result.totalCost.toFixed(2)} · atacado ${result.wholesaleTotal.toFixed(2)} · varejo ${result.retailTotal.toFixed(2)} · ${MATERIAL_PRESETS[material].label} ${slicerWeight}g · ${printTimeStr}`,
       });
       toast.success("Orçamento salvo na aba Orçamentos!", { duration: 2800, position: "bottom-center" });
@@ -344,7 +376,7 @@ export function useCalculatorState() {
     slicerWeight, setSlicerWeight, reservePct, setReservePct,
     failureRatePct, setFailureRatePct, failureImpactPct, setFailureImpactPct,
     batchQuantity, setBatchQuantity,
-    selectMaterial, materialSettings,
+    selectMaterial, materialSettings, inventoryMaterials, materialUsages, setMaterialUsages,
     // machine
     machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
     nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,

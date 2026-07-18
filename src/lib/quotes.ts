@@ -9,6 +9,7 @@
 
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db, getStorageInstance } from "../services/firebase";
+import type { MaterialUsage } from "../types/domain";
 
 export interface SaveQuoteInput {
   /** Nome do cliente (obrigatório para identificar o orçamento). */
@@ -35,6 +36,8 @@ export interface SaveQuoteInput {
   imageUrl?: string;
   /** Observações internas (resumo de custos, etc.). */
   notes?: string;
+  /** Filamentos reais do estoque e consumo previsto por cor/SKU. */
+  materialUsages?: MaterialUsage[];
 }
 
 /** Extensões visuais/legíveis não previstas no tipo Quote base. */
@@ -69,6 +72,15 @@ export async function saveQuoteFromCalc(input: SaveQuoteInput): Promise<string> 
   if (optional(input.costTotal)) data.costTotal = Math.max(0, Number(input.costTotal) || 0);
   if (optional(input.imageUrl)) data.imageUrl = input.imageUrl;
   if (optional(input.notes)) data.adminNotes = input.notes;
+  if (input.materialUsages?.length) {
+    data.materialUsages = input.materialUsages
+      .filter((usage) => usage.materialId && Number(usage.estimatedGrams) > 0)
+      .map((usage) => ({
+        materialId: usage.materialId,
+        materialName: usage.materialName || "Filamento",
+        estimatedGrams: Math.max(0, Number(usage.estimatedGrams) || 0),
+      }));
+  }
 
   const ref = await addDoc(collection(db, "quotes"), data);
   return ref.id;

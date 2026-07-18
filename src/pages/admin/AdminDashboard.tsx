@@ -386,6 +386,7 @@ export default function AdminDashboard() {
     quickCalcPieceName, setQuickCalcPieceName,
     quickCalcBatchQty, setQuickCalcBatchQty,
     quickCalcMaterial, selectQuickMaterial,
+    quickMaterialUsages, setQuickMaterialUsages,
     quickCalcMaterialReserve, setQuickCalcMaterialReserve,
     quickCalcFailureRate, setQuickCalcFailureRate,
     quickCalcMinPrice, setQuickCalcMinPrice,
@@ -396,7 +397,7 @@ export default function AdminDashboard() {
     quickCalcImageUrl, setQuickCalcImageUrl,
     quickCalcUploadingImage, quickCalcSaving,
     handleUploadQuickImage, handleSaveQuickQuote,
-  } = useQuickCalc(machineConfig, pricingSettings, fetchData);
+  } = useQuickCalc(machineConfig, pricingSettings, materials, fetchData);
 
   const {
     isAdding: isCouponAdding, setIsAdding: setCouponAdding,
@@ -511,6 +512,9 @@ export default function AdminDashboard() {
                 quickCalcPieceName={quickCalcPieceName}
                 quickCalcBatchQty={quickCalcBatchQty}
                 quickCalcMaterial={quickCalcMaterial}
+                inventoryMaterials={materials}
+                quickMaterialUsages={quickMaterialUsages}
+                setQuickMaterialUsages={setQuickMaterialUsages}
                 quickCalcMaterialReserve={quickCalcMaterialReserve}
                 quickCalcFailureRate={quickCalcFailureRate}
                 quickCalcMinPrice={quickCalcMinPrice}

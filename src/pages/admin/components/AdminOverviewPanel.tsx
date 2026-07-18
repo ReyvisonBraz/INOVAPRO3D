@@ -1,4 +1,4 @@
-import { useMemo, memo } from "react";
+import { useMemo, memo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Truck,
   CheckCircle2,
@@ -43,7 +43,7 @@ import {
   type MachineHourBreakdown,
   type PricingSettings,
 } from "../../../lib/pricing";
-import type { Order, OrderItem, Quote } from "../../../types/domain";
+import type { Material, MaterialUsage, Order, OrderItem, Quote } from "../../../types/domain";
 import { AdminOverviewSummary } from "./AdminOverviewSummary";
 
 interface AdminOverviewPanelProps {
@@ -57,6 +57,9 @@ interface AdminOverviewPanelProps {
   quickCalcPieceName: string;
   quickCalcBatchQty: number;
   quickCalcMaterial: MaterialKey;
+  inventoryMaterials: Material[];
+  quickMaterialUsages: MaterialUsage[];
+  setQuickMaterialUsages: Dispatch<SetStateAction<MaterialUsage[]>>;
   quickCalcMaterialReserve: number;
   quickCalcFailureRate: number;
   quickCalcMinPrice: number;
@@ -114,6 +117,9 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   quickCalcPieceName,
   quickCalcBatchQty,
   quickCalcMaterial,
+  inventoryMaterials,
+  quickMaterialUsages,
+  setQuickMaterialUsages,
   quickCalcMaterialReserve,
   quickCalcFailureRate,
   quickCalcMinPrice,
@@ -146,6 +152,16 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   onUploadImage,
   onSaveQuote,
 }: AdminOverviewPanelProps) {
+  const [stockMaterialId, setStockMaterialId] = useState("");
+  const [stockUsageGrams, setStockUsageGrams] = useState(0);
+  const allocatedStockGrams = quickMaterialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
+  const addStockUsage = () => {
+    const selected = inventoryMaterials.find((entry) => entry.id === stockMaterialId);
+    if (!selected || stockUsageGrams <= 0) return;
+    setQuickMaterialUsages((current) => [...current.filter((entry) => entry.materialId !== selected.id), { materialId: selected.id, materialName: selected.name, estimatedGrams: stockUsageGrams }]);
+    setStockMaterialId("");
+    setStockUsageGrams(0);
+  };
   const chartData = useMemo(
     () =>
       [...orders]
@@ -360,6 +376,13 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.04] p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2"><span className="text-[9px] font-black uppercase text-blue-200">Filamento do estoque</span><span className={`text-[9px] font-bold ${Math.abs(allocatedStockGrams - quickCalcWeight) < 0.01 ? 'text-emerald-300' : 'text-amber-300'}`}>{allocatedStockGrams.toFixed(1)}g / {quickCalcWeight.toFixed(1)}g</span></div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_90px_auto]"><select value={stockMaterialId} onChange={(event) => setStockMaterialId(event.target.value)} className="min-w-0 rounded-lg border border-white/10 bg-black p-2 text-[10px]"><option value="">Selecionar estoque...</option>{inventoryMaterials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} ({Math.max(0, Number(entry.stockGrams || 0) - Number(entry.reservedGrams || 0))}g livres)</option>)}</select><NumInput min={0} step={0.1} value={stockUsageGrams} onChange={setStockUsageGrams} className="rounded-lg border border-white/10 bg-black p-2 text-[10px]" /><button type="button" onClick={addStockUsage} disabled={!stockMaterialId || stockUsageGrams <= 0} className="rounded-lg bg-blue-500 px-3 text-[9px] font-black uppercase disabled:opacity-40">Adicionar</button></div>
+              {quickMaterialUsages.map((usage) => <div key={usage.materialId} className="flex items-center justify-between rounded-lg bg-black/30 px-2.5 py-2 text-[10px]"><span className="text-white/60">{usage.materialName}</span><span className="flex items-center gap-2 font-mono"><strong>{usage.estimatedGrams}g</strong><button type="button" aria-label={`Remover ${usage.materialName}`} onClick={() => setQuickMaterialUsages((current) => current.filter((entry) => entry.materialId !== usage.materialId))} className="text-white/30 hover:text-red-300"><X className="h-3 w-3" /></button></span></div>)}
+              <p className="text-[9px] text-white/30">Reserva ao entrar na fila de produção; baixa ao iniciar impressão.</p>
             </div>
 
             <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
