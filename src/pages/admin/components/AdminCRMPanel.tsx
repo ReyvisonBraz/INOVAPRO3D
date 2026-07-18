@@ -1,5 +1,5 @@
 import { memo, useMemo } from "react";
-import { Eye, FileText, Package, Plus } from "lucide-react";
+import { Edit3, Eye, FileText, Package, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "../../../components/ui/Button";
 import { AdminEmptyState, AdminSectionHeader } from "./AdminPrimitives";
@@ -10,13 +10,14 @@ interface AdminCRMPanelProps {
   orders: Order[];
   searchTerm: string;
   onSelectCRMUser: (customer: Customer) => void;
+  onEditCustomer: (customer: Customer) => void;
   onAddCustomer: () => void;
   onExportCSV: () => void;
 }
 
 const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-const AdminCRMPanel = memo(function AdminCRMPanel({ customers, orders, searchTerm, onSelectCRMUser, onAddCustomer, onExportCSV }: AdminCRMPanelProps) {
+const AdminCRMPanel = memo(function AdminCRMPanel({ customers, orders, searchTerm, onSelectCRMUser, onEditCustomer, onAddCustomer, onExportCSV }: AdminCRMPanelProps) {
   const customerStats = useMemo(() => {
     const byEmail = new Map<string, { count: number; total: number }>();
     for (const order of orders) {
@@ -53,7 +54,10 @@ const AdminCRMPanel = memo(function AdminCRMPanel({ customers, orders, searchTer
               <div className="rounded-lg bg-white/[0.025] p-3"><span className="text-[10px] text-white/40">Pedidos</span><strong className="mt-1 block text-sm text-white">{stats.count}</strong></div>
               <div className="rounded-lg bg-white/[0.025] p-3"><span className="text-[10px] text-white/40">Volume</span><strong className="mt-1 block text-sm text-blue-300">{money.format(stats.total)}</strong></div>
             </div>
-            <Button onClick={() => onSelectCRMUser(customer)} className="h-9 w-full rounded-lg border-white/10 text-[11px] font-semibold" variant="outline">Ver perfil e historico</Button>
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={() => onSelectCRMUser(customer)} className="h-9 rounded-lg border-white/10 text-[11px] font-semibold" variant="outline"><Eye className="h-3.5 w-3.5" /> Ver perfil</Button>
+              <Button onClick={() => onEditCustomer(customer)} className="h-9 rounded-lg text-[11px] font-semibold"><Edit3 className="h-3.5 w-3.5" /> Editar</Button>
+            </div>
           </article>
         ))}
       </div>
@@ -68,7 +72,7 @@ const AdminCRMPanel = memo(function AdminCRMPanel({ customers, orders, searchTer
                 <td><p>{customer.email || "Sem email"}</p><p className="mt-0.5 text-[10px] text-white/35">{customer.whatsapp || customer.phone || "Sem telefone"}</p></td>
                 <td><span className="inline-flex items-center gap-1.5"><Package className="h-3.5 w-3.5 text-white/35" /> {stats.count}</span></td>
                 <td className="font-semibold tabular-nums text-white">{money.format(stats.total)}</td>
-                <td className="text-right"><button onClick={() => onSelectCRMUser(customer)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 text-[11px] font-medium text-white/55 transition hover:bg-white/[0.06] hover:text-white"><Eye className="h-3.5 w-3.5" /> Ver</button></td>
+                <td className="text-right"><div className="inline-flex items-center gap-2"><button onClick={() => onSelectCRMUser(customer)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 text-[11px] font-medium text-white/55 transition hover:bg-white/[0.06] hover:text-white"><Eye className="h-3.5 w-3.5" /> Ver</button><button onClick={() => onEditCustomer(customer)} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-blue-500 px-2.5 text-[11px] font-semibold text-white transition hover:bg-blue-400"><Edit3 className="h-3.5 w-3.5" /> Editar</button></div></td>
               </tr>
             ))}
             {!customerStats.length && <tr><td colSpan={5} className="p-0"><AdminEmptyState title="Nenhum cliente encontrado" description="Ajuste a busca ou cadastre o primeiro contato da base." /></td></tr>}

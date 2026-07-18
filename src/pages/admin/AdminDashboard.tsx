@@ -226,12 +226,46 @@ export default function AdminDashboard() {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
-  const emptyCustomer = useMemo(() => ({ name: "", email: "", phone: "", whatsapp: "", tags: [] as string[], address: "", customerType: "PERSON" as "PERSON" | "COMPANY", document: "", zipCode: "", city: "", state: "", source: "", notes: "", internalNotes: "" }), []);
+  const emptyCustomer = useMemo(() => ({ name: "", email: "", phone: "", secondaryPhone: "", whatsapp: "", tags: [] as string[], address: "", street: "", number: "", complement: "", neighborhood: "", customerType: "PERSON" as "PERSON" | "COMPANY", document: "", zipCode: "", city: "", state: "", source: "", preferredContact: "WHATSAPP" as "WHATSAPP" | "PHONE" | "EMAIL", birthday: "", notes: "", internalNotes: "" }), []);
   const [newCustomer, setNewCustomer] = useState(emptyCustomer);
+
+  const openCustomerEditor = useCallback((customer: Customer) => {
+    setSelectedCRMUser(customer);
+    setNewCustomer({
+      ...emptyCustomer,
+      name: customer.name ?? "",
+      email: customer.email ?? "",
+      phone: customer.phone ?? "",
+      secondaryPhone: customer.secondaryPhone ?? "",
+      whatsapp: customer.whatsapp ?? "",
+      tags: customer.tags ?? [],
+      customerType: customer.customerType ?? "PERSON",
+      document: customer.document ?? "",
+      zipCode: customer.zipCode ?? "",
+      address: customer.address ?? "",
+      street: customer.street ?? "",
+      number: customer.number ?? "",
+      complement: customer.complement ?? "",
+      neighborhood: customer.neighborhood ?? "",
+      city: customer.city ?? "",
+      state: customer.state ?? "",
+      source: customer.source ?? "",
+      preferredContact: customer.preferredContact ?? "WHATSAPP",
+      birthday: customer.birthday ?? "",
+      notes: customer.notes ?? "",
+      internalNotes: customer.internalNotes ?? "",
+    });
+    setIsAddingCustomer(false);
+    setIsEditingCustomer(true);
+  }, [emptyCustomer]);
 
   const handleCustomerSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
     if (isSubmittingCustomer) return;
+    if (!newCustomer.name.trim()) return toast.error("Informe o nome do cliente.");
+    if (![newCustomer.email, newCustomer.phone, newCustomer.whatsapp].some((value) => value.trim())) {
+      return toast.error("Informe pelo menos um contato: email, telefone ou WhatsApp.");
+    }
     setIsSubmittingCustomer(true);
     try {
       if (isEditingCustomer && selectedCRMUser) {
@@ -243,6 +277,7 @@ export default function AdminDashboard() {
       }
       setIsAddingCustomer(false);
       setIsEditingCustomer(false);
+      setSelectedCRMUser(null);
       setNewCustomer(emptyCustomer);
       fetchData();
     } catch {
@@ -618,6 +653,7 @@ export default function AdminDashboard() {
                 orders={orders}
                 searchTerm={searchTerm}
                 onSelectCRMUser={setSelectedCRMUser}
+                onEditCustomer={openCustomerEditor}
                 onAddCustomer={() => { setIsAddingCustomer(true); setIsEditingCustomer(false); setNewCustomer(emptyCustomer); }}
                 onExportCSV={exportCustomersToCSV}
               />
@@ -1084,7 +1120,8 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               </div>
-              <div className="p-8 bg-black/40 border-t border-white/5 flex gap-4">
+              <div className="p-8 bg-black/40 border-t border-white/5 flex flex-wrap gap-4">
+                <Button onClick={() => openCustomerEditor(selectedCRMUser)} className="rounded-2xl h-14 px-8 text-xs font-black uppercase tracking-widest"><Edit className="w-4 h-4" /> Editar cliente</Button>
                 <Button onClick={() => window.open(`mailto:${selectedCRMUser.email}`)} className="flex-1 rounded-2xl h-14 bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-black uppercase italic tracking-widest text-white">Enviar Notificação</Button>
                 <Button onClick={() => deleteItem("customers", selectedCRMUser.id)} className="rounded-2xl h-14 px-8 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all text-xs font-black uppercase italic tracking-widest" variant="outline">Banir / Excluir</Button>
               </div>
@@ -1095,23 +1132,24 @@ export default function AdminDashboard() {
         {/* Customer Form Modal */}
         {(isAddingCustomer || isEditingCustomer) && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
-            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9 }} className="bg-surface border border-white/10 rounded-[48px] p-10 max-w-md w-full relative my-auto">
-              <button onClick={() => { setIsAddingCustomer(false); setIsEditingCustomer(false); }} className="absolute top-8 right-8 text-dim hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
+            <motion.div initial={{ opacity: 0, scale: 0.97 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.97 }} className="bg-surface border border-white/10 rounded-2xl p-6 sm:p-8 max-w-2xl w-full relative my-auto max-h-[92vh] overflow-y-auto">
+              <button aria-label="Fechar editor de cliente" onClick={() => { setIsAddingCustomer(false); setIsEditingCustomer(false); }} className="absolute top-8 right-8 text-dim hover:text-white"><Plus className="w-8 h-8 rotate-45" /></button>
               <h2 className="text-3xl font-black italic tracking-tighter mb-8 leading-none">{isEditingCustomer ? "Editar Cliente" : "Novo Cliente"}<br /><span className="text-primary text-sm uppercase tracking-widest mt-2 block">{isEditingCustomer ? "Refinar Cadastro" : "Cadastro Manual (CRM)"}</span></h2>
               <form onSubmit={handleCustomerSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Nome Completo</label><input required value={newCustomer.name} onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
                   <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Telefone / WhatsApp</label><input value={newCustomer.phone} onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })} placeholder="(00) 00000-0000" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
                 </div>
-                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Email de Contato</label><input required type="email" value={newCustomer.email} onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Email de Contato</label><input type="email" value={newCustomer.email} onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4"><input value={newCustomer.secondaryPhone} onChange={(e) => setNewCustomer({ ...newCustomer, secondaryPhone: e.target.value })} placeholder="Telefone alternativo" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><select value={newCustomer.preferredContact} onChange={(e) => setNewCustomer({ ...newCustomer, preferredContact: e.target.value as "WHATSAPP" | "PHONE" | "EMAIL" })} className="bg-black border border-white/10 rounded-2xl p-4 text-sm"><option value="WHATSAPP">Prefere WhatsApp</option><option value="PHONE">Prefere telefone</option><option value="EMAIL">Prefere email</option></select><input type="date" value={newCustomer.birthday} onChange={(e) => setNewCustomer({ ...newCustomer, birthday: e.target.value })} className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" title="Nascimento / aniversário" /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4"><select value={newCustomer.customerType} onChange={(e) => setNewCustomer({ ...newCustomer, customerType: e.target.value as "PERSON" | "COMPANY" })} className="bg-black border border-white/10 rounded-2xl p-4 text-sm"><option value="PERSON">Pessoa fisica</option><option value="COMPANY">Empresa</option></select><input value={newCustomer.document} onChange={(e) => setNewCustomer({ ...newCustomer, document: e.target.value })} placeholder="CPF / CNPJ" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
-                <div className="grid grid-cols-3 gap-3"><input value={newCustomer.zipCode} onChange={(e) => setNewCustomer({ ...newCustomer, zipCode: e.target.value })} placeholder="CEP" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.city} onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })} placeholder="Cidade" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.state} onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value.toUpperCase().slice(0, 2) })} placeholder="UF" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><input value={newCustomer.zipCode} onChange={(e) => setNewCustomer({ ...newCustomer, zipCode: e.target.value })} placeholder="CEP" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.city} onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })} placeholder="Cidade" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.state} onChange={(e) => setNewCustomer({ ...newCustomer, state: e.target.value.toUpperCase().slice(0, 2) })} placeholder="UF" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
                 <input value={newCustomer.address} onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })} placeholder="Endereco completo" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" />
                 <div className="grid grid-cols-2 gap-4"><input value={newCustomer.source} onChange={(e) => setNewCustomer({ ...newCustomer, source: e.target.value })} placeholder="Origem do cliente" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /><input value={newCustomer.whatsapp} onChange={(e) => setNewCustomer({ ...newCustomer, whatsapp: e.target.value })} placeholder="WhatsApp" className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm" /></div>
                 <div className="space-y-2"><label className="text-[10px] font-black uppercase text-dim italic">Segmentação (Tags separadas por vírgula)</label><input value={newCustomer.tags.join(", ")} onChange={(e) => setNewCustomer({ ...newCustomer, tags: e.target.value.split(",").map((t) => t.trim()).filter((t) => t !== "") })} placeholder="Ex: VIP, B2B, Atacado" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all" /></div>
                 <textarea value={newCustomer.notes} onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })} placeholder="Observacoes gerais" className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm min-h-20" />
                 <textarea value={newCustomer.internalNotes} onChange={(e) => setNewCustomer({ ...newCustomer, internalNotes: e.target.value })} placeholder="Observacoes internas (nao exibidas ao cliente)" className="w-full bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 text-sm min-h-20" />
-                <Button type="submit" className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest bg-primary shadow-xl shadow-primary/20">Registrar no Database</Button>
+                <Button type="submit" disabled={isSubmittingCustomer} className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest bg-primary shadow-xl shadow-primary/20">{isSubmittingCustomer ? "Salvando..." : isEditingCustomer ? "Salvar alterações" : "Cadastrar cliente"}</Button>
               </form>
             </motion.div>
           </div>
