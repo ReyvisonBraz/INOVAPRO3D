@@ -15,7 +15,7 @@ interface Props {
   onSaved: () => void;
 }
 
-const fieldClass = "w-full rounded-xl border border-white/10 bg-white/5 px-3 py-3 text-xs font-bold text-white outline-none focus:border-primary/50";
+const fieldClass = "admin-input w-full";
 
 export function AdminManualSaleModal({ initialMode, customers, products, materials, onClose, onSaved }: Props) {
   const [mode, setMode] = useState(initialMode);
@@ -111,13 +111,13 @@ export function AdminManualSaleModal({ initialMode, customers, products, materia
   };
 
   return (
-    <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/95 p-4 backdrop-blur-2xl">
-      <form onSubmit={submit} className="mx-auto my-6 max-w-5xl rounded-[32px] border border-white/10 bg-surface p-6 sm:p-8">
-        <div className="mb-6 flex items-start justify-between gap-4">
-          <div><h2 className="text-2xl font-black italic">Montador manual</h2><p className="text-xs text-dim">Venda e consumo de producao no mesmo registro</p></div>
-          <button type="button" onClick={onClose}><X className="h-6 w-6" /></button>
+    <div className="fixed inset-0 z-[120] overflow-y-auto bg-black/75 p-3 backdrop-blur-md sm:p-6">
+      <form onSubmit={submit} className="mx-auto my-3 max-w-5xl overflow-hidden rounded-2xl border border-white/10 bg-[#11141b] shadow-2xl sm:my-6">
+        <div className="flex items-start justify-between gap-4 border-b border-white/[0.07] px-5 py-4 sm:px-6">
+          <div><p className="admin-eyebrow">Venda assistida</p><h2 className="text-lg font-semibold text-white">Montador manual</h2><p className="mt-1 text-xs text-white/40">Crie a proposta e registre o consumo de producao no mesmo fluxo.</p></div>
+          <button type="button" onClick={onClose} className="grid h-8 w-8 place-items-center rounded-lg text-white/40 transition hover:bg-white/[0.06] hover:text-white" aria-label="Fechar"><X className="h-4 w-4" /></button>
         </div>
-        <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="space-y-5 p-5 sm:p-6"><div className="grid gap-3 md:grid-cols-3">
           <select value={mode} onChange={(e) => setMode(e.target.value as "order" | "quote")} className={fieldClass}>
             <option value="order">Criar pedido</option><option value="quote">Criar orcamento</option>
           </select>
@@ -127,13 +127,14 @@ export function AdminManualSaleModal({ initialMode, customers, products, materia
           {mode === "quote" && <input type="date" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} className={fieldClass} title="Validade do orcamento" />}
         </div>
 
-        <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-4">
+        <div className="rounded-xl border border-white/[0.07] bg-white/[0.018] p-4">
+          <div className="mb-3"><h3 className="text-sm font-semibold text-white">Adicionar item</h3><p className="mt-1 text-[11px] text-white/38">Use o catalogo ou descreva uma peca personalizada.</p></div>
           <div className="mb-3 grid gap-3 md:grid-cols-5">
             <select defaultValue="" onChange={(e) => addCatalogProduct(e.target.value)} className={fieldClass}><option value="">Usar produto do catalogo...</option>{products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Item personalizado" className={fieldClass} />
             <input type="number" min="0" step="0.01" value={price} onChange={(e) => setPrice(Number(e.target.value))} placeholder="Valor unitario" className={fieldClass} />
             <input type="number" min="1" value={quantity} onChange={(e) => setQuantity(Number(e.target.value))} placeholder="Quantidade" className={fieldClass} />
-            <Button type="button" onClick={addItem} className="rounded-xl"><Plus className="h-4 w-4" /> Adicionar</Button>
+            <Button type="button" onClick={addItem} className="h-[38px] rounded-lg px-3 text-[11px] shadow-none"><Plus className="h-3.5 w-3.5" /> Adicionar</Button>
           </div>
           <div className="grid gap-3 md:grid-cols-2">
             <select value={materialId} onChange={(e) => setMaterialId(e.target.value)} className={fieldClass}><option value="">Sem consumo informado</option>{materials.map((m) => <option key={m.id} value={m.id}>{m.name} ({Math.max(0, (m.stockGrams ?? 0) - (m.reservedGrams ?? 0))}g livres)</option>)}</select>
@@ -141,9 +142,9 @@ export function AdminManualSaleModal({ initialMode, customers, products, materia
           </div>
         </div>
 
-        <div className="my-5 space-y-2">
-          {items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-white/5 bg-white/[0.03] p-3 text-xs"><div><strong>{item.quantity}x {item.name}</strong><p className="text-dim">R$ {item.price.toFixed(2)} {item.materialUsages?.[0] ? `• ${item.materialUsages[0].materialName}: ${item.materialUsages[0].estimatedGrams}g` : ""}</p></div><button type="button" onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))}><Trash2 className="h-4 w-4 text-red-400" /></button></div>)}
-          {!items.length && <p className="py-5 text-center text-xs text-dim">Nenhum item adicionado.</p>}
+        <div className="space-y-2">
+          {items.map((item) => <div key={item.id} className="flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] bg-white/[0.025] p-3 text-xs"><div><strong className="font-semibold text-white">{item.quantity}x {item.name}</strong><p className="mt-1 text-white/40">R$ {item.price.toFixed(2)} {item.materialUsages?.[0] ? `• ${item.materialUsages[0].materialName}: ${item.materialUsages[0].estimatedGrams}g` : ""}</p></div><button type="button" aria-label={`Remover ${item.name}`} onClick={() => setItems((current) => current.filter((entry) => entry.id !== item.id))} className="grid h-8 w-8 place-items-center rounded-lg text-red-300 transition hover:bg-red-500/10"><Trash2 className="h-3.5 w-3.5" /></button></div>)}
+          {!items.length && <p className="rounded-lg border border-dashed border-white/[0.08] py-6 text-center text-xs text-white/35">Nenhum item adicionado.</p>}
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -153,9 +154,9 @@ export function AdminManualSaleModal({ initialMode, customers, products, materia
         <div className="mt-5 grid gap-3 sm:grid-cols-3">
           <input type="number" min="0" step="0.01" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} placeholder="Desconto" className={fieldClass} />
           <input type="number" min="0" step="0.01" value={shippingRate} onChange={(e) => setShippingRate(Number(e.target.value))} placeholder="Frete" className={fieldClass} />
-          <div className="rounded-xl bg-primary/10 px-4 py-3 text-right"><span className="text-[10px] uppercase text-dim">Total</span><p className="font-black">R$ {total.toFixed(2)}</p></div>
+          <div className="rounded-lg border border-blue-400/15 bg-blue-500/[0.07] px-4 py-3 text-right"><span className="text-[10px] font-semibold uppercase text-white/40">Total</span><p className="font-semibold tabular-nums text-white">R$ {total.toFixed(2)}</p></div>
         </div>
-        <div className="mt-6 flex justify-end gap-3"><Button type="button" variant="outline" onClick={onClose}>Cancelar</Button><Button disabled={saving || !items.length}>{saving ? "Salvando..." : mode === "order" ? "Criar pedido" : "Criar orcamento"}</Button></div>
+        </div><div className="flex flex-col-reverse justify-end gap-2 border-t border-white/[0.07] bg-black/10 px-5 py-4 sm:flex-row sm:px-6"><Button type="button" variant="outline" onClick={onClose} className="h-9 rounded-lg border-white/10 px-4 text-[11px]">Cancelar</Button><Button disabled={saving || !items.length} className="h-9 rounded-lg px-4 text-[11px] shadow-none">{saving ? "Salvando..." : mode === "order" ? "Criar pedido" : "Criar orcamento"}</Button></div>
       </form>
     </div>
   );

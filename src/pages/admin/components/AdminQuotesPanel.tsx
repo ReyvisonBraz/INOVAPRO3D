@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Eye, CheckCircle, Trash2, Smartphone, ImageIcon, Calculator } from "lucide-react";
 import { formatBRL } from "../../../lib/pricing";
 import type { FirestoreDate, Quote, Ticket } from "../../../types/domain";
+import { AdminEmptyState, AdminMetric, AdminSectionHeader } from "./AdminPrimitives";
 
 interface AdminQuotesPanelProps {
   quotes: Quote[];
@@ -63,31 +64,16 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -10 }}
-      className="space-y-6"
+      className="space-y-4"
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <button onClick={onCreateManual} className="rounded-2xl bg-primary px-5 py-3 text-[10px] font-black uppercase tracking-widest text-white">Novo orcamento</button>
-        <div className="rounded-2xl border border-white/5 bg-white/[0.02] px-4 py-3">
-          <p className="text-[9px] font-black uppercase tracking-widest text-dim">Total de orçamentos</p>
-          <p className="text-lg font-black text-white">{quotes.length}</p>
-        </div>
-        <div className="rounded-2xl border border-amber-400/15 bg-amber-400/[0.05] px-4 py-3">
-          <p className="text-[9px] font-black uppercase tracking-widest text-amber-300/70">Aguardando análise</p>
-          <p className="text-lg font-black text-amber-300">{pending}</p>
-        </div>
-      </div>
+      <AdminSectionHeader eyebrow="Vendas" title="Orçamentos" description="Analise solicitações, envie propostas e converta aprovações em pedidos." actions={<button onClick={onCreateManual} className="h-9 rounded-lg bg-primary px-3 text-[11px] font-semibold text-white transition hover:bg-primary-dark">Novo orçamento</button>} />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4"><AdminMetric label="Total" value={quotes.length} /><AdminMetric label="Aguardando análise" value={pending} tone={pending ? "warning" : "default"} /><AdminMetric label="Convertidos" value={quotes.filter((quote) => quote.status === "CONVERTED_TO_ORDER").length} tone="success" /><AdminMetric label="Valor em aberto" value={formatBRL(quotes.filter((quote) => quote.status === "PENDING" || quote.status === "IN_REVIEW").reduce((sum, quote) => sum + (quote.total || quote.estimatedPrice || 0), 0))} /></div>
 
-      <div className="glass rounded-[32px] sm:rounded-[48px] p-4 sm:p-8 border border-white/5 overflow-x-auto no-scrollbar">
-        <table className="w-full text-left min-w-[820px]">
+      <div className="admin-table-wrap overflow-x-auto no-scrollbar">
+        <table className="admin-table min-w-[880px]">
           <thead>
-            <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-dim border-b border-white/5">
-              <th className="pb-6">Peça</th>
-              <th className="pb-6">Cliente</th>
-              <th className="pb-6">Material</th>
-              <th className="pb-6 text-right">Preço</th>
-              <th className="pb-6 text-center">Status</th>
-              <th className="pb-6 text-center">Data</th>
-              <th className="pb-6 text-right">Ações</th>
+            <tr>
+              <th>Peça</th><th>Cliente</th><th>Material</th><th className="text-right">Preço</th><th className="text-center">Status</th><th className="text-center">Data</th><th className="text-right">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -95,9 +81,9 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
               const price = q.total || q.estimatedPrice || 0;
               const phoneClean = (q.phone || "").replace(/\D/g, "");
               return (
-                <tr key={q.id} className="hover:bg-white/[0.01] transition-colors group border-b border-white/[0.03]">
+                <tr key={q.id}>
                   {/* PEÇA + THUMBNAIL */}
-                  <td className="py-4">
+                  <td>
                     <div className="flex items-center gap-3">
                       <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] flex items-center justify-center">
                         {q.imageUrl ? (
@@ -121,18 +107,18 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                   </td>
 
                   {/* CLIENTE + TELEFONE */}
-                  <td className="py-4">
-                    <p className="text-sm font-bold uppercase text-white/70">{q.userName || "—"}</p>
+                  <td>
+                    <p className="text-xs font-semibold text-white/70">{q.userName || "—"}</p>
                     {q.phone && (
                       <p className="font-mono text-[11px] text-white/35">{formatPhone(q.phone)}</p>
                     )}
                   </td>
 
                   {/* MATERIAL */}
-                  <td className="py-4 text-xs font-bold text-white/50">{q.materialId || "—"}</td>
+                  <td className="text-xs font-medium text-white/50">{q.materialId || "—"}</td>
 
                   {/* PREÇO */}
-                  <td className="py-4 text-right">
+                  <td className="text-right">
                     <p className="font-mono text-sm font-black text-white">{formatBRL(price)}</p>
                     {q.quantity && q.quantity > 1 && q.unitPrice ? (
                       <p className="font-mono text-[10px] text-white/30">{formatBRL(q.unitPrice)} / un · {q.quantity}x</p>
@@ -140,19 +126,19 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                   </td>
 
                   {/* STATUS */}
-                  <td className="py-4 text-center"><StatusBadge status={q.status} /></td>
+                  <td className="text-center"><StatusBadge status={q.status} /></td>
 
                   {/* DATA */}
-                  <td className="py-4 text-center font-mono text-[11px] text-white/40">{formatDate(q.createdAt)}</td>
+                  <td className="text-center font-mono text-[11px] text-white/40">{formatDate(q.createdAt)}</td>
 
                   {/* AÇÕES */}
-                  <td className="py-4 text-right">
+                  <td className="text-right">
                     <div className="flex items-center justify-end gap-2">
                       {onWhatsApp && phoneClean && (
                         <button
                           onClick={() => onWhatsApp(q)}
                           title="Enviar orçamento por WhatsApp"
-                          className="p-3 bg-[#25D366]/10 hover:bg-[#25D366] text-[#25D366] hover:text-black rounded-xl transition-all"
+                          className="grid h-8 w-8 place-items-center rounded-lg bg-[#25D366]/10 text-[#25D366] transition hover:bg-[#25D366] hover:text-black"
                         >
                           <Smartphone className="w-4 h-4" />
                         </button>
@@ -160,7 +146,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                       <button
                         onClick={() => onSelectQuote(q)}
                         title="Ver detalhes"
-                        className="p-3 bg-white/5 hover:bg-white/10 text-dim hover:text-white rounded-xl transition-all"
+                        className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.035] text-white/40 transition hover:bg-white/[0.08] hover:text-white"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
@@ -169,7 +155,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                           onClick={() => onApproveQuote(q)}
                           disabled={isApprovingQuote}
                           title="Aprovar e faturar"
-                          className="p-3 bg-green-500/10 hover:bg-green-500 text-green-500 hover:text-white rounded-xl transition-all shadow-lg shadow-green-500/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="grid h-8 w-8 place-items-center rounded-lg bg-emerald-500/10 text-emerald-300 transition hover:bg-emerald-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <CheckCircle className="w-4 h-4" />
                         </button>
@@ -177,7 +163,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                       <button
                         onClick={() => onDeleteQuote("quotes", q.id)}
                         title="Excluir orçamento"
-                        className="p-3 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-white rounded-xl transition-all"
+                        className="grid h-8 w-8 place-items-center rounded-lg bg-red-500/10 text-red-300 transition hover:bg-red-500 hover:text-white"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -188,9 +174,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
             })}
             {quotes.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-20 text-center text-subtle italic">
-                  Nenhum orçamento encontrado.
-                </td>
+                <td colSpan={7} className="p-0"><AdminEmptyState title="Nenhum orçamento encontrado" description="Novas solicitações e propostas manuais aparecerão aqui." /></td>
               </tr>
             )}
           </tbody>

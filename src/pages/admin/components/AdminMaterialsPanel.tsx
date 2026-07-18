@@ -1,8 +1,9 @@
 import { memo, type FC } from "react";
 import { motion } from "framer-motion";
-import { Trash2, Plus } from "lucide-react";
+import { AlertTriangle, ArrowDownUp, PackageOpen, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { cn } from "../../../lib/utils";
+import { AdminEmptyState, AdminMetric, AdminSectionHeader } from "./AdminPrimitives";
 import type { Material } from "../../../types/domain";
 
 interface AdminMaterialsPanelProps {
@@ -13,53 +14,59 @@ interface AdminMaterialsPanelProps {
   onAdjustStock: (material: Material) => void;
 }
 
-const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(({
-  materials,
-  onDeleteMaterial,
-  onAddMaterial,
-  onToggleStock,
-  onAdjustStock,
-}) => {
-  return (
-    <motion.div key="materials" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="flex justify-between items-center gap-3 bg-white/[0.02] p-6 rounded-[24px] border border-white/5">
-        <div className="min-w-0">
-          <h3 className="text-sm font-black uppercase tracking-widest italic">Estoque</h3>
-          <p className="text-[10px] text-dim uppercase font-bold tracking-widest">Matéria Prima para Impressão</p>
-        </div>
-        <Button onClick={onAddMaterial} className="rounded-2xl gap-2 h-9 px-4 whitespace-nowrap shrink-0 text-[10px]">
-          <Plus className="w-4 h-4" /> Novo Filamento
-        </Button>
-      </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {materials.map(m => (
-          <div key={m.id} className="bg-surface-card rounded-[48px] p-8 border border-white/5 flex flex-col items-center text-center group relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => onDeleteMaterial(m.id)} className="text-dim hover:text-red-500 transition-colors"><Trash2 className="w-4 h-4" /></button>
-            </div>
-            <div className="w-16 h-16 rounded-full mb-6 border-4 border-white/5 shadow-2xl transition-transform group-hover:scale-110" style={{ backgroundColor: m.color }} />
-            <h4 className="text-sm font-black uppercase tracking-tight mb-2">{m.name}</h4>
-            <p className="text-[10px] text-dim uppercase font-black tracking-widest mb-6">{m.type || 'PLA Premium'}</p>
-            <div className="mb-4 grid w-full grid-cols-3 gap-2 text-left"><div className="rounded-xl bg-white/5 p-2"><span className="text-[8px] uppercase text-dim">Fisico</span><p className="text-xs font-black">{m.stockGrams ?? 0}g</p></div><div className="rounded-xl bg-white/5 p-2"><span className="text-[8px] uppercase text-dim">Reservado</span><p className="text-xs font-black text-amber-400">{m.reservedGrams ?? 0}g</p></div><div className="rounded-xl bg-white/5 p-2"><span className="text-[8px] uppercase text-dim">Livre</span><p className="text-xs font-black text-green-400">{Math.max(0, (m.stockGrams ?? 0) - (m.reservedGrams ?? 0))}g</p></div></div>
-            <button onClick={() => onAdjustStock(m)} className="mb-3 w-full rounded-xl border border-primary/20 bg-primary/5 py-2 text-[9px] font-black uppercase tracking-widest text-primary">Entrada / ajuste</button>
+const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(function AdminMaterialsPanel({ materials, onDeleteMaterial, onAddMaterial, onToggleStock, onAdjustStock }) {
+  const stock = materials.reduce((sum, item) => sum + Number(item.stockGrams ?? 0), 0);
+  const reserved = materials.reduce((sum, item) => sum + Number(item.reservedGrams ?? 0), 0);
+  const lowStock = materials.filter((item) => (item.stockGrams ?? 0) - (item.reservedGrams ?? 0) <= (item.minimumStockGrams ?? 0)).length;
 
-            <div className="w-full flex items-center justify-between p-4 bg-white/5 rounded-3xl border border-white/5">
-              <span className="text-[10px] font-black uppercase tracking-widest text-dim">Em Estoque</span>
-              <button
-                onClick={() => onToggleStock(m.id, !!m.inStock)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all",
-                  m.inStock ? "bg-green-500/10 text-green-500 hover:bg-green-500/20" : "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                )}
-              >
-                {m.inStock ? 'Disponível' : 'Esgotado'}
-              </button>
-            </div>
-          </div>
-        ))}
+  return (
+    <motion.div key="materials" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <AdminSectionHeader eyebrow="Producao" title="Filamentos e materiais" description="Acompanhe saldo fisico, reservas e disponibilidade real para novos pedidos." actions={
+        <Button onClick={onAddMaterial} className="h-9 rounded-lg px-3 text-[11px] font-semibold shadow-none"><Plus className="h-3.5 w-3.5" /> Novo filamento</Button>
+      } />
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <AdminMetric label="Cadastrados" value={materials.length} hint="SKUs de material" />
+        <AdminMetric label="Estoque fisico" value={`${stock.toLocaleString("pt-BR")}g`} />
+        <AdminMetric label="Reservado" value={`${reserved.toLocaleString("pt-BR")}g`} tone={reserved ? "warning" : "default"} />
+        <AdminMetric label="Estoque baixo" value={lowStock} hint="Precisam de atencao" tone={lowStock ? "danger" : "success"} />
       </div>
+
+      {materials.length ? (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {materials.map((material) => {
+            const physical = Number(material.stockGrams ?? 0);
+            const held = Number(material.reservedGrams ?? 0);
+            const available = Math.max(0, physical - held);
+            const minimum = Number(material.minimumStockGrams ?? 0);
+            const isLow = available <= minimum;
+            const coverage = physical > 0 ? Math.min(100, (available / physical) * 100) : 0;
+            return (
+              <article key={material.id} className="admin-panel group overflow-hidden">
+                <div className="flex items-start gap-3 border-b border-white/[0.06] p-4">
+                  <div className="h-10 w-10 shrink-0 rounded-xl border border-white/10 shadow-inner" style={{ backgroundColor: material.color || "#64748b" }} />
+                  <div className="min-w-0 flex-1"><div className="flex items-center gap-2"><h3 className="truncate text-sm font-semibold text-white">{material.name}</h3>{isLow && <span title="Estoque baixo"><AlertTriangle className="h-3.5 w-3.5 text-amber-300" /></span>}</div><p className="mt-1 truncate text-[11px] text-white/38">{[material.type, material.brand, material.location].filter(Boolean).join(" · ") || "Sem detalhes adicionais"}</p></div>
+                  <button onClick={() => onDeleteMaterial(material.id)} className="grid h-8 w-8 place-items-center rounded-lg text-white/30 transition hover:bg-red-500/10 hover:text-red-300" aria-label={`Excluir ${material.name}`}><Trash2 className="h-3.5 w-3.5" /></button>
+                </div>
+                <div className="space-y-4 p-4">
+                  <div className="grid grid-cols-3 gap-2"><StockValue label="Fisico" value={physical} /><StockValue label="Reservado" value={held} tone="warning" /><StockValue label="Disponivel" value={available} tone={isLow ? "danger" : "success"} /></div>
+                  <div><div className="mb-1.5 flex justify-between text-[10px] text-white/38"><span>Disponibilidade</span><span>{Math.round(coverage)}%</span></div><div className="h-1.5 overflow-hidden rounded-full bg-white/[0.06]"><div className={cn("h-full rounded-full", isLow ? "bg-amber-400" : "bg-emerald-400")} style={{ width: `${coverage}%` }} /></div></div>
+                  <div className="flex gap-2">
+                    <button onClick={() => onAdjustStock(material)} className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.025] text-[11px] font-semibold text-white/65 transition hover:bg-white/[0.06] hover:text-white"><ArrowDownUp className="h-3.5 w-3.5" /> Movimentar</button>
+                    <button onClick={() => onToggleStock(material.id, !!material.inStock)} className={cn("h-9 rounded-lg border px-3 text-[11px] font-semibold transition", material.inStock ? "border-emerald-400/20 bg-emerald-400/8 text-emerald-300 hover:bg-emerald-400/12" : "border-white/10 bg-white/[0.025] text-white/45 hover:text-white")}>{material.inStock ? "Ativo" : "Inativo"}</button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      ) : <div className="admin-panel"><AdminEmptyState icon={PackageOpen} title="Nenhum filamento cadastrado" description="Cadastre o primeiro material para controlar reservas e consumo na producao." action={<Button onClick={onAddMaterial} className="h-9 rounded-lg px-3 text-[11px]">Cadastrar filamento</Button>} /></div>}
     </motion.div>
   );
 });
+
+function StockValue({ label, value, tone = "default" }: { label: string; value: number; tone?: "default" | "warning" | "success" | "danger" }) {
+  return <div className="rounded-lg bg-white/[0.025] p-2.5"><span className="block text-[9px] text-white/38">{label}</span><strong className={cn("mt-1 block text-xs font-semibold tabular-nums", tone === "warning" && "text-amber-300", tone === "success" && "text-emerald-300", tone === "danger" && "text-red-300", tone === "default" && "text-white")}>{value.toLocaleString("pt-BR")}g</strong></div>;
+}
 
 export default AdminMaterialsPanel;

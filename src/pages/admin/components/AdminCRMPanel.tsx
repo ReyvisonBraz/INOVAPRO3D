@@ -1,143 +1,81 @@
 import { memo, useMemo } from "react";
-import { Package, Eye, Plus, FileText } from "lucide-react";
+import { Eye, FileText, Package, Plus } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "../../../components/ui/Button";
-
+import { AdminEmptyState, AdminSectionHeader } from "./AdminPrimitives";
 import type { Customer, Order } from "../../../types/domain";
 
 interface AdminCRMPanelProps {
   customers: Customer[];
   orders: Order[];
   searchTerm: string;
-  onSelectCRMUser: (c: Customer) => void;
+  onSelectCRMUser: (customer: Customer) => void;
   onAddCustomer: () => void;
   onExportCSV: () => void;
 }
 
-const AdminCRMPanel = memo(({
-  customers,
-  orders,
-  searchTerm,
-  onSelectCRMUser,
-  onAddCustomer,
-  onExportCSV,
-}: AdminCRMPanelProps) => {
-  const filteredCustomers = useMemo(
-    () =>
-      customers.filter(
-        (c) =>
-          (c.name && c.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
-          (c.email && c.email.toLowerCase().includes(searchTerm.toLowerCase())),
-      ),
-    [customers, searchTerm],
-  );
+const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-  const orderStatsByEmail = useMemo(() => {
-    const map = new Map<string, { count: number; total: number }>();
-    for (const o of orders) {
-      if (!o.userEmail) continue;
-      const prev = map.get(o.userEmail) || { count: 0, total: 0 };
-      map.set(o.userEmail, { count: prev.count + 1, total: prev.total + (o.total || 0) });
+const AdminCRMPanel = memo(function AdminCRMPanel({ customers, orders, searchTerm, onSelectCRMUser, onAddCustomer, onExportCSV }: AdminCRMPanelProps) {
+  const customerStats = useMemo(() => {
+    const byEmail = new Map<string, { count: number; total: number }>();
+    for (const order of orders) {
+      const key = order.userEmail?.toLowerCase();
+      if (!key || order.status === "CANCELED") continue;
+      const current = byEmail.get(key) ?? { count: 0, total: 0 };
+      byEmail.set(key, { count: current.count + 1, total: current.total + (order.total || 0) });
     }
-    return map;
-  }, [orders]);
-
-  const customerStatsList = useMemo(() =>
-    filteredCustomers.map(c => ({
-      customer: c,
-      stats: orderStatsByEmail.get(c.email || "") || { count: 0, total: 0 },
-    })),
-    [filteredCustomers, orderStatsByEmail]
-  );
+    const term = searchTerm.trim().toLowerCase();
+    return customers
+      .filter((customer) => !term || [customer.name, customer.email, customer.phone, customer.whatsapp].some((value) => value?.toLowerCase().includes(term)))
+      .map((customer) => ({ customer, stats: byEmail.get(customer.email?.toLowerCase() || "") ?? { count: 0, total: 0 } }));
+  }, [customers, orders, searchTerm]);
 
   return (
-    <motion.div key="crm" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5 gap-4">
-        <div>
-          <h3 className="text-sm font-black uppercase tracking-widest italic text-center sm:text-left">Base de Clientes (CRM)</h3>
-          <p className="text-[10px] text-dim uppercase font-bold tracking-widest text-center sm:text-left">Inteligência de contatos e retenção</p>
-        </div>
-        <div className="flex gap-2 w-full sm:w-auto">
-          <Button onClick={onExportCSV} variant="outline" className="rounded-2xl gap-2 h-11 px-6 border-white/10 text-white/40 hover:text-white flex-1 sm:flex-none">
-            <FileText className="w-4 h-4" /> CSV
-          </Button>
-          <Button onClick={onAddCustomer} className="rounded-2xl gap-2 h-11 px-6 flex-1 sm:flex-none">
-            <Plus className="w-4 h-4" /> Novo Cliente
-          </Button>
-        </div>
-      </div>
+    <motion.div key="crm" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <AdminSectionHeader eyebrow="Relacionamento" title="Clientes" description={`${customerStats.length} contatos com historico consolidado de pedidos.`} actions={
+        <>
+          <Button onClick={onExportCSV} variant="outline" className="h-9 rounded-lg border-white/10 px-3 text-[11px] font-semibold text-white/60 hover:text-white"><FileText className="h-3.5 w-3.5" /> Exportar CSV</Button>
+          <Button onClick={onAddCustomer} className="h-9 rounded-lg px-3 text-[11px] font-semibold shadow-none"><Plus className="h-3.5 w-3.5" /> Novo cliente</Button>
+        </>
+      } />
 
-      {/* CRM MOBILE CARDS */}
-      <div className="lg:hidden space-y-4">
-        {customerStatsList.map(({ customer: c, stats }) => (
-          <div key={c.id} className="bg-surface-card rounded-[32px] p-6 border border-white/5 space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-primary/20 border border-primary/20 flex items-center justify-center font-black text-sm text-primary uppercase">
-                {c.photoURL ? <img src={c.photoURL} className="w-full h-full rounded-2xl object-cover" alt="" /> : c.name?.[0]}
+      <div className="grid gap-3 sm:grid-cols-2 lg:hidden">
+        {customerStats.map(({ customer, stats }) => (
+          <article key={customer.id} className="admin-panel p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-lg border border-blue-400/20 bg-blue-500/10 text-xs font-semibold text-blue-300">
+                {customer.photoURL ? <img src={customer.photoURL} className="h-full w-full object-cover" alt="" /> : customer.name?.[0]?.toUpperCase() || "C"}
               </div>
-              <div className="overflow-hidden">
-                <h4 className="text-sm font-black uppercase truncate">{c.name}</h4>
-                <p className="text-[10px] font-mono text-dim truncate">{c.email}</p>
-              </div>
+              <div className="min-w-0"><h3 className="truncate text-sm font-semibold text-white">{customer.name || "Cliente sem nome"}</h3><p className="truncate text-[11px] text-white/40">{customer.email || customer.whatsapp || customer.phone || "Sem contato"}</p></div>
             </div>
-            <div className="grid grid-cols-2 gap-4 p-4 bg-white/5 rounded-2xl border border-white/5">
-              <div>
-                <p className="text-[11px] font-black uppercase text-dim mb-1">Pedidos</p>
-                <p className="text-sm font-black italic">{stats.count}</p>
-              </div>
-              <div>
-                <p className="text-[11px] font-black uppercase text-dim mb-1">Investido</p>
-                <p className="text-sm font-black italic text-primary">R$ {stats.total.toFixed(2)}</p>
-              </div>
+            <div className="my-4 grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-white/[0.025] p-3"><span className="text-[10px] text-white/40">Pedidos</span><strong className="mt-1 block text-sm text-white">{stats.count}</strong></div>
+              <div className="rounded-lg bg-white/[0.025] p-3"><span className="text-[10px] text-white/40">Volume</span><strong className="mt-1 block text-sm text-blue-300">{money.format(stats.total)}</strong></div>
             </div>
-            <Button onClick={() => onSelectCRMUser(c)} className="w-full rounded-2xl h-11 text-[10px] uppercase font-black italic tracking-widest" variant="outline">Protocolo Histórico</Button>
-          </div>
+            <Button onClick={() => onSelectCRMUser(customer)} className="h-9 w-full rounded-lg border-white/10 text-[11px] font-semibold" variant="outline">Ver perfil e historico</Button>
+          </article>
         ))}
       </div>
 
-      {/* CRM DESKTOP TABLE */}
-      <div className="hidden lg:block glass rounded-[32px] sm:rounded-[48px] p-4 sm:p-10 border border-white/5 overflow-x-auto no-scrollbar">
-        <table className="w-full text-left min-w-[600px]">
-          <thead>
-            <tr className="text-[10px] font-black uppercase tracking-[0.2em] text-dim border-b border-white/5">
-              <th className="pb-6">Cliente</th>
-              <th className="pb-6">Pedidos</th>
-              <th className="pb-6">Volume Transacionado</th>
-              <th className="pb-6 text-right">Integração</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-white/5">
-            {customerStatsList.map(({ customer: c, stats }) => (
-              <tr key={c.id} className="hover:bg-white/[0.01] transition-colors group">
-                <td className="py-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/20 border border-primary/20 flex items-center justify-center font-black text-xs text-primary">
-                      {c.photoURL ? <img src={c.photoURL} className="w-full h-full rounded-full object-cover" alt="" /> : (c.name?.[0] || 'U')}
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-bold uppercase">{c.name}</span>
-                      <span className="text-[10px] text-dim font-bold">{c.email}</span>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-6">
-                  <div className="flex items-center gap-2">
-                    <Package className="w-3 h-3 text-dim" />
-                    <span className="text-xs font-black uppercase">{stats.count}</span>
-                  </div>
-                </td>
-                <td className="py-6 font-display font-black text-primary italic">R$ {stats.total.toFixed(2)}</td>
-                <td className="py-6 text-right">
-                  <button onClick={() => onSelectCRMUser(c)} className="p-3 bg-white/5 hover:bg-white/10 rounded-xl transition-all text-dim hover:text-white group-hover:scale-105 transform"><Eye className="w-4 h-4" /></button>
-                </td>
+      <div className="admin-table-wrap hidden lg:block">
+        <table className="admin-table min-w-[760px]">
+          <thead><tr><th>Cliente</th><th>Contato</th><th>Pedidos</th><th>Volume</th><th className="text-right">Acoes</th></tr></thead>
+          <tbody>
+            {customerStats.map(({ customer, stats }) => (
+              <tr key={customer.id}>
+                <td><div className="flex items-center gap-3"><div className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-lg border border-blue-400/15 bg-blue-500/10 text-[11px] font-semibold text-blue-300">{customer.photoURL ? <img src={customer.photoURL} className="h-full w-full object-cover" alt="" /> : customer.name?.[0]?.toUpperCase() || "C"}</div><div className="min-w-0"><p className="truncate font-semibold text-white">{customer.name || "Cliente sem nome"}</p><p className="mt-0.5 text-[10px] text-white/35">{customer.tags?.slice(0, 2).join(" · ") || "Sem segmento"}</p></div></div></td>
+                <td><p>{customer.email || "Sem email"}</p><p className="mt-0.5 text-[10px] text-white/35">{customer.whatsapp || customer.phone || "Sem telefone"}</p></td>
+                <td><span className="inline-flex items-center gap-1.5"><Package className="h-3.5 w-3.5 text-white/35" /> {stats.count}</span></td>
+                <td className="font-semibold tabular-nums text-white">{money.format(stats.total)}</td>
+                <td className="text-right"><button onClick={() => onSelectCRMUser(customer)} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.025] px-2.5 text-[11px] font-medium text-white/55 transition hover:bg-white/[0.06] hover:text-white"><Eye className="h-3.5 w-3.5" /> Ver</button></td>
               </tr>
             ))}
-            {customerStatsList.length === 0 && (
-              <tr><td colSpan={4} className="py-20 text-center text-subtle italic">Nenhum cliente catalogado.</td></tr>
-            )}
+            {!customerStats.length && <tr><td colSpan={5} className="p-0"><AdminEmptyState title="Nenhum cliente encontrado" description="Ajuste a busca ou cadastre o primeiro contato da base." /></td></tr>}
           </tbody>
         </table>
       </div>
+      {!customerStats.length && <div className="admin-panel lg:hidden"><AdminEmptyState title="Nenhum cliente encontrado" description="Ajuste a busca ou cadastre o primeiro contato da base." /></div>}
     </motion.div>
   );
 });

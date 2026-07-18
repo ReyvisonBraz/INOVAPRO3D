@@ -7,6 +7,7 @@ import {
   CheckSquare, Square, Columns, Table, SlidersHorizontal, Plus
 } from "lucide-react";
 import type { Order, OrderItem, OrderStatus } from "../../../types/domain";
+import { AdminSectionHeader } from "./AdminPrimitives";
 
 const KANBAN_STAGES = [
   { id: "PENDING_PAYMENT" as OrderStatus, label: "AGUAR. PAGTO", icon: Wallet, color: "text-amber-400" },
@@ -145,42 +146,32 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
 
   return (
     <motion.div key="orders" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} className="space-y-4">
-      {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 bg-white/[0.02] p-4 sm:p-6 rounded-[24px] border border-white/5">
-        <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-black uppercase tracking-widest italic">Gestão de Pedidos</h3>
-          <p className="text-[11px] text-dim uppercase font-bold tracking-widest">
-            {filteredOrders.length} pedido{filteredOrders.length !== 1 ? "s" : ""}
-            {statusFilter !== "ALL" && ` • ${STATUS_LABELS[statusFilter]}`}
-          </p>
-        </div>
-
-        {/* View toggle */}
-        <div className="flex items-center gap-2">
-          <button onClick={onCreateManual} className="flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white"><Plus className="h-3.5 w-3.5" /> Novo pedido</button>
-          <div className="flex bg-white/5 rounded-xl p-0.5">
+      <AdminSectionHeader eyebrow="Vendas" title="Pedidos" description={`${filteredOrders.length} pedido${filteredOrders.length !== 1 ? "s" : ""}${statusFilter !== "ALL" ? ` em ${STATUS_LABELS[statusFilter]}` : " no resultado atual"}.`} actions={
+        <>
+          <div className="flex rounded-lg border border-white/[0.08] bg-white/[0.025] p-0.5">
             <button
               onClick={() => setViewMode("table")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                viewMode === "table" ? "bg-primary text-white" : "text-dim hover:text-white"
+              className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition ${
+                viewMode === "table" ? "bg-white/[0.08] text-white shadow-sm" : "text-white/40 hover:text-white"
               }`}
             >
               <Table className="w-3.5 h-3.5" /> Tabela
             </button>
             <button
               onClick={() => setViewMode("kanban")}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                viewMode === "kanban" ? "bg-primary text-white" : "text-dim hover:text-white"
+              className={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[11px] font-medium transition ${
+                viewMode === "kanban" ? "bg-white/[0.08] text-white shadow-sm" : "text-white/40 hover:text-white"
               }`}
             >
               <Columns className="w-3.5 h-3.5" /> Kanban
             </button>
           </div>
-        </div>
-      </div>
+          <button onClick={onCreateManual} className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-white transition hover:bg-primary-dark"><Plus className="h-3.5 w-3.5" /> Novo pedido</button>
+        </>
+      } />
 
       {/* Search + Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="admin-toolbar">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-dim" />
           <input
@@ -188,16 +179,16 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
             placeholder="Buscar por ID, cliente ou email..."
             value={localSearch}
             onChange={(e) => setLocalSearch(e.target.value)}
-            className="w-full bg-white/5 border border-white/[0.08] rounded-xl pl-9 pr-4 py-2.5 text-xs outline-none focus:border-primary/50 transition-all placeholder:text-dim text-white font-bold"
+            className="admin-input w-full pl-9 pr-4"
           />
         </div>
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar sm:max-w-[65%]">
           <SlidersHorizontal className="w-3.5 h-3.5 text-dim shrink-0" />
           {filterStatuses.map(s => (
             <button
               key={s}
               onClick={() => { setStatusFilter(s); setSelectedIds(new Set()); }}
-              className={`shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+              className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[10px] font-semibold transition ${
                 statusFilter === s
                   ? "bg-primary/20 border-primary/50 text-primary"
                   : "bg-white/[0.03] border-white/[0.06] text-dim hover:border-white/10 hover:text-white"
@@ -246,7 +237,20 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
       </AnimatePresence>
 
       {/* ── TABLE VIEW ── */}
-      {viewMode === "table" && (
+      {viewMode === "table" && filteredOrders.length === 0 && (
+        <div className="admin-panel px-5 py-12 text-center sm:px-8 sm:py-16">
+          <p className="text-sm font-semibold text-white/70">
+            {statusFilter !== "ALL"
+              ? `Nenhum pedido com status "${STATUS_LABELS[statusFilter]}"`
+              : "Nenhum pedido encontrado"}
+          </p>
+          <p className="mt-2 text-xs text-white/40">
+            Ajuste os filtros ou crie um novo pedido manualmente.
+          </p>
+        </div>
+      )}
+
+      {viewMode === "table" && filteredOrders.length > 0 && (
         <div className="bg-surface-card rounded-[28px] sm:rounded-[40px] border border-white/5 overflow-hidden">
           <div className="overflow-x-auto no-scrollbar">
             <table className="w-full text-left min-w-[800px]">
@@ -367,17 +371,6 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(({
                     </td>
                   </tr>
                 ))}
-                {filteredOrders.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="p-20 text-center">
-                      <p className="text-sm font-black uppercase text-subtle tracking-widest">
-                        {statusFilter !== "ALL"
-                          ? `Nenhum pedido com status "${STATUS_LABELS[statusFilter]}"`
-                          : "Nenhum pedido encontrado"}
-                      </p>
-                    </td>
-                  </tr>
-                )}
               </tbody>
             </table>
           </div>

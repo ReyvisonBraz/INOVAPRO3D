@@ -10,9 +10,6 @@ import {
 } from "firebase/firestore";
 import { db, auth, handleFirestoreError, OperationType } from "../../services/firebase";
 import {
-  RefreshCw,
-  Search,
-  Menu,
   X,
   Smartphone,
   CheckCircle2,
@@ -31,7 +28,6 @@ import { cn } from "../../lib/utils";
 import { DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS, mergePricingSettings, parseTimeToHours, type MachineConfig, type PricingSettings } from "../../lib/pricing";
 import { formatCatalogTitle, formatCatalogDescription, translateToBR, NumInput, type AdminTabId } from "../../lib/adminHelpers";
 import { ADMIN_MENU_ITEMS, ADMIN_TAB_SUBTITLES } from "./adminConfig";
-import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { AdminSidebar } from "./components/AdminSidebar";
 import type {
@@ -65,6 +61,7 @@ import AdminErrorReportsPanel from "./components/AdminErrorReportsPanel";
 import AdminReviewsPanel from "./components/AdminReviewsPanel";
 import AdminSettingsPanel from "./components/AdminSettingsPanel";
 import { AdminCouponsPanel } from "./components/AdminCouponsPanel";
+import { AdminHeader } from "./components/AdminHeader";
 import { AdminManualSaleModal } from "./components/AdminManualSaleModal";
 import { adjustMaterialStock } from "../../services/inventory";
 
@@ -80,6 +77,7 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTabId>("overview");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [auditView, setAuditView] = useState<"errors" | "audit">("errors");
+  const [isSyncing, setIsSyncing] = useState(false);
   const [manualSaleMode, setManualSaleMode] = useState<"order" | "quote" | null>(null);
 
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
@@ -175,7 +173,7 @@ export default function AdminDashboard() {
   // ── Materials ──
   const [isAddingMaterial, setIsAddingMaterial] = useState(false);
   const [isSubmittingMaterial, setIsSubmittingMaterial] = useState(false);
-  const emptyMaterial = { name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, stockGrams: 0, reservedGrams: 0, minimumStockGrams: 200, brand: "", supplier: "", batch: "", location: "", notes: "", inStock: false, active: true };
+  const emptyMaterial = useMemo(() => ({ name: "", type: "PLA", color: "#2563EB", pricePerKg: 120, stockGrams: 0, reservedGrams: 0, minimumStockGrams: 200, brand: "", supplier: "", batch: "", location: "", notes: "", inStock: false, active: true }), []);
   const [newMaterial, setNewMaterial] = useState(emptyMaterial);
 
   const handleMaterialSubmit = useCallback(async (e: FormEvent) => {
@@ -228,7 +226,7 @@ export default function AdminDashboard() {
   const [isAddingCustomer, setIsAddingCustomer] = useState(false);
   const [isEditingCustomer, setIsEditingCustomer] = useState(false);
   const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
-  const emptyCustomer = { name: "", email: "", phone: "", whatsapp: "", tags: [] as string[], address: "", customerType: "PERSON" as "PERSON" | "COMPANY", document: "", zipCode: "", city: "", state: "", source: "", notes: "", internalNotes: "" };
+  const emptyCustomer = useMemo(() => ({ name: "", email: "", phone: "", whatsapp: "", tags: [] as string[], address: "", customerType: "PERSON" as "PERSON" | "COMPANY", document: "", zipCode: "", city: "", state: "", source: "", notes: "", internalNotes: "" }), []);
   const [newCustomer, setNewCustomer] = useState(emptyCustomer);
 
   const handleCustomerSubmit = useCallback(async (e: FormEvent) => {
@@ -414,6 +412,12 @@ export default function AdminDashboard() {
     quotes: quotes.filter((q) => q.status === "PENDING").length,
   }), [orders, quotes]);
 
+  const syncAdminData = useCallback(async () => {
+    if (isSyncing) return;
+    setIsSyncing(true);
+    try { await handleSyncData(); } finally { setIsSyncing(false); }
+  }, [handleSyncData, isSyncing]);
+
   if (loading)
     return (
       <div className="min-h-screen bg-[#050508] flex items-center justify-center">
@@ -422,8 +426,7 @@ export default function AdminDashboard() {
     );
 
   return (
-    <div className="relative flex min-h-screen bg-[#050508] text-white overflow-hidden">
-      <FloatingBackground subtle />
+    <div className="admin-workspace relative flex min-h-screen text-white overflow-hidden">
 
       {/* SIDEBAR OVERLAY (mobile) */}
       <AnimatePresence>
@@ -447,47 +450,19 @@ export default function AdminDashboard() {
 
       {/* MAIN CONTENT */}
       <main className="relative z-10 flex-1 lg:ml-60 min-h-screen min-w-0">
-        {/* HEADER */}
-        <header className="border-b border-white/[0.06] bg-[#050508]/85 backdrop-blur-xl sticky top-0 z-40 px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <button
-              onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-2 bg-white/5 rounded-lg border border-white/10 hover:border-primary/50 transition-all shrink-0"
-            >
-              <Menu className="w-4 h-4 text-primary" />
-            </button>
-            <div className="min-w-0">
-              <h2 className="font-display text-base sm:text-lg font-bold tracking-tight text-white truncate leading-tight">
-                {activeMenuItem?.name || activeTab}
-              </h2>
-              <p className="hidden sm:block text-[11px] font-medium text-white/35 truncate leading-tight">
-                {ADMIN_TAB_SUBTITLES[activeTab]}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2.5 justify-end shrink-0">
-            <div className="hidden md:flex items-center gap-2 bg-white/[0.03] rounded-xl px-3 h-9 border border-white/[0.08] focus-within:border-primary/40 transition-all w-56 lg:w-64">
-              <Search className="w-3.5 h-3.5 text-white/35 shrink-0" />
-              <input
-                type="text"
-                placeholder="Buscar pedido ou cliente…"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="bg-transparent border-none outline-none text-xs font-medium text-white w-full placeholder:text-white/30"
-              />
-            </div>
-            <button
-              onClick={handleSyncData}
-              className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-white/[0.08] bg-white/[0.03] text-[11px] font-semibold text-white/70 hover:text-white hover:border-white/20 hover:bg-white/[0.06] transition-all"
-            >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Atualizar</span>
-            </button>
-          </div>
-        </header>
+        <AdminHeader
+          activeTab={activeTab}
+          activeTabName={activeMenuItem?.name}
+          activeTabDescription={ADMIN_TAB_SUBTITLES[activeTab]}
+          searchTerm={searchTerm}
+          isSyncing={isSyncing}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onSearchChange={setSearchTerm}
+          onSyncData={syncAdminData}
+        />
 
         {/* TAB CONTENT */}
-        <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto overflow-x-hidden">
+        <div className="admin-content overflow-x-hidden">
           <AnimatePresence mode="wait">
             {activeTab === "overview" && (
               <AdminOverviewPanel

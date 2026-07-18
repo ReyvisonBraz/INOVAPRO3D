@@ -75,16 +75,16 @@ export function AdminSidebar({
   return (
     <aside
       className={cn(
-        "w-60 border-r border-white/[0.06] bg-[#08080c] flex flex-col fixed inset-y-0 z-[70] transition-transform duration-300 ease-out lg:translate-x-0",
+        "w-60 border-r border-white/[0.07] bg-[#0c0f15] flex flex-col fixed inset-y-0 z-[70] shadow-2xl shadow-black/20 transition-transform duration-300 ease-out lg:translate-x-0",
         isOpen ? "translate-x-0" : "-translate-x-full",
       )}
     >
-      <div className="px-5 pt-6 pb-5 flex items-center justify-between">
+      <div className="flex h-16 items-center justify-between border-b border-white/[0.055] px-4">
         <Link to="/" className="flex items-center gap-2.5" onClick={onClose}>
-          <BrandMark className="h-6 w-6" />
+          <BrandMark className="h-7 w-7" />
           <span className="flex items-baseline gap-1.5">
-            <span className="font-display text-[15px] font-bold tracking-tight text-white">INOVAPRO</span>
-            <span className="rounded-md bg-primary/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-primary">
+            <span className="text-[13px] font-semibold tracking-tight text-white">INOVAPRO 3D</span>
+            <span className="rounded bg-blue-500/10 px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-wider text-blue-300">
               Admin
             </span>
           </span>
@@ -94,10 +94,10 @@ export function AdminSidebar({
         </button>
       </div>
 
-      <nav className="flex-1 px-3 space-y-6 overflow-y-auto no-scrollbar pb-4">
+      <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 no-scrollbar">
         {MENU_GROUPS.map((group) => (
           <div key={group.label}>
-            <p className="px-3 mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/25">
+            <p className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/25">
               {group.label}
             </p>
             <div className="space-y-0.5">
@@ -113,19 +113,19 @@ export function AdminSidebar({
                       onClose();
                     }}
                     className={cn(
-                      "group relative w-full flex items-center gap-3 rounded-lg pl-3 pr-2.5 py-2 text-[13px] font-medium transition-colors",
+                      "group relative flex h-9 w-full items-center gap-2.5 rounded-lg pl-3 pr-2.5 text-[12px] font-medium transition-colors",
                       isActive
-                        ? "bg-white/[0.06] text-white"
-                        : "text-white/45 hover:text-white hover:bg-white/[0.03]",
+                        ? "bg-blue-500/10 text-white ring-1 ring-inset ring-blue-400/10"
+                        : "text-white/48 hover:bg-white/[0.035] hover:text-white",
                     )}
                   >
                     <span
                       className={cn(
-                        "absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-opacity",
+                        "absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-blue-400 transition-opacity",
                         isActive ? "opacity-100" : "opacity-0",
                       )}
                     />
-                    <Icon className={cn("w-[18px] h-[18px] shrink-0 transition-colors", isActive ? "text-primary" : "text-white/40 group-hover:text-white/70")} />
+                    <Icon className={cn("h-4 w-4 shrink-0 transition-colors", isActive ? "text-blue-300" : "text-white/35 group-hover:text-white/65")} />
                     <span className="truncate">{item.name}</span>
                     {count != null && count > 0 && (
                       <span
@@ -145,7 +145,7 @@ export function AdminSidebar({
         ))}
       </nav>
 
-      <div className="p-3 border-t border-white/[0.06]">
+      <div className="border-t border-white/[0.06] p-3">
         <div className="flex items-center gap-3 rounded-xl p-2">
           <div className="w-9 h-9 rounded-xl bg-primary/12 border border-primary/20 flex items-center justify-center text-xs font-bold text-primary shrink-0">
             {avatarLetter}

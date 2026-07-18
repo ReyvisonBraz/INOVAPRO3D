@@ -18,9 +18,14 @@ export default function CookieConsent() {
 
   useEffect(() => {
     if (activeStep !== "cookies") return;
+    if (location.pathname.startsWith("/admin")) {
+      setVisible(false);
+      advance();
+      return;
+    }
     if (getConsent() === null) setVisible(true);
     else advance(); // decisão já tomada → pula para o próximo aviso
-  }, [activeStep, advance]);
+  }, [activeStep, advance, location.pathname]);
 
   const accept = () => {
     setConsent("accepted");
