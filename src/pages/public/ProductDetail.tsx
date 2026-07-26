@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { db } from "../../services/firebase";
-import { DEFAULT_PRICING_SETTINGS, mergePricingSettings, formatBRL, type PricingSettings } from "../../lib/pricing";
+import { DEFAULT_PRICING_SETTINGS, formatBRL } from "../../lib/pricing";
 import { trackAddToCart } from "../../lib/analytics";
 import { ProductReviews } from "../../components/product/ProductReviews";
 import { ErrorBoundary } from "../../components/layout/ErrorBoundary";
@@ -57,12 +57,26 @@ export default function ProductDetail() {
   const [linkCopied, setLinkCopied] = useState(false);
   const shareRef = useRef<HTMLDivElement>(null);
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
-  const [pricing, setPricing] = useState<PricingSettings>(DEFAULT_PRICING_SETTINGS);
+  const [pricing, setPricing] = useState({
+    pixDiscountPct: DEFAULT_PRICING_SETTINGS.pixDiscountPct,
+    maxInstallments: DEFAULT_PRICING_SETTINGS.maxInstallments,
+  });
 
   // Parâmetros de PIX/parcelamento (configuráveis no painel → Ajustes)
   useEffect(() => {
-    getDoc(doc(db, "settings", "pricing"))
-      .then((snap) => { if (snap.exists()) setPricing(mergePricingSettings(snap.data())); })
+    getDoc(doc(db, "settings", "storefront"))
+      .then((snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        setPricing({
+          pixDiscountPct: Number.isFinite(data.pixDiscountPct)
+            ? data.pixDiscountPct
+            : DEFAULT_PRICING_SETTINGS.pixDiscountPct,
+          maxInstallments: Number.isFinite(data.maxInstallments)
+            ? data.maxInstallments
+            : DEFAULT_PRICING_SETTINGS.maxInstallments,
+        });
+      })
       .catch(() => {});
   }, []);
 

@@ -45,8 +45,14 @@ import {
 } from "../../../lib/pricing";
 import type { Material, MaterialUsage, Order, OrderItem, Quote } from "../../../types/domain";
 import { AdminOverviewSummary } from "./AdminOverviewSummary";
+import { CalculatorProjectEditor } from "../../../components/calculator/CalculatorProjectEditor";
+import type { CalculatorProject, ProjectValidationIssue } from "../../../lib/calculatorProject";
 
 interface AdminOverviewPanelProps {
+  quickProject: CalculatorProject;
+  setQuickProject: (project: CalculatorProject) => void;
+  quickProjectIssues: ProjectValidationIssue[];
+  setQuickProjectIssues: (issues: ProjectValidationIssue[]) => void;
   orders: Order[];
   quotes: Quote[];
   searchTerm: string;
@@ -107,6 +113,10 @@ const KANBAN_STAGES = [
 const CHART_COLORS = ["#2563EB", "#22C55E", "#3B82F6", "#EAB308"];
 
 const AdminOverviewPanel = memo(function AdminOverviewPanel({
+  quickProject,
+  setQuickProject,
+  quickProjectIssues,
+  setQuickProjectIssues,
   orders,
   quotes,
   searchTerm,
@@ -236,7 +246,56 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 lg:gap-6">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">Nome do cliente</label>
+            <input value={quickCalcCustomerName} onChange={(event) => setQuickCalcCustomerName(event.target.value)} placeholder="Ex.: João Silva" className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60" />
+          </div>
+          <div>
+            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">WhatsApp</label>
+            <input value={quickCalcPhone} onChange={(event) => setQuickCalcPhone(event.target.value)} placeholder="DDD + número" className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60" />
+          </div>
+        </div>
+
+        <CalculatorProjectEditor
+          project={quickProject}
+          onChange={(next) => {
+            setQuickProject(next);
+            if (quickProjectIssues.length) setQuickProjectIssues([]);
+          }}
+          materials={inventoryMaterials}
+          pricingSettings={pricingSettings}
+          issues={quickProjectIssues}
+        />
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4"><span className="text-[9px] font-black uppercase text-white/35">Material</span><strong className="mt-1 block font-mono text-sm text-white">{formatBRL(quickCalcResult.materialCost)}</strong></div>
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4"><span className="text-[9px] font-black uppercase text-white/35">Energia + máquina</span><strong className="mt-1 block font-mono text-sm text-white">{formatBRL(quickCalcResult.energyCost + quickCalcResult.machineCost)}</strong></div>
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4"><span className="text-[9px] font-black uppercase text-white/35">Custo previsto</span><strong className="mt-1 block font-mono text-sm text-white">{formatBRL(quickCalcResult.totalCost)}</strong></div>
+          <div className="rounded-xl border border-blue-400/25 bg-blue-400/[0.08] p-4"><span className="text-[9px] font-black uppercase text-blue-200">Varejo</span><strong className="mt-1 block font-mono text-lg text-blue-300">{formatBRL(quickCalcResult.retailTotal)}</strong></div>
+        </div>
+
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button
+            type="button"
+            disabled={quickCalcSaving || !quickCalcCustomerName.trim()}
+            onClick={onSaveQuote}
+            className="min-h-11 rounded-2xl bg-emerald-500 text-[10px] font-black uppercase text-black hover:bg-emerald-600 disabled:opacity-50"
+          >
+            {quickCalcSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {quickCalcSaving ? "Salvando..." : "Salvar orçamento"}
+          </Button>
+          <Button
+            type="button"
+            disabled={!quickCalcPhone.replace(/\D/g, "")}
+            onClick={onSendWhatsAppQuote}
+            className="min-h-11 rounded-2xl bg-[#25D366] text-[10px] font-black uppercase text-black hover:bg-[#20ba5a] disabled:opacity-50"
+          >
+            <Smartphone className="mr-2 h-4 w-4" /> Enviar por WhatsApp
+          </Button>
+        </div>
+
+        <div className="hidden">
           {/* COLUNA 1: DADOS DO CLIENTE */}
           <div className="space-y-4">
             <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">

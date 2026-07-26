@@ -19,6 +19,15 @@ describe("inventory", () => {
     ]).size).toBe(0);
   });
 
+  it("ignora filamentos manuais sem vinculo com o estoque", () => {
+    const totals = aggregateMaterialUsages([
+      { materialId: "manual:pla", inventoryTracked: false, estimatedGrams: 50 },
+      { materialId: "stock-pla", estimatedGrams: 25 },
+    ]);
+    expect(totals.get("manual:pla")).toBeUndefined();
+    expect(totals.get("stock-pla")).toBe(25);
+  });
+
   it("calcula o saldo realmente disponivel", () => {
     expect(availableStock(1000, 350)).toBe(650);
     expect(availableStock(100, 150)).toBe(0);

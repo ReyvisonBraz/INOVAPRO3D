@@ -164,7 +164,14 @@ function RouterContent() {
                 <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
                 <Route path="/catalogo" element={<PageWrapper><Catalog /></PageWrapper>} />
                 <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
-                <Route path="/calculadora" element={<PageWrapper><FilamentCalculator /></PageWrapper>} />
+                <Route
+                  path="/calculadora"
+                  element={
+                    <ProtectedRoute requireAdmin>
+                      <PageWrapper><FilamentCalculator /></PageWrapper>
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/upload" element={<Navigate to="/catalogo" replace />} />
                 <Route
                   path="/checkout"

@@ -25,7 +25,7 @@ import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import { DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS, mergePricingSettings, parseTimeToHours, type MachineConfig, type PricingSettings } from "../../lib/pricing";
+import { computePricing, DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS, formatBRL, mergePricingSettings, parseTimeToHours, type MachineConfig, type PricingSettings } from "../../lib/pricing";
 import { formatCatalogTitle, formatCatalogDescription, translateToBR, NumInput, type AdminTabId } from "../../lib/adminHelpers";
 import { ADMIN_MENU_ITEMS, ADMIN_TAB_SUBTITLES } from "./adminConfig";
 import { ConfirmDialog } from "./components/ConfirmDialog";
@@ -68,6 +68,7 @@ import { adjustMaterialStock } from "../../services/inventory";
 export default function AdminDashboard() {
   // ── Dados de todas as coleções + listener de pedidos novos ──
   const {
+    quickProject, setQuickProject, quickProjectIssues, setQuickProjectIssues,
     orders, setOrders, quotes, setQuotes, products, setProducts, showcase,
     materials, customers, tickets, faqs, categories, setCategories, coupons,
     logs, loading, fetchData, handleSyncData,
@@ -140,7 +141,15 @@ export default function AdminDashboard() {
 
   const handleSavePricingSettings = useCallback(async () => {
     try {
-      await setDoc(doc(db, "settings", "pricing"), { ...pricingSettings, updatedAt: serverTimestamp() });
+      const updatedAt = serverTimestamp();
+      await Promise.all([
+        setDoc(doc(db, "settings", "pricing"), { ...pricingSettings, updatedAt }),
+        setDoc(doc(db, "settings", "storefront"), {
+          pixDiscountPct: pricingSettings.pixDiscountPct,
+          maxInstallments: pricingSettings.maxInstallments,
+          updatedAt,
+        }),
+      ]);
       toast.success("Parâmetros da calculadora salvos! As duas calculadoras já usam estes valores.");
     } catch {
       toast.error("Erro ao salvar parâmetros da calculadora.");
@@ -368,14 +377,42 @@ export default function AdminDashboard() {
     editingQuotePhone, setEditingQuotePhone,
     editingQuoteNotes, setEditingQuoteNotes,
     isCalcAssistantOpen, setIsCalcAssistantOpen,
-    calcFilamentPrice, setCalcFilamentPrice,
-    calcHourCost, setCalcHourCost,
-    calcSetupFee, setCalcSetupFee,
-    calcMargin, setCalcMargin,
     isApprovingQuote,
     approvalStatus, setApprovalStatus,
     handleWhatsAppQuote, handleApproveQuote, handleSaveQuoteSpecifications,
   } = useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer, activeTab, fetchData });
+
+  // O modal de homologação usa exatamente o mesmo motor e os mesmos
+  // parâmetros das calculadoras completa e rápida.
+  const quoteAssistantResult = useMemo(() => {
+    const materialText = selectedCustomer?.materialId?.toLowerCase() || "";
+    const material = materialText.includes("petg") ? "petg" : "pla";
+    const preset = pricingSettings.materials[material];
+    return computePricing({
+      material,
+      spoolPrice: preset.spoolPrice,
+      spoolWeight: preset.spoolWeight,
+      steadyPowerWatts: preset.steadyPowerWatts,
+      weightGrams: editingQuoteWeight,
+      hours: parseTimeToHours(editingQuoteTime),
+      quantity: 1,
+      reservePct: preset.defaultReservePct,
+      failureRatePct: pricingSettings.failureRatePct,
+      failureImpactPct: pricingSettings.failureImpactPct,
+      kwhCost: pricingSettings.kwhCost,
+      startupPowerWatts: pricingSettings.startupPowerWatts,
+      startupMinutes: pricingSettings.startupMinutes,
+      machine: machineConfig,
+      laborHours: 0,
+      laborRate: 0,
+      extraSupplies: 0,
+      packagingCost: pricingSettings.defaultPackagingCost,
+      targetProfitPerMachineHour: pricingSettings.targetProfitPerMachineHour,
+      wholesaleMarkup: pricingSettings.wholesaleMarkup,
+      retailMarkup: pricingSettings.retailMarkup,
+      minPrice: pricingSettings.minPrice,
+    });
+  }, [editingQuoteTime, editingQuoteWeight, machineConfig, pricingSettings, selectedCustomer?.materialId]);
 
   // ── Calculadora rápida de orçamento ──
   const {
@@ -502,6 +539,10 @@ export default function AdminDashboard() {
           <AnimatePresence mode="wait">
             {activeTab === "overview" && (
               <AdminOverviewPanel
+                quickProject={quickProject}
+                setQuickProject={setQuickProject}
+                quickProjectIssues={quickProjectIssues}
+                setQuickProjectIssues={setQuickProjectIssues}
                 orders={filteredOrders}
                 quotes={filteredQuotes}
                 searchTerm={searchTerm}
@@ -1020,43 +1061,32 @@ export default function AdminDashboard() {
                         className="w-full p-4 flex items-center justify-between text-left text-xs font-black uppercase tracking-wider text-primary hover:bg-white/[0.03] transition-colors"
                       >
                         <span className="flex items-center gap-2"><Calculator className="w-4 h-4" />Assistente de Precificação {isCalcAssistantOpen ? "▲" : "▼"}</span>
-                        <span className="text-[9px] text-white/35 font-mono">Fórmula de Custo Direto + Margem</span>
+                        <span className="text-[9px] text-white/35 font-mono">Motor unificado INOVAPRO3D</span>
                       </button>
                       {isCalcAssistantOpen && (
                         <div className="p-4 border-t border-white/5 space-y-4 bg-black/40 text-xs">
-                          <p className="text-[10px] text-white/50 leading-relaxed">Simule o preço sugerido combinando as especificações técnicas com seus custos operacionais.</p>
-                          <div className="grid grid-cols-2 gap-3">
-                            {[
-                              { label: "Filamento (R$/g)", value: calcFilamentPrice, set: setCalcFilamentPrice, step: 0.01 },
-                              { label: "Hora Máquina (R$)", value: calcHourCost, set: setCalcHourCost, step: 0.10 },
-                              { label: "Taxa Setup (R$)", value: calcSetupFee, set: setCalcSetupFee, step: 1 },
-                              { label: "Margem de Lucro (%)", value: calcMargin, set: setCalcMargin, max: 100 },
-                            ].map(({ label, value, set, step, max }) => (
-                              <div key={label}>
-                                <label className="text-[9px] text-white/40 uppercase font-black block mb-1">{label}</label>
-                                <NumInput min={0} max={max} step={step} value={value} onChange={set} className="w-full bg-black border border-white/10 rounded-lg p-2.5 text-xs outline-none focus:border-primary/50 text-white font-mono font-bold" />
-                              </div>
-                            ))}
-                          </div>
+                          <p className="text-[10px] text-white/50 leading-relaxed">Preço calculado com os mesmos parâmetros centrais de material, energia, máquina, falhas, embalagem, contribuição por hora e piso mínimo.</p>
                           <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-2">
                             <h4 className="text-[10px] uppercase font-black tracking-wider text-white/60 mb-1 border-b border-white/5 pb-1 flex justify-between">
                               <span>Demonstrativo do Cálculo</span>
-                              <span className="text-primary font-mono">tempo útil: {parseTimeToHours(editingQuoteTime).toFixed(2)}h</span>
+                              <span className="text-primary font-mono">{quoteAssistantResult.hours.toFixed(2)}h</span>
                             </h4>
-                            <div className="flex justify-between text-[11px] text-white/70"><span>Material ({editingQuoteWeight}g × R$ {calcFilamentPrice.toFixed(2)}):</span><span className="font-mono">R$ {(editingQuoteWeight * calcFilamentPrice).toFixed(2)}</span></div>
-                            <div className="flex justify-between text-[11px] text-white/70"><span>Máquina ({parseTimeToHours(editingQuoteTime).toFixed(2)}h × R$ {calcHourCost.toFixed(2)}):</span><span className="font-mono">R$ {(parseTimeToHours(editingQuoteTime) * calcHourCost).toFixed(2)}</span></div>
-                            <div className="flex justify-between text-[11px] text-white/70"><span>Taxa / Setup de Fatiamento:</span><span className="font-mono">R$ {calcSetupFee.toFixed(2)}</span></div>
+                            <div className="flex justify-between text-[11px] text-white/70"><span>Material:</span><span className="font-mono">{formatBRL(quoteAssistantResult.materialCost)}</span></div>
+                            <div className="flex justify-between text-[11px] text-white/70"><span>Energia:</span><span className="font-mono">{formatBRL(quoteAssistantResult.energyCost)}</span></div>
+                            <div className="flex justify-between text-[11px] text-white/70"><span>Máquina:</span><span className="font-mono">{formatBRL(quoteAssistantResult.machineCost)}</span></div>
+                            <div className="flex justify-between text-[11px] text-white/70"><span>Falhas + embalagem:</span><span className="font-mono">{formatBRL(quoteAssistantResult.failureLoss + quoteAssistantResult.packagingCost)}</span></div>
+                            <div className="flex justify-between text-[11px] text-white/70 border-t border-white/5 pt-1.5"><span>Custo real:</span><span className="font-mono">{formatBRL(quoteAssistantResult.totalCost)}</span></div>
                             <div className="flex justify-between text-[11px] font-black border-t border-white/5 pt-1.5 uppercase text-white">
-                              <span>Preço sugerido (+{calcMargin}%):</span>
-                              <span className="text-primary font-mono select-all">R$ {((editingQuoteWeight * calcFilamentPrice + parseTimeToHours(editingQuoteTime) * calcHourCost + calcSetupFee) * (1 + calcMargin / 100)).toFixed(2)}</span>
+                              <span>Preço sugerido (varejo):</span>
+                              <span className="text-primary font-mono select-all">{formatBRL(quoteAssistantResult.retailTotal)}</span>
                             </div>
                           </div>
                           <Button
                             type="button"
                             onClick={() => {
-                              const suggestedPrice = (editingQuoteWeight * calcFilamentPrice + parseTimeToHours(editingQuoteTime) * calcHourCost + calcSetupFee) * (1 + calcMargin / 100);
+                              const suggestedPrice = quoteAssistantResult.retailTotal;
                               setEditingQuoteTotal(Number(suggestedPrice.toFixed(2)));
-                              toast.success(`Preço sugerido de R$ ${suggestedPrice.toFixed(2)} aplicado!`);
+                              toast.success(`${formatBRL(suggestedPrice)} aplicado pelo motor unificado!`);
                             }}
                             className="w-full h-10 rounded-xl bg-primary text-[10px] font-black uppercase tracking-wider text-white"
                           >

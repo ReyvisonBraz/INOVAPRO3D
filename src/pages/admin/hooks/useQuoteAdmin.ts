@@ -14,7 +14,7 @@ interface Deps {
 }
 
 /**
- * Edição de orçamentos: especificações, assistente de precificação,
+ * Edição de orçamentos: especificações, abertura do motor de precificação,
  * aprovação (vira pedido) e envio da proposta por WhatsApp.
  */
 export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer, activeTab, fetchData }: Deps) {
@@ -25,10 +25,6 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
   const [editingQuotePhone, setEditingQuotePhone] = useState("");
   const [editingQuoteNotes, setEditingQuoteNotes] = useState("");
   const [isCalcAssistantOpen, setIsCalcAssistantOpen] = useState(false);
-  const [calcFilamentPrice, setCalcFilamentPrice] = useState(0.15);
-  const [calcHourCost, setCalcHourCost] = useState(4.50);
-  const [calcSetupFee, setCalcSetupFee] = useState(10.00);
-  const [calcMargin, setCalcMargin] = useState(50);
   const [isApprovingQuote, setIsApprovingQuote] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<{
     success: boolean; orderId?: string; finalPrice?: number; finalInfill?: number;
@@ -98,7 +94,9 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
           image: "https://images.unsplash.com/photo-1615810231586-52233952673d?q=80&w=400",
           options: { material: quote.materialId || "PLA Pro", infill: finalInfill, printTime: finalTime, weight: finalWeight, adminNotes: finalNotes },
         }],
-        materialUsages: quote.materialUsages || [], source: "quote",
+        materialUsages: quote.materialUsages || [],
+        ...(quote.calculationProject ? { calculationProject: quote.calculationProject } : {}),
+        source: "quote",
         total: finalPrice, status: "PENDING_PAYMENT", quoteId: quote.id,
         createdAt: serverTimestamp(), updatedAt: serverTimestamp(),
       });
@@ -144,10 +142,6 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
     editingQuotePhone, setEditingQuotePhone,
     editingQuoteNotes, setEditingQuoteNotes,
     isCalcAssistantOpen, setIsCalcAssistantOpen,
-    calcFilamentPrice, setCalcFilamentPrice,
-    calcHourCost, setCalcHourCost,
-    calcSetupFee, setCalcSetupFee,
-    calcMargin, setCalcMargin,
     isApprovingQuote,
     approvalStatus, setApprovalStatus,
     handleWhatsAppQuote,

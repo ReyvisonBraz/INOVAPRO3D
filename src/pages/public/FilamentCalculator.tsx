@@ -28,13 +28,12 @@ import {
   formatBRL,
   formatHoursToHHMM,
   HELP,
-  MATERIAL_PRESETS,
-  type MaterialKey,
 } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { Reveal } from "../../components/ui/Reveal";
 import { useCalculatorState, safeNumber } from "./calculator/useCalculatorState";
+import { CalculatorProjectEditor } from "../../components/calculator/CalculatorProjectEditor";
 
 const decimal = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 3,
@@ -130,39 +129,6 @@ function NumberField({
             {suffix}
           </span>
         )}
-      </span>
-      {hint && (
-        <span className="block text-[9px] text-white/30 leading-snug">{hint}</span>
-      )}
-    </label>
-  );
-}
-
-type TextFieldProps = {
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  hint?: string;
-  help?: string;
-};
-
-function TextField({ label, value, onChange, hint, help }: TextFieldProps) {
-  return (
-    <label className="block space-y-2">
-      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
-        {label}
-        {help && <HelpTip text={help} />}
-      </span>
-      <span className="relative block">
-        <input
-          type="text"
-          value={value}
-          onChange={(event) => onChange(event.target.value)}
-          className={cn(
-            "h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-black text-white outline-none transition",
-            "focus:border-white/30 focus:ring-2 focus:ring-white/5",
-          )}
-        />
       </span>
       {hint && (
         <span className="block text-[9px] text-white/30 leading-snug">{hint}</span>
@@ -467,16 +433,16 @@ function ReportLine({ label, value }: { label: string; value: React.ReactNode })
 
 export default function FilamentCalculator() {
   const {
-    material, spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
-    slicerWeight, setSlicerWeight, reservePct, setReservePct,
+    project, setProject, projectIssues, setProjectIssues, pricingSettings, projectPricing,
+    spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
+    reservePct, setReservePct,
     failureRatePct, setFailureRatePct, failureImpactPct, setFailureImpactPct,
-    batchQuantity, setBatchQuantity, selectMaterial, materialSettings,
-    inventoryMaterials, materialUsages, setMaterialUsages,
+    inventoryMaterials,
     machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
     nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,
     platePrice, setPlatePrice, plateLifeHours, setPlateLifeHours,
     beltsPrice, setBeltsPrice, beltsLifeHours, setBeltsLifeHours, maintPerHour, setMaintPerHour,
-    printTimeStr, setPrintTimeStr, printTime, kwhCost, setKwhCost,
+    kwhCost, setKwhCost,
     steadyPower, setSteadyPower, startupPower, setStartupPower, startupMinutes, setStartupMinutes,
     requiresLabor, setRequiresLabor, laborHours, setLaborHours, laborRate, setLaborRate, extraSupplies, setExtraSupplies,
     packagingCost, setPackagingCost, targetProfitPerMachineHour, setTargetProfitPerMachineHour,
@@ -485,25 +451,11 @@ export default function FilamentCalculator() {
     showAdvancedMachine, setShowAdvancedMachine, showAdvancedEnergy, setShowAdvancedEnergy,
     showMachineConfig, setShowMachineConfig, showMaterialConfig, setShowMaterialConfig,
     showEnergyConfig, setShowEnergyConfig, showLaborConfig, setShowLaborConfig,
-    savingCalc, saveLabel, setSaveLabel, handleSaveCalc,
+    savingCalc, handleSaveCalc,
     clientName, setClientName, clientPhone, setClientPhone,
     quoteImageUrl, setQuoteImageUrl, uploadingImage, handleUploadImage,
-    result, machineBreak, reserveMultiplier, laborTotal, generatedAt,
+    result, machineBreak, laborTotal, generatedAt,
   } = useCalculatorState();
-  const [stockMaterialId, setStockMaterialId] = useState("");
-  const [stockUsageGrams, setStockUsageGrams] = useState(0);
-  const allocatedGrams = materialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
-
-  const addStockUsage = () => {
-    const selected = inventoryMaterials.find((entry) => entry.id === stockMaterialId);
-    if (!selected || stockUsageGrams <= 0) return;
-    setMaterialUsages((current) => [
-      ...current.filter((entry) => entry.materialId !== selected.id),
-      { materialId: selected.id, materialName: selected.name, estimatedGrams: stockUsageGrams },
-    ]);
-    setStockMaterialId("");
-    setStockUsageGrams(0);
-  };
 
   return (
     <>
@@ -555,74 +507,20 @@ export default function FilamentCalculator() {
               title="Início Rápido"
               subtitle="Dados do job atual — copie do Bambu Studio"
             >
-              <div className="mb-5 grid grid-cols-2 gap-3">
-                {(Object.keys(MATERIAL_PRESETS) as MaterialKey[]).map((key) => {
-                  const preset = MATERIAL_PRESETS[key];
-                  const active = material === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => selectMaterial(key)}
-                      className={cn(
-                        "rounded-xl border px-4 py-3 text-left transition",
-                        active
-                          ? "border-white bg-white text-[#07080d]"
-                          : "border-white/10 bg-white/[0.04] hover:border-white/20",
-                      )}
-                    >
-                      <p className={cn("text-sm font-black uppercase tracking-[0.18em]", active ? "text-[#07080d]" : "text-white/80")}>
-                        {preset.label}
-                      </p>
-                      <p className={cn("mt-1 text-[10px] font-bold", active ? "text-[#07080d]/60" : "text-white/40")}>
-                        R${materialSettings[key].spoolPrice}/kg · {preset.printTempC}°C
-                      </p>
-                    </button>
-                  );
-                })}
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <NumberField
-                  label="Filamento utilizado (slicer)"
-                  suffix="g"
-                  value={slicerWeight}
-                  onChange={setSlicerWeight}
-                  min={1}
-                  step={1}
-                  help={HELP.weight}
-                  hint="Campo 'Filamento utilizado' do Bambu Studio"
-                />
-                <div>
-                  <TextField
-                    label="Tempo de impressão"
-                    value={printTimeStr}
-                    onChange={setPrintTimeStr}
-                    help={HELP.time}
-                    hint="Aceita 2h 30m, 2:30 ou 2.5"
-                  />
-                  <p className="mt-2 text-[10px] font-bold text-cyan-300">
-                    = {formatHoursToHHMM(printTime)}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <NumberField
-                  label="Peças no lote"
-                  value={batchQuantity}
-                  onChange={setBatchQuantity}
-                  min={1}
-                  help={HELP.quantity}
-                />
-                <div className="flex items-center rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
-                  <div>
-                    <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">Custo por grama</p>
-                    <p className="mt-0.5 font-mono text-base font-black text-cyan-300">
-                      R$ {decimal.format(result.gramCost * reserveMultiplier)}/g
-                    </p>
-                  </div>
-                </div>
+              <CalculatorProjectEditor
+                project={project}
+                onChange={(next) => {
+                  setProject(next);
+                  if (projectIssues.length) setProjectIssues([]);
+                }}
+                materials={inventoryMaterials}
+                pricingSettings={pricingSettings}
+                issues={projectIssues}
+              />
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <MachineStat label="Bandejas" value={`${project.plates.length}`} />
+                <MachineStat label="Tempo total" value={`${result.hours.toFixed(2)}h`} />
+                <MachineStat label="Peso total" value={`${result.weightGrams.toFixed(2)}g`} highlight />
               </div>
             </SectionCard>
             </Reveal>
@@ -695,20 +593,8 @@ export default function FilamentCalculator() {
                 <NumberField label="Perda média quando falha" suffix="%" value={failureImpactPct} onChange={setFailureImpactPct} step={5} help="Em que ponto a falha costuma ser percebida. 70% significa perder, em média, 70% do material, energia e tempo do job." />
                 <NumberField label="Meta por hora ocupada" prefix="R$" suffix="/h" value={targetProfitPerMachineHour} onChange={setTargetProfitPerMachineHour} step={1} help="Contribuição mínima desejada por hora em que a impressora fica indisponível para outros pedidos." />
               </div>
-              <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/[0.05] p-4">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div><p className="text-xs font-black text-white/90">Filamentos do estoque</p><p className="mt-1 text-[10px] text-white/40">Distribua o peso informado entre os filamentos cadastrados. O orçamento não reserva saldo.</p></div>
-                  <span className={`rounded-lg px-2 py-1 text-[10px] font-bold ${Math.abs(allocatedGrams - slicerWeight) < 0.01 ? 'bg-emerald-400/10 text-emerald-300' : 'bg-amber-400/10 text-amber-300'}`}>{allocatedGrams.toFixed(1)}g de {slicerWeight.toFixed(1)}g</span>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_130px_auto]">
-                  <select value={stockMaterialId} onChange={(event) => setStockMaterialId(event.target.value)} className="rounded-xl border border-white/10 bg-[#0b0d14] px-3 py-3 text-xs text-white">
-                    <option value="">Selecionar filamento cadastrado...</option>
-                    {inventoryMaterials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} — {Math.max(0, Number(entry.stockGrams || 0) - Number(entry.reservedGrams || 0))}g livres</option>)}
-                  </select>
-                  <input type="number" min={0} step="0.1" value={stockUsageGrams || ""} onChange={(event) => setStockUsageGrams(Number(event.target.value) || 0)} placeholder="Gramas" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-3 text-xs outline-none focus:border-blue-400/50" />
-                  <button type="button" onClick={addStockUsage} disabled={!stockMaterialId || stockUsageGrams <= 0} className="rounded-xl bg-blue-500 px-4 py-3 text-[10px] font-black uppercase disabled:opacity-40">Adicionar</button>
-                </div>
-                {materialUsages.length > 0 && <div className="mt-3 space-y-2">{materialUsages.map((usage) => <div key={usage.materialId} className="flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3 py-2 text-xs"><span className="text-white/70">{usage.materialName}</span><span className="flex items-center gap-3 font-mono text-white"><strong>{usage.estimatedGrams}g</strong><button type="button" aria-label={`Remover ${usage.materialName}`} onClick={() => setMaterialUsages((current) => current.filter((entry) => entry.materialId !== usage.materialId))} className="text-white/35 hover:text-red-300"><X className="h-3.5 w-3.5" /></button></span></div>)}</div>}
+              <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/[0.05] p-4 text-xs leading-relaxed text-white/50">
+                Os filamentos e os pesos reais do Bambu Studio são definidos em cada bandeja no início do cálculo. Filamentos manuais entram no custo previsto, mas não movimentam o estoque.
               </div>
             </CollapsibleSection>
             </Reveal>
@@ -991,14 +877,6 @@ export default function FilamentCalculator() {
                   className="h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-mono font-bold text-white placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none"
                 />
               </div>
-              <input
-                type="text"
-                placeholder="Nome da peça / projeto (opcional)"
-                value={saveLabel}
-                onChange={(e) => setSaveLabel(e.target.value)}
-                className="mt-2.5 h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-white placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none"
-              />
-
               {quoteImageUrl ? (
                 <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2">
                   <img
@@ -1064,7 +942,7 @@ export default function FilamentCalculator() {
                 <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
                   Lote <HelpTip text={HELP.batch} />
                 </p>
-                <p className="font-mono text-sm font-black text-white">{Math.max(1, batchQuantity)} un.</p>
+                <p className="font-mono text-sm font-black text-white">{Math.max(1, projectPricing.totalPieces)} un.</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Layers3 className="mx-auto mb-2 h-4 w-4 text-cyan-300" />
@@ -1078,7 +956,7 @@ export default function FilamentCalculator() {
                 <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
                   Horas <HelpTip text={HELP.time} />
                 </p>
-                <p className="font-mono text-sm font-black text-white">{formatHoursToHHMM(printTime)}</p>
+                <p className="font-mono text-sm font-black text-white">{formatHoursToHHMM(result.hours)}</p>
               </div>
             </div>
           </aside>
@@ -1110,16 +988,16 @@ export default function FilamentCalculator() {
         </div>
         <div>
           <span>Quantidade</span>
-          <strong>{Math.max(1, batchQuantity)} un.</strong>
+          <strong>{Math.max(1, projectPricing.totalPieces)} un.</strong>
         </div>
       </div>
 
       <div className="maker-report-grid">
         <section className="maker-report-card">
           <h2>Seu Projeto</h2>
-          <ReportLine label="Peça" value={saveLabel.trim() || "Peça personalizada"} />
-          <ReportLine label="Material" value={MATERIAL_PRESETS[material].label} />
-          <ReportLine label="Quantidade" value={`${Math.max(1, batchQuantity)} un.`} />
+          <ReportLine label="Projeto" value={project.name || "Projeto Bambu Studio"} />
+          <ReportLine label="Projeto" value={project.name || "Projeto Bambu Studio"} />
+          <ReportLine label="Quantidade" value={`${Math.max(1, projectPricing.totalPieces)} un.`} />
           <ReportLine label="Acabamento / pós-processamento" value={requiresLabor ? "Incluso" : "Padrão"} />
         </section>
 
@@ -1128,7 +1006,7 @@ export default function FilamentCalculator() {
           {clientName && <ReportLine label="Cliente" value={clientName} />}
           {clientPhone && <ReportLine label="Contato" value={clientPhone} />}
           <ReportLine label="Processo" value="Impressão 3D (FDM)" />
-          <ReportLine label="Prazo de produção estimado" value={formatHoursToHHMM(printTime)} />
+          <ReportLine label="Tempo total de impressão" value={formatHoursToHHMM(result.hours)} />
         </section>
       </div>
 
@@ -1170,15 +1048,15 @@ export default function FilamentCalculator() {
       <div className="maker-report-grid maker-report-compact-grid">
         <section className="maker-report-card">
           <h2>Parâmetros do Job</h2>
-          <ReportLine label="Filamento utilizado" value={`${decimal.format(slicerWeight)}g`} />
+          <ReportLine label="Filamento utilizado" value={`${decimal.format(result.weightGrams)}g`} />
           <ReportLine label="Peso técnico" value={`${decimal.format(result.weightGrams)}g`} />
-          <ReportLine label="Peças no lote" value={`${Math.max(1, batchQuantity)} un.`} />
-          <ReportLine label="Tempo total" value={formatHoursToHHMM(printTime)} />
+          <ReportLine label="Peças no projeto" value={`${Math.max(1, projectPricing.totalPieces)} un.`} />
+          <ReportLine label="Tempo total" value={formatHoursToHHMM(result.hours)} />
         </section>
 
         <section className="maker-report-card">
           <h2>Material e Energia</h2>
-          <ReportLine label="Material" value={MATERIAL_PRESETS[material].label} />
+          <ReportLine label="Bandejas" value={`${project.plates.length}`} />
           <ReportLine label="Carretel" value={formatBRL(spoolPrice)} />
           <ReportLine label="Peso nominal" value={`${decimal.format(spoolWeight)}g`} />
           <ReportLine label="Reserva falhas" value={`${reservePct}%`} />

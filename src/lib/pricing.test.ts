@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { computePricing, machineHourBreakdown, DEFAULT_MACHINE, type PricingInputs } from './pricing';
+import {
+  computePricing,
+  machineHourBreakdown,
+  DEFAULT_MACHINE,
+  DEFAULT_PRICING_SETTINGS,
+  type PricingInputs,
+} from './pricing';
 
 // Input base realista; cada teste sobrescreve só o que interessa.
 function makeInput(overrides: Partial<PricingInputs> = {}): PricingInputs {
@@ -69,6 +75,20 @@ describe('computePricing — invariantes de custo', () => {
 });
 
 describe('computePricing — preços e piso mínimo', () => {
+  it('as interfaces partem do mesmo piso mínimo central', () => {
+    const detailedCalculatorInput = makeInput({
+      minPrice: DEFAULT_PRICING_SETTINGS.minPrice,
+    });
+    const quickCalculatorInput = makeInput({
+      minPrice: DEFAULT_PRICING_SETTINGS.minPrice,
+    });
+
+    expect(computePricing(detailedCalculatorInput)).toEqual(
+      computePricing(quickCalculatorInput),
+    );
+    expect(DEFAULT_PRICING_SETTINGS.minPrice).toBe(35);
+  });
+
   it('atacado e varejo saem do custo × markup quando acima do piso', () => {
     const r = computePricing(makeInput());
     expect(r.wholesaleTotal).toBeCloseTo(r.totalCost * 1.6, 6);

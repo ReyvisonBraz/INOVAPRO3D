@@ -10,6 +10,7 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db, getStorageInstance } from "../services/firebase";
 import type { MaterialUsage } from "../types/domain";
+import type { CalculatorProject } from "./calculatorProject";
 
 export interface SaveQuoteInput {
   /** Nome do cliente (obrigatório para identificar o orçamento). */
@@ -38,6 +39,8 @@ export interface SaveQuoteInput {
   notes?: string;
   /** Filamentos reais do estoque e consumo previsto por cor/SKU. */
   materialUsages?: MaterialUsage[];
+  /** Estrutura de bandejas usada para reproduzir e auditar o cálculo. */
+  calculationProject?: CalculatorProject;
 }
 
 /** Extensões visuais/legíveis não previstas no tipo Quote base. */
@@ -78,9 +81,17 @@ export async function saveQuoteFromCalc(input: SaveQuoteInput): Promise<string> 
       .map((usage) => ({
         materialId: usage.materialId,
         materialName: usage.materialName || "Filamento",
+        ...(usage.plateId ? { plateId: usage.plateId } : {}),
+        ...(usage.plateName ? { plateName: usage.plateName } : {}),
+        ...(usage.inventoryTracked === false ? { inventoryTracked: false } : {}),
+        ...(usage.manualColor ? { manualColor: usage.manualColor } : {}),
+        ...(usage.manualBrand ? { manualBrand: usage.manualBrand } : {}),
+        ...(usage.manualType ? { manualType: usage.manualType } : {}),
+        ...(Number.isFinite(usage.pricePerKg) ? { pricePerKg: usage.pricePerKg } : {}),
         estimatedGrams: Math.max(0, Number(usage.estimatedGrams) || 0),
       }));
   }
+  if (input.calculationProject) data.calculationProject = input.calculationProject;
 
   const ref = await addDoc(collection(db, "quotes"), data);
   return ref.id;

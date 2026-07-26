@@ -78,6 +78,14 @@ export interface MaterialUsage {
   materialId: string;
   materialName?: string;
   itemId?: string;
+  plateId?: string;
+  plateName?: string;
+  /** Filamento com preço manual não movimenta o estoque. */
+  inventoryTracked?: boolean;
+  manualColor?: string;
+  manualBrand?: string;
+  manualType?: string;
+  pricePerKg?: number;
   estimatedGrams: number;
   reservedGrams?: number;
   consumedGrams?: number;
@@ -102,6 +110,7 @@ export interface Order {
   customerNotes?: string;
   internalNotes?: string;
   materialUsages?: MaterialUsage[];
+  calculationProject?: import("../lib/calculatorProject").CalculatorProject;
   shippingAddress?: ShippingAddress;
   status: OrderStatus;
   createdAt?: FirestoreDate;
@@ -142,6 +151,7 @@ export interface Quote {
   message?: string;
   items?: OrderItem[];
   materialUsages?: MaterialUsage[];
+  calculationProject?: import("../lib/calculatorProject").CalculatorProject;
   subtotal?: number;
   discount?: number;
   surcharge?: number;

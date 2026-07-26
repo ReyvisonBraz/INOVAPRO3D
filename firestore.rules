@@ -264,7 +264,9 @@ service cloud.firestore {
 
     // SETTINGS
     match /settings/{settingId} {
-      allow read: if true;
+      // Somente o banner/configuração global é público. Custos, margens e
+      // depreciação da calculadora são informação operacional do admin.
+      allow read: if settingId in ["global", "storefront"] || isAdmin();
       allow write: if isAdmin();
     }
 

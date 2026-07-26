@@ -100,6 +100,7 @@ export async function transitionOrderStatus(order: Order, nextStatus: OrderStatu
     }
 
     const updatedUsages: MaterialUsage[] = usages.map((usage) => {
+      if (usage.inventoryTracked === false) return usage;
       if (action === "RESERVE") return { ...usage, reservedGrams: usage.estimatedGrams };
       if (action === "CONSUME") return { ...usage, reservedGrams: 0, consumedGrams: usage.estimatedGrams };
       if (action === "RELEASE") return { ...usage, reservedGrams: 0 };

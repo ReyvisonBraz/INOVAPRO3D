@@ -314,6 +314,11 @@ export interface PricingInputs {
   retailMarkup: number;
   /** Preço mínimo por pedido (R$). */
   minPrice: number;
+
+  /** Custos já apurados por um cálculo composto por bandejas. */
+  materialCostOverride?: number;
+  energyKwhOverride?: number;
+  energyCostOverride?: number;
 }
 
 export interface PricingResult {
@@ -389,16 +394,23 @@ export function computePricing(input: PricingInputs): PricingResult {
 
   // --- Material ---
   const gramCost = spoolPrice / spoolWeight;
-  const materialCost = weightGrams * gramCost * reserveMultiplier;
+  const materialCost = input.materialCostOverride === undefined
+    ? weightGrams * gramCost * reserveMultiplier
+    : Math.max(0, num(input.materialCostOverride));
 
   // --- Energia (pico de aquecimento + regime estável) ---
   const startupHours = Math.min(hours, Math.max(0, num(input.startupMinutes)) / 60);
   const steadyHours = Math.max(0, hours - startupHours);
-  const energyKwh =
+  const calculatedEnergyKwh =
     (startupHours * Math.max(0, num(input.startupPowerWatts)) +
       steadyHours * steadyPower) /
     1000;
-  const energyCost = energyKwh * Math.max(0, num(input.kwhCost));
+  const energyKwh = input.energyKwhOverride === undefined
+    ? calculatedEnergyKwh
+    : Math.max(0, num(input.energyKwhOverride));
+  const energyCost = input.energyCostOverride === undefined
+    ? energyKwh * Math.max(0, num(input.kwhCost))
+    : Math.max(0, num(input.energyCostOverride));
 
   // --- Máquina (depreciação + reposição) ---
   const machineHourCost = machineHourBreakdown(input.machine).total;

@@ -12,7 +12,6 @@ import {
   HeartHandshake,
   Gauge,
   MapPin,
-  CheckCircle2,
 } from "lucide-react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { BrandMark, BrandWordmark } from "../../components/brand/BrandLogo";
@@ -211,12 +210,6 @@ export default function About() {
                 className="inline-flex h-13 items-center justify-center gap-2 rounded-2xl bg-primary px-7 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-primary/25 hover:bg-primary-dark transition-all"
               >
                 Explorar catálogo <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                to="/calculadora"
-                className="inline-flex h-13 items-center justify-center gap-2 rounded-2xl border border-white/12 bg-white/[0.03] px-7 py-3.5 text-xs font-black uppercase tracking-widest text-white/70 hover:bg-white/[0.07] hover:text-white transition-all"
-              >
-                <CheckCircle2 className="h-4 w-4" /> Calcular um orçamento
               </Link>
             </div>
 
