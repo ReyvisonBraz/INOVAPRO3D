@@ -209,7 +209,7 @@ function RouterContent() {
             </footer>
           )}
 
-          <FloatingSupport />
+          {!isAdminPage && <FloatingSupport />}
           <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
           <ProfileModalGate />
           <OnboardingProvider>
