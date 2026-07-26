@@ -39,6 +39,8 @@ export interface CalculatorPlate {
 
 export interface CalculatorProject {
   name: string;
+  /** Quantidade de produtos completos vendáveis gerados pelo projeto inteiro. */
+  outputQuantity: number;
   plates: CalculatorPlate[];
 }
 
@@ -145,13 +147,10 @@ export function computeProjectPricing(
     }),
     { hours: 0, weightGrams: 0, materialCost: 0, energyKwh: 0, energyCost: 0 },
   );
-  const totalPieces = project.plates.reduce(
-    (sum, plate) =>
-      sum +
-      Math.max(1, Math.floor(Number(plate.pieces) || 1)) *
-        Math.max(1, Math.floor(Number(plate.repetitions) || 1)),
-    0,
-  );
+  // Uma peça vendável pode ser composta por várias bandejas (ex.: um boneco
+  // dividido em corpo, cabelo e mãos). Por isso, quantidade comercial não pode
+  // ser inferida somando os itens físicos de cada bandeja.
+  const totalPieces = Math.max(1, Math.floor(Number(project.outputQuantity) || 1));
 
   const result = computePricing({
     material: "pla",
@@ -192,6 +191,9 @@ export interface ProjectValidationIssue {
 export function validateCalculatorProject(project: CalculatorProject): ProjectValidationIssue[] {
   const issues: ProjectValidationIssue[] = [];
   if (!project.name.trim()) issues.push({ path: "project.name", message: "Informe o nome do projeto." });
+  if (project.outputQuantity < 1) {
+    issues.push({ path: "project.outputQuantity", message: "Informe ao menos um produto final." });
+  }
   if (!project.plates.length) issues.push({ path: "project.plates", message: "Adicione ao menos uma bandeja." });
   project.plates.forEach((plate, plateIndex) => {
     const base = `plates.${plate.id}`;

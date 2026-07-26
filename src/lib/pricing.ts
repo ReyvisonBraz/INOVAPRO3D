@@ -521,15 +521,17 @@ export function formatHoursToHHMM(hours: number): string {
   return `${hh}h ${mm}min`;
 }
 
-/** Converte "2h 30m", "2.5" ou "2:30" em horas decimais. */
+/** Converte tempos do Bambu ("2h 30m 10s"), decimal ou "2:30" em horas. */
 export function parseTimeToHours(timeStr: string): number {
   if (!timeStr) return 0;
   const hMatch = timeStr.match(/(\d+)\s*h/i);
   const mMatch = timeStr.match(/(\d+)\s*m/i);
+  const sMatch = timeStr.match(/(\d+)\s*s/i);
   const h = hMatch ? parseInt(hMatch[1], 10) : 0;
   const m = mMatch ? parseInt(mMatch[1], 10) : 0;
+  const s = sMatch ? parseInt(sMatch[1], 10) : 0;
 
-  if (!hMatch && !mMatch) {
+  if (!hMatch && !mMatch && !sMatch) {
     if (timeStr.includes(":")) {
       const [hp, mp] = timeStr.split(":").map((p) => parseFloat(p));
       if (!isNaN(hp) && !isNaN(mp)) return hp + mp / 60;
@@ -537,7 +539,7 @@ export function parseTimeToHours(timeStr: string): number {
     const n = parseFloat(timeStr);
     return isNaN(n) ? 0 : n;
   }
-  return h + m / 60;
+  return h + m / 60 + s / 3600;
 }
 
 // ----------------------------------------------------------------------------

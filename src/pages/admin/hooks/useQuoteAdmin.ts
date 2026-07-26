@@ -13,6 +13,14 @@ interface Deps {
   fetchData: () => Promise<void>;
 }
 
+function isQuote(record: Quote | Ticket): record is Quote {
+  return (
+    typeof record.fileName === "string" &&
+    typeof record.materialId === "string" &&
+    typeof record.infill === "number"
+  );
+}
+
 /**
  * Edição de orçamentos: especificações, abertura do motor de precificação,
  * aprovação (vira pedido) e envio da proposta por WhatsApp.
@@ -68,6 +76,10 @@ export function useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer
 
   const handleApproveQuote = useCallback(async (quote: Quote | Ticket) => {
     if (isApprovingQuote) return;
+    if (!isQuote(quote)) {
+      toast.error("Este registro não é um orçamento válido para faturamento.");
+      return;
+    }
     setIsApprovingQuote(true);
     try {
       const isSelected = selectedCustomer?.id === quote.id;

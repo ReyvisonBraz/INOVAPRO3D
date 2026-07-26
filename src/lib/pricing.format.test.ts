@@ -39,3 +39,13 @@ describe('formatHoursToHHMM', () => {
     expect(formatHoursToHHMM(-5)).toBe('0min');
   });
 });
+
+describe('parseTimeToHours com segundos do Bambu', () => {
+  it('considera segundos no cálculo sem exigir exibição em segundos', () => {
+    expect(parseTimeToHours('36m57s')).toBeCloseTo(36 / 60 + 57 / 3600, 8);
+    expect(parseTimeToHours('22m4s')).toBeCloseTo(22 / 60 + 4 / 3600, 8);
+    expect(formatHoursToHHMM(
+      parseTimeToHours('2h49m') + parseTimeToHours('36m57s') + parseTimeToHours('22m4s'),
+    )).toBe('3h 48min');
+  });
+});

@@ -29,6 +29,7 @@ function safeNumber(value: number, fallback = 0) {
 export function useCalculatorState() {
   const [project, setProject] = useState<CalculatorProject>({
     name: "",
+    outputQuantity: 1,
     plates: [createEmptyPlate(1)],
   });
   const [projectIssues, setProjectIssues] = useState<ReturnType<typeof validateCalculatorProject>>([]);
@@ -316,7 +317,7 @@ export function useCalculatorState() {
       setClientName("");
       setClientPhone("");
       setQuoteImageUrl("");
-      setProject({ name: "", plates: [createEmptyPlate(1)] });
+      setProject({ name: "", outputQuantity: 1, plates: [createEmptyPlate(1)] });
       setProjectIssues([]);
     } catch {
       toast.error("Erro ao salvar. É preciso estar logado como admin.", { position: "bottom-center" });

@@ -519,7 +519,7 @@ export default function FilamentCalculator() {
               />
               <div className="mt-4 grid gap-3 sm:grid-cols-3">
                 <MachineStat label="Bandejas" value={`${project.plates.length}`} />
-                <MachineStat label="Tempo total" value={`${result.hours.toFixed(2)}h`} />
+                <MachineStat label="Tempo total" value={formatHoursToHHMM(result.hours)} />
                 <MachineStat label="Peso total" value={`${result.weightGrams.toFixed(2)}g`} highlight />
               </div>
             </SectionCard>

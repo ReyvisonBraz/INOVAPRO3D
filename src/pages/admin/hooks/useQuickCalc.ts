@@ -4,6 +4,7 @@ import {
   DEFAULT_PRICING_SETTINGS,
   machineHourBreakdown,
   formatBRL,
+  formatHoursToHHMM,
   type MaterialKey,
   type MachineConfig,
   type PricingSettings,
@@ -33,6 +34,7 @@ export function useQuickCalc(
 ) {
   const [quickProject, setQuickProject] = useState<CalculatorProject>({
     name: "",
+    outputQuantity: 1,
     plates: [createEmptyPlate(1)],
   });
   const [quickProjectIssues, setQuickProjectIssues] = useState<ReturnType<typeof validateCalculatorProject>>([]);
@@ -108,7 +110,7 @@ export function useQuickCalc(
     if (!phoneClean) { toast.error("Preencha o WhatsApp do cliente."); return; }
     const clientName = quickCalcCustomerName || "Cliente";
     const pieceName = quickProject.name || quickCalcPieceName || "Peça personalizada";
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Bandejas: ${quickProject.plates.length}\n- Quantidade: ${quickCalcResult.quantity} unidade(s)\n- Filamento total: ${quickCalcResult.weightGrams.toFixed(1).replace(".", ",")}g\n- Tempo total: ${quickCalcResult.hours.toFixed(2).replace(".", ",")}h\n\n*Investimento final (varejo):*\nTotal: ${formatBRL(quickCalcResult.retailTotal)}\nUnitário: ${formatBRL(quickCalcResult.retailUnit)}\n\nProposta baseada nos dados do Bambu Studio, com material, energia e hora-máquina P2S.`;
+    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Bandejas: ${quickProject.plates.length}\n- Produtos finais: ${quickCalcResult.quantity} unidade(s)\n- Filamento total: ${quickCalcResult.weightGrams.toFixed(1).replace(".", ",")}g\n- Tempo total: ${formatHoursToHHMM(quickCalcResult.hours)}\n\n*Investimento final (varejo):*\nTotal: ${formatBRL(quickCalcResult.retailTotal)}\nUnitário: ${formatBRL(quickCalcResult.retailUnit)}\n\nProposta baseada nos dados do Bambu Studio, com material, energia e hora-máquina P2S.`;
     window.open(`https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`, "_blank");
   }, [quickCalcPhone, quickCalcCustomerName, quickCalcPieceName, quickProject, quickCalcResult]);
 
@@ -167,7 +169,7 @@ export function useQuickCalc(
         pieceName: quickProject.name || quickCalcPieceName,
         materialLabel: quickProject.plates.some((plate) => plate.type === "MULTICOLOR") ? "Multicolor" : "Cor única",
         weight: quickCalcResult.weightGrams,
-        printTime: `${quickCalcResult.hours.toFixed(2)}h`,
+        printTime: formatHoursToHHMM(quickCalcResult.hours),
         quantity: quickCalcResult.quantity,
         price: quickCalcResult.retailTotal,
         unitPrice: quickCalcResult.retailUnit,
@@ -175,11 +177,11 @@ export function useQuickCalc(
         imageUrl: quickCalcImageUrl || undefined,
         materialUsages: predictedUsages,
         calculationProject: quickProject,
-        notes: `Custo previsto ${quickCalcResult.totalCost.toFixed(2)} · atacado ${quickCalcResult.wholesaleTotal.toFixed(2)} · varejo ${quickCalcResult.retailTotal.toFixed(2)} · ${quickProject.plates.length} bandeja(s) · ${quickCalcResult.weightGrams.toFixed(2)}g · ${quickCalcResult.hours.toFixed(2)}h`,
+        notes: `Custo previsto ${quickCalcResult.totalCost.toFixed(2)} · atacado ${quickCalcResult.wholesaleTotal.toFixed(2)} · varejo ${quickCalcResult.retailTotal.toFixed(2)} · ${quickProject.plates.length} bandeja(s) · ${quickCalcResult.weightGrams.toFixed(2)}g · ${formatHoursToHHMM(quickCalcResult.hours)}`,
       });
       toast.success("Orçamento salvo na aba Orçamentos!");
       setQuickCalcImageUrl("");
-      setQuickProject({ name: "", plates: [createEmptyPlate(1)] });
+      setQuickProject({ name: "", outputQuantity: 1, plates: [createEmptyPlate(1)] });
       setQuickProjectIssues([]);
       onSaved?.();
     } catch {

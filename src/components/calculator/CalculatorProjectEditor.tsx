@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { Copy, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { Material } from "../../types/domain";
 import {
   createEmptyPlate,
@@ -9,7 +9,7 @@ import {
   type ManualFilament,
   type ProjectValidationIssue,
 } from "../../lib/calculatorProject";
-import { parseTimeToHours, type MaterialKey, type PricingSettings } from "../../lib/pricing";
+import { formatHoursToHHMM, parseTimeToHours, type MaterialKey, type PricingSettings } from "../../lib/pricing";
 
 interface Props {
   project: CalculatorProject;
@@ -48,6 +48,7 @@ function materialKeyFromType(type?: string): MaterialKey {
 
 export function CalculatorProjectEditor({ project, onChange, materials, pricingSettings, issues = [] }: Props) {
   const [drafts, setDrafts] = useState<Record<string, FilamentDraft>>({});
+  const [editingFilamentIds, setEditingFilamentIds] = useState<Record<string, string | undefined>>({});
   const issuePaths = useMemo(() => new Set(issues.map((issue) => issue.path)), [issues]);
   const shortages = useMemo(() => {
     const required = new Map<string, number>();
@@ -139,8 +140,42 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
       };
     }
     if (!filament) return;
-    updatePlate(plate.id, { filaments: [...plate.filaments, filament] });
+    const editingId = editingFilamentIds[plate.id];
+    updatePlate(plate.id, {
+      filaments: editingId
+        ? plate.filaments.map((item) => item.id === editingId ? { ...filament, id: editingId } : item)
+        : [...plate.filaments, filament],
+    });
     setDrafts((current) => ({ ...current, [plate.id]: emptyDraft() }));
+    setEditingFilamentIds((current) => ({ ...current, [plate.id]: undefined }));
+  };
+
+  const startEditingFilament = (plate: CalculatorPlate, filament: CalculatorFilament) => {
+    setDrafts((current) => ({
+      ...current,
+      [plate.id]: filament.manual
+        ? {
+            source: "manual",
+            materialId: "",
+            grams: filament.totalGrams,
+            color: filament.manual.color,
+            brand: filament.manual.brand,
+            type: filament.manual.type,
+            pricePerKg: filament.manual.pricePerKg,
+          }
+        : {
+            ...emptyDraft(),
+            source: "inventory",
+            materialId: filament.materialId ?? "",
+            grams: filament.totalGrams,
+          },
+    }));
+    setEditingFilamentIds((current) => ({ ...current, [plate.id]: filament.id }));
+  };
+
+  const cancelEditingFilament = (plateId: string) => {
+    setDrafts((current) => ({ ...current, [plateId]: emptyDraft() }));
+    setEditingFilamentIds((current) => ({ ...current, [plateId]: undefined }));
   };
 
   return (
@@ -164,16 +199,31 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
           <p className="mt-2 text-amber-100/50">O orçamento pode ser salvo; nenhuma reserva ou baixa será feita agora.</p>
         </div>
       )}
-      <div>
-        <label className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-white/45">
-          Nome do projeto
+      <div className="grid gap-3 sm:grid-cols-[1fr_190px]">
+        <label className="block">
+          <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-white/45">
+            Nome do projeto
+          </span>
+          <input
+            value={project.name}
+            onChange={(event) => onChange({ ...project, name: event.target.value })}
+            placeholder="Ex.: Satoru Gojo"
+            className={`${fieldClass} ${issuePaths.has("project.name") ? "border-red-400/70" : ""}`}
+          />
         </label>
-        <input
-          value={project.name}
-          onChange={(event) => onChange({ ...project, name: event.target.value })}
-          placeholder="Ex.: Satoru Gojo"
-          className={`${fieldClass} ${issuePaths.has("project.name") ? "border-red-400/70" : ""}`}
-        />
+        <label className="block">
+          <span className="mb-1.5 block text-[10px] font-black uppercase tracking-widest text-white/45">
+            Produtos finais
+          </span>
+          <input
+            type="number"
+            min={1}
+            value={project.outputQuantity}
+            onChange={(event) => onChange({ ...project, outputQuantity: Number(event.target.value) || 0 })}
+            title="Quantidade de produtos completos e vendáveis"
+            className={`${fieldClass} ${issuePaths.has("project.outputQuantity") ? "border-red-400/70" : ""}`}
+          />
+        </label>
       </div>
 
       {project.plates.map((plate, plateIndex) => {
@@ -186,7 +236,7 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Bandeja {plateIndex + 1}</p>
-                <p className="mt-1 text-[10px] text-white/35">{plateGrams.toFixed(2)} g · {plateHours.toFixed(2)} h</p>
+                <p className="mt-1 text-[10px] text-white/35">{plateGrams.toFixed(2)} g · {formatHoursToHHMM(plateHours)}</p>
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => duplicatePlate(plate)} className="rounded-lg border border-white/10 p-2 text-white/50 hover:text-white" aria-label="Duplicar bandeja"><Copy className="h-3.5 w-3.5" /></button>
@@ -202,7 +252,7 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
               </select>
               <input value={plate.totalTime} onChange={(event) => updatePlate(plate.id, { totalTime: event.target.value })} placeholder="Tempo total: 2h25m" className={`${fieldClass} ${issuePaths.has(`${basePath}.totalTime`) ? "border-red-400/70" : ""}`} />
               <div className="grid grid-cols-2 gap-2">
-                <input type="number" min={1} value={plate.pieces} onChange={(event) => updatePlate(plate.id, { pieces: Number(event.target.value) || 0 })} title="Peças produzidas" placeholder="Peças" className={fieldClass} />
+                <input type="number" min={1} value={plate.pieces} onChange={(event) => updatePlate(plate.id, { pieces: Number(event.target.value) || 0 })} title="Itens físicos impressos nesta bandeja (informativo)" placeholder="Itens físicos" className={fieldClass} />
                 <input type="number" min={1} value={plate.repetitions} onChange={(event) => updatePlate(plate.id, { repetitions: Number(event.target.value) || 0 })} title="Repetições da bandeja" placeholder="Repetições" className={fieldClass} />
               </div>
             </div>
@@ -215,9 +265,10 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
               {plate.filaments.map((filament) => (
                 <div key={filament.id} className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] px-3 py-2 text-xs">
                   <span className="min-w-0 truncate text-white/70">{filament.materialName}{filament.manual ? " · manual" : ""}</span>
-                  <span className="flex shrink-0 items-center gap-3 font-mono">
+                  <span className="flex shrink-0 items-center gap-2 font-mono">
                     <strong>{filament.totalGrams.toFixed(2)} g</strong>
-                    <button type="button" onClick={() => updatePlate(plate.id, { filaments: plate.filaments.filter((item) => item.id !== filament.id) })} className="text-red-300/60 hover:text-red-300"><Trash2 className="h-3 w-3" /></button>
+                    <button type="button" aria-label={`Editar ${filament.materialName}`} onClick={() => startEditingFilament(plate, filament)} className="text-blue-300/60 hover:text-blue-300"><Pencil className="h-3 w-3" /></button>
+                    <button type="button" aria-label={`Excluir ${filament.materialName}`} onClick={() => updatePlate(plate.id, { filaments: plate.filaments.filter((item) => item.id !== filament.id) })} className="text-red-300/60 hover:text-red-300"><Trash2 className="h-3 w-3" /></button>
                   </span>
                 </div>
               ))}
@@ -246,7 +297,16 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
                   </div>
                 )}
                 <input type="number" min={0} step="0.01" value={draft.grams || ""} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, grams: Number(event.target.value) || 0 } }))} placeholder="Total (g)" className={fieldClass} />
-                <button type="button" onClick={() => addFilament(plate)} className="rounded-xl bg-blue-500 px-4 py-2 text-[10px] font-black uppercase text-white disabled:opacity-40">Adicionar</button>
+                <div className="flex gap-2">
+                  {editingFilamentIds[plate.id] && (
+                    <button type="button" aria-label="Cancelar edição do filamento" onClick={() => cancelEditingFilament(plate.id)} className="rounded-xl border border-white/10 px-3 text-white/50 hover:text-white">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button type="button" onClick={() => addFilament(plate)} className="rounded-xl bg-blue-500 px-4 py-2 text-[10px] font-black uppercase text-white disabled:opacity-40">
+                    {editingFilamentIds[plate.id] ? "Salvar" : "Adicionar"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
