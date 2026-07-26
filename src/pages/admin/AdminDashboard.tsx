@@ -68,7 +68,6 @@ import { adjustMaterialStock } from "../../services/inventory";
 export default function AdminDashboard() {
   // ── Dados de todas as coleções + listener de pedidos novos ──
   const {
-    quickProject, setQuickProject, quickProjectIssues, setQuickProjectIssues,
     orders, setOrders, quotes, setQuotes, products, setProducts, showcase,
     materials, customers, tickets, faqs, categories, setCategories, coupons,
     logs, loading, fetchData, handleSyncData,
@@ -416,6 +415,7 @@ export default function AdminDashboard() {
 
   // ── Calculadora rápida de orçamento ──
   const {
+    quickProject, setQuickProject, quickProjectIssues, setQuickProjectIssues,
     quickCalcWeight, setQuickCalcWeight,
     quickCalcTime, setQuickCalcTime,
     quickCalcPhone, setQuickCalcPhone,
