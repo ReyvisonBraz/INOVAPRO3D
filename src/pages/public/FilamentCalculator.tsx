@@ -43,9 +43,13 @@ const decimal = new Intl.NumberFormat("pt-BR", {
 
 function HelpTip({ text }: { text: string }) {
   return (
-    <span className="group/tip relative inline-flex">
+    <span
+      className="group/tip relative inline-flex shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
+      tabIndex={0}
+      aria-label="Mostrar explicação deste campo"
+    >
       <HelpCircle className="h-3 w-3 cursor-help text-white/30 transition-colors hover:text-white/70" />
-      <span className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 rounded-lg border border-white/10 bg-[#0b0d14] px-3 py-2 text-[10px] font-medium leading-snug text-white/70 opacity-0 shadow-xl transition-opacity duration-150 group-hover/tip:opacity-100">
+      <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-56 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/10 bg-[#0b0d14] px-3 py-2 text-[10px] font-medium leading-snug text-white/70 shadow-xl group-hover/tip:block group-focus/tip:block">
         {text}
       </span>
     </span>
@@ -590,8 +594,8 @@ export default function FilamentCalculator() {
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <NumberField label="Margem técnica de material" suffix="%" value={reservePct} onChange={setReservePct} step={1} help={HELP.reserve} />
                 <NumberField label="Taxa de falha" suffix="%" value={failureRatePct} onChange={setFailureRatePct} step={1} help={HELP.failureRate} />
-                <NumberField label="Perda média quando falha" suffix="%" value={failureImpactPct} onChange={setFailureImpactPct} step={5} help="Em que ponto a falha costuma ser percebida. 70% significa perder, em média, 70% do material, energia e tempo do job." />
-                <NumberField label="Meta por hora ocupada" prefix="R$" suffix="/h" value={targetProfitPerMachineHour} onChange={setTargetProfitPerMachineHour} step={1} help="Contribuição mínima desejada por hora em que a impressora fica indisponível para outros pedidos." />
+                <NumberField label="Perda média quando falha" suffix="%" value={failureImpactPct} onChange={setFailureImpactPct} step={5} help={HELP.failureImpact} />
+                <NumberField label="Meta por hora ocupada" prefix="R$" suffix="/h" value={targetProfitPerMachineHour} onChange={setTargetProfitPerMachineHour} step={1} help={HELP.targetProfitPerMachineHour} />
               </div>
               <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/[0.05] p-4 text-xs leading-relaxed text-white/50">
                 Os filamentos e os pesos reais do Bambu Studio são definidos em cada bandeja no início do cálculo. Filamentos manuais entram no custo previsto, mas não movimentam o estoque.

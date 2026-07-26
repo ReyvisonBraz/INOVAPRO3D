@@ -550,19 +550,19 @@ export const HELP = {
   material:
     "Filamento usado no job. Define o preço por grama e o consumo de energia. PLA é o principal; PETG aquece mais e custa mais.",
   spoolPrice:
-    "Quanto você pagou em 1 rolo do filamento. Verifique a nota da sua última compra.",
+    "Preço do carretel usado como referência geral. Nas bandejas do novo projeto, o preço do filamento selecionado no estoque ou informado manualmente por kg tem prioridade.",
   spoolWeight:
-    "Peso líquido do rolo. Normalmente 1000 g (1 kg). Está no rótulo da embalagem.",
+    "Peso líquido do carretel de referência, sem o peso do plástico vazio. Normalmente é 1000 g. Nas bandejas com preço informado por kg, esse campo não altera o custo.",
   weight:
-    "Copie o campo 'Filamento utilizado' do Bambu Studio após fatiar. Esse número já inclui suportes e purga das trocas de cor.",
+    "Use a coluna Total do Bambu Studio para cada filamento. Ela reúne modelo, suporte, material purgado/corado e torre; não use apenas o peso do modelo.",
   time:
-    "Tempo total de impressão que o Bambu Studio mostra. Aceita '2h 30m', '2.5' ou '2:30'.",
+    "Tempo total mostrado pelo Bambu Studio. Aceita 2h30m, 36m57s, 2:30 ou horas decimais. Segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",
   quantity:
-    "Quantas peças saem nesta impressão. O custo total é dividido por aqui para dar o preço por unidade.",
+    "Quantidade de produtos completos e vendáveis. Um boneco dividido em várias bandejas continua sendo 1 produto; 20 chaveiros completos são 20.",
   reserve:
-    "Margem técnica sobre o peso do fatiador para cobrir pequenas variações, purga adicional e perdas operacionais. Se o Bambu Studio já inclui suportes e purga, use 3–8%.",
+    "Margem adicional sobre uma estimativa simples de peso. Quando o novo projeto usa o Total de cada filamento da Bambu, suportes, purga e torre já estão incluídos e o custo exato das bandejas não recebe esta margem novamente.",
   failureRate:
-    "Probabilidade de uma tentativa falhar e exigir reimpressão. O cálculo considera material, energia e máquina conforme o ponto médio da falha. Perfil validado: 3–8%. Peça grande ou nova: 10–20%.",
+    "Percentual médio de trabalhos que exigem nova tentativa. Zero deixa esse custo desmarcado. Ao informar uma taxa, a calculadora cria uma provisão proporcional para falhas futuras; a baixa real de filamento continua sendo registrada manualmente na produção.",
   kwh:
     "Preço do kWh na sua conta de luz. Equatorial Pará (CELPA) 2025→2026: R$0,97/kWh na tarifa residencial B1 com ICMS 25% + PIS/COFINS, sem bandeira tarifária.",
   steadyPower:
@@ -572,9 +572,9 @@ export const HELP = {
   startupMinutes:
     "Quanto tempo a máquina fica nesse pico de aquecimento antes de estabilizar. Na P2S, cerca de 8 minutos.",
   machinePrice:
-    "Quanto você pagou na P2S + AMS. É a base da depreciação: esse valor é diluído nas horas de uso.",
+    "Valor investido na impressora e acessórios incluídos no cálculo. A depreciação por hora é este preço dividido pela vida útil estimada; o markup não é aplicado diretamente sobre o preço inteiro da máquina.",
   lifespan:
-    "Quantas horas de impressão você espera tirar da máquina antes de uma reforma grande ou troca. 6000 h é um número conservador (~3 anos de uso intenso).",
+    "Total estimado de horas produtivas antes de uma grande reforma ou troca. Quanto menor a vida útil, maior a depreciação por hora.",
   nozzle:
     "Bico se desgasta com o uso e perde precisão. Preço da peça e quantas horas ela costuma durar.",
   plate:
@@ -590,11 +590,11 @@ export const HELP = {
   extraSupplies:
     "Insumos específicos deste job que não são filamento: parafusos, ímãs, tinta, cola, embalagem especial.",
   wholesale:
-    "Markup de atacado/B2B. No modo ×: insira o multiplicador (ex: 1.6 = custo + 60%). No modo %: insira direto o markup sobre o custo (ex: 60%). Os dois modos dão o mesmo preço.",
+    "Margem sobre o custo para revenda ou lotes recorrentes. 2× equivale a custo + 100%; no modo %, informe 100%. Se esse resultado ficar abaixo do preço mínimo ou do piso por hora de máquina, o maior piso prevalece.",
   retail:
-    "Markup de varejo (cliente final). No modo ×: ex: 2.5 = custo × 2,5. No modo %: ex: 150% = custo + 150%. Cobre seu lucro e o tempo de atendimento.",
+    "Margem sobre o custo para venda direta. 2× equivale a custo + 100%; no modo %, informe 100%. Se esse resultado ficar abaixo do preço mínimo ou do piso por hora de máquina, o maior piso prevalece.",
   minPrice:
-    "Valor mínimo que você cobra por qualquer pedido, mesmo peças pequenas. Cobre o custo de parar, atender, embalar e entregar.",
+    "Menor valor aceito para o trabalho inteiro. A calculadora compara custo × markup, este preço mínimo e o piso sustentável por hora; usa sempre o maior.",
   depreciation:
     "Quanto da máquina 'se gasta' a cada hora de impressão. É o preço da P2S diluído na vida útil dela.",
   replacement:
@@ -604,13 +604,13 @@ export const HELP = {
   costPerGram:
     "Custo total dividido pelo peso da peça. Serve para comparar peças de tamanhos diferentes na mesma base.",
   unitCost:
-    "Custo real de UMA peça: o custo do lote dividido pela quantidade de peças.",
+    "Custo real de um produto completo: custo do trabalho dividido por Produtos finais. Não é dividido pelo número de partes ou objetos físicos das bandejas.",
   gramCost:
     "Quanto custa 1 grama do filamento já com a reserva para falhas embutida.",
   shares:
     "Como o custo se divide entre material, energia, máquina, mão de obra e falhas. Ajuda a ver onde o dinheiro está indo.",
   sellPrice:
-    "Preço sugerido de venda = custo real × markup. Nunca fica abaixo do preço mínimo que você definiu.",
+    "A calculadora compara três valores: custo × markup, preço mínimo e piso sustentável (custo + meta por hora ocupada). O preço sugerido é o maior deles; por isso alterar o markup pode não mudar o preço enquanto ele continuar abaixo de um dos pisos.",
   profit:
     "Lucro = preço de venda − custo real. A 'margem' é o lucro sobre o preço de venda; o 'markup' é o lucro sobre o custo (é o mesmo número do multiplicador que você digita).",
   wholesaleBox:
@@ -618,5 +618,9 @@ export const HELP = {
   retailBox:
     "Preço de varejo: venda direta ao cliente final, sob demanda. Markup maior, cobre atendimento e menor volume.",
   batch:
-    "Quantidade de peças que saem neste trabalho. O custo e o preço do lote são divididos por aqui para dar o valor unitário.",
+    "Quantidade de produtos finais deste trabalho. Partes em bandejas diferentes formam o mesmo produto e não aumentam esta quantidade.",
+  failureImpact:
+    "Ponto médio em que uma falha costuma ser percebida. Exemplo: 70% estima que, numa tentativa com falha, 70% do material, energia e tempo já foram consumidos. É uma provisão; o consumo real deve ser informado na produção.",
+  targetProfitPerMachineHour:
+    "Valor mínimo que o trabalho deve contribuir por cada hora em que a impressora fica ocupada. Ele cria o piso sustentável: custo real + horas × meta. Enquanto esse piso for maior que custo × markup, mudar a porcentagem pode não alterar o preço.",
 };
