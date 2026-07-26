@@ -65,6 +65,11 @@ function FieldHelp({ text, label }: { text: string; label: string }) {
       className="group/help relative inline-flex shrink-0 cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
       tabIndex={0}
       aria-label={`Ajuda sobre ${label}`}
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.focus();
+      }}
     >
       <HelpCircle className="h-3.5 w-3.5 text-blue-300/60 transition group-hover/help:text-blue-300 group-focus/help:text-blue-300" />
       <span

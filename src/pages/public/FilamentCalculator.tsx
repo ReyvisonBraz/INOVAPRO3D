@@ -47,6 +47,11 @@ function HelpTip({ text }: { text: string }) {
       className="group/tip relative inline-flex shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
       tabIndex={0}
       aria-label="Mostrar explicação deste campo"
+      onClick={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.currentTarget.focus();
+      }}
     >
       <HelpCircle className="h-3 w-3 cursor-help text-white/30 transition-colors hover:text-white/70" />
       <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-56 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/10 bg-[#0b0d14] px-3 py-2 text-[10px] font-medium leading-snug text-white/70 shadow-xl group-hover/tip:block group-focus/tip:block">
