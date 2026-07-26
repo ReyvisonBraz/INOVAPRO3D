@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState, type FocusEvent, type ReactNode } from "react";
 import { Copy, HelpCircle, Pencil, Plus, Trash2, X } from "lucide-react";
 import type { Material } from "../../types/domain";
 import {
@@ -40,7 +40,11 @@ const emptyDraft = (): FilamentDraft => ({
 });
 
 const fieldClass =
-  "w-full rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-xs text-white outline-none focus:border-blue-400/60";
+  "w-full rounded-xl border border-white/15 bg-black/35 px-3 py-3 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-blue-400/70 focus:ring-2 focus:ring-blue-400/10";
+
+const selectNumericValue = (event: FocusEvent<HTMLInputElement>) => {
+  event.currentTarget.select();
+};
 
 const FIELD_HELP = {
   projectName: "Nome usado para identificar o cálculo, orçamento e futuro pedido. Exemplo: Ken Kaneki 20 cm.",
@@ -62,7 +66,7 @@ const FIELD_HELP = {
 function FieldHelp({ text, label }: { text: string; label: string }) {
   return (
     <span
-      className="group/help relative inline-flex shrink-0 cursor-help rounded-full outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
+      className="group/help relative inline-flex shrink-0 cursor-pointer rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70"
       tabIndex={0}
       aria-label={`Ajuda sobre ${label}`}
       onClick={(event) => {
@@ -71,10 +75,10 @@ function FieldHelp({ text, label }: { text: string; label: string }) {
         event.currentTarget.focus();
       }}
     >
-      <HelpCircle className="h-3.5 w-3.5 text-blue-300/60 transition group-hover/help:text-blue-300 group-focus/help:text-blue-300" />
+      <HelpCircle className="h-4 w-4 text-blue-200/80 transition group-hover/help:text-blue-100 group-focus/help:text-blue-100" />
       <span
         role="tooltip"
-        className="pointer-events-none absolute bottom-full left-1/2 z-[80] mb-2 hidden w-64 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-xl border border-blue-400/20 bg-[#090d18] px-3 py-2.5 text-left text-[11px] font-medium normal-case leading-relaxed tracking-normal text-white/75 shadow-2xl group-hover/help:block group-focus/help:block"
+        className="pointer-events-auto absolute bottom-full left-1/2 z-[80] mb-2 hidden w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 cursor-text select-text rounded-xl border border-blue-300/30 bg-[#080c15] px-4 py-3 text-left text-[13px] font-medium normal-case leading-relaxed tracking-normal text-white/90 shadow-2xl group-hover/help:block group-focus/help:block"
       >
         {text}
       </span>
@@ -85,7 +89,7 @@ function FieldHelp({ text, label }: { text: string; label: string }) {
 function FieldLabel({ label, help, children }: { label: string; help: string; children: ReactNode }) {
   return (
     <label className="block min-w-0">
-      <span className="mb-1.5 flex min-h-4 items-center gap-1.5 text-[9px] font-black uppercase tracking-[0.12em] text-white/45">
+      <span className="mb-2 flex min-h-5 items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-white/65">
         {label}
         <FieldHelp text={help} label={label} />
       </span>
@@ -234,14 +238,14 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
     <div className="space-y-4">
       {issues.length > 0 && (
         <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/[0.08] px-4 py-3">
-          <p className="text-[10px] font-black uppercase tracking-widest text-red-300">Revise os campos destacados</p>
-          <ul className="mt-2 list-disc space-y-1 pl-4 text-[11px] text-red-200/80">
+          <p className="text-xs font-black uppercase tracking-wider text-red-200">Revise os campos destacados</p>
+          <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-red-100/90">
             {issues.slice(0, 5).map((issue) => <li key={`${issue.path}-${issue.message}`}>{issue.message}</li>)}
           </ul>
         </div>
       )}
       {shortages.length > 0 && (
-        <div className="rounded-xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3 text-[11px] text-amber-100/80">
+        <div className="rounded-xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3 text-sm leading-relaxed text-amber-50/90">
           <p className="font-black uppercase tracking-widest text-amber-300">Estoque abaixo do consumo previsto</p>
           {shortages.map((shortage) => (
             <p key={shortage.name} className="mt-1">
@@ -264,6 +268,7 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
           <input
             type="number"
             min={1}
+            onFocus={selectNumericValue}
             value={project.outputQuantity}
             onChange={(event) => onChange({ ...project, outputQuantity: Number(event.target.value) || 0 })}
             title="Quantidade de produtos completos e vendáveis"
@@ -281,8 +286,8 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
           <div key={plate.id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-blue-300">Bandeja {plateIndex + 1}</p>
-                <p className="mt-1 text-[10px] text-white/35">{plateGrams.toFixed(2)} g · {formatHoursToHHMM(plateHours)}</p>
+                <p className="text-xs font-black uppercase tracking-wider text-blue-200">Bandeja {plateIndex + 1}</p>
+                <p className="mt-1 text-xs text-white/55">{plateGrams.toFixed(2)} g · {formatHoursToHHMM(plateHours)}</p>
               </div>
               <div className="flex gap-2">
                 <button type="button" onClick={() => duplicatePlate(plate)} className="rounded-lg border border-white/10 p-2 text-white/50 hover:text-white" aria-label="Duplicar bandeja"><Copy className="h-3.5 w-3.5" /></button>
@@ -305,18 +310,18 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
               </FieldLabel>
               <div className="grid grid-cols-2 gap-2">
                 <FieldLabel label="Itens físicos" help={FIELD_HELP.physicalItems}>
-                  <input type="number" min={1} value={plate.pieces} onChange={(event) => updatePlate(plate.id, { pieces: Number(event.target.value) || 0 })} className={fieldClass} />
+                  <input type="number" min={1} value={plate.pieces} onFocus={selectNumericValue} onChange={(event) => updatePlate(plate.id, { pieces: Number(event.target.value) || 0 })} className={fieldClass} />
                 </FieldLabel>
                 <FieldLabel label="Repetições" help={FIELD_HELP.repetitions}>
-                  <input type="number" min={1} value={plate.repetitions} onChange={(event) => updatePlate(plate.id, { repetitions: Number(event.target.value) || 0 })} className={fieldClass} />
+                  <input type="number" min={1} value={plate.repetitions} onFocus={selectNumericValue} onChange={(event) => updatePlate(plate.id, { repetitions: Number(event.target.value) || 0 })} className={fieldClass} />
                 </FieldLabel>
               </div>
             </div>
 
             <div className={`mt-4 rounded-xl border p-3 ${issuePaths.has(`${basePath}.filaments`) ? "border-red-400/50 bg-red-400/[0.03]" : "border-white/[0.07] bg-black/20"}`}>
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/50">Filamentos da bandeja</p>
-                <p className="text-[9px] text-white/30">{plate.type === "MULTICOLOR" ? "Mínimo 2" : "Peso total do Bambu"}</p>
+                <p className="text-xs font-black uppercase tracking-wider text-white/70">Filamentos da bandeja</p>
+                <p className="text-xs text-white/50">{plate.type === "MULTICOLOR" ? "Mínimo 2" : "Peso total do Bambu"}</p>
               </div>
               {plate.filaments.map((filament) => (
                 <div key={filament.id} className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] px-3 py-2 text-xs">
@@ -360,12 +365,12 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
                       </select>
                     </FieldLabel>
                     <FieldLabel label="Preço por kg" help={FIELD_HELP.manualPrice}>
-                      <input type="number" min={0} value={draft.pricePerKg || ""} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, pricePerKg: Number(event.target.value) || 0 } }))} placeholder="Ex.: 120" className={fieldClass} />
+                      <input type="number" min={0} value={draft.pricePerKg || ""} onFocus={selectNumericValue} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, pricePerKg: Number(event.target.value) || 0 } }))} placeholder="Ex.: 120" className={fieldClass} />
                     </FieldLabel>
                   </div>
                 )}
                 <FieldLabel label="Total (g)" help={FIELD_HELP.totalGrams}>
-                  <input type="number" min={0} step="0.01" value={draft.grams || ""} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, grams: Number(event.target.value) || 0 } }))} placeholder="Ex.: 63,08" className={fieldClass} />
+                  <input type="number" min={0} step="0.01" value={draft.grams || ""} onFocus={selectNumericValue} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, grams: Number(event.target.value) || 0 } }))} placeholder="Ex.: 63,08" className={fieldClass} />
                 </FieldLabel>
                 <div className="flex items-end gap-2">
                   {editingFilamentIds[plate.id] && (
@@ -373,7 +378,7 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  <button type="button" onClick={() => addFilament(plate)} className="rounded-xl bg-blue-500 px-4 py-2 text-[10px] font-black uppercase text-white disabled:opacity-40">
+                  <button type="button" onClick={() => addFilament(plate)} className="min-h-11 rounded-xl bg-blue-500 px-4 py-2 text-xs font-black uppercase text-white disabled:opacity-40">
                     {editingFilamentIds[plate.id] ? "Salvar" : "Adicionar"}
                   </button>
                 </div>
@@ -383,7 +388,7 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
         );
       })}
 
-      <button type="button" onClick={addPlate} className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/30 bg-blue-400/[0.04] px-4 py-3 text-[10px] font-black uppercase tracking-widest text-blue-300 hover:bg-blue-400/[0.08]">
+      <button type="button" onClick={addPlate} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/40 bg-blue-400/[0.06] px-4 py-3 text-xs font-black uppercase tracking-wider text-blue-200 hover:bg-blue-400/[0.1]">
         <Plus className="h-4 w-4" /> Adicionar bandeja
       </button>
     </div>

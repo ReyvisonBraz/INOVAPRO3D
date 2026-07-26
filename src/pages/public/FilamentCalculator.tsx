@@ -44,7 +44,7 @@ const decimal = new Intl.NumberFormat("pt-BR", {
 function HelpTip({ text }: { text: string }) {
   return (
     <span
-      className="group/tip relative inline-flex shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
+      className="group/tip relative inline-flex shrink-0 cursor-pointer rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
       tabIndex={0}
       aria-label="Mostrar explicação deste campo"
       onClick={(event) => {
@@ -53,8 +53,8 @@ function HelpTip({ text }: { text: string }) {
         event.currentTarget.focus();
       }}
     >
-      <HelpCircle className="h-3 w-3 cursor-help text-white/30 transition-colors hover:text-white/70" />
-      <span role="tooltip" className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-56 max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-lg border border-white/10 bg-[#0b0d14] px-3 py-2 text-[10px] font-medium leading-snug text-white/70 shadow-xl group-hover/tip:block group-focus/tip:block">
+      <HelpCircle className="h-4 w-4 text-cyan-200/70 transition-colors group-hover/tip:text-cyan-100" />
+      <span role="tooltip" className="pointer-events-auto absolute bottom-full left-1/2 z-50 mb-2 hidden w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 cursor-text select-text rounded-xl border border-cyan-300/25 bg-[#080c15] px-4 py-3 text-[13px] font-medium leading-relaxed text-white/90 shadow-2xl group-hover/tip:block group-focus/tip:block">
         {text}
       </span>
     </span>
@@ -94,7 +94,7 @@ function NumberField({
 
   return (
     <label className={cn("block space-y-2", disabled && "opacity-45")}>
-      <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+      <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/65">
         {label}
         {help && <HelpTip text={help} />}
       </span>
@@ -110,6 +110,7 @@ function NumberField({
           step={step}
           value={draft}
           disabled={disabled}
+          onFocus={(event) => event.currentTarget.select()}
           onChange={(e) => {
             setDraft(e.target.value);
             const n = Number(e.target.value);
@@ -126,7 +127,7 @@ function NumberField({
             }
           }}
           className={cn(
-            "h-12 w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 text-sm font-black text-white outline-none transition",
+            "h-12 w-full rounded-xl border border-white/15 bg-white/[0.055] px-3 text-base font-bold text-white outline-none transition",
             "focus:border-white/30 focus:ring-2 focus:ring-white/5",
             prefix && "pl-9",
             suffix && "pr-11",
@@ -140,7 +141,7 @@ function NumberField({
         )}
       </span>
       {hint && (
-        <span className="block text-[9px] text-white/30 leading-snug">{hint}</span>
+        <span className="block text-xs leading-relaxed text-white/55">{hint}</span>
       )}
     </label>
   );
@@ -233,7 +234,7 @@ function AdvancedPanel({
         onClick={onToggle}
         className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
       >
-        <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
+        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-white/75">
           <Settings2 className="h-3.5 w-3.5" />
           {label}
         </span>
@@ -307,7 +308,7 @@ function CostBar({
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <span className={cn("h-2.5 w-2.5 rounded-full", color)} />
-          <span className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/50">
+          <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.12em] text-white/65">
             {label}
             {help && <HelpTip text={help} />}
           </span>
@@ -347,7 +348,7 @@ function MachineStat({
           : "border-white/10 bg-white/[0.04]",
       )}
     >
-      <p className="flex items-center justify-center gap-1.5 text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
+      <p className="flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/60">
         {label}
         {help && <HelpTip text={help} />}
       </p>
@@ -396,11 +397,11 @@ function PriceBox({
       <p className="mt-1 min-h-8 text-xs leading-relaxed text-white/40">{description}</p>
       <div className="mt-4 grid grid-cols-2 gap-3">
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Total do lote</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white/55">Total do lote</p>
           <p className="mt-1 text-lg font-black text-white">{formatBRL(total)}</p>
         </div>
         <div>
-          <p className="text-[9px] font-black uppercase tracking-[0.18em] text-white/30">Unitário</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white/55">Unitário</p>
           <p className="mt-1 text-lg font-black text-white">{formatBRL(unit)}</p>
         </div>
       </div>
@@ -828,16 +829,16 @@ export default function FilamentCalculator() {
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Piso sustentável</p>
+                <p className="text-[11px] font-black uppercase tracking-wider text-white/60">Piso sustentável</p>
                 <p className="mt-1 text-lg font-black text-white">{formatBRL(result.minimumSustainablePrice)}</p>
-                <p className="mt-1 text-[10px] text-white/40">Inclui {formatBRL(result.capacityContributionTarget)} pela ocupação de {result.hours.toFixed(1)}h.</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/60">Inclui {formatBRL(result.capacityContributionTarget)} pela ocupação de {result.hours.toFixed(1)}h.</p>
               </div>
               <div className={`rounded-xl border p-4 ${result.retailProfitAfterFullReprint >= 0 ? 'border-emerald-400/25 bg-emerald-400/[0.06]' : 'border-red-400/25 bg-red-400/[0.06]'}`}>
-                <p className="text-[9px] font-black uppercase tracking-widest text-white/40">Se houver uma reimpressão completa</p>
+                <p className="text-[11px] font-black uppercase tracking-wider text-white/60">Se houver uma reimpressão completa</p>
                 <p className={`mt-1 text-lg font-black ${result.retailProfitAfterFullReprint >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                   {result.retailProfitAfterFullReprint >= 0 ? 'Ainda sobra ' : 'Prejuízo de '}{formatBRL(Math.abs(result.retailProfitAfterFullReprint))}
                 </p>
-                <p className="mt-1 text-[10px] text-white/40">Cenário de varejo, antes de taxas e impostos.</p>
+                <p className="mt-1 text-xs leading-relaxed text-white/60">Cenário de varejo, antes de taxas e impostos.</p>
               </div>
             </div>
 
@@ -948,21 +949,21 @@ export default function FilamentCalculator() {
             <div className="mt-5 grid grid-cols-3 gap-3 text-center">
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Factory className="mx-auto mb-2 h-4 w-4 text-primary" />
-                <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+                <p className="flex items-center justify-center gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-white/55">
                   Lote <HelpTip text={HELP.batch} />
                 </p>
                 <p className="font-mono text-sm font-black text-white">{Math.max(1, projectPricing.totalPieces)} un.</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Layers3 className="mx-auto mb-2 h-4 w-4 text-cyan-300" />
-                <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+                <p className="flex items-center justify-center gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-white/55">
                   Unitário <HelpTip text={HELP.unitCost} />
                 </p>
                 <p className="font-mono text-sm font-black text-white">{formatBRL(result.unitCost)}</p>
               </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3">
                 <Gauge className="mx-auto mb-2 h-4 w-4 text-orange-300" />
-                <p className="flex items-center justify-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-white/30">
+                <p className="flex items-center justify-center gap-1 text-[11px] font-black uppercase tracking-[0.12em] text-white/55">
                   Horas <HelpTip text={HELP.time} />
                 </p>
                 <p className="font-mono text-sm font-black text-white">{formatHoursToHHMM(result.hours)}</p>
