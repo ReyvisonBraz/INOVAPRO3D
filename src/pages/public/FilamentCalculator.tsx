@@ -464,6 +464,7 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
     savingCalc, handleSaveCalc,
     clientName, setClientName, clientPhone, setClientPhone,
     quoteImageUrl, setQuoteImageUrl, uploadingImage, handleUploadImage,
+    draftSavedAt,
     result, machineBreak, laborTotal, generatedAt,
   } = useCalculatorState();
 
@@ -496,6 +497,12 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
           </div>
 
           <div className="flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/40">
+            {draftSavedAt && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-emerald-200" title={new Date(draftSavedAt).toLocaleString("pt-BR")}>
+                <Save className="h-3 w-3" />
+                Rascunho salvo
+              </span>
+            )}
             <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
               <Settings2 className="h-3 w-3" />
               MOTOR V6.0

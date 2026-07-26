@@ -1,4 +1,4 @@
-import { lazy, memo, Suspense, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { memo, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Truck,
   CheckCircle2,
@@ -21,7 +21,6 @@ import {
   Maximize2,
 } from "lucide-react";
 import { motion } from "framer-motion";
-import { createPortal } from "react-dom";
 
 import { Button } from "../../../components/ui/Button";
 import { NumInput } from "../../../lib/adminHelpers";
@@ -50,8 +49,7 @@ import type { Material, MaterialUsage, Order, OrderItem, Quote } from "../../../
 import { AdminOverviewSummary } from "./AdminOverviewSummary";
 import { CalculatorProjectEditor } from "../../../components/calculator/CalculatorProjectEditor";
 import type { CalculatorProject, ProjectValidationIssue } from "../../../lib/calculatorProject";
-
-const FilamentCalculator = lazy(() => import("../../public/FilamentCalculator"));
+import { ADMIN_CALCULATOR_OPEN_EVENT } from "../adminCalculatorEvents";
 
 interface AdminOverviewPanelProps {
   quickProject: CalculatorProject;
@@ -167,8 +165,6 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   onUploadImage,
   onSaveQuote,
 }: AdminOverviewPanelProps) {
-  const [calculatorModalOpen, setCalculatorModalOpen] = useState(false);
-  const [calculatorWasOpened, setCalculatorWasOpened] = useState(false);
   const [stockMaterialId, setStockMaterialId] = useState("");
   const [stockUsageGrams, setStockUsageGrams] = useState(0);
   const allocatedStockGrams = quickMaterialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
@@ -181,23 +177,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   };
 
   const openCalculator = () => {
-    setCalculatorWasOpened(true);
-    setCalculatorModalOpen(true);
+    window.dispatchEvent(new Event(ADMIN_CALCULATOR_OPEN_EVENT));
   };
-
-  useEffect(() => {
-    if (!calculatorModalOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    const handleEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setCalculatorModalOpen(false);
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", handleEscape);
-    };
-  }, [calculatorModalOpen]);
   const chartData = useMemo(
     () =>
       [...orders]
@@ -290,53 +271,6 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           </div>
         </div>
       </section>
-
-      {calculatorWasOpened && typeof document !== "undefined" && createPortal((
-        <div
-          className={calculatorModalOpen ? "fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-hidden bg-[#07080d]" : "hidden"}
-          role="dialog"
-          aria-modal="true"
-          aria-label="Calculadora profissional de orçamento"
-        >
-          <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#07080d]">
-            <header className="z-30 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#0a0d15]/95 px-4 backdrop-blur-xl sm:px-6">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15">
-                  <Calculator className="h-4.5 w-4.5 text-blue-200" />
-                </div>
-                <div className="min-w-0">
-                  <h2 className="truncate text-sm font-black text-white sm:text-base">Calculadora de orçamento</h2>
-                  <p className="hidden text-xs text-white/45 sm:block">O preenchimento permanece salvo enquanto o painel estiver aberto.</p>
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <a
-                  href="/calculadora"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hidden min-h-10 items-center justify-center rounded-xl border border-white/15 px-3 text-xs font-bold text-white/65 transition hover:text-white sm:inline-flex"
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Abrir em nova tela
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setCalculatorModalOpen(false)}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-white/65 transition hover:border-red-300/30 hover:bg-red-400/10 hover:text-red-200"
-                  aria-label="Fechar calculadora"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </header>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm font-bold text-white/60"><Loader2 className="h-5 w-5 animate-spin text-blue-300" />Carregando calculadora...</div>}>
-                <FilamentCalculator embedded />
-              </Suspense>
-            </div>
-          </div>
-        </div>
-      ), document.body)}
 
       {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
       <div className="hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">

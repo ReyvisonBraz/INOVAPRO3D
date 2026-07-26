@@ -63,6 +63,7 @@ import AdminSettingsPanel from "./components/AdminSettingsPanel";
 import { AdminCouponsPanel } from "./components/AdminCouponsPanel";
 import { AdminHeader } from "./components/AdminHeader";
 import { AdminManualSaleModal } from "./components/AdminManualSaleModal";
+import { AdminCalculatorWorkspace } from "./components/AdminCalculatorWorkspace";
 import { adjustMaterialStock } from "../../services/inventory";
 
 export default function AdminDashboard() {
@@ -1120,6 +1121,7 @@ export default function AdminDashboard() {
         )}
 
         {manualSaleMode && <AdminManualSaleModal initialMode={manualSaleMode} customers={customers} products={products} materials={materials} onClose={() => setManualSaleMode(null)} onSaved={fetchData} />}
+        <AdminCalculatorWorkspace />
 
         {/* CRM Detail Modal */}
         {selectedCRMUser && (
