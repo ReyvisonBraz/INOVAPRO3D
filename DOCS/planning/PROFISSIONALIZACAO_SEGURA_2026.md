@@ -196,8 +196,8 @@ refatoração.
 
 ### Tarefas
 
-- [ ] Registrar SHA inicial e deploy estável.
-- [ ] Criar checklist manual das rotas críticas.
+- [x] Registrar SHA inicial e deploy estável.
+- [x] Criar checklist manual das rotas críticas.
 - [ ] Capturar screenshots de referência:
   - home desktop e mobile;
   - catálogo;
@@ -206,8 +206,8 @@ refatoração.
   - visão geral do admin;
   - aba de orçamentos;
   - configurações.
-- [ ] Registrar resultado atual de build, lint, testes e tamanhos de bundles.
-- [ ] Registrar todos os alertas atuais do lint para distinguir alertas antigos de novos.
+- [x] Registrar resultado atual de build, lint, testes e tamanhos de bundles.
+- [x] Registrar todos os alertas atuais do lint para distinguir alertas antigos de novos.
 - [ ] Listar coleções e documentos de configuração usados por cada tela.
 
 ### Critério de conclusão
@@ -227,29 +227,29 @@ Baseline documentada e reproduzível, sem alteração de código de produção.
 
 ### Tarefas
 
-- [ ] Adicionar script:
+- [x] Adicionar script:
 
 ```json
 "typecheck": "tsc --noEmit"
 ```
 
-- [ ] Criar script agregado:
+- [x] Criar script agregado:
 
 ```json
 "check": "npm run typecheck && npm run lint && npm run test:run && npm run build"
 ```
 
-- [ ] Executar `typecheck` e corrigir erros reais encontrados, em commits separados
+- [x] Executar `typecheck` e corrigir erros reais encontrados, em commits separados
       por área.
-- [ ] Criar workflow de GitHub Actions para:
+- [x] Criar workflow de GitHub Actions para:
   - instalar com `npm ci`;
   - rodar typecheck;
   - rodar lint;
   - rodar testes;
   - rodar build.
-- [ ] Impedir novas advertências de lint, mantendo as antigas catalogadas até suas
+- [x] Impedir novas advertências de lint, mantendo as antigas catalogadas até suas
       fases específicas.
-- [ ] Confirmar que nenhuma chave ou `.env` é enviada nos artefatos/logs.
+- [x] Confirmar que nenhuma chave ou `.env` é enviada nos artefatos/logs.
 
 ### Critério de conclusão
 
@@ -661,4 +661,3 @@ O primeiro lote de implementação deverá conter somente:
 7. atualização da documentação que ainda diz “zero testes”.
 
 Somente depois desse lote aprovado deve começar a divisão dos arquivos grandes.
-

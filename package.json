@@ -9,8 +9,12 @@
     "start": "node dist/server.cjs",
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
     "lint": "eslint .",
+    "lint:ci": "eslint . --max-warnings 17",
     "test": "vitest",
-    "test:run": "vitest run"
+    "test:run": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm run lint && npm run test:run && npm run build",
+    "check:ci": "npm run typecheck && npm run lint:ci && npm run test:run && npm run build"
   },
   "dependencies": {
     "@firebase/eslint-plugin-security-rules": "^0.0.2",

@@ -100,7 +100,8 @@ Para um e-commerce (dinheiro real, estoque real), os primeiros testes deveriam c
 
 ### Fase 3 — Profissionalizar (contínuo)
 - [ ] Configurar ESLint + Prettier
-- [ ] Testes do `pricing.ts` e do carrinho (Vitest)
+- [x] Testes do `pricing.ts` e da precificação de pedidos (Vitest)
+- [ ] Testes de comportamento do carrinho
 - [ ] Biblioteca de componentes de formulário (`<Input>`, `<Select>`...)
 
 > 💡 **Regra de ouro para as próximas features:** antes de criar tela nova,
