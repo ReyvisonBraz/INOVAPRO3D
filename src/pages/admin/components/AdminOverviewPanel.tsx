@@ -21,6 +21,7 @@ import {
   Maximize2,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { createPortal } from "react-dom";
 
 import { Button } from "../../../components/ui/Button";
 import { NumInput } from "../../../lib/adminHelpers";
@@ -290,14 +291,14 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
         </div>
       </section>
 
-      {calculatorWasOpened && (
+      {calculatorWasOpened && typeof document !== "undefined" && createPortal((
         <div
-          className={calculatorModalOpen ? "fixed inset-0 z-[220] bg-black/85 p-0 backdrop-blur-xl sm:p-3 lg:p-5" : "hidden"}
+          className={calculatorModalOpen ? "fixed inset-0 z-[9999] h-[100dvh] w-screen overflow-hidden bg-[#07080d]" : "hidden"}
           role="dialog"
           aria-modal="true"
           aria-label="Calculadora profissional de orçamento"
         >
-          <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#07080d] shadow-2xl sm:rounded-2xl sm:border sm:border-white/15">
+          <div className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-[#07080d]">
             <header className="z-30 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#0a0d15]/95 px-4 backdrop-blur-xl sm:px-6">
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15">
@@ -335,7 +336,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
             </div>
           </div>
         </div>
-      )}
+      ), document.body)}
 
       {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
       <div className="hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
