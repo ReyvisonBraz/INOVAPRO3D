@@ -441,7 +441,7 @@ function ReportLine({ label, value }: { label: string; value: React.ReactNode })
   );
 }
 
-export default function FilamentCalculator() {
+export default function FilamentCalculator({ embedded = false }: { embedded?: boolean }) {
   const {
     project, setProject, projectIssues, setProjectIssues, pricingSettings, projectPricing,
     spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
@@ -469,12 +469,14 @@ export default function FilamentCalculator() {
 
   return (
     <>
-    <PageSEO
-      title="Calculadora de Custos 3D"
-      description="Calcule o custo real de qualquer impressão 3D: material, energia, depreciação da máquina e mão de obra. Motor de precisão com parâmetros da Bambu Lab P2S."
-      path="/calculadora"
-    />
-    <div className="maker-screen relative overflow-hidden min-h-screen bg-[#07080d] px-4 py-8 text-white sm:px-6 lg:px-8">
+    {!embedded && (
+      <PageSEO
+        title="Calculadora de Custos 3D"
+        description="Calcule o custo real de qualquer impressão 3D: material, energia, depreciação da máquina e mão de obra. Motor de precisão com parâmetros da Bambu Lab P2S."
+        path="/calculadora"
+      />
+    )}
+    <div className={`maker-screen relative overflow-hidden bg-[#07080d] px-4 text-white sm:px-6 lg:px-8 ${embedded ? "min-h-full py-5 sm:py-6" : "min-h-screen py-8"}`}>
       <FloatingBackground subtle variant="grid" />
       <div className="relative z-10 mx-auto max-w-7xl">
         <header className="mb-8 flex flex-col gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end lg:justify-between">

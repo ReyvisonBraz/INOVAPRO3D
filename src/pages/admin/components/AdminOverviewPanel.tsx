@@ -1,4 +1,4 @@
-import { useMemo, memo, useState, type Dispatch, type SetStateAction } from "react";
+import { lazy, memo, Suspense, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import {
   Truck,
   CheckCircle2,
@@ -17,6 +17,8 @@ import {
   Loader2,
   Save,
   X,
+  ExternalLink,
+  Maximize2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -47,6 +49,8 @@ import type { Material, MaterialUsage, Order, OrderItem, Quote } from "../../../
 import { AdminOverviewSummary } from "./AdminOverviewSummary";
 import { CalculatorProjectEditor } from "../../../components/calculator/CalculatorProjectEditor";
 import type { CalculatorProject, ProjectValidationIssue } from "../../../lib/calculatorProject";
+
+const FilamentCalculator = lazy(() => import("../../public/FilamentCalculator"));
 
 interface AdminOverviewPanelProps {
   quickProject: CalculatorProject;
@@ -162,6 +166,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   onUploadImage,
   onSaveQuote,
 }: AdminOverviewPanelProps) {
+  const [calculatorModalOpen, setCalculatorModalOpen] = useState(false);
+  const [calculatorWasOpened, setCalculatorWasOpened] = useState(false);
   const [stockMaterialId, setStockMaterialId] = useState("");
   const [stockUsageGrams, setStockUsageGrams] = useState(0);
   const allocatedStockGrams = quickMaterialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
@@ -172,6 +178,25 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
     setStockMaterialId("");
     setStockUsageGrams(0);
   };
+
+  const openCalculator = () => {
+    setCalculatorWasOpened(true);
+    setCalculatorModalOpen(true);
+  };
+
+  useEffect(() => {
+    if (!calculatorModalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setCalculatorModalOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [calculatorModalOpen]);
   const chartData = useMemo(
     () =>
       [...orders]
@@ -224,8 +249,96 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
       {/* TOP STATS + RECENT ACTIVITY */}
       <AdminOverviewSummary orders={orders} quotes={quotes} onSelectTab={onTabChange} />
 
+      <section className="overflow-hidden rounded-3xl border border-blue-400/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.14),rgba(6,182,212,0.05)_52%,rgba(255,255,255,0.025))] shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+        <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
+          <div className="flex min-w-0 items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-300/25 bg-blue-400/15 shadow-[0_0_30px_rgba(59,130,246,0.18)]">
+              <Calculator className="h-7 w-7 text-blue-200" />
+            </div>
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-200">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                Motor sincronizado
+              </span>
+              <h2 className="mt-3 font-display text-xl font-black tracking-tight text-white sm:text-2xl">
+                Calculadora profissional de orçamento
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/65">
+                Calcule projetos da Bambu, bandejas multicolor, filamentos, hora-máquina, atacado e varejo sem ocupar permanentemente o painel.
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
+            <Button
+              type="button"
+              onClick={openCalculator}
+              className="min-h-12 rounded-xl bg-blue-500 px-5 text-sm font-black text-white hover:bg-blue-400"
+            >
+              <Maximize2 className="mr-2 h-4 w-4" />
+              Abrir calculadora
+            </Button>
+            <a
+              href="/calculadora"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] px-5 text-sm font-bold text-white/75 transition hover:border-white/30 hover:bg-white/[0.09] hover:text-white"
+            >
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Nova tela
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {calculatorWasOpened && (
+        <div
+          className={calculatorModalOpen ? "fixed inset-0 z-[220] bg-black/85 p-0 backdrop-blur-xl sm:p-3 lg:p-5" : "hidden"}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Calculadora profissional de orçamento"
+        >
+          <div className="flex h-full min-h-0 flex-col overflow-hidden bg-[#07080d] shadow-2xl sm:rounded-2xl sm:border sm:border-white/15">
+            <header className="z-30 flex min-h-16 shrink-0 items-center justify-between gap-3 border-b border-white/10 bg-[#0a0d15]/95 px-4 backdrop-blur-xl sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15">
+                  <Calculator className="h-4.5 w-4.5 text-blue-200" />
+                </div>
+                <div className="min-w-0">
+                  <h2 className="truncate text-sm font-black text-white sm:text-base">Calculadora de orçamento</h2>
+                  <p className="hidden text-xs text-white/45 sm:block">O preenchimento permanece salvo enquanto o painel estiver aberto.</p>
+                </div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <a
+                  href="/calculadora"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="hidden min-h-10 items-center justify-center rounded-xl border border-white/15 px-3 text-xs font-bold text-white/65 transition hover:text-white sm:inline-flex"
+                >
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Abrir em nova tela
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setCalculatorModalOpen(false)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] text-white/65 transition hover:border-red-300/30 hover:bg-red-400/10 hover:text-red-200"
+                  aria-label="Fechar calculadora"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <Suspense fallback={<div className="flex min-h-[60vh] items-center justify-center gap-3 text-sm font-bold text-white/60"><Loader2 className="h-5 w-5 animate-spin text-blue-300" />Carregando calculadora...</div>}>
+                <FilamentCalculator embedded />
+              </Suspense>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
-      <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
+      <div className="hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.06] pb-4">
           <div className="flex items-center gap-3 min-w-0">
             <div className="w-9 h-9 rounded-xl bg-primary/12 border border-primary/15 flex items-center justify-center shrink-0">
