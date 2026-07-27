@@ -3,7 +3,12 @@
 // produção são estas funções de api/, não o Express. Mantenha os dois em sincronia.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../firebaseAdmin.js";
-import { computeOrderTotal, type OrderLineInput, type ProductRecord, type MaterialRecord } from "../_orderPricing.js";
+import {
+  computeOrderTotal,
+  type OrderLineInput,
+  type ProductRecord,
+  type MaterialRecord,
+} from "../_orderPricing.js";
 
 interface CreateOrderPayload {
   items?: OrderLineInput[];
@@ -41,27 +46,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const body = (req.body ?? {}) as CreateOrderPayload;
   const items = Array.isArray(body.items) ? body.items : [];
 
-  const productIds = [...new Set(items.filter((i) => i?.type === "PRODUCT" && i.productId).map((i) => i.productId as string))];
-  const materialIds = [...new Set(items.map((i) => i?.materialId).filter((x): x is string => !!x))];
-
+  const productIds = [
+    ...new Set(
+      items.filter((i) => i?.type === "PRODUCT" && i.productId).map((i) => i.productId as string),
+    ),
+  ];
   const adminDb = getAdminDb();
   const products = new Map<string, ProductRecord>();
   const materials = new Map<string, MaterialRecord>();
   try {
-    await Promise.all(productIds.map(async (id) => {
-      const snap = await adminDb.collection("products").doc(id).get();
-      if (snap.exists) {
-        const d = snap.data()!;
-        products.set(id, { basePrice: Number(d.basePrice), active: d.active, name: d.name });
-      }
-    }));
-    await Promise.all(materialIds.map(async (id) => {
-      const snap = await adminDb.collection("materials").doc(id).get();
-      if (snap.exists) {
-        const d = snap.data()!;
-        materials.set(id, { priceMult: d.priceMult, name: d.name });
-      }
-    }));
+    await Promise.all(
+      productIds.map(async (id) => {
+        const snap = await adminDb.collection("products").doc(id).get();
+        if (snap.exists) {
+          const d = snap.data()!;
+          products.set(id, {
+            basePrice: Number(d.basePrice),
+            active: d.active,
+            name: d.name,
+            productionMaterial: d.productionMaterial,
+          });
+        }
+      }),
+    );
   } catch {
     res.status(500).json({ error: "Erro ao carregar catálogo." });
     return;
@@ -78,6 +85,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       id: l.materialId ? `${l.productId}-${l.materialId}` : l.productId,
       productId: l.productId,
       materialId: l.materialId,
+      productionMaterial: l.productionMaterial,
       name: l.name,
       price: l.unitPrice,
       quantity: l.quantity,

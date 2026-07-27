@@ -17,7 +17,7 @@ const MENU_GROUPS = [
   {
     label: "Catálogo",
     items: [
-      { id: "categories" as AdminTabId, name: "Pastas", icon: "Folder" },
+      { id: "categories" as AdminTabId, name: "Categorias", icon: "Folder" },
       { id: "products" as AdminTabId, name: "Catálogo", icon: "Printer" },
       { id: "materials" as AdminTabId, name: "Materiais", icon: "Box" },
       { id: "showcase" as AdminTabId, name: "Vitrine", icon: "Sparkles" },
@@ -43,13 +43,37 @@ const MENU_GROUPS = [
 ] as const;
 
 import {
-  TrendingUp, Package, FileText, Folder, Printer, Box,
-  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History, Star,
+  TrendingUp,
+  Package,
+  FileText,
+  Folder,
+  Printer,
+  Box,
+  Sparkles,
+  Tag,
+  Users,
+  AlertCircle,
+  HelpCircle,
+  Settings,
+  History,
+  Star,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
-  TrendingUp, Package, FileText, Folder, Printer, Box,
-  Sparkles, Tag, Users, AlertCircle, HelpCircle, Settings, History, Star,
+  TrendingUp,
+  Package,
+  FileText,
+  Folder,
+  Printer,
+  Box,
+  Sparkles,
+  Tag,
+  Users,
+  AlertCircle,
+  HelpCircle,
+  Settings,
+  History,
+  Star,
 };
 
 interface AdminSidebarProps {
@@ -89,7 +113,10 @@ export function AdminSidebar({
             </span>
           </span>
         </Link>
-        <button onClick={onClose} className="lg:hidden p-1.5 text-dim hover:text-white rounded-lg hover:bg-white/5">
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1.5 text-dim hover:text-white rounded-lg hover:bg-white/5"
+        >
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -125,7 +152,12 @@ export function AdminSidebar({
                         isActive ? "opacity-100" : "opacity-0",
                       )}
                     />
-                    <Icon className={cn("h-4 w-4 shrink-0 transition-colors", isActive ? "text-blue-300" : "text-white/35 group-hover:text-white/65")} />
+                    <Icon
+                      className={cn(
+                        "h-4 w-4 shrink-0 transition-colors",
+                        isActive ? "text-blue-300" : "text-white/35 group-hover:text-white/65",
+                      )}
+                    />
                     <span className="truncate">{item.name}</span>
                     {count != null && count > 0 && (
                       <span

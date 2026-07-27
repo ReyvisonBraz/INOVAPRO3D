@@ -17,7 +17,9 @@ export interface UserProfile {
   addresses?: ShippingAddress[];
 }
 
-export type UserProfileUpdate = Partial<Pick<UserProfile, "name" | "firstName" | "lastName" | "phone" | "addresses" | "photoURL">>;
+export type UserProfileUpdate = Partial<
+  Pick<UserProfile, "name" | "firstName" | "lastName" | "phone" | "addresses" | "photoURL">
+>;
 
 export type CartItemType = "PRODUCT" | "QUOTE";
 
@@ -46,6 +48,39 @@ export type OrderStatus =
   | "SHIPPED"
   | "COMPLETED"
   | "CANCELED";
+
+export type PaymentStatus =
+  | "NOT_STARTED"
+  | "PROCESSING"
+  | "PENDING"
+  | "APPROVED"
+  | "REJECTED"
+  | "CANCELED"
+  | "REFUNDED"
+  | "CHARGED_BACK";
+
+export type PaymentMethod = "pix" | "credit_card" | "debit_card" | "manual" | "unknown";
+
+export interface PaymentAttempt {
+  id: string;
+  orderId: string;
+  paymentId?: string;
+  paymentProvider: "mercadopago" | "manual";
+  paymentProviderStatus?: string;
+  paymentStatusDetail?: string;
+  paymentMethod?: PaymentMethod;
+  idempotencyKey: string;
+  status: PaymentStatus;
+  amount: number;
+  currency: string;
+  createdAt: FirestoreDate;
+  updatedAt?: FirestoreDate;
+  paidAt?: FirestoreDate;
+  qrCodeBase64?: string;
+  qrCodeUrl?: string;
+  pixCode?: string;
+  expirationDate?: FirestoreDate;
+}
 
 export type QuoteStatus =
   | "PENDING"
@@ -118,6 +153,17 @@ export interface Order {
   trackingCode?: string;
   _deleted?: boolean;
   deletedAt?: FirestoreDate;
+  // Mercado Pago - Payment fields
+  paymentStatus?: PaymentStatus;
+  paymentProvider?: "mercadopago" | "manual";
+  paymentProviderStatus?: string;
+  paymentProviderStatusDetail?: string;
+  paymentId?: string;
+  paymentMethod?: PaymentMethod;
+  paymentAttemptId?: string;
+  idempotencyKey?: string;
+  paidAt?: FirestoreDate;
+  paymentUpdatedAt?: FirestoreDate;
 }
 
 export interface Quote {
@@ -178,6 +224,8 @@ export interface ProductDimensions {
   z: number;
 }
 
+export type ProductionMaterial = "PLA" | "SILK" | "PETG";
+
 export interface Product {
   id: string;
   name: string;
@@ -194,6 +242,8 @@ export interface Product {
   baseDimensions?: ProductDimensions;
   /** Oculta o bloco de dimensões na página pública do produto. */
   hideDimensions?: boolean;
+  /** Material interno de fabricação. Não é uma opção exibida ao cliente. */
+  productionMaterial?: ProductionMaterial;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
 }
@@ -237,7 +287,8 @@ export interface Material {
   updatedAt?: FirestoreDate;
 }
 
-export type InventoryMovementType = "ENTRY" | "ADJUSTMENT" | "RESERVATION" | "RELEASE" | "CONSUMPTION" | "LOSS" | "RETURN";
+export type InventoryMovementType =
+  "ENTRY" | "ADJUSTMENT" | "RESERVATION" | "RELEASE" | "CONSUMPTION" | "LOSS" | "RETURN";
 
 export interface InventoryMovement {
   id: string;

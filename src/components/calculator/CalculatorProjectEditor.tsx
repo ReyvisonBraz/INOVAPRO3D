@@ -9,7 +9,12 @@ import {
   type ManualFilament,
   type ProjectValidationIssue,
 } from "../../lib/calculatorProject";
-import { formatHoursToHHMM, parseTimeToHours, type MaterialKey, type PricingSettings } from "../../lib/pricing";
+import {
+  formatHoursToHHMM,
+  parseTimeToHours,
+  type MaterialKey,
+  type PricingSettings,
+} from "../../lib/pricing";
 
 interface Props {
   project: CalculatorProject;
@@ -47,20 +52,32 @@ const selectNumericValue = (event: FocusEvent<HTMLInputElement>) => {
 };
 
 const FIELD_HELP = {
-  projectName: "Nome usado para identificar o cálculo, orçamento e futuro pedido. Exemplo: Ken Kaneki 20 cm.",
-  outputQuantity: "Quantidade de produtos completos que poderão ser vendidos. Um boneco dividido em 3 bandejas continua sendo 1 produto final; 20 chaveiros completos são 20.",
-  plateName: "Identifique o conteúdo desta placa do Bambu Studio. Exemplo: Corpo preto, Cabelo branco ou Chaveiros.",
-  plateType: "Cor única: esta bandeja usa um filamento. Multicolor: a mesma bandeja usa dois ou mais filamentos e pode ter purga e torre.",
-  totalTime: "Tempo total desta bandeja no Bambu Studio. Aceita 2h25m, 36m57s, 2:30 ou horas decimais. A tela exibirá horas e minutos.",
-  physicalItems: "Quantidade de objetos físicos impressos nesta bandeja. É informativo: partes separadas podem formar um único produto final.",
-  repetitions: "Quantas vezes esta mesma bandeja será impressa. Cada repetição multiplica o tempo, o consumo de filamento, energia e máquina.",
-  source: "Estoque usa um filamento cadastrado e verifica disponibilidade. Manual permite informar cor, marca, tipo e preço sem movimentar estoque.",
-  inventoryFilament: "Selecione o rolo cadastrado que será usado. O custo utiliza o preço desse material e o sistema compara o consumo previsto com o saldo livre.",
+  projectName:
+    "Nome usado para identificar o cálculo, orçamento e futuro pedido. Exemplo: Ken Kaneki 20 cm.",
+  outputQuantity:
+    "Quantidade de produtos completos que poderão ser vendidos. Um boneco dividido em 3 bandejas continua sendo 1 produto final; 20 chaveiros completos são 20.",
+  plateName:
+    "Identifique o conteúdo desta placa do Bambu Studio. Exemplo: Corpo preto, Cabelo branco ou Chaveiros.",
+  plateType:
+    "Cor única: esta bandeja usa um filamento. Multicolor: a mesma bandeja usa dois ou mais filamentos e pode ter purga e torre.",
+  totalTime:
+    "Tempo total desta bandeja no Bambu Studio. Aceita 2h25m, 36m57s, 2:30 ou horas decimais. A tela exibirá horas e minutos.",
+  physicalItems:
+    "Quantidade de objetos físicos impressos nesta bandeja. É informativo: partes separadas podem formar um único produto final.",
+  repetitions:
+    "Quantas vezes esta mesma bandeja será impressa. Cada repetição multiplica o tempo, o consumo de filamento, energia e máquina.",
+  source:
+    "Estoque usa um filamento cadastrado e verifica disponibilidade. Manual permite informar cor, marca, tipo e preço sem movimentar estoque.",
+  inventoryFilament:
+    "Selecione o rolo cadastrado que será usado. O custo utiliza o preço desse material e o sistema compara o consumo previsto com o saldo livre.",
   manualColor: "Cor comercial do filamento. Exemplo: Preto, Branco, Vermelho ou Cor de pele.",
   manualBrand: "Fabricante ou marca do filamento. Exemplo: Bambu Lab, Voolt3D ou 3D Fila.",
-  manualType: "Tipo exato do material, pois linhas como PLA Silk, PLA High Speed e PETG podem ter preços e consumo de energia diferentes.",
-  manualPrice: "Valor pago por 1 kg deste filamento. Exemplo: um rolo de 1 kg que custou R$ 120 deve ser informado como 120.",
-  totalGrams: "Peso total deste filamento mostrado pela Bambu para a bandeja. Use a coluna Total, pois ela já inclui modelo, suporte, purga/corado e torre.",
+  manualType:
+    "Tipo exato do material, pois linhas como PLA Silk, PLA High Speed e PETG podem ter preços e consumo de energia diferentes.",
+  manualPrice:
+    "Valor pago por 1 kg deste filamento. Exemplo: um rolo de 1 kg que custou R$ 120 deve ser informado como 120.",
+  totalGrams:
+    "Peso total deste filamento mostrado pela Bambu para a bandeja. Use a coluna Total, pois ela já inclui modelo, suporte, purga/corado e torre.",
 } as const;
 
 function FieldHelp({ text, label }: { text: string; label: string }) {
@@ -86,7 +103,15 @@ function FieldHelp({ text, label }: { text: string; label: string }) {
   );
 }
 
-function FieldLabel({ label, help, children }: { label: string; help: string; children: ReactNode }) {
+function FieldLabel({
+  label,
+  help,
+  children,
+}: {
+  label: string;
+  help: string;
+  children: ReactNode;
+}) {
   return (
     <label className="block min-w-0">
       <span className="mb-2 flex min-h-5 items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.1em] text-white/65">
@@ -99,12 +124,24 @@ function FieldLabel({ label, help, children }: { label: string; help: string; ch
 }
 
 function materialKeyFromType(type?: string): MaterialKey {
-  return String(type || "").toLowerCase().includes("petg") ? "petg" : "pla";
+  return String(type || "")
+    .toLowerCase()
+    .includes("petg")
+    ? "petg"
+    : "pla";
 }
 
-export function CalculatorProjectEditor({ project, onChange, materials, pricingSettings, issues = [] }: Props) {
+export function CalculatorProjectEditor({
+  project,
+  onChange,
+  materials,
+  pricingSettings,
+  issues = [],
+}: Props) {
   const [drafts, setDrafts] = useState<Record<string, FilamentDraft>>({});
-  const [editingFilamentIds, setEditingFilamentIds] = useState<Record<string, string | undefined>>({});
+  const [editingFilamentIds, setEditingFilamentIds] = useState<Record<string, string | undefined>>(
+    {},
+  );
   const issuePaths = useMemo(() => new Set(issues.map((issue) => issue.path)), [issues]);
   const shortages = useMemo(() => {
     const required = new Map<string, number>();
@@ -121,7 +158,10 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
     return [...required].flatMap(([materialId, grams]) => {
       const material = materials.find((item) => item.id === materialId);
       if (!material) return [];
-      const available = Math.max(0, Number(material.stockGrams || 0) - Number(material.reservedGrams || 0));
+      const available = Math.max(
+        0,
+        Number(material.stockGrams || 0) - Number(material.reservedGrams || 0),
+      );
       return grams > available ? [{ name: material.name, required: grams, available }] : [];
     });
   }, [materials, project.plates]);
@@ -129,12 +169,17 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
   const updatePlate = (plateId: string, patch: Partial<CalculatorPlate>) => {
     onChange({
       ...project,
-      plates: project.plates.map((plate) => plate.id === plateId ? { ...plate, ...patch } : plate),
+      plates: project.plates.map((plate) =>
+        plate.id === plateId ? { ...plate, ...patch } : plate,
+      ),
     });
   };
 
   const addPlate = () => {
-    onChange({ ...project, plates: [...project.plates, createEmptyPlate(project.plates.length + 1)] });
+    onChange({
+      ...project,
+      plates: [...project.plates, createEmptyPlate(project.plates.length + 1)],
+    });
   };
 
   const duplicatePlate = (plate: CalculatorPlate) => {
@@ -199,7 +244,9 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
     const editingId = editingFilamentIds[plate.id];
     updatePlate(plate.id, {
       filaments: editingId
-        ? plate.filaments.map((item) => item.id === editingId ? { ...filament, id: editingId } : item)
+        ? plate.filaments.map((item) =>
+            item.id === editingId ? { ...filament, id: editingId } : item,
+          )
         : [...plate.filaments, filament],
     });
     setDrafts((current) => ({ ...current, [plate.id]: emptyDraft() }));
@@ -237,22 +284,34 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
   return (
     <div className="space-y-4">
       {issues.length > 0 && (
-        <div role="alert" className="rounded-xl border border-red-400/30 bg-red-400/[0.08] px-4 py-3">
-          <p className="text-xs font-black uppercase tracking-wider text-red-200">Revise os campos destacados</p>
+        <div
+          role="alert"
+          className="rounded-xl border border-red-400/30 bg-red-400/[0.08] px-4 py-3"
+        >
+          <p className="text-xs font-black uppercase tracking-wider text-red-200">
+            Revise os campos destacados
+          </p>
           <ul className="mt-2 list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-red-100/90">
-            {issues.slice(0, 5).map((issue) => <li key={`${issue.path}-${issue.message}`}>{issue.message}</li>)}
+            {issues.slice(0, 5).map((issue) => (
+              <li key={`${issue.path}-${issue.message}`}>{issue.message}</li>
+            ))}
           </ul>
         </div>
       )}
       {shortages.length > 0 && (
         <div className="rounded-xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3 text-sm leading-relaxed text-amber-50/90">
-          <p className="font-black uppercase tracking-widest text-amber-300">Estoque abaixo do consumo previsto</p>
+          <p className="font-black uppercase tracking-widest text-amber-300">
+            Estoque abaixo do consumo previsto
+          </p>
           {shortages.map((shortage) => (
             <p key={shortage.name} className="mt-1">
-              {shortage.name}: necessário {shortage.required.toFixed(2)} g · disponível {shortage.available.toFixed(2)} g
+              {shortage.name}: necessário {shortage.required.toFixed(2)} g · disponível{" "}
+              {shortage.available.toFixed(2)} g
             </p>
           ))}
-          <p className="mt-2 text-amber-100/50">O orçamento pode ser salvo; nenhuma reserva ou baixa será feita agora.</p>
+          <p className="mt-2 text-amber-100/50">
+            O orçamento pode ser salvo; nenhuma reserva ou baixa será feita agora.
+          </p>
         </div>
       )}
       <div className="grid gap-3 sm:grid-cols-[1fr_190px]">
@@ -270,7 +329,9 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
             min={1}
             onFocus={selectNumericValue}
             value={project.outputQuantity}
-            onChange={(event) => onChange({ ...project, outputQuantity: Number(event.target.value) || 0 })}
+            onChange={(event) =>
+              onChange({ ...project, outputQuantity: Number(event.target.value) || 0 })
+            }
             title="Quantidade de produtos completos e vendáveis"
             className={`${fieldClass} ${issuePaths.has("project.outputQuantity") ? "border-red-400/70" : ""}`}
           />
@@ -280,84 +341,235 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
       {project.plates.map((plate, plateIndex) => {
         const draft = drafts[plate.id] ?? emptyDraft();
         const plateHours = parseTimeToHours(plate.totalTime) * Math.max(1, plate.repetitions);
-        const plateGrams = plate.filaments.reduce((sum, filament) => sum + filament.totalGrams, 0) * Math.max(1, plate.repetitions);
+        const plateGrams =
+          plate.filaments.reduce((sum, filament) => sum + filament.totalGrams, 0) *
+          Math.max(1, plate.repetitions);
         const basePath = `plates.${plate.id}`;
         return (
           <div key={plate.id} className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-black uppercase tracking-wider text-blue-200">Bandeja {plateIndex + 1}</p>
-                <p className="mt-1 text-xs text-white/55">{plateGrams.toFixed(2)} g · {formatHoursToHHMM(plateHours)}</p>
+                <p className="text-xs font-black uppercase tracking-wider text-blue-200">
+                  Bandeja {plateIndex + 1}
+                </p>
+                <p className="mt-1 text-xs text-white/55">
+                  {plateGrams.toFixed(2)} g · {formatHoursToHHMM(plateHours)}
+                </p>
               </div>
               <div className="flex gap-2">
-                <button type="button" onClick={() => duplicatePlate(plate)} className="rounded-lg border border-white/10 p-2 text-white/50 hover:text-white" aria-label="Duplicar bandeja"><Copy className="h-3.5 w-3.5" /></button>
-                <button type="button" onClick={() => onChange({ ...project, plates: project.plates.filter((item) => item.id !== plate.id) })} className="rounded-lg border border-red-400/15 p-2 text-red-300/70 hover:text-red-300" aria-label="Excluir bandeja"><Trash2 className="h-3.5 w-3.5" /></button>
+                <button
+                  type="button"
+                  onClick={() => duplicatePlate(plate)}
+                  className="rounded-lg border border-white/10 p-2 text-white/50 hover:text-white"
+                  aria-label="Duplicar bandeja"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onChange({
+                      ...project,
+                      plates: project.plates.filter((item) => item.id !== plate.id),
+                    })
+                  }
+                  className="rounded-lg border border-red-400/15 p-2 text-red-300/70 hover:text-red-300"
+                  aria-label="Excluir bandeja"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <FieldLabel label="Nome da bandeja" help={FIELD_HELP.plateName}>
-                <input value={plate.name} onChange={(event) => updatePlate(plate.id, { name: event.target.value })} placeholder="Ex.: Corpo preto" className={`${fieldClass} ${issuePaths.has(`${basePath}.name`) ? "border-red-400/70" : ""}`} />
+                <input
+                  value={plate.name}
+                  onChange={(event) => updatePlate(plate.id, { name: event.target.value })}
+                  placeholder="Ex.: Corpo preto"
+                  className={`${fieldClass} ${issuePaths.has(`${basePath}.name`) ? "border-red-400/70" : ""}`}
+                />
               </FieldLabel>
               <FieldLabel label="Tipo de impressão" help={FIELD_HELP.plateType}>
-                <select value={plate.type} onChange={(event) => updatePlate(plate.id, { type: event.target.value as CalculatorPlate["type"] })} className={fieldClass}>
+                <select
+                  value={plate.type}
+                  onChange={(event) =>
+                    updatePlate(plate.id, { type: event.target.value as CalculatorPlate["type"] })
+                  }
+                  className={fieldClass}
+                >
                   <option value="SINGLE_COLOR">Cor única</option>
                   <option value="MULTICOLOR">Multicolor</option>
                 </select>
               </FieldLabel>
               <FieldLabel label="Tempo da bandeja" help={FIELD_HELP.totalTime}>
-                <input value={plate.totalTime} onChange={(event) => updatePlate(plate.id, { totalTime: event.target.value })} placeholder="Ex.: 2h25m" className={`${fieldClass} ${issuePaths.has(`${basePath}.totalTime`) ? "border-red-400/70" : ""}`} />
+                <input
+                  value={plate.totalTime}
+                  onChange={(event) => updatePlate(plate.id, { totalTime: event.target.value })}
+                  placeholder="Ex.: 2h25m"
+                  className={`${fieldClass} ${issuePaths.has(`${basePath}.totalTime`) ? "border-red-400/70" : ""}`}
+                />
               </FieldLabel>
               <div className="grid grid-cols-2 gap-2">
                 <FieldLabel label="Itens físicos" help={FIELD_HELP.physicalItems}>
-                  <input type="number" min={1} value={plate.pieces} onFocus={selectNumericValue} onChange={(event) => updatePlate(plate.id, { pieces: Number(event.target.value) || 0 })} className={fieldClass} />
+                  <input
+                    type="number"
+                    min={1}
+                    value={plate.pieces}
+                    onFocus={selectNumericValue}
+                    onChange={(event) =>
+                      updatePlate(plate.id, { pieces: Number(event.target.value) || 0 })
+                    }
+                    className={fieldClass}
+                  />
                 </FieldLabel>
                 <FieldLabel label="Repetições" help={FIELD_HELP.repetitions}>
-                  <input type="number" min={1} value={plate.repetitions} onFocus={selectNumericValue} onChange={(event) => updatePlate(plate.id, { repetitions: Number(event.target.value) || 0 })} className={fieldClass} />
+                  <input
+                    type="number"
+                    min={1}
+                    value={plate.repetitions}
+                    onFocus={selectNumericValue}
+                    onChange={(event) =>
+                      updatePlate(plate.id, { repetitions: Number(event.target.value) || 0 })
+                    }
+                    className={fieldClass}
+                  />
                 </FieldLabel>
               </div>
             </div>
 
-            <div className={`mt-4 rounded-xl border p-3 ${issuePaths.has(`${basePath}.filaments`) ? "border-red-400/50 bg-red-400/[0.03]" : "border-white/[0.07] bg-black/20"}`}>
+            <div
+              className={`mt-4 rounded-xl border p-3 ${issuePaths.has(`${basePath}.filaments`) ? "border-red-400/50 bg-red-400/[0.03]" : "border-white/[0.07] bg-black/20"}`}
+            >
               <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-black uppercase tracking-wider text-white/70">Filamentos da bandeja</p>
-                <p className="text-xs text-white/50">{plate.type === "MULTICOLOR" ? "Mínimo 2" : "Peso total do Bambu"}</p>
+                <p className="text-xs font-black uppercase tracking-wider text-white/70">
+                  Filamentos da bandeja
+                </p>
+                <p className="text-xs text-white/50">
+                  {plate.type === "MULTICOLOR" ? "Mínimo 2" : "Peso total do Bambu"}
+                </p>
               </div>
               {plate.filaments.map((filament) => (
-                <div key={filament.id} className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] px-3 py-2 text-xs">
-                  <span className="min-w-0 truncate text-white/70">{filament.materialName}{filament.manual ? " · manual" : ""}</span>
+                <div
+                  key={filament.id}
+                  className="mb-2 flex items-center justify-between gap-3 rounded-lg border border-white/[0.06] px-3 py-2 text-xs"
+                >
+                  <span className="min-w-0 truncate text-white/70">
+                    {filament.materialName}
+                    {filament.manual ? " · manual" : ""}
+                  </span>
                   <span className="flex shrink-0 items-center gap-2 font-mono">
                     <strong>{filament.totalGrams.toFixed(2)} g</strong>
-                    <button type="button" aria-label={`Editar ${filament.materialName}`} onClick={() => startEditingFilament(plate, filament)} className="text-blue-300/60 hover:text-blue-300"><Pencil className="h-3 w-3" /></button>
-                    <button type="button" aria-label={`Excluir ${filament.materialName}`} onClick={() => updatePlate(plate.id, { filaments: plate.filaments.filter((item) => item.id !== filament.id) })} className="text-red-300/60 hover:text-red-300"><Trash2 className="h-3 w-3" /></button>
+                    <button
+                      type="button"
+                      aria-label={`Editar ${filament.materialName}`}
+                      onClick={() => startEditingFilament(plate, filament)}
+                      className="text-blue-300/60 hover:text-blue-300"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Excluir ${filament.materialName}`}
+                      onClick={() =>
+                        updatePlate(plate.id, {
+                          filaments: plate.filaments.filter((item) => item.id !== filament.id),
+                        })
+                      }
+                      className="text-red-300/60 hover:text-red-300"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
                   </span>
                 </div>
               ))}
 
               <div className="mt-3 grid gap-2 sm:grid-cols-[120px_1fr_110px_auto]">
                 <FieldLabel label="Origem" help={FIELD_HELP.source}>
-                  <select value={draft.source} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, source: event.target.value as FilamentDraft["source"] } }))} className={fieldClass}>
+                  <select
+                    value={draft.source}
+                    onChange={(event) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [plate.id]: {
+                          ...draft,
+                          source: event.target.value as FilamentDraft["source"],
+                        },
+                      }))
+                    }
+                    className={fieldClass}
+                  >
                     <option value="inventory">Estoque</option>
                     <option value="manual">Manual</option>
                   </select>
                 </FieldLabel>
                 {draft.source === "inventory" ? (
                   <FieldLabel label="Filamento do estoque" help={FIELD_HELP.inventoryFilament}>
-                    <select value={draft.materialId} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, materialId: event.target.value } }))} className={fieldClass}>
+                    <select
+                      value={draft.materialId}
+                      onChange={(event) =>
+                        setDrafts((current) => ({
+                          ...current,
+                          [plate.id]: { ...draft, materialId: event.target.value },
+                        }))
+                      }
+                      className={fieldClass}
+                    >
                       <option value="">Selecionar filamento...</option>
-                      {materials.map((material) => <option key={material.id} value={material.id}>{material.name} · {Math.max(0, Number(material.stockGrams || 0) - Number(material.reservedGrams || 0)).toFixed(0)}g livres</option>)}
+                      {materials.map((material) => (
+                        <option key={material.id} value={material.id}>
+                          {material.name} ·{" "}
+                          {Math.max(
+                            0,
+                            Number(material.stockGrams || 0) - Number(material.reservedGrams || 0),
+                          ).toFixed(0)}
+                          g livres
+                        </option>
+                      ))}
                     </select>
                   </FieldLabel>
                 ) : (
                   <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
                     <FieldLabel label="Cor" help={FIELD_HELP.manualColor}>
-                      <input value={draft.color} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, color: event.target.value } }))} placeholder="Ex.: Preto" className={fieldClass} />
+                      <input
+                        value={draft.color}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [plate.id]: { ...draft, color: event.target.value },
+                          }))
+                        }
+                        placeholder="Ex.: Preto"
+                        className={fieldClass}
+                      />
                     </FieldLabel>
                     <FieldLabel label="Marca" help={FIELD_HELP.manualBrand}>
-                      <input value={draft.brand} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, brand: event.target.value } }))} placeholder="Ex.: Bambu Lab" className={fieldClass} />
+                      <input
+                        value={draft.brand}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [plate.id]: { ...draft, brand: event.target.value },
+                          }))
+                        }
+                        placeholder="Ex.: Bambu Lab"
+                        className={fieldClass}
+                      />
                     </FieldLabel>
                     <FieldLabel label="Tipo" help={FIELD_HELP.manualType}>
-                      <select value={draft.type} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, type: event.target.value as ManualFilament["type"] } }))} className={fieldClass}>
+                      <select
+                        value={draft.type}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [plate.id]: {
+                              ...draft,
+                              type: event.target.value as ManualFilament["type"],
+                            },
+                          }))
+                        }
+                        className={fieldClass}
+                      >
                         <option value="PLA">PLA</option>
                         <option value="PLA_HIGH_SPEED">PLA High Speed</option>
                         <option value="PLA_SILK">PLA Silk</option>
@@ -365,20 +577,56 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
                       </select>
                     </FieldLabel>
                     <FieldLabel label="Preço por kg" help={FIELD_HELP.manualPrice}>
-                      <input type="number" min={0} value={draft.pricePerKg || ""} onFocus={selectNumericValue} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, pricePerKg: Number(event.target.value) || 0 } }))} placeholder="Ex.: 120" className={fieldClass} />
+                      <input
+                        type="number"
+                        min={0}
+                        value={draft.pricePerKg || ""}
+                        onFocus={selectNumericValue}
+                        onChange={(event) =>
+                          setDrafts((current) => ({
+                            ...current,
+                            [plate.id]: { ...draft, pricePerKg: Number(event.target.value) || 0 },
+                          }))
+                        }
+                        placeholder="Ex.: 120"
+                        className={fieldClass}
+                      />
                     </FieldLabel>
                   </div>
                 )}
                 <FieldLabel label="Total (g)" help={FIELD_HELP.totalGrams}>
-                  <input type="number" min={0} step="0.01" value={draft.grams || ""} onFocus={selectNumericValue} onChange={(event) => setDrafts((current) => ({ ...current, [plate.id]: { ...draft, grams: Number(event.target.value) || 0 } }))} placeholder="Ex.: 63,08" className={fieldClass} />
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={draft.grams || ""}
+                    onFocus={selectNumericValue}
+                    onChange={(event) =>
+                      setDrafts((current) => ({
+                        ...current,
+                        [plate.id]: { ...draft, grams: Number(event.target.value) || 0 },
+                      }))
+                    }
+                    placeholder="Ex.: 63,08"
+                    className={fieldClass}
+                  />
                 </FieldLabel>
                 <div className="flex items-end gap-2">
                   {editingFilamentIds[plate.id] && (
-                    <button type="button" aria-label="Cancelar edição do filamento" onClick={() => cancelEditingFilament(plate.id)} className="rounded-xl border border-white/10 px-3 text-white/50 hover:text-white">
+                    <button
+                      type="button"
+                      aria-label="Cancelar edição do filamento"
+                      onClick={() => cancelEditingFilament(plate.id)}
+                      className="rounded-xl border border-white/10 px-3 text-white/50 hover:text-white"
+                    >
                       <X className="h-3.5 w-3.5" />
                     </button>
                   )}
-                  <button type="button" onClick={() => addFilament(plate)} className="min-h-11 rounded-xl bg-blue-500 px-4 py-2 text-xs font-black uppercase text-white disabled:opacity-40">
+                  <button
+                    type="button"
+                    onClick={() => addFilament(plate)}
+                    className="min-h-11 rounded-xl bg-blue-500 px-4 py-2 text-xs font-black uppercase text-white disabled:opacity-40"
+                  >
                     {editingFilamentIds[plate.id] ? "Salvar" : "Adicionar"}
                   </button>
                 </div>
@@ -388,7 +636,11 @@ export function CalculatorProjectEditor({ project, onChange, materials, pricingS
         );
       })}
 
-      <button type="button" onClick={addPlate} className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/40 bg-blue-400/[0.06] px-4 py-3 text-xs font-black uppercase tracking-wider text-blue-200 hover:bg-blue-400/[0.1]">
+      <button
+        type="button"
+        onClick={addPlate}
+        className="flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-dashed border-blue-400/40 bg-blue-400/[0.06] px-4 py-3 text-xs font-black uppercase tracking-wider text-blue-200 hover:bg-blue-400/[0.1]"
+      >
         <Plus className="h-4 w-4" /> Adicionar bandeja
       </button>
     </div>

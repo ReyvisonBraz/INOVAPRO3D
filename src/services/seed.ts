@@ -5,27 +5,33 @@ const SAMPLE_PRODUCTS = [
   {
     name: "Cadeia de Impulso Galáctico",
     description: "Modelo decorativo complexo impresso em resina de alta precisão.",
-    basePrice: 149.90,
-    images: ["https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=400"],
+    basePrice: 149.9,
+    images: [
+      "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=400",
+    ],
     active: true,
-    category: "Decorativo"
+    category: "Decorativo",
   },
   {
     name: "Engrenagem Industrial v2",
     description: "Peça mecânica funcional em Nylon reforçado com fibra de carbono.",
-    basePrice: 89.00,
-    images: ["https://images.unsplash.com/photo-1549484081-37d4f90117a3?auto=format&fit=crop&q=80&w=400"],
+    basePrice: 89.0,
+    images: [
+      "https://images.unsplash.com/photo-1549484081-37d4f90117a3?auto=format&fit=crop&q=80&w=400",
+    ],
     active: true,
-    category: "Funcional"
+    category: "Funcional",
   },
   {
     name: "Busto 'O Pensador' Moderno",
     description: "Interpretação low-poly de clássico da arte em PLA marmorizado.",
-    basePrice: 199.00,
-    images: ["https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&q=80&w=400"],
+    basePrice: 199.0,
+    images: [
+      "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?auto=format&fit=crop&q=80&w=400",
+    ],
     active: true,
-    category: "Arte"
-  }
+    category: "Arte",
+  },
 ];
 
 export async function seedProducts() {
@@ -38,7 +44,7 @@ export async function seedProducts() {
         try {
           await addDoc(collection(db, path), {
             ...product,
-            createdAt: serverTimestamp()
+            createdAt: serverTimestamp(),
           });
         } catch (err) {
           // Silent catch for permission denied - only admins can seed

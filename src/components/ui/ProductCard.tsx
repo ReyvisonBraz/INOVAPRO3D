@@ -26,12 +26,16 @@ export const ProductCard = memo(function ProductCard({
   const navigate = useNavigate();
   const location = useLocation();
 
-  const lowStock =
-    typeof product.stock === "number" && product.stock > 0 && product.stock <= 3;
+  const lowStock = typeof product.stock === "number" && product.stock > 0 && product.stock <= 3;
   const outOfStock = product.stock === 0;
 
   const openProduct = () =>
-    navigate(`/produto/${product.id}`, { state: { from: location.pathname } });
+    navigate(`/produto/${product.id}`, {
+      state: {
+        from: `${location.pathname}${location.search}${location.hash}`,
+        fromKey: location.key,
+      },
+    });
 
   // Cicla imagens automaticamente no hover
   useEffect(() => {
@@ -40,7 +44,7 @@ export const ProductCard = memo(function ProductCard({
       return;
     }
     const timer = setInterval(() => {
-      setImgIdx(i => (i + 1) % images.length);
+      setImgIdx((i) => (i + 1) % images.length);
     }, 1400);
     return () => clearInterval(timer);
   }, [hovered, hasMultiple, images.length]);
@@ -61,7 +65,7 @@ export const ProductCard = memo(function ProductCard({
       {/* Imagem */}
       <div className="relative aspect-square overflow-hidden bg-white/[0.03]">
         {images.length > 0 ? (
-          <AnimatePresence mode="wait">
+          <AnimatePresence initial={false}>
             <motion.img
               key={imgIdx}
               src={images[imgIdx]}
@@ -71,7 +75,7 @@ export const ProductCard = memo(function ProductCard({
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.35 }}
-              className="h-full w-full object-cover transition-transform duration-700 group-hover/card:scale-105"
+              className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover/card:scale-105"
             />
           </AnimatePresence>
         ) : (
@@ -114,7 +118,7 @@ export const ProductCard = memo(function ProductCard({
                 key={i}
                 className={cn(
                   "block h-1 rounded-full transition-all duration-400",
-                  i === imgIdx ? "w-3 bg-white" : "w-1 bg-white/30"
+                  i === imgIdx ? "w-3 bg-white" : "w-1 bg-white/30",
                 )}
               />
             ))}
@@ -125,13 +129,13 @@ export const ProductCard = memo(function ProductCard({
         {outOfStock && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/60">
             <span className="text-[9px] font-black uppercase tracking-widest text-white/60">
-              Esgotado
+              Sob encomenda
             </span>
           </div>
         )}
         {lowStock && !outOfStock && (
           <span className="absolute right-2 top-2 rounded-full bg-amber-500/80 px-2 py-0.5 text-[11px] font-black uppercase tracking-wider text-white">
-            Últimas {product.stock}
+            {product.stock === 1 ? "Última unidade" : `Últimas ${product.stock} unidades`}
           </span>
         )}
 
@@ -151,14 +155,16 @@ export const ProductCard = memo(function ProductCard({
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-[11px] font-black uppercase tracking-wider text-secondary">
-              A partir de
+              {product.basePrice > 0 ? (outOfStock ? "Sob encomenda" : "Preço") : "Consulte"}
             </p>
-            <p className="text-sm font-black text-white">{brl(product.basePrice)}</p>
+            <p className="text-sm font-black text-white">
+              {product.basePrice > 0 ? brl(product.basePrice) : "Preço sob consulta"}
+            </p>
           </div>
           {onAdd && !outOfStock && (
             <button
               type="button"
-              onClick={e => {
+              onClick={(e) => {
                 e.stopPropagation();
                 onAdd(product);
               }}

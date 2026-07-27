@@ -2,7 +2,13 @@ import { FormEvent, useCallback, useMemo, useState } from "react";
 import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
-import { auth, db, handleFirestoreError, OperationType, getStorageInstance } from "../../../services/firebase";
+import {
+  auth,
+  db,
+  handleFirestoreError,
+  OperationType,
+  getStorageInstance,
+} from "../../../services/firebase";
 import {
   MATERIAL_PRESETS,
   DEFAULT_MACHINE,
@@ -17,9 +23,18 @@ import {
   isUnoptimizedExternalUrl,
   fileToWebpBlob,
 } from "../../../lib/adminHelpers";
-import type { Category, Product } from "../../../types/domain";
+import type { Category, Product, ProductionMaterial } from "../../../types/domain";
 
-const STATIC_CATEGORIES = ["DECORAÇÃO", "UTILITÁRIOS", "ACTION FIGURES", "ORGANIZADORES", "MODA", "GAMES", "PERSONALIZADO", "OUTROS"];
+const STATIC_CATEGORIES = [
+  "DECORAÇÃO",
+  "UTILITÁRIOS",
+  "ACTION FIGURES",
+  "ORGANIZADORES",
+  "MODA",
+  "GAMES",
+  "PERSONALIZADO",
+  "OUTROS",
+];
 
 const defaultProduct = {
   name: "",
@@ -35,6 +50,7 @@ const defaultProduct = {
   modelUrl: "",
   baseDimensions: { x: 120, y: 120, z: 150 },
   hideDimensions: false,
+  productionMaterial: "PLA" as ProductionMaterial,
 };
 
 interface Deps {
@@ -72,28 +88,38 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
         let images = newProduct.images.filter(Boolean);
         const pending = images.filter(isUnoptimizedExternalUrl);
         if (pending.length > 0) {
-          const toastId = toast.loading(`Otimizando ${pending.length} ${pending.length === 1 ? "imagem externa" : "imagens externas"}...`);
+          const toastId = toast.loading(
+            `Otimizando ${pending.length} ${pending.length === 1 ? "imagem externa" : "imagens externas"}...`,
+          );
           const { getStorage } = await import("firebase/storage");
           const bucket = getStorage();
           let fails = 0;
-          images = await Promise.all(images.map(async (img) => {
-            if (!isUnoptimizedExternalUrl(img)) return img;
-            try {
-              return (await importAndConvertImage(img, bucket)).url;
-            } catch {
-              fails++;
-              return img;
-            }
-          }));
+          images = await Promise.all(
+            images.map(async (img) => {
+              if (!isUnoptimizedExternalUrl(img)) return img;
+              try {
+                return (await importAndConvertImage(img, bucket)).url;
+              } catch {
+                fails++;
+                return img;
+              }
+            }),
+          );
           if (fails === 0) {
             toast.success("Imagens otimizadas para WebP!", { id: toastId });
           } else {
-            toast.warning(`${fails} imagem(ns) não puderam ser convertidas e mantêm o link original.`, { id: toastId });
+            toast.warning(
+              `${fails} imagem(ns) não puderam ser convertidas e mantêm o link original.`,
+              { id: toastId },
+            );
           }
         }
         const payload = { ...newProduct, images };
         if (isEditingProduct && selectedProduct) {
-          await updateDoc(doc(db, "products", selectedProduct.id), { ...payload, updatedAt: serverTimestamp() });
+          await updateDoc(doc(db, "products", selectedProduct.id), {
+            ...payload,
+            updatedAt: serverTimestamp(),
+          });
           toast.success("Produto atualizado com sucesso!");
         } else {
           await addDoc(collection(db, "products"), { ...payload, createdAt: serverTimestamp() });
@@ -108,7 +134,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
         handleFirestoreError(err, OperationType.CREATE, "products");
       }
     },
-    [isEditingProduct, selectedProduct, newProduct, fetchData]
+    [isEditingProduct, selectedProduct, newProduct, fetchData],
   );
 
   const handleImportProductMetadata = useCallback(async () => {
@@ -124,7 +150,9 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
       if (!response.ok) throw new Error(data.error || "Não foi possível importar este link.");
 
       const importedImages = Array.isArray(data.images)
-        ? data.images.filter((image: unknown): image is string => typeof image === "string" && image.length > 0)
+        ? data.images.filter(
+            (image: unknown): image is string => typeof image === "string" && image.length > 0,
+          )
         : [];
 
       setNewProduct((current) => ({
@@ -134,17 +162,26 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
         images: importedImages.length > 0 ? importedImages : current.images,
         sourceUrl: data.sourceUrl || url,
         modelUrl: data.modelUrl || current.modelUrl,
-        tags: Array.from(new Set([
-          ...current.tags, data.sourceHost, data.author, data.license,
-          ...(Array.isArray(data.tags) ? data.tags : []),
-        ].filter(Boolean))),
+        tags: Array.from(
+          new Set(
+            [
+              ...current.tags,
+              data.sourceHost,
+              data.author,
+              data.license,
+              ...(Array.isArray(data.tags) ? data.tags : []),
+            ].filter(Boolean),
+          ),
+        ),
         technical: { ...current.technical, ...(data.technical || {}) },
       }));
 
       // Converte automaticamente as imagens externas para WebP no Storage.
       // Mantém a URL original como fallback caso a conversão falhe (CORS, etc).
       if (importedImages.length > 0) {
-        const toastId = toast.loading(`Otimizando ${importedImages.length} ${importedImages.length === 1 ? "imagem" : "imagens"} para WebP...`);
+        const toastId = toast.loading(
+          `Otimizando ${importedImages.length} ${importedImages.length === 1 ? "imagem" : "imagens"} para WebP...`,
+        );
         try {
           const { getStorage } = await import("firebase/storage");
           const bucket = getStorage();
@@ -158,16 +195,24 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
               } catch {
                 return img; // mantém original se a conversão falhar
               }
-            })
+            }),
           );
           setNewProduct((current) => ({ ...current, images: converted }));
           if (okCount === importedImages.length) {
-            toast.success(`${okCount} ${okCount === 1 ? "imagem otimizada" : "imagens otimizadas"} para WebP!`, { id: toastId });
+            toast.success(
+              `${okCount} ${okCount === 1 ? "imagem otimizada" : "imagens otimizadas"} para WebP!`,
+              { id: toastId },
+            );
           } else {
-            toast.warning(`${okCount}/${importedImages.length} imagens convertidas. As demais mantêm o link original.`, { id: toastId });
+            toast.warning(
+              `${okCount}/${importedImages.length} imagens convertidas. As demais mantêm o link original.`,
+              { id: toastId },
+            );
           }
         } catch {
-          toast.error("Não foi possível otimizar as imagens. Os links originais foram mantidos.", { id: toastId });
+          toast.error("Não foi possível otimizar as imagens. Os links originais foram mantidos.", {
+            id: toastId,
+          });
         }
       }
 
@@ -179,19 +224,30 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
       if (weightG > 0 && printTimeH > 0) {
         try {
           const suggested = computePricing({
-            material: "pla", weightGrams: weightG, hours: printTimeH, quantity: 1,
+            material: "pla",
+            weightGrams: weightG,
+            hours: printTimeH,
+            quantity: 1,
             reservePct: MATERIAL_PRESETS.pla.defaultReservePct,
             failureRatePct: DEFAULT_FAILURE_RATE,
             machine: DEFAULT_MACHINE,
             kwhCost: DEFAULT_ENERGY.kwhCost,
             startupPowerWatts: DEFAULT_ENERGY.startupPowerWatts,
             startupMinutes: DEFAULT_ENERGY.startupMinutes,
-            laborHours: 0, laborRate: 0, extraSupplies: 0,
-            wholesaleMarkup: 1.8, retailMarkup: 2.5, minPrice: 15,
+            laborHours: 0,
+            laborRate: 0,
+            extraSupplies: 0,
+            wholesaleMarkup: 1.8,
+            retailMarkup: 2.5,
+            minPrice: 15,
           });
           setNewProduct((p) => ({ ...p, basePrice: parseFloat(suggested.retailUnit.toFixed(2)) }));
-          toast.info(`Preço sugerido: R$ ${suggested.retailUnit.toFixed(2)} (varejo unitário)`, { duration: 5000 });
-        } catch (err) { console.error("Price suggestion failed:", err); }
+          toast.info(`Preço sugerido: R$ ${suggested.retailUnit.toFixed(2)} (varejo unitário)`, {
+            duration: 5000,
+          });
+        } catch (err) {
+          console.error("Price suggestion failed:", err);
+        }
       }
       toast.success("Metadados importados. Revise o preço antes de salvar.");
     } catch (error) {
@@ -203,14 +259,26 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
 
   const handleProductImageUpload = useCallback(async (file: File | null) => {
     if (!file || !auth.currentUser) return;
-    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
     const MAX_SIZE = 5 * 1024 * 1024;
-    if (file.size > MAX_SIZE) { toast.error("Imagem excede 5MB. Reduza o tamanho antes de enviar."); return; }
+    if (file.size > MAX_SIZE) {
+      toast.error("Imagem excede 5MB. Reduza o tamanho antes de enviar.");
+      return;
+    }
     try {
       setIsUploadingProductImage(true);
-      const safeName = file.name.replace(/\.[^.]+$/, "").normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "-")
-        .replace(/^-+|-+$/g, "").toLowerCase().slice(0, 60) || "imagem";
+      const safeName =
+        file.name
+          .replace(/\.[^.]+$/, "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9_-]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .toLowerCase()
+          .slice(0, 60) || "imagem";
 
       // Converte para WebP (m\u00e1x 1200px) antes de subir; se o navegador n\u00e3o
       // conseguir decodificar o formato, sobe o arquivo original mesmo.
@@ -221,13 +289,21 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
         payload = await fileToWebpBlob(file);
         contentType = "image/webp";
         extension = "webp";
-      } catch { /* mant\u00e9m o arquivo original */ }
+      } catch {
+        /* mant\u00e9m o arquivo original */
+      }
 
       const path = `products/manual/${auth.currentUser.uid}/${Date.now()}-${safeName}.${extension}`;
       const fileRef = storageRef(await getStorageInstance(), path);
-      await uploadBytes(fileRef, payload, { contentType, customMetadata: { uploadedBy: auth.currentUser.uid, source: "admin-product-form" } });
+      await uploadBytes(fileRef, payload, {
+        contentType,
+        customMetadata: { uploadedBy: auth.currentUser.uid, source: "admin-product-form" },
+      });
       const downloadUrl = await getDownloadURL(fileRef);
-      setNewProduct((current) => ({ ...current, images: [...current.images.filter(Boolean), downloadUrl] }));
+      setNewProduct((current) => ({
+        ...current,
+        images: [...current.images.filter(Boolean), downloadUrl],
+      }));
       toast.success("Imagem enviada e adicionada ao produto.");
     } catch {
       toast.error("Erro ao enviar imagem.");
@@ -272,6 +348,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
       },
       baseDimensions: rest.baseDimensions || { x: 120, y: 120, z: 150 },
       hideDimensions: rest.hideDimensions ?? false,
+      productionMaterial: rest.productionMaterial ?? "PLA",
       images: rest.images || [""],
     });
     setIsAddingProduct(true);
@@ -301,39 +378,52 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
       modelUrl: product.modelUrl || "",
       baseDimensions: product.baseDimensions || { x: 120, y: 120, z: 150 },
       hideDimensions: product.hideDimensions ?? false,
+      productionMaterial: product.productionMaterial ?? "PLA",
     });
   }, []);
 
-  const handleUpdateStock = useCallback(async (id: string, currentStock: number, delta: number) => {
-    try {
-      const newStock = Math.max(0, currentStock + delta);
-      await updateDoc(doc(db, "products", id), { stock: newStock, updatedAt: serverTimestamp() });
-      toast.success("Estoque atualizado!");
-      fetchData();
-    } catch {
-      toast.error("Falha ao atualizar estoque.");
-    }
-  }, [fetchData]);
+  const handleUpdateStock = useCallback(
+    async (id: string, currentStock: number, delta: number) => {
+      try {
+        const newStock = Math.max(0, currentStock + delta);
+        await updateDoc(doc(db, "products", id), { stock: newStock, updatedAt: serverTimestamp() });
+        toast.success("Estoque atualizado!");
+        fetchData();
+      } catch {
+        toast.error("Falha ao atualizar estoque.");
+      }
+    },
+    [fetchData],
+  );
 
   const allCategories = useMemo(() => {
-    const fromCollection = categories.filter(c => c.active !== false)
+    const fromCollection = categories
+      .filter((c) => c.active !== false)
       .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-      .map(c => c.name);
+      .map((c) => c.name);
     const base = fromCollection.length > 0 ? fromCollection : STATIC_CATEGORIES;
     return Array.from(new Set([...base, ...customCategories])).sort();
   }, [customCategories, categories]);
 
   return {
-    selectedProduct, setSelectedProduct,
-    isAddingProduct, setIsAddingProduct,
-    isEditingProduct, setIsEditingProduct,
-    productImportUrl, setProductImportUrl,
+    selectedProduct,
+    setSelectedProduct,
+    isAddingProduct,
+    setIsAddingProduct,
+    isEditingProduct,
+    setIsEditingProduct,
+    productImportUrl,
+    setProductImportUrl,
     isImportingProduct,
     isUploadingProductImage,
-    translatingField, setTranslatingField,
-    customCategories, setCustomCategories,
-    newProduct, setNewProduct,
-    newImageUrl, setNewImageUrl,
+    translatingField,
+    setTranslatingField,
+    customCategories,
+    setCustomCategories,
+    newProduct,
+    setNewProduct,
+    newImageUrl,
+    setNewImageUrl,
     importingImage,
     allCategories,
     resetNewProduct,

@@ -37,13 +37,17 @@ function StatCard({
       <div className="flex items-center justify-between">
         <span
           className={`flex h-8 w-8 items-center justify-center rounded-lg border ${
-            accent ? "border-primary/25 bg-primary/15 text-primary" : "border-white/10 bg-white/[0.04] text-white/60"
+            accent
+              ? "border-primary/25 bg-primary/15 text-primary"
+              : "border-white/10 bg-white/[0.04] text-white/60"
           }`}
         >
           <Icon className="h-4 w-4" />
         </span>
       </div>
-      <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">{label}</p>
+      <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">
+        {label}
+      </p>
       <p
         className={`mt-1.5 font-display font-bold tracking-tight tabular-nums ${
           wide ? "text-3xl sm:text-4xl" : "text-2xl sm:text-3xl"
@@ -74,8 +78,18 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
           accent
           wide
         />
-        <StatCard icon={Factory} label="Em produção" value={String(activeOrders)} sub="pedidos ativos" />
-        <StatCard icon={FileText} label="Orçamentos" value={String(pendingQuotes)} sub="aguardando análise" />
+        <StatCard
+          icon={Factory}
+          label="Em produção"
+          value={String(activeOrders)}
+          sub="pedidos ativos"
+        />
+        <StatCard
+          icon={FileText}
+          label="Orçamentos"
+          value={String(pendingQuotes)}
+          sub="aguardando análise"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
@@ -109,7 +123,9 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-white/90">{order.userName}</p>
                     <p className="text-[11px] font-medium text-white/30 tabular-nums">
-                      {order.createdAt?.seconds ? new Date(order.createdAt.seconds * 1000).toLocaleDateString("pt-BR") : "—"}
+                      {order.createdAt?.seconds
+                        ? new Date(order.createdAt.seconds * 1000).toLocaleDateString("pt-BR")
+                        : "—"}
                     </p>
                   </div>
                 </div>
@@ -150,7 +166,9 @@ export function AdminOverviewSummary({ orders, quotes, onSelectTab }: AdminOverv
                   </div>
                   <div className="min-w-0">
                     <p className="truncate text-xs font-semibold text-white/90">{quote.userName}</p>
-                    <p className="truncate text-[11px] font-medium text-white/30">{quote.fileName}</p>
+                    <p className="truncate text-[11px] font-medium text-white/30">
+                      {quote.fileName}
+                    </p>
                   </div>
                 </div>
                 <span className="shrink-0 rounded-full bg-cyan/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-cyan">

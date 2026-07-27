@@ -13,7 +13,13 @@ export function aggregateMaterialUsages(usages: MaterialUsage[] = []): Map<strin
   const totals = new Map<string, number>();
   for (const usage of usages) {
     const grams = Number(usage.estimatedGrams);
-    if (usage.inventoryTracked === false || !usage.materialId || !Number.isFinite(grams) || grams <= 0) continue;
+    if (
+      usage.inventoryTracked === false ||
+      !usage.materialId ||
+      !Number.isFinite(grams) ||
+      grams <= 0
+    )
+      continue;
     totals.set(usage.materialId, (totals.get(usage.materialId) ?? 0) + grams);
   }
   return totals;

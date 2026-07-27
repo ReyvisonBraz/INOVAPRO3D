@@ -37,7 +37,9 @@ export function useQuickCalc(
     outputQuantity: 1,
     plates: [createEmptyPlate(1)],
   });
-  const [quickProjectIssues, setQuickProjectIssues] = useState<ReturnType<typeof validateCalculatorProject>>([]);
+  const [quickProjectIssues, setQuickProjectIssues] = useState<
+    ReturnType<typeof validateCalculatorProject>
+  >([]);
   const [quickCalcWeight, setQuickCalcWeight] = useState(80);
   const [quickCalcTime, setQuickCalcTime] = useState("2h 30m");
   const [quickCalcPhone, setQuickCalcPhone] = useState("");
@@ -58,7 +60,9 @@ export function useQuickCalc(
   );
   const [quickCalcFailureRate, setQuickCalcFailureRate] = useState(0);
   const [quickCalcMinPrice, setQuickCalcMinPrice] = useState(pricingSettings.minPrice);
-  const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState(pricingSettings.wholesaleMarkup);
+  const [quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup] = useState(
+    pricingSettings.wholesaleMarkup,
+  );
   const [quickCalcRetailMarkup, setQuickCalcRetailMarkup] = useState(pricingSettings.retailMarkup);
 
   // Quando os parâmetros centrais carregam/mudam, o quick calc os adota.
@@ -86,37 +90,58 @@ export function useQuickCalc(
 
   const quickMachine = machineConfig;
   const quickProjectPricing = useMemo(
-    () => computeProjectPricing(
+    () =>
+      computeProjectPricing(
+        quickProject,
+        quickMachine,
+        { ...pricingSettings, failureRatePct: quickCalcFailureRate },
+        {
+          laborHours: 0,
+          laborRate: 0,
+          extraSupplies: 0,
+          packagingCost: 0,
+          wholesaleMarkup: quickCalcWholesaleMarkup,
+          retailMarkup: quickCalcRetailMarkup,
+          minPrice: quickCalcMinPrice,
+        },
+      ),
+    [
       quickProject,
       quickMachine,
-      { ...pricingSettings, failureRatePct: quickCalcFailureRate },
-      {
-        laborHours: 0,
-        laborRate: 0,
-        extraSupplies: 0,
-        packagingCost: 0,
-        wholesaleMarkup: quickCalcWholesaleMarkup,
-        retailMarkup: quickCalcRetailMarkup,
-        minPrice: quickCalcMinPrice,
-      },
-    ),
-    [quickProject, quickMachine, pricingSettings, quickCalcFailureRate, quickCalcWholesaleMarkup, quickCalcRetailMarkup, quickCalcMinPrice],
+      pricingSettings,
+      quickCalcFailureRate,
+      quickCalcWholesaleMarkup,
+      quickCalcRetailMarkup,
+      quickCalcMinPrice,
+    ],
   );
   const quickCalcResult = quickProjectPricing.result;
   const quickMachineBreak = useMemo(() => machineHourBreakdown(quickMachine), [quickMachine]);
 
   const handleSendQuickWhatsAppQuote = useCallback(() => {
     const phoneClean = quickCalcPhone.replace(/\D/g, "");
-    if (!phoneClean) { toast.error("Preencha o WhatsApp do cliente."); return; }
+    if (!phoneClean) {
+      toast.error("Preencha o WhatsApp do cliente.");
+      return;
+    }
     const clientName = quickCalcCustomerName || "Cliente";
     const pieceName = quickProject.name || quickCalcPieceName || "Peça personalizada";
     const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Bandejas: ${quickProject.plates.length}\n- Produtos finais: ${quickCalcResult.quantity} unidade(s)\n- Filamento total: ${quickCalcResult.weightGrams.toFixed(1).replace(".", ",")}g\n- Tempo total: ${formatHoursToHHMM(quickCalcResult.hours)}\n\n*Investimento final (varejo):*\nTotal: ${formatBRL(quickCalcResult.retailTotal)}\nUnitário: ${formatBRL(quickCalcResult.retailUnit)}\n\nProposta baseada nos dados do Bambu Studio, com material, energia e hora-máquina P2S.`;
-    window.open(`https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`, "_blank");
+    window.open(
+      `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`,
+      "_blank",
+    );
   }, [quickCalcPhone, quickCalcCustomerName, quickCalcPieceName, quickProject, quickCalcResult]);
 
   const handleUploadQuickImage = useCallback(async (file: File) => {
-    if (!file.type.startsWith("image/")) { toast.error("Selecione um arquivo de imagem."); return; }
-    if (file.size > 8 * 1024 * 1024) { toast.error("Imagem muito grande (máx. 8 MB)."); return; }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error("Imagem muito grande (máx. 8 MB).");
+      return;
+    }
     setQuickCalcUploadingImage(true);
     try {
       const url = await uploadQuoteImage(file);
@@ -128,7 +153,10 @@ export function useQuickCalc(
       if (code === "storage/unauthenticated") {
         toast.error("Sessão expirada. Faça login novamente.");
       } else if (code === "storage/unauthorized") {
-        toast.error("Upload bloqueado: publique as regras do Storage (firebase deploy --only storage).", { duration: 5000 });
+        toast.error(
+          "Upload bloqueado: publique as regras do Storage (firebase deploy --only storage).",
+          { duration: 5000 },
+        );
       } else {
         toast.error("Falha ao enviar a imagem.");
       }
@@ -138,7 +166,10 @@ export function useQuickCalc(
   }, []);
 
   const handleSaveQuickQuote = useCallback(async () => {
-    if (!quickCalcCustomerName.trim()) { toast.error("Informe o nome do cliente para salvar."); return; }
+    if (!quickCalcCustomerName.trim()) {
+      toast.error("Informe o nome do cliente para salvar.");
+      return;
+    }
     const issues = validateCalculatorProject(quickProject);
     setQuickProjectIssues(issues);
     if (issues.length) {
@@ -152,12 +183,14 @@ export function useQuickCalc(
         plateId: plate.id,
         plateName: plate.name,
         inventoryTracked: Boolean(filament.materialId),
-        ...(filament.manual ? {
-          manualColor: filament.manual.color,
-          manualBrand: filament.manual.brand,
-          manualType: filament.manual.type,
-          pricePerKg: filament.manual.pricePerKg,
-        } : {}),
+        ...(filament.manual
+          ? {
+              manualColor: filament.manual.color,
+              manualBrand: filament.manual.brand,
+              manualType: filament.manual.type,
+              pricePerKg: filament.manual.pricePerKg,
+            }
+          : {}),
         estimatedGrams: filament.totalGrams * Math.max(1, plate.repetitions),
       })),
     );
@@ -167,7 +200,9 @@ export function useQuickCalc(
         clientName: quickCalcCustomerName,
         phone: quickCalcPhone,
         pieceName: quickProject.name || quickCalcPieceName,
-        materialLabel: quickProject.plates.some((plate) => plate.type === "MULTICOLOR") ? "Multicolor" : "Cor única",
+        materialLabel: quickProject.plates.some((plate) => plate.type === "MULTICOLOR")
+          ? "Multicolor"
+          : "Cor única",
         weight: quickCalcResult.weightGrams,
         printTime: formatHoursToHHMM(quickCalcResult.hours),
         quantity: quickCalcResult.quantity,
@@ -189,29 +224,58 @@ export function useQuickCalc(
     } finally {
       setQuickCalcSaving(false);
     }
-  }, [quickCalcCustomerName, quickCalcPhone, quickCalcPieceName, quickProject, quickCalcResult, quickCalcImageUrl, onSaved]);
+  }, [
+    quickCalcCustomerName,
+    quickCalcPhone,
+    quickCalcPieceName,
+    quickProject,
+    quickCalcResult,
+    quickCalcImageUrl,
+    onSaved,
+  ]);
 
   return {
-    quickProject, setQuickProject, quickProjectIssues, setQuickProjectIssues, quickProjectPricing,
-    quickCalcWeight, setQuickCalcWeight,
-    quickCalcTime, setQuickCalcTime,
-    quickCalcPhone, setQuickCalcPhone,
-    quickCalcCustomerName, setQuickCalcCustomerName,
-    quickCalcPieceName, setQuickCalcPieceName,
-    quickCalcBatchQty, setQuickCalcBatchQty,
-    quickCalcMaterial, setQuickCalcMaterial, selectQuickMaterial,
-    quickMaterialUsages, setQuickMaterialUsages,
-    quickCalcMaterialReserve, setQuickCalcMaterialReserve,
-    quickCalcFailureRate, setQuickCalcFailureRate,
-    quickCalcMinPrice, setQuickCalcMinPrice,
-    quickCalcWholesaleMarkup, setQuickCalcWholesaleMarkup,
-    quickCalcRetailMarkup, setQuickCalcRetailMarkup,
+    quickProject,
+    setQuickProject,
+    quickProjectIssues,
+    setQuickProjectIssues,
+    quickProjectPricing,
+    quickCalcWeight,
+    setQuickCalcWeight,
+    quickCalcTime,
+    setQuickCalcTime,
+    quickCalcPhone,
+    setQuickCalcPhone,
+    quickCalcCustomerName,
+    setQuickCalcCustomerName,
+    quickCalcPieceName,
+    setQuickCalcPieceName,
+    quickCalcBatchQty,
+    setQuickCalcBatchQty,
+    quickCalcMaterial,
+    setQuickCalcMaterial,
+    selectQuickMaterial,
+    quickMaterialUsages,
+    setQuickMaterialUsages,
+    quickCalcMaterialReserve,
+    setQuickCalcMaterialReserve,
+    quickCalcFailureRate,
+    setQuickCalcFailureRate,
+    quickCalcMinPrice,
+    setQuickCalcMinPrice,
+    quickCalcWholesaleMarkup,
+    setQuickCalcWholesaleMarkup,
+    quickCalcRetailMarkup,
+    setQuickCalcRetailMarkup,
     quickMachine,
     quickCalcResult,
     quickMachineBreak,
     handleSendQuickWhatsAppQuote,
-    quickCalcImageUrl, setQuickCalcImageUrl,
-    quickCalcUploadingImage, quickCalcSaving,
-    handleUploadQuickImage, handleSaveQuickQuote,
+    quickCalcImageUrl,
+    setQuickCalcImageUrl,
+    quickCalcUploadingImage,
+    quickCalcSaving,
+    handleUploadQuickImage,
+    handleSaveQuickQuote,
   };
 }

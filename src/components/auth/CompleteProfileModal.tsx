@@ -84,7 +84,9 @@ export default function CompleteProfileModal({ onDismiss }: Props) {
           />
         )}
 
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-1">Bem-vindo(a)</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-1">
+          Bem-vindo(a)
+        </p>
         <h2 className="text-2xl sm:text-3xl font-display font-black italic tracking-tight mb-2">
           Complete seu perfil
         </h2>

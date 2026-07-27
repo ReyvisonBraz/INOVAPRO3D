@@ -59,9 +59,12 @@ export default function CookieConsent() {
                 <Cookie className="h-4 w-4" />
               </div>
               <p className="text-xs leading-relaxed text-white/55">
-                Usamos cookies para melhorar sua experiência e entender como o site é
-                usado. Você pode aceitar ou recusar.{" "}
-                <Link to="/conhecimento#privacidade" className="font-semibold text-primary hover:underline">
+                Usamos cookies para melhorar sua experiência e entender como o site é usado. Você
+                pode aceitar ou recusar.{" "}
+                <Link
+                  to="/conhecimento#privacidade"
+                  className="font-semibold text-primary hover:underline"
+                >
                   Política de Privacidade
                 </Link>
                 .

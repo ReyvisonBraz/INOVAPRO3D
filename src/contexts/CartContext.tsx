@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- Provider + hook no mesmo módulo é o padrão idiomático deste projeto (não afeta runtime, só Fast Refresh). */
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import type { CartItem } from '../types/domain';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import type { CartItem } from "../types/domain";
 
 interface CartContextType {
   items: CartItem[];
@@ -12,27 +12,28 @@ interface CartContextType {
 }
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
-const CART_STORAGE_KEY = 'inovapro3d_cart';
+// v2 descarta carrinhos antigos que embutiam material escolhido e preço multiplicado.
+const CART_STORAGE_KEY = "inovapro3d_cart_v2";
 const MAX_QUANTITY = 99;
 
 function isCartItem(value: unknown): value is CartItem {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== "object") return false;
 
   const item = value as Partial<CartItem>;
   return (
-    typeof item.id === 'string' &&
-    typeof item.name === 'string' &&
-    typeof item.price === 'number' &&
+    typeof item.id === "string" &&
+    typeof item.name === "string" &&
+    typeof item.price === "number" &&
     Number.isFinite(item.price) &&
-    typeof item.quantity === 'number' &&
+    typeof item.quantity === "number" &&
     Number.isInteger(item.quantity) &&
     item.quantity > 0 &&
-    (item.type === 'PRODUCT' || item.type === 'QUOTE')
+    (item.type === "PRODUCT" || item.type === "QUOTE")
   );
 }
 
 function readStoredCart(): CartItem[] {
-  if (typeof window === 'undefined') return [];
+  if (typeof window === "undefined") return [];
 
   try {
     const storedCart = window.localStorage.getItem(CART_STORAGE_KEY);
@@ -51,7 +52,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>(readStoredCart);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
 
     try {
       window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
@@ -63,13 +64,13 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem = (item: CartItem) => {
     if (!isCartItem(item)) return;
 
-    setItems(prev => {
-      const existing = prev.find(i => i.id === item.id);
+    setItems((prev) => {
+      const existing = prev.find((i) => i.id === item.id);
       if (existing) {
-        return prev.map(i =>
+        return prev.map((i) =>
           i.id === item.id
             ? { ...i, quantity: Math.min(MAX_QUANTITY, i.quantity + item.quantity) }
-            : i
+            : i,
         );
       }
       return [...prev, { ...item, quantity: Math.min(MAX_QUANTITY, item.quantity) }];
@@ -77,16 +78,16 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   };
 
   const removeItem = (id: string) => {
-    setItems(prev => prev.filter(i => i.id !== id));
+    setItems((prev) => prev.filter((i) => i.id !== id));
   };
 
   const updateQuantity = (id: string, delta: number) => {
-    setItems(prev =>
-      prev.map(i =>
+    setItems((prev) =>
+      prev.map((i) =>
         i.id === id
           ? { ...i, quantity: Math.min(MAX_QUANTITY, Math.max(1, i.quantity + delta)) }
-          : i
-      )
+          : i,
+      ),
     );
   };
 
@@ -104,7 +105,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 export function useCart() {
   const context = useContext(CartContext);
   if (context === undefined) {
-    throw new Error('useCart must be used within a CartProvider');
+    throw new Error("useCart must be used within a CartProvider");
   }
   return context;
 }

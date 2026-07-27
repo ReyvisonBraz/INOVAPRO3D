@@ -62,7 +62,9 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                   <div className="w-14 h-14 rounded-2xl bg-white/[0.04] border border-white/[0.06] flex items-center justify-center mb-4">
                     <ShoppingBag className="w-6 h-6 text-dim" />
                   </div>
-                  <p className="text-sm font-black uppercase tracking-widest text-secondary">Carrinho vazio</p>
+                  <p className="text-sm font-black uppercase tracking-widest text-secondary">
+                    Carrinho vazio
+                  </p>
                   <p className="mt-2 text-xs text-dim max-w-[200px] leading-relaxed">
                     Escolha um produto no catálogo para começar.
                   </p>
@@ -80,7 +82,11 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
                     {/* Thumbnail */}
                     <div className="w-16 h-16 rounded-xl overflow-hidden bg-white/[0.04] border border-white/[0.06] shrink-0">
                       {item.image ? (
-                        <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <ShoppingBag className="w-5 h-5 text-dim" />
@@ -147,7 +153,9 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
             {/* Footer */}
             <div className="px-4 py-4 border-t border-white/[0.07] bg-white/[0.01] space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-xs text-white/40 font-bold uppercase tracking-widest">Total</span>
+                <span className="text-xs text-white/40 font-bold uppercase tracking-widest">
+                  Total
+                </span>
                 <span className="text-2xl font-black font-mono">{brl(total)}</span>
               </div>
               <p className="text-xs leading-relaxed text-secondary font-medium">
@@ -156,7 +164,10 @@ export function CartSheet({ isOpen, onClose }: CartSheetProps) {
               <Button
                 className="w-full h-12 rounded-2xl gap-2 text-[11px] font-black uppercase tracking-widest group"
                 disabled={items.length === 0}
-                onClick={() => { onClose(); navigate("/checkout"); }}
+                onClick={() => {
+                  onClose();
+                  navigate("/checkout");
+                }}
               >
                 Finalizar pedido
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

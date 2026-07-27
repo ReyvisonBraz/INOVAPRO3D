@@ -1,6 +1,13 @@
 import React, { Suspense, lazy, useEffect, useState } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigationType,
+} from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import { HelmetProvider } from "react-helmet-async";
 import { Navbar } from "./components/layout/Navbar";
 import { Footer } from "./components/layout/Footer";
@@ -44,28 +51,21 @@ function RouteLoader() {
 
 function PageWrapper({ children }: { children: React.ReactNode }) {
   const location = useLocation();
+  const navigationType = useNavigationType();
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, [location.pathname]);
+    // Em retornos pelo histórico, deixe o navegador restaurar a posição anterior.
+    // Navegações novas continuam começando no topo.
+    if (navigationType !== "POP") {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [location.pathname, navigationType]);
 
   useEffect(() => {
     trackPageView(location.pathname + location.search);
   }, [location.pathname, location.search]);
 
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={location.pathname}
-        initial={{ opacity: 0, scale: 0.98 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 1.02 }}
-        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
-  );
+  return <div>{children}</div>;
 }
 
 export default function App() {
@@ -102,7 +102,11 @@ function WelcomeGate() {
   useEffect(() => {
     if (activeStep !== "welcome" || loading || open) return;
     let welcomed = false;
-    try { welcomed = Boolean(localStorage.getItem(WELCOME_KEY)); } catch { /* modo privado */ }
+    try {
+      welcomed = Boolean(localStorage.getItem(WELCOME_KEY));
+    } catch {
+      /* modo privado */
+    }
     if (!user && !isAdminPage && !welcomed) {
       setOpen(true);
     } else {
@@ -111,7 +115,11 @@ function WelcomeGate() {
   }, [activeStep, loading, open, user, isAdminPage, advance]);
 
   const handleClose = () => {
-    try { localStorage.setItem(WELCOME_KEY, "1"); } catch { /* modo privado */ }
+    try {
+      localStorage.setItem(WELCOME_KEY, "1");
+    } catch {
+      /* modo privado */
+    }
     setOpen(false);
     advance();
   };
@@ -134,7 +142,7 @@ function InstallGate() {
 
 function RouterContent() {
   const location = useLocation();
-  const isAdminPage = location.pathname.startsWith('/admin');
+  const isAdminPage = location.pathname.startsWith("/admin");
   const { theme } = useTheme();
 
   return (
@@ -159,47 +167,97 @@ function RouterContent() {
 
           <main className="relative">
             <ErrorBoundary>
-            <Suspense fallback={<RouteLoader />}>
-              <Routes>
-                <Route path="/" element={<PageWrapper><Home /></PageWrapper>} />
-                <Route path="/catalogo" element={<PageWrapper><Catalog /></PageWrapper>} />
-                <Route path="/produto/:id" element={<PageWrapper><ProductDetail /></PageWrapper>} />
-                <Route
-                  path="/calculadora"
-                  element={
-                    <ProtectedRoute requireAdmin>
-                      <PageWrapper><FilamentCalculator /></PageWrapper>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/upload" element={<Navigate to="/catalogo" replace />} />
-                <Route
-                  path="/checkout"
-                  element={
-                    <PageWrapper><Checkout /></PageWrapper>
-                  }
-                />
-                <Route
-                  path="/meus-pedidos"
-                  element={
-                    <ProtectedRoute>
-                      <PageWrapper><MyOrders /></PageWrapper>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route
-                  path="/admin"
-                  element={
-                    <ProtectedRoute requireAdmin>
-                      <PageWrapper><AdminDashboard /></PageWrapper>
-                    </ProtectedRoute>
-                  }
-                />
-                <Route path="/conhecimento" element={<PageWrapper><Knowledge /></PageWrapper>} />
-                <Route path="/sobre" element={<PageWrapper><About /></PageWrapper>} />
-                <Route path="*" element={<PageWrapper><NotFound /></PageWrapper>} />
-              </Routes>
-            </Suspense>
+              <Suspense fallback={<RouteLoader />}>
+                <Routes>
+                  <Route
+                    path="/"
+                    element={
+                      <PageWrapper>
+                        <Home />
+                      </PageWrapper>
+                    }
+                  />
+                  <Route
+                    path="/catalogo"
+                    element={
+                      <PageWrapper>
+                        <Catalog />
+                      </PageWrapper>
+                    }
+                  />
+                  <Route
+                    path="/produto/:id"
+                    element={
+                      <PageWrapper>
+                        <ProductDetail />
+                      </PageWrapper>
+                    }
+                  />
+                  <Route
+                    path="/calculadora"
+                    element={
+                      <ProtectedRoute requireAdmin>
+                        <PageWrapper>
+                          <FilamentCalculator />
+                        </PageWrapper>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route path="/upload" element={<Navigate to="/catalogo" replace />} />
+                  <Route
+                    path="/checkout"
+                    element={
+                      <PageWrapper>
+                        <Checkout />
+                      </PageWrapper>
+                    }
+                  />
+                  <Route
+                    path="/meus-pedidos"
+                    element={
+                      <ProtectedRoute>
+                        <PageWrapper>
+                          <MyOrders />
+                        </PageWrapper>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin"
+                    element={
+                      <ProtectedRoute requireAdmin>
+                        <PageWrapper>
+                          <AdminDashboard />
+                        </PageWrapper>
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/conhecimento"
+                    element={
+                      <PageWrapper>
+                        <Knowledge />
+                      </PageWrapper>
+                    }
+                  />
+                  <Route
+                    path="/sobre"
+                    element={
+                      <PageWrapper>
+                        <About />
+                      </PageWrapper>
+                    }
+                  />
+                  <Route
+                    path="*"
+                    element={
+                      <PageWrapper>
+                        <NotFound />
+                      </PageWrapper>
+                    }
+                  />
+                </Routes>
+              </Suspense>
             </ErrorBoundary>
           </main>
 
@@ -210,7 +268,12 @@ function RouterContent() {
           )}
 
           {!isAdminPage && <FloatingSupport />}
-          <Toaster position="bottom-center" richColors theme={theme} toastOptions={{ duration: 2800 }} />
+          <Toaster
+            position="bottom-center"
+            richColors
+            theme={theme}
+            toastOptions={{ duration: 2800 }}
+          />
           <ProfileModalGate />
           <OnboardingProvider>
             <WelcomeGate />

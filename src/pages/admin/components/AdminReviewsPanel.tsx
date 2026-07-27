@@ -33,11 +33,26 @@ function secondsOf(d?: Review["createdAt"]): number {
   return d && typeof d === "object" && "seconds" in d ? (d as { seconds: number }).seconds : 0;
 }
 function fmtDate(sec: number): string {
-  return sec ? new Date(sec * 1000).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  return sec
+    ? new Date(sec * 1000).toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
 }
 
-function StatCard({ label, value, tone }: { label: string; value: string | number; tone?: "danger" | "warn" | "muted" }) {
-  const color = tone === "danger" ? "text-red-400" : tone === "warn" ? "text-amber-400" : "text-white";
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string | number;
+  tone?: "danger" | "warn" | "muted";
+}) {
+  const color =
+    tone === "danger" ? "text-red-400" : tone === "warn" ? "text-amber-400" : "text-white";
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">{label}</p>
@@ -47,10 +62,18 @@ function StatCard({ label, value, tone }: { label: string; value: string | numbe
 }
 
 const AdminReviewsPanel = memo(function AdminReviewsPanel() {
-  const { data: reviews, setData: setReviews, loading, refetch } = useFirestoreCollection<Review>("reviews", {
+  const {
+    data: reviews,
+    setData: setReviews,
+    loading,
+    refetch,
+  } = useFirestoreCollection<Review>("reviews", {
     constraints: [orderBy("createdAt", "desc"), limit(500)],
   });
-  const { data: reports, setData: setReports } = useFirestoreCollection<ReviewReport>("reviewReports", { silent: true });
+  const { data: reports, setData: setReports } = useFirestoreCollection<ReviewReport>(
+    "reviewReports",
+    { silent: true },
+  );
   const { data: votes } = useFirestoreCollection<ReviewVote>("reviewVotes", { silent: true });
 
   const [filter, setFilter] = useState<FilterId>("reported");
@@ -78,7 +101,9 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
   const stats = useMemo(() => {
     const reported = reviews.filter((r) => (reportCount.get(r.id) ?? 0) > 0).length;
     const hidden = reviews.filter((r) => r.hidden).length;
-    const avg = reviews.length ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length : 0;
+    const avg = reviews.length
+      ? reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.length
+      : 0;
     return { total: reviews.length, reported, hidden, avg };
   }, [reviews, reportCount]);
 
@@ -88,7 +113,9 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
       if (filter === "reported" && (reportCount.get(r.id) ?? 0) === 0) return false;
       if (filter === "hidden" && !r.hidden) return false;
       if (!term) return true;
-      return [r.comment, r.userName, r.productId].filter(Boolean).some((v) => String(v).toLowerCase().includes(term));
+      return [r.comment, r.userName, r.productId]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(term));
     });
     // denunciadas primeiro, depois mais recentes
     return list.sort((a, b) => {
@@ -128,7 +155,9 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
     try {
       await deleteDoc(doc(db, "reviews", r.id));
       const toDelete = reports.filter((rp) => rp.reviewId === r.id);
-      await Promise.all(toDelete.map((rp) => deleteDoc(doc(db, "reviewReports", rp.id)).catch(() => {})));
+      await Promise.all(
+        toDelete.map((rp) => deleteDoc(doc(db, "reviewReports", rp.id)).catch(() => {})),
+      );
       setReviews((prev) => prev.filter((x) => x.id !== r.id));
       setReports((prev) => prev.filter((rp) => rp.reviewId !== r.id));
       toast.success("Avaliação excluída.");
@@ -141,7 +170,12 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
   };
 
   return (
-    <motion.div key="reviews" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+    <motion.div
+      key="reviews"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-5"
+    >
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Total" value={stats.total} tone="muted" />
         <StatCard label="Denunciadas" value={stats.reported} tone="danger" />
@@ -152,14 +186,17 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((f) => {
-            const c = f.id === "reported" ? stats.reported : f.id === "hidden" ? stats.hidden : stats.total;
+            const c =
+              f.id === "reported" ? stats.reported : f.id === "hidden" ? stats.hidden : stats.total;
             return (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
                 className={cn(
                   "rounded-xl px-3 py-2 text-[11px] font-bold transition-colors",
-                  filter === f.id ? "bg-white/[0.08] text-white" : "text-white/45 hover:text-white hover:bg-white/[0.04]",
+                  filter === f.id
+                    ? "bg-white/[0.08] text-white"
+                    : "text-white/45 hover:text-white hover:bg-white/[0.04]",
                 )}
               >
                 {f.label} <span className="ml-1 text-white/30 tabular-nums">{c}</span>
@@ -188,12 +225,16 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
       </div>
 
       {loading ? (
-        <div className="py-20 text-center"><RefreshCw className="w-6 h-6 text-primary animate-spin mx-auto" /></div>
+        <div className="py-20 text-center">
+          <RefreshCw className="w-6 h-6 text-primary animate-spin mx-auto" />
+        </div>
       ) : filtered.length === 0 ? (
         <div className="py-20 text-center">
           <Inbox className="w-10 h-10 text-white/15 mx-auto mb-3" />
           <p className="text-sm font-bold text-white/40">
-            {filter === "reported" ? "Nenhuma avaliação denunciada. 🎉" : "Nenhuma avaliação neste filtro."}
+            {filter === "reported"
+              ? "Nenhuma avaliação denunciada. 🎉"
+              : "Nenhuma avaliação neste filtro."}
           </p>
         </div>
       ) : (
@@ -207,7 +248,11 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
                 key={r.id}
                 className={cn(
                   "rounded-2xl border p-4",
-                  nReports > 0 ? "border-red-400/25 bg-red-400/[0.04]" : r.hidden ? "border-white/[0.05] bg-white/[0.01] opacity-70" : "border-white/[0.08] bg-white/[0.02]",
+                  nReports > 0
+                    ? "border-red-400/25 bg-red-400/[0.04]"
+                    : r.hidden
+                      ? "border-white/[0.05] bg-white/[0.01] opacity-70"
+                      : "border-white/[0.08] bg-white/[0.02]",
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -216,24 +261,37 @@ const AdminReviewsPanel = memo(function AdminReviewsPanel() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-bold text-white/90 truncate">{r.userName || "Cliente"}</span>
+                      <span className="text-sm font-bold text-white/90 truncate">
+                        {r.userName || "Cliente"}
+                      </span>
                       <Stars value={r.rating} size="w-3 h-3" />
                       <span className="text-[10px] text-white/30">{fmtDate(sec)}</span>
                       {r.hidden && (
-                        <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/50">Oculta</span>
+                        <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white/50">
+                          Oculta
+                        </span>
                       )}
                       {nReports > 0 && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-300">
-                          <Flag className="w-2.5 h-2.5" /> {nReports} denúncia{nReports > 1 ? "s" : ""}
+                          <Flag className="w-2.5 h-2.5" /> {nReports} denúncia
+                          {nReports > 1 ? "s" : ""}
                         </span>
                       )}
                     </div>
 
-                    {r.comment && <p className="mt-2 text-sm leading-relaxed text-white/60 break-words">{r.comment}</p>}
+                    {r.comment && (
+                      <p className="mt-2 text-sm leading-relaxed text-white/60 break-words">
+                        {r.comment}
+                      </p>
+                    )}
 
                     <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] text-white/35">
-                      <span className="inline-flex items-center gap-1"><ThumbsUp className="w-3 h-3" /> {va.up}</span>
-                      <span className="inline-flex items-center gap-1"><ThumbsDown className="w-3 h-3" /> {va.down}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <ThumbsUp className="w-3 h-3" /> {va.up}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <ThumbsDown className="w-3 h-3" /> {va.down}
+                      </span>
                       <a
                         href={`/produto/${r.productId}`}
                         target="_blank"

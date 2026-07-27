@@ -45,7 +45,7 @@ export function useFirestoreCollection<T extends { id: string }>(
       const base = collection(db, path);
       const q = constraints?.length ? query(base, ...constraints) : base;
       const snap = await getDocs(q);
-      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() } as T));
+      let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
       if (transform) items = transform(items);
       setData(items);
     } catch (err) {

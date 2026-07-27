@@ -2,25 +2,37 @@ import React, { forwardRef } from "react";
 import { cn } from "@/src/lib/utils";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'outline' | 'glass' | 'ghost';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "outline" | "glass" | "ghost";
+  size?: "sm" | "md" | "lg";
   isShimmer?: boolean;
   loading?: boolean;
 }
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant = 'primary', size = 'md', isShimmer = false, loading = false, children, disabled, ...props }, ref) => {
+  (
+    {
+      className,
+      variant = "primary",
+      size = "md",
+      isShimmer = false,
+      loading = false,
+      children,
+      disabled,
+      ...props
+    },
+    ref,
+  ) => {
     const variants = {
       primary: "bg-primary text-white hover:bg-primary-dark shadow-[0_0_20px_rgba(37,99,235,0.2)]",
       outline: "border border-white/20 hover:bg-white/5",
       glass: "glass hover:bg-white/10",
-      ghost: "hover:bg-white/5 text-white/70 hover:text-white"
+      ghost: "hover:bg-white/5 text-white/70 hover:text-white",
     };
 
     const sizes = {
       sm: "px-3 py-1.5 text-xs",
       md: "px-6 py-2.5 text-sm",
-      lg: "px-8 py-4 text-base"
+      lg: "px-8 py-4 text-base",
     };
 
     return (
@@ -31,7 +43,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
           "relative inline-flex items-center justify-center rounded-full font-bold transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none overflow-hidden",
           variants[variant],
           sizes[size],
-          className
+          className,
         )}
         {...props}
       >
@@ -49,7 +61,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
       </button>
     );
-  }
+  },
 );
 
 Button.displayName = "Button";

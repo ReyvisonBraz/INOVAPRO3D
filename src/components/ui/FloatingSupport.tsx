@@ -9,10 +9,12 @@ export default function FloatingSupport() {
   const [isOpen, setIsOpen] = useState(false);
   const { pathname } = useLocation();
   // Pages with a sticky bottom bar need extra vertical offset
-  const hasStickyBar = ["/checkout", "/produto/"].some(p => pathname.startsWith(p));
+  const hasStickyBar = ["/checkout", "/produto/"].some((p) => pathname.startsWith(p));
 
   return (
-    <div className={`fixed right-4 z-[100] transition-all duration-300 ${hasStickyBar ? "bottom-20 sm:bottom-24" : "bottom-4 sm:bottom-6"}`}>
+    <div
+      className={`fixed right-4 z-[100] transition-all duration-300 ${hasStickyBar ? "bottom-20 sm:bottom-24" : "bottom-4 sm:bottom-6"}`}
+    >
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -22,7 +24,9 @@ export default function FloatingSupport() {
             className="absolute bottom-14 right-0 w-60 sm:w-72 bg-[#0b0c15] rounded-[24px] p-5 border border-white/15 shadow-2xl shadow-black/60 overflow-hidden"
           >
             <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
-            <h4 className="text-sm font-black uppercase tracking-widest mb-5">Central de Atendimento</h4>
+            <h4 className="text-sm font-black uppercase tracking-widest mb-5">
+              Central de Atendimento
+            </h4>
 
             <div className="space-y-3">
               <a
@@ -33,7 +37,9 @@ export default function FloatingSupport() {
               >
                 <div className="flex items-center gap-3">
                   <MessageCircle className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">WhatsApp Direto</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    WhatsApp Direto
+                  </span>
                 </div>
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </a>
@@ -44,7 +50,9 @@ export default function FloatingSupport() {
               >
                 <div className="flex items-center gap-3">
                   <Mail className="w-4 h-4" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">E-mail Técnico</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    E-mail Técnico
+                  </span>
                 </div>
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </a>
@@ -55,7 +63,9 @@ export default function FloatingSupport() {
               >
                 <div className="flex items-center gap-3">
                   <HelpCircle className="w-4 h-4 text-white/30" />
-                  <span className="text-[10px] font-black uppercase tracking-widest">FAQ / Ajuda</span>
+                  <span className="text-[10px] font-black uppercase tracking-widest">
+                    FAQ / Ajuda
+                  </span>
                 </div>
                 <ArrowUpRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
               </a>
@@ -63,8 +73,14 @@ export default function FloatingSupport() {
 
             {/* Siga a gente — destaque das redes */}
             <div className="mt-5 pt-4 border-t border-white/10">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-3">Siga a gente</p>
-              <SocialLinks showWhatsapp={false} itemClassName="h-9 w-9" iconClassName="w-3.5 h-3.5" />
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 mb-3">
+                Siga a gente
+              </p>
+              <SocialLinks
+                showWhatsapp={false}
+                itemClassName="h-9 w-9"
+                iconClassName="w-3.5 h-3.5"
+              />
             </div>
           </motion.div>
         )}
@@ -75,7 +91,7 @@ export default function FloatingSupport() {
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
         className={`w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 border border-white/10 backdrop-blur-xl ${
-          isOpen ? 'bg-white text-surface' : 'bg-primary text-white'
+          isOpen ? "bg-white text-surface" : "bg-primary text-white"
         }`}
       >
         <AnimatePresence mode="wait">

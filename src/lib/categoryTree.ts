@@ -6,7 +6,7 @@ export interface CategoryTreeNode {
 }
 
 export function buildCategoryTree(categories: Category[]): CategoryTreeNode[] {
-  const active = categories.filter(c => c.active !== false);
+  const active = categories.filter((c) => c.active !== false);
   const byParent = new Map<string | null, Category[]>();
 
   for (const cat of active) {
@@ -19,7 +19,7 @@ export function buildCategoryTree(categories: Category[]): CategoryTreeNode[] {
     [...list].sort((a, b) => (a.order ?? 999) - (b.order ?? 999));
 
   const build = (parentId: string | null): CategoryTreeNode[] =>
-    sortByOrder(byParent.get(parentId) ?? []).map(cat => ({
+    sortByOrder(byParent.get(parentId) ?? []).map((cat) => ({
       category: cat,
       children: build(cat.id),
     }));
@@ -28,7 +28,7 @@ export function buildCategoryTree(categories: Category[]): CategoryTreeNode[] {
 }
 
 export function getCategoryPath(categories: Category[], categoryId: string): Category[] {
-  const map = new Map(categories.map(c => [c.id, c]));
+  const map = new Map(categories.map((c) => [c.id, c]));
   const path: Category[] = [];
   let current: Category | undefined = map.get(categoryId);
   while (current) {
@@ -46,12 +46,12 @@ export function getAllDescendantIds(categories: Category[], categoryId: string):
     map.get(key)!.push(cat);
   }
   const ids: string[] = [categoryId];
-  const stack = map.get(categoryId)?.map(c => c.id) ?? [];
+  const stack = map.get(categoryId)?.map((c) => c.id) ?? [];
   while (stack.length) {
     const id = stack.pop()!;
     ids.push(id);
     const children = map.get(id) ?? [];
-    stack.push(...children.map(c => c.id));
+    stack.push(...children.map((c) => c.id));
   }
   return ids;
 }

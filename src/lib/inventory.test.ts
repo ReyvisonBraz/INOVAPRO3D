@@ -13,10 +13,12 @@ describe("inventory", () => {
   });
 
   it("ignora consumos invalidos", () => {
-    expect(aggregateMaterialUsages([
-      { materialId: "pla", estimatedGrams: -2 },
-      { materialId: "", estimatedGrams: 10 },
-    ]).size).toBe(0);
+    expect(
+      aggregateMaterialUsages([
+        { materialId: "pla", estimatedGrams: -2 },
+        { materialId: "", estimatedGrams: 10 },
+      ]).size,
+    ).toBe(0);
   });
 
   it("ignora filamentos manuais sem vinculo com o estoque", () => {

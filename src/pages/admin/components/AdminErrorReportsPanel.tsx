@@ -48,9 +48,23 @@ function timeAgo(seconds: number): string {
   return `há ${d}d`;
 }
 
-function StatCard({ label, value, tone }: { label: string; value: number; tone?: "danger" | "warn" | "ok" | "muted" }) {
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "danger" | "warn" | "ok" | "muted";
+}) {
   const color =
-    tone === "danger" ? "text-red-400" : tone === "warn" ? "text-amber-400" : tone === "ok" ? "text-green-400" : "text-white";
+    tone === "danger"
+      ? "text-red-400"
+      : tone === "warn"
+        ? "text-amber-400"
+        : tone === "ok"
+          ? "text-green-400"
+          : "text-white";
   return (
     <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/35">{label}</p>
@@ -60,9 +74,12 @@ function StatCard({ label, value, tone }: { label: string; value: number; tone?:
 }
 
 const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
-  const { data, setData, loading, error, refetch } = useFirestoreCollection<ErrorReport>("errorReports", {
-    constraints: [orderBy("createdAt", "desc"), limit(300)],
-  });
+  const { data, setData, loading, error, refetch } = useFirestoreCollection<ErrorReport>(
+    "errorReports",
+    {
+      constraints: [orderBy("createdAt", "desc"), limit(300)],
+    },
+  );
 
   const [filter, setFilter] = useState<FilterId>("open");
   const [search, setSearch] = useState("");
@@ -100,7 +117,10 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
   const toggleResolved = async (r: ErrorReport) => {
     setBusyId(r.id);
     try {
-      await updateDoc(doc(db, "errorReports", r.id), { resolved: !r.resolved, updatedAt: serverTimestamp() });
+      await updateDoc(doc(db, "errorReports", r.id), {
+        resolved: !r.resolved,
+        updatedAt: serverTimestamp(),
+      });
       setData((prev) => prev.map((x) => (x.id === r.id ? { ...x, resolved: !r.resolved } : x)));
       toast.success(!r.resolved ? "Marcado como resolvido." : "Reaberto.");
     } catch {
@@ -148,7 +168,12 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
   };
 
   return (
-    <motion.div key="error-reports" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+    <motion.div
+      key="error-reports"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="space-y-5"
+    >
       {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Total" value={stats.total} tone="muted" />
@@ -162,14 +187,22 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
         <div className="flex flex-wrap gap-1.5">
           {FILTERS.map((f) => {
             const count =
-              f.id === "open" ? stats.open : f.id === "reported" ? stats.reported : f.id === "resolved" ? data.filter((r) => r.resolved).length : stats.total;
+              f.id === "open"
+                ? stats.open
+                : f.id === "reported"
+                  ? stats.reported
+                  : f.id === "resolved"
+                    ? data.filter((r) => r.resolved).length
+                    : stats.total;
             return (
               <button
                 key={f.id}
                 onClick={() => setFilter(f.id)}
                 className={cn(
                   "rounded-xl px-3 py-2 text-[11px] font-bold transition-colors",
-                  filter === f.id ? "bg-white/[0.08] text-white" : "text-white/45 hover:text-white hover:bg-white/[0.04]",
+                  filter === f.id
+                    ? "bg-white/[0.08] text-white"
+                    : "text-white/45 hover:text-white hover:bg-white/[0.04]",
                 )}
               >
                 {f.label} <span className="ml-1 text-white/30 tabular-nums">{count}</span>
@@ -203,7 +236,8 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
           <AlertTriangle className="w-6 h-6 text-red-400 mx-auto mb-2" />
           <p className="text-sm font-bold text-red-300">Não foi possível carregar os relatos.</p>
           <p className="text-xs text-white/40 mt-1">
-            Confirme que as regras do Firestore foram publicadas (a coleção <code>errorReports</code> exige admin).
+            Confirme que as regras do Firestore foram publicadas (a coleção{" "}
+            <code>errorReports</code> exige admin).
           </p>
         </div>
       ) : loading ? (
@@ -259,7 +293,10 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
                           <CheckCircle2 className="w-2.5 h-2.5" /> Resolvido
                         </span>
                       )}
-                      <span className="ml-auto flex items-center gap-1 text-[10px] text-white/30 tabular-nums" title={sec ? new Date(sec * 1000).toLocaleString("pt-BR") : ""}>
+                      <span
+                        className="ml-auto flex items-center gap-1 text-[10px] text-white/30 tabular-nums"
+                        title={sec ? new Date(sec * 1000).toLocaleString("pt-BR") : ""}
+                      >
                         <Clock className="w-3 h-3" /> {timeAgo(sec)}
                       </span>
                     </div>
@@ -292,7 +329,9 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
                         className="mt-2 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-white/30 hover:text-white/60 transition-colors"
                       >
                         Detalhes técnicos
-                        <ChevronDown className={cn("w-3 h-3 transition-transform", isOpen && "rotate-180")} />
+                        <ChevronDown
+                          className={cn("w-3 h-3 transition-transform", isOpen && "rotate-180")}
+                        />
                       </button>
                     )}
                     {isOpen && r.stack && (
@@ -314,7 +353,11 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
                             : "bg-green-500/15 text-green-300 border border-green-500/20 hover:bg-green-500/25",
                         )}
                       >
-                        {r.resolved ? <RotateCcw className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}
+                        {r.resolved ? (
+                          <RotateCcw className="w-3 h-3" />
+                        ) : (
+                          <CheckCircle2 className="w-3 h-3" />
+                        )}
                         {r.resolved ? "Reabrir" : "Resolver"}
                       </button>
 
@@ -322,7 +365,11 @@ const AdminErrorReportsPanel = memo(function AdminErrorReportsPanel() {
                         onClick={() => copyDetails(r)}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 px-2.5 py-1.5 text-[10px] font-bold uppercase tracking-wide text-white/50 hover:text-white hover:bg-white/[0.05] transition-all"
                       >
-                        {copiedId === r.id ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
+                        {copiedId === r.id ? (
+                          <Check className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
                         {copiedId === r.id ? "Copiado" : "Copiar"}
                       </button>
 

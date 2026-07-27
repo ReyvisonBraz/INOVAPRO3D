@@ -5,14 +5,27 @@ import { createServer as createViteServer } from "vite";
 import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts";
 import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./api/firebaseAdmin.ts";
 import { buildErrorReport } from "./api/_reportError.ts";
-import { buildSitemapXml, siteBaseUrl, SITEMAP_STATIC_PATHS, type SitemapUrl } from "./api/_sitemap.ts";
+import {
+  buildSitemapXml,
+  siteBaseUrl,
+  SITEMAP_STATIC_PATHS,
+  type SitemapUrl,
+} from "./api/_sitemap.ts";
 import { sendEmail } from "./api/_email.ts";
 import { orderConfirmationEmail } from "./api/_emailTemplates.ts";
-import { computeOrderTotal, type OrderLineInput, type ProductRecord, type MaterialRecord } from "./api/_orderPricing.ts";
+import {
+  computeOrderTotal,
+  type OrderLineInput,
+  type ProductRecord,
+  type MaterialRecord,
+} from "./api/_orderPricing.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
-const IMAGE_PROXY_EXTRA_HOSTS = (process.env.IMAGE_PROXY_ALLOWED_HOSTS || "bblmw.com,bblmw.cn,thingiverse.com,printables.com,prusa3d.com,cults3d.com,myminifactory.com")
+const IMAGE_PROXY_EXTRA_HOSTS = (
+  process.env.IMAGE_PROXY_ALLOWED_HOSTS ||
+  "bblmw.com,bblmw.cn,thingiverse.com,printables.com,prusa3d.com,cults3d.com,myminifactory.com"
+)
   .split(",")
   .map((h) => h.trim().toLowerCase())
   .filter(Boolean);
@@ -20,7 +33,9 @@ const IMAGE_PROXY_EXTRA_HOSTS = (process.env.IMAGE_PROXY_ALLOWED_HOSTS || "bblmw
 function isAllowedImageHost(hostname: string): boolean {
   const host = hostname.toLowerCase();
   if (isAllowedImportHost(host)) return true;
-  return IMAGE_PROXY_EXTRA_HOSTS.some((allowed) => host === allowed || host.endsWith(`.${allowed}`));
+  return IMAGE_PROXY_EXTRA_HOSTS.some(
+    (allowed) => host === allowed || host.endsWith(`.${allowed}`),
+  );
 }
 
 // ── Simple in-memory rate limiter (per IP per route) ───────────────────────
@@ -51,18 +66,20 @@ async function sendTelegram(message: string): Promise<void> {
   if (!token || !chatId) return;
   try {
     await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: 'HTML' }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: message, parse_mode: "HTML" }),
     });
-  } catch { /* silent — notification failure must never break the order flow */ }
+  } catch {
+    /* silent — notification failure must never break the order flow */
+  }
 }
 
 // ── Firebase token verification middleware ─────────────────────────────────
 async function verifyToken(req: express.Request): Promise<string | null> {
-  if (!isAdminSdkConfigured()) return 'unchecked'; // dev fallback — not enforced
+  if (!isAdminSdkConfigured()) return "unchecked"; // dev fallback — not enforced
   const header = req.headers.authorization;
-  if (!header?.startsWith('Bearer ')) return null;
+  if (!header?.startsWith("Bearer ")) return null;
   try {
     const decoded = await getAdminAuth().verifyIdToken(header.slice(7));
     return decoded.uid;
@@ -78,61 +95,87 @@ async function startServer() {
   // Stripe webhook needs raw body — register BEFORE express.json()
   const stripeSecret = process.env.STRIPE_SECRET_KEY;
   if (stripeSecret) {
-    const StripeLib = (await import('stripe')).default;
+    const StripeLib = (await import("stripe")).default;
     const stripe = new StripeLib(stripeSecret);
     const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
     // ── Create Payment Intent ──────────────────────────────────
     // Auth required. Amount is read server-side from the order document,
     // never trusted from the client body.
-    app.post('/api/stripe/create-payment-intent', rateLimit(10), express.json(), async (req, res) => {
-      const uid = await verifyToken(req);
-      if (!uid) { res.status(401).json({ error: 'Não autorizado.' }); return; }
-
-      const { orderId, customerEmail } = req.body as { orderId: string; customerEmail?: string };
-      if (!orderId) { res.status(400).json({ error: 'orderId é obrigatório' }); return; }
-
-      let amount: number;
-      try {
-        if (isAdminSdkConfigured()) {
-          const orderSnap = await getAdminDb().collection('orders').doc(orderId).get();
-          if (!orderSnap.exists) { res.status(404).json({ error: 'Pedido não encontrado.' }); return; }
-          const order = orderSnap.data()!;
-          // Ensure the caller owns the order (skip for dev unchecked)
-          if (uid !== 'unchecked' && order.userId !== uid) {
-            res.status(403).json({ error: 'Acesso negado.' }); return;
-          }
-          amount = Number(order.total);
-          if (!Number.isFinite(amount) || amount <= 0) {
-            res.status(400).json({ error: 'Total do pedido inválido.' }); return;
-          }
-        } else {
-          // Admin SDK not configured — fall back to client amount (dev only)
-          amount = Number(req.body.amount);
-          if (!amount) { res.status(400).json({ error: 'amount obrigatório (dev mode)' }); return; }
+    app.post(
+      "/api/stripe/create-payment-intent",
+      rateLimit(10),
+      express.json(),
+      async (req, res) => {
+        const uid = await verifyToken(req);
+        if (!uid) {
+          res.status(401).json({ error: "Não autorizado." });
+          return;
         }
-      } catch (err) {
-        res.status(500).json({ error: 'Erro ao verificar pedido.' }); return;
-      }
 
-      try {
-        const paymentIntent = await stripe.paymentIntents.create({
-          amount: Math.round(amount * 100),
-          currency: 'brl',
-          payment_method_types: ['card', 'pix'],
-          receipt_email: customerEmail,
-          metadata: { orderId, platform: 'inovapro3d' },
-        });
-        res.json({ clientSecret: paymentIntent.client_secret, paymentIntentId: paymentIntent.id });
-      } catch (err: unknown) {
-        res.status(400).json({ error: err instanceof Error ? err.message : 'Erro desconhecido' });
-      }
-    });
+        const { orderId, customerEmail } = req.body as { orderId: string; customerEmail?: string };
+        if (!orderId) {
+          res.status(400).json({ error: "orderId é obrigatório" });
+          return;
+        }
+
+        let amount: number;
+        try {
+          if (isAdminSdkConfigured()) {
+            const orderSnap = await getAdminDb().collection("orders").doc(orderId).get();
+            if (!orderSnap.exists) {
+              res.status(404).json({ error: "Pedido não encontrado." });
+              return;
+            }
+            const order = orderSnap.data()!;
+            // Ensure the caller owns the order (skip for dev unchecked)
+            if (uid !== "unchecked" && order.userId !== uid) {
+              res.status(403).json({ error: "Acesso negado." });
+              return;
+            }
+            amount = Number(order.total);
+            if (!Number.isFinite(amount) || amount <= 0) {
+              res.status(400).json({ error: "Total do pedido inválido." });
+              return;
+            }
+          } else {
+            // Admin SDK not configured — fall back to client amount (dev only)
+            amount = Number(req.body.amount);
+            if (!amount) {
+              res.status(400).json({ error: "amount obrigatório (dev mode)" });
+              return;
+            }
+          }
+        } catch (err) {
+          res.status(500).json({ error: "Erro ao verificar pedido." });
+          return;
+        }
+
+        try {
+          const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(amount * 100),
+            currency: "brl",
+            payment_method_types: ["card", "pix"],
+            receipt_email: customerEmail,
+            metadata: { orderId, platform: "inovapro3d" },
+          });
+          res.json({
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id,
+          });
+        } catch (err: unknown) {
+          res.status(400).json({ error: err instanceof Error ? err.message : "Erro desconhecido" });
+        }
+      },
+    );
 
     // ── Webhook ────────────────────────────────────────────────
-    app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-      if (!webhookSecret) { res.status(400).send('Webhook secret não configurado'); return; }
-      const sig = req.headers['stripe-signature'] as string;
+    app.post("/api/stripe/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+      if (!webhookSecret) {
+        res.status(400).send("Webhook secret não configurado");
+        return;
+      }
+      const sig = req.headers["stripe-signature"] as string;
       let event: ReturnType<typeof stripe.webhooks.constructEvent>;
       try {
         event = stripe.webhooks.constructEvent(req.body, sig, webhookSecret);
@@ -142,22 +185,24 @@ async function startServer() {
       }
       const obj = event.data.object as { metadata?: { orderId?: string }; amount?: number };
       const orderId = obj.metadata?.orderId;
-      if (event.type === 'payment_intent.succeeded' && orderId) {
-        const amountBRL = obj.amount ? (obj.amount / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) : '?';
+      if (event.type === "payment_intent.succeeded" && orderId) {
+        const amountBRL = obj.amount
+          ? (obj.amount / 100).toLocaleString("pt-BR", { minimumFractionDigits: 2 })
+          : "?";
         // Mark order PAID in Firestore (Admin SDK bypasses security rules)
         try {
-          await getAdminDb().collection('orders').doc(orderId).update({
-            status: 'PAID',
+          await getAdminDb().collection("orders").doc(orderId).update({
+            status: "PAID",
             paidAt: new Date(),
           });
         } catch (err) {
-          console.error('[webhook] Falha ao marcar pedido PAID:', orderId, err);
+          console.error("[webhook] Falha ao marcar pedido PAID:", orderId, err);
         }
         await sendTelegram(
           `✅ <b>Pagamento Confirmado — INOVAPRO3D</b>\n\n` +
-          `💳 Método: Stripe\n` +
-          `💰 Valor: R$ ${amountBRL}\n` +
-          `🔑 Pedido: <code>${orderId}</code>`
+            `💳 Método: Stripe\n` +
+            `💰 Valor: R$ ${amountBRL}\n` +
+            `🔑 Pedido: <code>${orderId}</code>`,
         );
       }
       res.json({ received: true });
@@ -169,59 +214,72 @@ async function startServer() {
   // ── Criação de pedido com preço recalculado no servidor ───────────────────
   // O cliente envia SÓ itens e quantidades. O total é recomputado do catálogo
   // (Admin SDK bypassa as regras). Fecha a manipulação de preço via localStorage.
-  app.post('/api/orders/create', rateLimit(10), async (req, res) => {
+  app.post("/api/orders/create", rateLimit(10), async (req, res) => {
     const uid = await verifyToken(req);
-    if (!uid) { res.status(401).json({ error: 'Não autorizado.' }); return; }
-    if (!isAdminSdkConfigured() || uid === 'unchecked') {
+    if (!uid) {
+      res.status(401).json({ error: "Não autorizado." });
+      return;
+    }
+    if (!isAdminSdkConfigured() || uid === "unchecked") {
       // Sem Admin SDK não há recálculo confiável — recusa explícita (evita fallback inseguro).
-      res.status(503).json({ error: 'Criação de pedido indisponível (servidor não configurado).' });
+      res.status(503).json({ error: "Criação de pedido indisponível (servidor não configurado)." });
       return;
     }
 
     const body = req.body as {
-      items?: OrderLineInput[]; userName?: string; userEmail?: string; phone?: string;
+      items?: OrderLineInput[];
+      userName?: string;
+      userEmail?: string;
+      phone?: string;
     };
     const items = Array.isArray(body.items) ? body.items : [];
 
-    const productIds = [...new Set(items.filter((i) => i?.type === 'PRODUCT' && i.productId).map((i) => i.productId as string))];
-    const materialIds = [...new Set(items.map((i) => i?.materialId).filter((x): x is string => !!x))];
-
+    const productIds = [
+      ...new Set(
+        items.filter((i) => i?.type === "PRODUCT" && i.productId).map((i) => i.productId as string),
+      ),
+    ];
     const adminDb = getAdminDb();
     const products = new Map<string, ProductRecord>();
     const materials = new Map<string, MaterialRecord>();
     try {
-      await Promise.all(productIds.map(async (id) => {
-        const snap = await adminDb.collection('products').doc(id).get();
-        if (snap.exists) {
-          const d = snap.data()!;
-          products.set(id, { basePrice: Number(d.basePrice), active: d.active, name: d.name });
-        }
-      }));
-      await Promise.all(materialIds.map(async (id) => {
-        const snap = await adminDb.collection('materials').doc(id).get();
-        if (snap.exists) {
-          const d = snap.data()!;
-          materials.set(id, { priceMult: d.priceMult, name: d.name });
-        }
-      }));
+      await Promise.all(
+        productIds.map(async (id) => {
+          const snap = await adminDb.collection("products").doc(id).get();
+          if (snap.exists) {
+            const d = snap.data()!;
+            products.set(id, {
+              basePrice: Number(d.basePrice),
+              active: d.active,
+              name: d.name,
+              productionMaterial: d.productionMaterial,
+            });
+          }
+        }),
+      );
     } catch {
-      res.status(500).json({ error: 'Erro ao carregar catálogo.' }); return;
+      res.status(500).json({ error: "Erro ao carregar catálogo." });
+      return;
     }
 
     const result = computeOrderTotal(items, products, materials);
-    if (!result.ok) { res.status(400).json({ error: result.error }); return; }
+    if (!result.ok) {
+      res.status(400).json({ error: result.error });
+      return;
+    }
 
     try {
       const orderItems = result.lines.map((l) => ({
         id: l.materialId ? `${l.productId}-${l.materialId}` : l.productId,
         productId: l.productId,
         materialId: l.materialId,
+        productionMaterial: l.productionMaterial,
         name: l.name,
         price: l.unitPrice,
         quantity: l.quantity,
-        type: 'PRODUCT',
+        type: "PRODUCT",
       }));
-      const ref = await adminDb.collection('orders').add({
+      const ref = await adminDb.collection("orders").add({
         userId: uid,
         userName: body.userName ?? null,
         userEmail: body.userEmail ?? null,
@@ -233,52 +291,72 @@ async function startServer() {
         couponCode: null,
         couponDiscount: null,
         shippingAddress: null,
-        status: 'PENDING_PAYMENT',
-        paymentMethod: 'manual',
+        status: "PENDING_PAYMENT",
+        paymentMethod: "manual",
         createdAt: new Date(),
       });
       res.json({ orderId: ref.id, total: result.total });
     } catch {
-      res.status(500).json({ error: 'Erro ao criar pedido.' });
+      res.status(500).json({ error: "Erro ao criar pedido." });
     }
   });
 
   // ── New order notification ─────────────────────────────────────────────────
   // Auth required to prevent Telegram spam from unauthenticated callers.
-  app.post('/api/notify/new-order', rateLimit(5), async (req, res) => {
+  app.post("/api/notify/new-order", rateLimit(5), async (req, res) => {
     const uid = await verifyToken(req);
-    if (!uid) { res.status(401).json({ error: 'Não autorizado.' }); return; }
+    if (!uid) {
+      res.status(401).json({ error: "Não autorizado." });
+      return;
+    }
 
     const { orderId, customerName, customerEmail, total, itemCount, paymentMethod } = req.body as {
-      orderId: string; customerName: string; customerEmail: string;
-      total: number; itemCount: number; paymentMethod: string;
+      orderId: string;
+      customerName: string;
+      customerEmail: string;
+      total: number;
+      itemCount: number;
+      paymentMethod: string;
     };
-    if (!orderId) { res.status(400).json({ error: 'orderId obrigatório' }); return; }
+    if (!orderId) {
+      res.status(400).json({ error: "orderId obrigatório" });
+      return;
+    }
 
     const methodLabel: Record<string, string> = {
-      stripe: 'Stripe (cartão/PIX)',
-      pix_manual: 'PIX Manual',
+      stripe: "Stripe (cartão/PIX)",
+      pix_manual: "PIX Manual",
     };
-    const now = new Date().toLocaleString('pt-BR', { timeZone: 'America/Belem' });
-    const totalFmt = (total ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Belem" });
+    const totalFmt = (total ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 
     await sendTelegram(
       `🛍️ <b>Novo Pedido — INOVAPRO3D</b>\n\n` +
-      `👤 Cliente: ${customerName || 'Não informado'}\n` +
-      `📧 ${customerEmail || '—'}\n` +
-      `💰 Valor: R$ ${totalFmt}\n` +
-      `📦 Itens: ${itemCount ?? '?'}\n` +
-      `💳 Pagamento: ${methodLabel[paymentMethod] ?? paymentMethod}\n` +
-      `🔑 Pedido: <code>${orderId}</code>\n` +
-      `📅 ${now}`
+        `👤 Cliente: ${customerName || "Não informado"}\n` +
+        `📧 ${customerEmail || "—"}\n` +
+        `💰 Valor: R$ ${totalFmt}\n` +
+        `📦 Itens: ${itemCount ?? "?"}\n` +
+        `💳 Pagamento: ${methodLabel[paymentMethod] ?? paymentMethod}\n` +
+        `🔑 Pedido: <code>${orderId}</code>\n` +
+        `📅 ${now}`,
     );
 
     // E-mail de confirmação para o cliente (SendPulse). No-op se não configurado.
     if (customerEmail) {
       const mail = orderConfirmationEmail({
-        orderId, customerName, total, paymentMethod, appUrl: process.env.APP_URL,
+        orderId,
+        customerName,
+        total,
+        paymentMethod,
+        appUrl: process.env.APP_URL,
       });
-      await sendEmail({ to: customerEmail, toName: customerName, subject: mail.subject, html: mail.html, text: mail.text });
+      await sendEmail({
+        to: customerEmail,
+        toName: customerName,
+        subject: mail.subject,
+        html: mail.html,
+        text: mail.text,
+      });
     }
 
     res.json({ sent: true });
@@ -286,20 +364,23 @@ async function startServer() {
 
   // ── Relato de erro (automático + reportado pelo usuário) ───────────────────
   // Sem auth (erros acontecem para visitantes anônimos), mas com rate limit.
-  app.post('/api/report-error', rateLimit(20), async (req, res) => {
+  app.post("/api/report-error", rateLimit(20), async (req, res) => {
     try {
       const { valid, data, telegramText } = buildErrorReport(req.body || {});
-      if (!valid) { res.status(400).json({ id: null }); return; }
+      if (!valid) {
+        res.status(400).json({ id: null });
+        return;
+      }
       let id: string | null = null;
       if (isAdminSdkConfigured()) {
         try {
-          const ref = await getAdminDb().collection('errorReports').add(data);
+          const ref = await getAdminDb().collection("errorReports").add(data);
           id = ref.id;
         } catch (err) {
-          console.error('[report-error] falha ao gravar no Firestore:', err);
+          console.error("[report-error] falha ao gravar no Firestore:", err);
         }
       }
-      await sendTelegram(telegramText + (id ? `🔑 <code>${id}</code>` : ''));
+      await sendTelegram(telegramText + (id ? `🔑 <code>${id}</code>` : ""));
       res.json({ id });
     } catch {
       res.json({ id: null });
@@ -317,7 +398,11 @@ async function startServer() {
           const d = doc.data() as { active?: boolean; updatedAt?: { toDate?: () => Date } };
           if (d.active === false) return;
           let lastmod: string | undefined;
-          try { lastmod = d.updatedAt?.toDate?.().toISOString(); } catch { /* ignora */ }
+          try {
+            lastmod = d.updatedAt?.toDate?.().toISOString();
+          } catch {
+            /* ignora */
+          }
           urls.push({ loc: `${base}/produto/${doc.id}`, lastmod });
         });
       }
@@ -345,27 +430,55 @@ async function startServer() {
   // Proxy external images so the browser can load them CORS-safely for canvas conversion
   app.get("/api/proxy-image", rateLimit(60), async (req, res) => {
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
-    if (!rawUrl) { res.status(400).json({ error: "url obrigatória" }); return; }
+    if (!rawUrl) {
+      res.status(400).json({ error: "url obrigatória" });
+      return;
+    }
     let parsed: URL;
-    try { parsed = new URL(rawUrl); } catch { res.status(400).json({ error: "url inválida" }); return; }
-    if (parsed.protocol !== "https:") { res.status(400).json({ error: "protocolo inválido" }); return; }
-    if (!isAllowedImageHost(parsed.hostname)) { res.status(403).json({ error: "host não permitido" }); return; }
+    try {
+      parsed = new URL(rawUrl);
+    } catch {
+      res.status(400).json({ error: "url inválida" });
+      return;
+    }
+    if (parsed.protocol !== "https:") {
+      res.status(400).json({ error: "protocolo inválido" });
+      return;
+    }
+    if (!isAllowedImageHost(parsed.hostname)) {
+      res.status(403).json({ error: "host não permitido" });
+      return;
+    }
     try {
       const upstream = await fetch(rawUrl, {
-        headers: { "User-Agent": "Mozilla/5.0 (compatible; INOVAPRO3D/1.0; +https://inovapro3d.com)" },
+        headers: {
+          "User-Agent": "Mozilla/5.0 (compatible; INOVAPRO3D/1.0; +https://inovapro3d.com)",
+        },
         redirect: "follow",
       });
-      if (!upstream.ok) { res.status(upstream.status).json({ error: "upstream error" }); return; }
+      if (!upstream.ok) {
+        res.status(upstream.status).json({ error: "upstream error" });
+        return;
+      }
       const contentType = upstream.headers.get("content-type") || "image/jpeg";
-      if (!contentType.startsWith("image/")) { res.status(415).json({ error: "não é imagem" }); return; }
+      if (!contentType.startsWith("image/")) {
+        res.status(415).json({ error: "não é imagem" });
+        return;
+      }
       const MAX_BYTES = 15 * 1024 * 1024;
       const contentLength = Number(upstream.headers.get("content-length") || 0);
-      if (contentLength > MAX_BYTES) { res.status(413).json({ error: "imagem grande demais" }); return; }
+      if (contentLength > MAX_BYTES) {
+        res.status(413).json({ error: "imagem grande demais" });
+        return;
+      }
       res.setHeader("Content-Type", contentType);
       res.setHeader("Access-Control-Allow-Origin", "*");
       res.setHeader("Cache-Control", "public, max-age=3600");
       const buf = Buffer.from(await upstream.arrayBuffer());
-      if (buf.byteLength > MAX_BYTES) { res.status(413).json({ error: "imagem grande demais" }); return; }
+      if (buf.byteLength > MAX_BYTES) {
+        res.status(413).json({ error: "imagem grande demais" });
+        return;
+      }
       res.send(buf);
     } catch (err) {
       res.status(502).json({ error: err instanceof Error ? err.message : "erro ao buscar imagem" });
@@ -393,13 +506,17 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     // Paridade com vercel.json para quando o app é auto-hospedado (npm start).
-    const CSP = "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://apis.google.com https://www.googletagmanager.com https://connect.facebook.net https://analytics.tiktok.com https://web.webpushs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://api.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.tiktok.com https://connect.facebook.net https://www.facebook.com wss://*.firestore.googleapis.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    const CSP =
+      "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://apis.google.com https://www.googletagmanager.com https://connect.facebook.net https://analytics.tiktok.com https://web.webpushs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://api.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.tiktok.com https://connect.facebook.net https://www.facebook.com wss://*.firestore.googleapis.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
     app.use((_req, res, next) => {
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Frame-Options", "DENY");
       res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
       res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
-      res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=(self)");
+      res.setHeader(
+        "Permissions-Policy",
+        "camera=(), microphone=(), geolocation=(), payment=(self)",
+      );
       res.setHeader("Content-Security-Policy", CSP);
       next();
     });

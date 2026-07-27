@@ -1,8 +1,8 @@
-const CACHE_NAME = '3d-models-cache-v1';
+const CACHE_NAME = "3d-models-cache-v1";
 
 export const modelCache = {
   async getModel(url: string): Promise<string> {
-    if (url.startsWith('blob:') || url.startsWith('data:')) {
+    if (url.startsWith("blob:") || url.startsWith("data:")) {
       return url;
     }
 
@@ -33,7 +33,7 @@ export const modelCache = {
         urls.map(async (url) => {
           const exists = await cache.match(url);
           if (!exists) await cache.add(url);
-        })
+        }),
       );
     } catch {
       // silently skip prefetch failures
@@ -42,5 +42,5 @@ export const modelCache = {
 
   async clear(): Promise<void> {
     await caches.delete(CACHE_NAME);
-  }
+  },
 };

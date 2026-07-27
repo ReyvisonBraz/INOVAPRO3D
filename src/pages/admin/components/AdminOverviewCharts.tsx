@@ -27,9 +27,17 @@ export function AdminOverviewCharts({ orders }: AdminOverviewChartsProps) {
     .reverse();
 
   const pieData = [
-    { name: "Pendente", value: orders.filter((order) => order.status === "PENDING_PAYMENT").length },
+    {
+      name: "Pendente",
+      value: orders.filter((order) => order.status === "PENDING_PAYMENT").length,
+    },
     { name: "Pago", value: orders.filter((order) => order.status === "PAID").length },
-    { name: "Produção", value: orders.filter((order) => ["QUEUE", "SLICING", "PRINTING", "FINISHING"].includes(order.status)).length },
+    {
+      name: "Produção",
+      value: orders.filter((order) =>
+        ["QUEUE", "SLICING", "PRINTING", "FINISHING"].includes(order.status),
+      ).length,
+    },
     { name: "Concluído", value: orders.filter((order) => order.status === "COMPLETED").length },
   ];
 
@@ -47,8 +55,21 @@ export function AdminOverviewCharts({ orders }: AdminOverviewChartsProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
             <XAxis dataKey="name" stroke="#ffffff10" fontSize={9} tick={{ fill: "#ffffff20" }} />
             <YAxis stroke="#ffffff10" fontSize={9} tick={{ fill: "#ffffff20" }} />
-            <Tooltip contentStyle={{ backgroundColor: "#0A0A0F", border: "1px solid rgba(37,99,235,0.1)", borderRadius: "24px" }} />
-            <Area type="monotone" dataKey="total" stroke="#2563EB" strokeWidth={3} fillOpacity={1} fill="url(#colorTotal)" />
+            <Tooltip
+              contentStyle={{
+                backgroundColor: "#0A0A0F",
+                border: "1px solid rgba(37,99,235,0.1)",
+                borderRadius: "24px",
+              }}
+            />
+            <Area
+              type="monotone"
+              dataKey="total"
+              stroke="#2563EB"
+              strokeWidth={3}
+              fillOpacity={1}
+              fill="url(#colorTotal)"
+            />
           </AreaChart>
         </ResponsiveContainer>
       </div>

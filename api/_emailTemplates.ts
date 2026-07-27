@@ -48,7 +48,11 @@ function button(href: string, label: string): string {
   return `<a href="${href}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:10px;">${label}</a>`;
 }
 
-export function orderConfirmationEmail(d: OrderEmailData): { subject: string; html: string; text: string } {
+export function orderConfirmationEmail(d: OrderEmailData): {
+  subject: string;
+  html: string;
+  text: string;
+} {
   const shortId = d.orderId.slice(0, 10).toUpperCase();
   const base = (d.appUrl || "https://www.inovapro3d.com.br").replace(/\/+$/, "");
   const ordersUrl = `${base}/meus-pedidos`;

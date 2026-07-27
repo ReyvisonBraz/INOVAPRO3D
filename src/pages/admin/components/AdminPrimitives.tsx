@@ -42,7 +42,9 @@ export function AdminEmptyState({
 }) {
   return (
     <div className="admin-empty-state">
-      <div className="admin-empty-icon"><Icon className="h-5 w-5" /></div>
+      <div className="admin-empty-icon">
+        <Icon className="h-5 w-5" />
+      </div>
       <h3>{title}</h3>
       {description && <p>{description}</p>}
       {action}
@@ -50,7 +52,17 @@ export function AdminEmptyState({
   );
 }
 
-export function AdminMetric({ label, value, hint, tone = "default" }: { label: string; value: ReactNode; hint?: string; tone?: "default" | "success" | "warning" | "danger" }) {
+export function AdminMetric({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: string;
+  tone?: "default" | "success" | "warning" | "danger";
+}) {
   return (
     <div className={cn("admin-metric", `admin-metric--${tone}`)}>
       <span>{label}</span>

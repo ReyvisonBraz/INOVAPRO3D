@@ -20,7 +20,11 @@ async function getToken(): Promise<string | null> {
     const res = await fetch("https://api.sendpulse.com/oauth/access_token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ grant_type: "client_credentials", client_id: id, client_secret: secret }),
+      body: JSON.stringify({
+        grant_type: "client_credentials",
+        client_id: id,
+        client_secret: secret,
+      }),
     });
     if (!res.ok) {
       console.error("[email] SendPulse auth falhou:", res.status);

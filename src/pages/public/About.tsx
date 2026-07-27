@@ -27,29 +27,79 @@ const STATS = [
 ];
 
 const WHAT = [
-  { icon: Boxes, title: "Catálogo pronto", text: "Dezenas de peças prontas para imprimir — escolha a cor do material e finalize em minutos." },
-  { icon: Cpu, title: "Sob demanda", text: "Tem seu próprio arquivo 3D (STL/OBJ)? Envie e receba um orçamento técnico justo e transparente." },
-  { icon: Target, title: "Precisão real", text: "Cada peça é calibrada e revisada antes de sair — material, resistência e acabamento conferidos." },
+  {
+    icon: Boxes,
+    title: "Catálogo pronto",
+    text: "Dezenas de peças prontas para imprimir — escolha a cor do material e finalize em minutos.",
+  },
+  {
+    icon: Cpu,
+    title: "Sob demanda",
+    text: "Tem seu próprio arquivo 3D (STL/OBJ)? Envie e receba um orçamento técnico justo e transparente.",
+  },
+  {
+    icon: Target,
+    title: "Precisão real",
+    text: "Cada peça é calibrada e revisada antes de sair — material, resistência e acabamento conferidos.",
+  },
 ];
 
 const STEPS = [
-  { n: "01", title: "Escolha ou envie", text: "Selecione um produto do catálogo ou envie seu modelo para orçamento." },
-  { n: "02", title: "Produção calibrada", text: "Imprimimos na Bambu Lab P2S com o material e a configuração certos para a peça." },
-  { n: "03", title: "Acabamento", text: "Revisão de qualidade, limpeza de suportes e finalização caprichada." },
-  { n: "04", title: "Entrega rastreada", text: "Embalamos com cuidado e enviamos com código de rastreio para todo o Brasil." },
+  {
+    n: "01",
+    title: "Escolha ou envie",
+    text: "Selecione um produto do catálogo ou envie seu modelo para orçamento.",
+  },
+  {
+    n: "02",
+    title: "Produção calibrada",
+    text: "Imprimimos na Bambu Lab P2S com o material e a configuração certos para a peça.",
+  },
+  {
+    n: "03",
+    title: "Acabamento",
+    text: "Revisão de qualidade, limpeza de suportes e finalização caprichada.",
+  },
+  {
+    n: "04",
+    title: "Entrega rastreada",
+    text: "Embalamos com cuidado e enviamos com código de rastreio para todo o Brasil.",
+  },
 ];
 
 const VALUES = [
-  { icon: Target, title: "Precisão", text: "Tecnologia e calibração para um acabamento de alta definição, peça após peça." },
-  { icon: HeartHandshake, title: "Transparência", text: "Preço claro, prazos reais e comunicação direta — sem surpresas." },
-  { icon: ShieldCheck, title: "Confiança", text: "Chegou com defeito? Reimprimimos e reenviamos sem custo. Simples assim." },
+  {
+    icon: Target,
+    title: "Precisão",
+    text: "Tecnologia e calibração para um acabamento de alta definição, peça após peça.",
+  },
+  {
+    icon: HeartHandshake,
+    title: "Transparência",
+    text: "Preço claro, prazos reais e comunicação direta — sem surpresas.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Confiança",
+    text: "Chegou com defeito? Reimprimimos e reenviamos sem custo. Simples assim.",
+  },
 ];
 
-function SectionTitle({ kicker, title, center }: { kicker: string; title: string; center?: boolean }) {
+function SectionTitle({
+  kicker,
+  title,
+  center,
+}: {
+  kicker: string;
+  title: string;
+  center?: boolean;
+}) {
   return (
     <div className={center ? "text-center" : ""}>
       <p className="text-[11px] font-black uppercase tracking-[0.3em] text-primary/70">{kicker}</p>
-      <h2 className="mt-2 text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">{title}</h2>
+      <h2 className="mt-2 text-2xl sm:text-3xl font-black uppercase tracking-tight text-white">
+        {title}
+      </h2>
     </div>
   );
 }
@@ -86,9 +136,10 @@ export default function About() {
               Do digital ao <span className="brand-gradient-text">objeto real</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-sm sm:text-base leading-relaxed text-white/50">
-              A <BrandWordmark className="text-sm sm:text-base align-middle" /> nasceu para tornar a impressão 3D
-              acessível, confiável e profissional. Unimos tecnologia de ponta, precisão de maker e atendimento
-              humano — transformando ideias e arquivos em peças reais com acabamento de alta definição.
+              A <BrandWordmark className="text-sm sm:text-base align-middle" /> nasceu para tornar a
+              impressão 3D acessível, confiável e profissional. Unimos tecnologia de ponta, precisão
+              de maker e atendimento humano — transformando ideias e arquivos em peças reais com
+              acabamento de alta definição.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
@@ -114,9 +165,14 @@ export default function About() {
         <section className="container-section pb-4">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {STATS.map((s) => (
-              <div key={s.label} className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 text-center">
+              <div
+                key={s.label}
+                className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 text-center"
+              >
                 <s.icon className="mx-auto mb-3 h-5 w-5 text-primary" />
-                <p className="font-display text-lg sm:text-xl font-black text-white leading-tight">{s.value}</p>
+                <p className="font-display text-lg sm:text-xl font-black text-white leading-tight">
+                  {s.value}
+                </p>
                 <p className="mt-1 text-[11px] text-white/40">{s.label}</p>
               </div>
             ))}
@@ -130,29 +186,35 @@ export default function About() {
               <SectionTitle kicker="Nossa missão" title="Tecnologia que vira coisa de verdade" />
               <div className="mt-5 space-y-4 text-sm leading-relaxed text-white/50">
                 <p>
-                  Acreditamos que a fabricação digital deixou de ser coisa de indústria gigante. Hoje, qualquer
-                  pessoa pode ter uma peça única, um reparo, um presente ou um produto sob medida — com qualidade
-                  profissional e preço justo.
+                  Acreditamos que a fabricação digital deixou de ser coisa de indústria gigante.
+                  Hoje, qualquer pessoa pode ter uma peça única, um reparo, um presente ou um
+                  produto sob medida — com qualidade profissional e preço justo.
                 </p>
                 <p>
-                  Por isso construímos uma operação enxuta e transparente: você vê o preço real, acompanha cada
-                  etapa do pedido e fala direto com quem produz. Sem intermediários, sem letra miúda.
+                  Por isso construímos uma operação enxuta e transparente: você vê o preço real,
+                  acompanha cada etapa do pedido e fala direto com quem produz. Sem intermediários,
+                  sem letra miúda.
                 </p>
                 <p>
-                  Cada impressão passa por calibração e revisão — porque o que sai daqui carrega o nome da
-                  INOVAPRO3D.
+                  Cada impressão passa por calibração e revisão — porque o que sai daqui carrega o
+                  nome da INOVAPRO3D.
                 </p>
               </div>
             </div>
 
             <div className="grid gap-3">
               {VALUES.map((v) => (
-                <div key={v.title} className="flex gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5">
+                <div
+                  key={v.title}
+                  className="flex gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5"
+                >
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/10 text-primary">
                     <v.icon className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-sm font-black uppercase tracking-wide text-white/90">{v.title}</p>
+                    <p className="text-sm font-black uppercase tracking-wide text-white/90">
+                      {v.title}
+                    </p>
                     <p className="mt-1 text-xs leading-relaxed text-white/45">{v.text}</p>
                   </div>
                 </div>
@@ -166,11 +228,16 @@ export default function About() {
           <SectionTitle kicker="O que fazemos" title="Da peça pronta ao projeto exclusivo" center />
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-3 gap-4">
             {WHAT.map((w) => (
-              <div key={w.title} className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+              <div
+                key={w.title}
+                className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6"
+              >
                 <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-primary">
                   <w.icon className="h-5 w-5" />
                 </div>
-                <h3 className="mt-4 text-sm font-black uppercase tracking-wide text-white/90">{w.title}</h3>
+                <h3 className="mt-4 text-sm font-black uppercase tracking-wide text-white/90">
+                  {w.title}
+                </h3>
                 <p className="mt-2 text-xs leading-relaxed text-white/45">{w.text}</p>
               </div>
             ))}
@@ -182,9 +249,14 @@ export default function About() {
           <SectionTitle kicker="Como trabalhamos" title="Do pedido à sua porta" center />
           <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {STEPS.map((s) => (
-              <div key={s.n} className="relative rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6">
+              <div
+                key={s.n}
+                className="relative rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6"
+              >
                 <span className="font-display text-3xl font-black text-primary/30">{s.n}</span>
-                <h3 className="mt-2 text-sm font-black uppercase tracking-wide text-white/90">{s.title}</h3>
+                <h3 className="mt-2 text-sm font-black uppercase tracking-wide text-white/90">
+                  {s.title}
+                </h3>
                 <p className="mt-2 text-xs leading-relaxed text-white/45">{s.text}</p>
               </div>
             ))}
@@ -214,7 +286,9 @@ export default function About() {
             </div>
 
             <div className="mt-8 flex flex-col items-center gap-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Acompanhe a gente</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">
+                Acompanhe a gente
+              </p>
               <SocialLinks className="justify-center" />
             </div>
           </div>

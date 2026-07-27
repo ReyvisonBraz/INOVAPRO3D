@@ -3,7 +3,6 @@ import { PageSEO } from "../../components/seo/PageSEO";
 import {
   ArrowDown,
   ArrowRight,
-
   Box,
   ChevronLeft,
   ChevronRight,
@@ -34,39 +33,38 @@ const heroCopyOptions = [
       { text: "Entregue com", accent: true },
       { text: "capricho.", accent: true },
     ],
-    body:
-      "Impressão 3D profissional com acabamento que você não vai querer esconder. Catálogo visual, compra em minutos, entrega nacional.",
+    body: "Impressão 3D profissional com acabamento que você não vai querer esconder. Catálogo visual, compra em minutos, entrega nacional.",
   },
   {
     lines: [
       { text: "Do digital", accent: false },
       { text: "ao concreto.", accent: true },
     ],
-    body:
-      "Escolha no catálogo ou envie seu arquivo STL. Produzimos com Bambu Lab P2S calibrada — 0.2mm de precisão, nenhum detalhe perdido.",
+    body: "Escolha no catálogo ou envie seu arquivo STL. Produzimos com Bambu Lab P2S calibrada — 0.2mm de precisão, nenhum detalhe perdido.",
   },
   {
     lines: [
       { text: "Não é protótipo.", accent: false },
       { text: "É produto final.", accent: true },
     ],
-    body:
-      "Cada peça sai calibrada, limpa e pronta para usar, expor ou presentear. Porque capricho não é opcional aqui.",
+    body: "Cada peça sai calibrada, limpa e pronta para usar, expor ou presentear. Porque capricho não é opcional aqui.",
   },
   {
     lines: [
       { text: "Sua ideia", accent: false },
       { text: "ganha forma agora.", accent: true },
     ],
-    body:
-      "Do modelo ao objeto em mãos. Orçamento em minutos, produção em 48h, resultado que impressiona quem vê.",
+    body: "Do modelo ao objeto em mãos. Orçamento em minutos, produção em 48h, resultado que impressiona quem vê.",
   },
 ];
 
 export default function Home() {
-  const { data: showcase, loading: showcaseLoading } = useFirestoreCollection<ShowcaseItem>("showcase", {
-    constraints: [orderBy("createdAt", "desc")],
-  });
+  const { data: showcase, loading: showcaseLoading } = useFirestoreCollection<ShowcaseItem>(
+    "showcase",
+    {
+      constraints: [orderBy("createdAt", "desc")],
+    },
+  );
   const { data: products, loading: productsLoading } = useFirestoreCollection<Product>("products", {
     transform: (items) =>
       items
@@ -87,22 +85,28 @@ export default function Home() {
   useEffect(() => {
     if (!lightboxOpen) return;
     const base = window.location.pathname + window.location.search;
-    window.history.pushState(null, '', base + '#preview');
+    window.history.pushState({ inovapro3dOverlay: "preview" }, "", base + "#preview");
     const handler = () => setSelectedIndex(null);
-    window.addEventListener('popstate', handler);
+    window.addEventListener("popstate", handler);
     return () => {
-      window.removeEventListener('popstate', handler);
-      if (window.location.hash === '#preview') {
-        window.history.replaceState(null, '', base);
-      }
+      window.removeEventListener("popstate", handler);
     };
   }, [lightboxOpen]);
+
+  const closeLightbox = () => {
+    if (window.location.hash === "#preview") {
+      window.history.back();
+    } else {
+      setSelectedIndex(null);
+    }
+  };
   const { scrollYProgress } = useScroll();
   const heroY = useTransform(scrollYProgress, [0, 0.22], [0, -90]);
   const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0.2]);
 
   const featuredProducts = products.slice(0, 8);
-  const filteredItems = filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
+  const filteredItems =
+    filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
 
   const proofStats = useMemo(
     () => [
@@ -133,7 +137,9 @@ export default function Home() {
   };
 
   const scrollToCatalog = () => {
-    document.getElementById("catalogo-preview")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document
+      .getElementById("catalogo-preview")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -244,7 +250,9 @@ export default function Home() {
           ) : (
             <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
               <Box className="mx-auto mb-4 h-9 w-9 text-dim" />
-              <p className="text-sm font-medium text-white/[0.35]">Nenhum produto disponivel no momento.</p>
+              <p className="text-sm font-medium text-white/[0.35]">
+                Nenhum produto disponivel no momento.
+              </p>
             </div>
           )}
         </div>
@@ -326,7 +334,9 @@ export default function Home() {
                           {item.category}
                         </span>
                       )}
-                      <h3 className="font-display text-lg font-black uppercase leading-tight text-white">{item.title}</h3>
+                      <h3 className="font-display text-lg font-black uppercase leading-tight text-white">
+                        {item.title}
+                      </h3>
                       {item.description && (
                         <p className="mt-1 line-clamp-2 text-xs font-medium leading-relaxed text-white/[0.45]">
                           {item.description}
@@ -339,7 +349,9 @@ export default function Home() {
             </motion.div>
           ) : (
             <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
-              <p className="text-sm font-medium text-white/[0.35]">Nenhuma peça encontrada nesta categoria.</p>
+              <p className="text-sm font-medium text-white/[0.35]">
+                Nenhuma peça encontrada nesta categoria.
+              </p>
             </div>
           )}
         </div>
@@ -360,7 +372,9 @@ export default function Home() {
           </div>
           <Reveal direction="up" delay={0.18}>
             <p className="max-w-2xl text-sm font-medium leading-relaxed text-white/[0.44] sm:text-base">
-              Do valor inicial ao acabamento, cada detalhe foi pensado para você escolher com confiança — sem precisar mandar mensagem antes de decidir. Quando precisar de algo único, o orçamento personalizado entra no mesmo padrão de qualidade.
+              Do valor inicial ao acabamento, cada detalhe foi pensado para você escolher com
+              confiança — sem precisar mandar mensagem antes de decidir. Quando precisar de algo
+              único, o orçamento personalizado entra no mesmo padrão de qualidade.
             </p>
           </Reveal>
         </div>
@@ -391,7 +405,9 @@ export default function Home() {
                 <h3 className="font-display text-xl font-black leading-tight text-white">
                   {item.title}
                 </h3>
-                <p className="mt-4 text-sm font-medium leading-relaxed text-white/40">{item.text}</p>
+                <p className="mt-4 text-sm font-medium leading-relaxed text-white/40">
+                  {item.text}
+                </p>
               </div>
             </RevealItem>
           ))}
@@ -423,9 +439,21 @@ export default function Home() {
 
           <RevealGroup className="grid gap-5">
             {[
-              { icon: Layers3, title: "Escolha no catálogo", text: "Dezenas de modelos prontos para pedir agora mesmo. Escolha o material, a cor e a quantidade — tudo em poucos cliques." },
-              { icon: Clock3, title: "Validação e produção", text: "Avaliamos material, resistência e acabamento. Sua peça entra em produção calibrada na Bambu Lab P2S." },
-              { icon: PackageCheck, title: "Embalado e entregue", text: "Sai protegida, pronta para usar, presentear ou revender. Entrega nacional com rastreio." },
+              {
+                icon: Layers3,
+                title: "Escolha no catálogo",
+                text: "Dezenas de modelos prontos para pedir agora mesmo. Escolha o material, a cor e a quantidade — tudo em poucos cliques.",
+              },
+              {
+                icon: Clock3,
+                title: "Validação e produção",
+                text: "Avaliamos material, resistência e acabamento. Sua peça entra em produção calibrada na Bambu Lab P2S.",
+              },
+              {
+                icon: PackageCheck,
+                title: "Embalado e entregue",
+                text: "Sai protegida, pronta para usar, presentear ou revender. Entrega nacional com rastreio.",
+              },
             ].map((step, index) => (
               <RevealItem key={step.title}>
                 <div className="grid grid-cols-[auto_1fr] gap-5 rounded-[24px] border border-white/[0.08] bg-white/[0.03] p-6">
@@ -436,8 +464,12 @@ export default function Home() {
                     <p className="mb-2 text-xs font-black uppercase tracking-[0.24em] text-white/[0.28]">
                       Etapa 0{index + 1}
                     </p>
-                    <h3 className="font-display text-xl font-black leading-tight text-white">{step.title}</h3>
-                    <p className="mt-3 text-sm font-medium leading-relaxed text-white/[0.42]">{step.text}</p>
+                    <h3 className="font-display text-xl font-black leading-tight text-white">
+                      {step.title}
+                    </h3>
+                    <p className="mt-3 text-sm font-medium leading-relaxed text-white/[0.42]">
+                      {step.text}
+                    </p>
                   </div>
                 </div>
               </RevealItem>
@@ -456,7 +488,8 @@ export default function Home() {
                 Sua próxima peça está a um clique de distância.
               </h2>
               <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.45] sm:text-base">
-                Escolha entre dezenas de modelos prontos no catálogo e receba em casa. Precisão de ±0.2mm, materiais premium e entrega em todo o Brasil.
+                Escolha entre dezenas de modelos prontos no catálogo e receba em casa. Precisão de
+                ±0.2mm, materiais premium e entrega em todo o Brasil.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -480,7 +513,7 @@ export default function Home() {
       <Lightbox
         items={filteredItems}
         selectedIndex={selectedIndex}
-        onClose={() => setSelectedIndex(null)}
+        onClose={closeLightbox}
         onNavigate={navigateLightbox}
         onSelect={setSelectedIndex}
       />
@@ -561,7 +594,10 @@ function ProductSkeletonGrid() {
   return (
     <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {Array.from({ length: 8 }).map((_, index) => (
-        <div key={index} className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025]">
+        <div
+          key={index}
+          className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025]"
+        >
           <div className="aspect-[4/5] animate-pulse bg-white/[0.06]" />
           <div className="space-y-3 p-5">
             <div className="h-4 w-2/3 rounded bg-white/[0.08]" />
@@ -633,7 +669,13 @@ function Lightbox({
           exit={{ scale: 0.96, opacity: 0 }}
           className="relative aspect-[4/3] w-full max-w-5xl overflow-hidden rounded-[32px] border border-white/10 shadow-2xl sm:aspect-video"
         >
-          <img src={item.image} loading="lazy" decoding="async" className="h-full w-full object-cover" alt={item.title} />
+          <img
+            src={item.image}
+            loading="eager"
+            decoding="async"
+            className="h-full w-full object-cover"
+            alt={item.title}
+          />
           <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/45 to-transparent p-6 sm:p-10">
             <div className="mb-3 flex items-center gap-3">
               {item.category && (
@@ -662,7 +704,9 @@ function Lightbox({
               key={index}
               onClick={() => onSelect(index)}
               className={`h-1.5 rounded-full transition-all duration-500 ${
-                index === selectedIndex ? "w-9 bg-white" : "w-2 bg-white/[0.16] hover:bg-white/[0.32]"
+                index === selectedIndex
+                  ? "w-9 bg-white"
+                  : "w-2 bg-white/[0.16] hover:bg-white/[0.32]"
               }`}
               aria-label={`Abrir imagem ${index + 1}`}
             />
