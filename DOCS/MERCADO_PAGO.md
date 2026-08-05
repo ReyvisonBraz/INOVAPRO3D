@@ -1,5 +1,8 @@
 # Integração Mercado Pago
 
+> O plano da segunda etapa — experiência, expiração, resiliência e segurança — está em
+> [planning/MERCADO_PAGO_HARDENING_UX_PLAN.md](planning/MERCADO_PAGO_HARDENING_UX_PLAN.md).
+
 ## Escopo atual
 
 A primeira versão oferece pagamento por Pix. Cartão não aparece no checkout porque exige o
