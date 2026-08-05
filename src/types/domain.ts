@@ -140,7 +140,6 @@ export interface Order {
   discount?: number;
   surcharge?: number;
   shippingRate?: number;
-  paymentMethod?: string;
   deliveryMethod?: "shipping" | "pickup";
   customerNotes?: string;
   internalNotes?: string;

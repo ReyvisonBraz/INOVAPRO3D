@@ -1,4 +1,6 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
+dotenv.config({ path: ".env.local", override: true });
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -360,6 +362,145 @@ async function startServer() {
     }
 
     res.json({ sent: true });
+  });
+
+  // ── Mercado Pago - Process Payment ─────────────────────────────────────────
+  app.post("/api/mercadopago/process-payment", rateLimit(10), async (req, res) => {
+    if (process.env.MERCADOPAGO_ENABLED !== "true") {
+      res.status(503).json({ error: "Pagamento indisponível no momento." });
+      return;
+    }
+
+    const uid = await verifyToken(req);
+    if (!uid || uid === "unchecked") {
+      res.status(401).json({ error: "Não autorizado." });
+      return;
+    }
+
+    const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
+    if (!accessToken) {
+      res.status(503).json({ error: "Pagamento não configurado." });
+      return;
+    }
+
+    const { orderId, paymentMethod = "pix" } = req.body as {
+      orderId?: string;
+      paymentMethod?: "pix";
+    };
+
+    if (!orderId || paymentMethod !== "pix") {
+      res.status(400).json({ error: "orderId e pagamento Pix são obrigatórios." });
+      return;
+    }
+
+    try {
+      const { processPayment } = await import("./api/mercadopago/_service.js");
+      const result = await processPayment({
+        orderId,
+        paymentMethod,
+        userId: uid,
+      });
+
+      if (!result.success) {
+        res.status(400).json({ error: result.error });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        paymentId: result.paymentId,
+        status: result.status,
+        statusDetail: result.statusDetail,
+        qrCodeBase64: result.qrCodeBase64,
+        qrCodeUrl: result.qrCodeUrl,
+        pixCode: result.pixCode,
+        expirationDate: result.expirationDate,
+      });
+    } catch (error) {
+      console.error("[mercadopago] Erro ao processar pagamento:", error);
+      const message = error instanceof Error ? error.message : "Erro ao processar pagamento";
+      res.status(500).json({ error: message });
+    }
+  });
+
+  // ── Mercado Pago - Webhook ─────────────────────────────────────────────────
+  app.post("/api/mercadopago/webhook", async (req, res) => {
+    if (!isAdminSdkConfigured()) {
+      res.status(503).json({ error: "Serviço indisponível." });
+      return;
+    }
+
+    const queryDataId = req.query["data.id"];
+    const paymentId = String(queryDataId ?? req.body?.data?.id ?? "");
+    if (!paymentId) {
+      res.status(200).json({ received: true, outcome: "ignored" });
+      return;
+    }
+
+    const { validateWebhookSignature } = await import("./api/mercadopago/_webhook.js");
+    const validation = validateWebhookSignature({
+      signature: req.header("x-signature"),
+      requestId: req.header("x-request-id"),
+      dataId: paymentId,
+      secret: process.env.MERCADOPAGO_WEBHOOK_SECRET,
+    });
+    if (!validation.valid) {
+      res.status(401).json({ error: "Assinatura inválida." });
+      return;
+    }
+
+    try {
+      const { processPaymentWebhook } = await import("./api/mercadopago/_webhookService.js");
+      const outcome = await processPaymentWebhook({
+        paymentId,
+        action: req.body?.action,
+        type: req.body?.type,
+      });
+      res.status(200).json({ received: true, outcome });
+    } catch (error) {
+      console.error("[mercadopago-webhook] Erro:", error);
+      res.status(500).json({ error: "Erro ao processar webhook." });
+    }
+  });
+
+  // ── Mercado Pago - Payment Status ──────────────────────────────────────────
+  app.get("/api/mercadopago/payment-status", async (req, res) => {
+    const uid = await verifyToken(req);
+    if (!uid || uid === "unchecked") {
+      res.status(401).json({ error: "Não autorizado." });
+      return;
+    }
+
+    const orderId = req.query.orderId as string;
+    if (!orderId) {
+      res.status(400).json({ error: "orderId é obrigatório." });
+      return;
+    }
+
+    const adminDb = getAdminDb();
+    const orderDoc = await adminDb.collection("orders").doc(orderId).get();
+
+    if (!orderDoc.exists) {
+      res.status(404).json({ error: "Pedido não encontrado." });
+      return;
+    }
+
+    const order = orderDoc.data()!;
+    if (order.userId !== uid) {
+      res.status(403).json({ error: "Você não tem permissão para consultar este pedido." });
+      return;
+    }
+
+    res.status(200).json({
+      orderId,
+      paymentStatus: order.paymentStatus || "NOT_STARTED",
+      paymentProvider: order.paymentProvider || "manual",
+      paymentProviderStatus: order.paymentProviderStatus,
+      paymentProviderStatusDetail: order.paymentProviderStatusDetail,
+      paymentMethod: order.paymentMethod,
+      paidAt: order.paidAt,
+      paymentUpdatedAt: order.paymentUpdatedAt,
+    });
   });
 
   // ── Relato de erro (automático + reportado pelo usuário) ───────────────────

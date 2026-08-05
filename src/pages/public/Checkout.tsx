@@ -18,22 +18,24 @@ import { Button } from "../../components/ui/Button";
 import { auth } from "../../services/firebase";
 import { toast } from "sonner";
 import { trackBeginCheckout, trackPurchase } from "../../lib/analytics";
-
-// PAYMENT_DISABLED: Pagamento (Stripe/PIX) e envio suspension temporária.
-// Quando reativar, restaure o Checkout original do git history.
-const PAYMENT_DISABLED = true;
+import { isEnabled as isMercadoPagoEnabled } from "../../lib/mercadopago/config";
+import { usePayment } from "../../hooks/usePayment";
+import { PixPaymentStep, type PixPaymentData } from "../../components/checkout/PixPaymentStep";
 
 export default function Checkout() {
   const { items, total, clearCart, updateQuantity, removeItem } = useCart();
   const { user, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
-  const [step, setStep] = useState<1 | 2>(1);
+  const mpEnabled = isMercadoPagoEnabled();
+  const { loading: paymentLoading, processPayment, reset: resetPayment } = usePayment();
+
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [pixData, setPixData] = useState<PixPaymentData | null>(null);
 
-  // Eventos de conversão (analytics/pixels), uma vez cada.
   const trackedCheckout = useRef(false);
   const trackedPurchase = useRef(false);
   const lastTotalRef = useRef(0);
@@ -109,21 +111,25 @@ export default function Checkout() {
           customerEmail: checkoutUser.email,
           total: serverTotal,
           itemCount: items.length,
-          paymentMethod: "manual",
+          paymentMethod: mpEnabled ? "mercadopago" : "manual",
         }),
       }).catch(() => {});
 
-      if (!trackedPurchase.current) {
-        trackedPurchase.current = true;
-        trackPurchase(serverTotal, orderId);
-      }
-
       setCreatedOrderId(orderId);
-      setStep(2);
-      clearCart();
-      toast.success("Pedido recebido!", {
-        description: "Entraremos em contato para combinar pagamento e entrega.",
-      });
+
+      if (mpEnabled) {
+        setStep(2);
+      } else {
+        if (!trackedPurchase.current) {
+          trackedPurchase.current = true;
+          trackPurchase(serverTotal, orderId);
+        }
+        setStep(3);
+        clearCart();
+        toast.success("Pedido recebido!", {
+          description: "Entraremos em contato para combinar pagamento e entrega.",
+        });
+      }
     } catch {
       toast.error("Erro ao gerar pedido. Tente novamente.");
     } finally {
@@ -131,7 +137,55 @@ export default function Checkout() {
     }
   };
 
-  if (items.length === 0 && step !== 2) {
+  const handleProcessPayment = async () => {
+    if (!createdOrderId || !user) return;
+
+    setLoading(true);
+    resetPayment();
+
+    try {
+      const result = await processPayment(createdOrderId);
+
+      if (result.success) {
+        if (result.pixCode) {
+          setPixData({
+            pixCode: result.pixCode,
+            qrCodeBase64: result.qrCodeBase64,
+            qrCodeUrl: result.qrCodeUrl,
+            expirationDate: result.expirationDate,
+            paymentId: result.paymentId,
+          });
+        } else if (result.status === "approved") {
+          handlePaymentSuccess(result.paymentId);
+        }
+      }
+    } catch {
+      toast.error("Erro ao processar pagamento. Tente novamente.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePaymentSuccess = (paymentId?: string) => {
+    if (!trackedPurchase.current && createdOrderId) {
+      trackedPurchase.current = true;
+      trackPurchase(total, createdOrderId);
+    }
+    setStep(3);
+    clearCart();
+    toast.success("Pagamento aprovado!", {
+      description: `Pedido confirmado. ${paymentId ? `ID: ${paymentId}` : ""}`,
+    });
+  };
+
+  const copyPixCode = () => {
+    if (pixData?.pixCode) {
+      navigator.clipboard.writeText(pixData.pixCode);
+      toast.success("Código Pix copiado!");
+    }
+  };
+
+  if (items.length === 0 && step !== 3) {
     return (
       <div className="min-h-[70vh] flex flex-col items-center justify-center text-center p-6 max-w-xl mx-auto">
         <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-8">
@@ -154,30 +208,52 @@ export default function Checkout() {
     );
   }
 
+  const steps = mpEnabled
+    ? [
+        { n: 1 as const, label: "Revisão" },
+        { n: 2 as const, label: "Pagamento" },
+        { n: 3 as const, label: "Confirmado" },
+      ]
+    : [
+        { n: 1 as const, label: "Revisão" },
+        { n: 3 as const, label: "Pedido recebido" },
+      ];
+
   return (
     <div className="px-5 lg:px-12 py-8 sm:py-12 max-w-7xl mx-auto min-h-screen">
       <PageSEO
         title="Finalizar Pedido"
-        description="Confirme seu pedido de impressão 3D. Entraremos em contato para combinar pagamento e entrega."
+        description="Confirme seu pedido de impressão 3D com pagamento seguro."
         path="/checkout"
         noindex
       />
       <div className="flex flex-col md:flex-row items-center md:items-start justify-between mb-8 sm:mb-10 gap-6">
         <div className="text-center md:text-left">
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black font-display uppercase tracking-tight mb-2 leading-none">
-            Revise seu <span className="text-shimmer italic">pedido.</span>
+            {step === 1 ? (
+              <>
+                Revise seu <span className="text-shimmer italic">pedido.</span>
+              </>
+            ) : step === 2 ? (
+              <>
+                Escolha o <span className="text-shimmer italic">pagamento.</span>
+              </>
+            ) : (
+              <>
+                Pedido <span className="text-shimmer italic">confirmado.</span>
+              </>
+            )}
           </h1>
           <p className="text-white/40 font-medium text-sm sm:text-base">
-            {PAYMENT_DISABLED
-              ? "Confira os itens. Nenhum pagamento será realizado nesta etapa."
-              : "Revise os itens e confirme seu pedido."}
+            {step === 1
+              ? "Revise os itens e confirme seu pedido."
+              : step === 2
+                ? "Gere o Pix e pague com segurança pelo aplicativo do seu banco."
+                : "Seu pedido foi registrado com sucesso."}
           </p>
         </div>
         <div className="flex items-center gap-3 sm:gap-4 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
-          {[
-            { n: 1 as const, label: "Revisão" },
-            { n: 2 as const, label: "Pedido recebido" },
-          ].map(({ n: s, label }) => (
+          {steps.map(({ n: s, label }, idx) => (
             <Fragment key={s}>
               <div className="flex flex-col items-center gap-1.5">
                 <div
@@ -197,7 +273,7 @@ export default function Checkout() {
                   {label}
                 </span>
               </div>
-              {s < 2 && (
+              {idx < steps.length - 1 && (
                 <div
                   className={`w-6 sm:w-8 h-[2px] rounded-full mb-4 ${step > s ? "bg-green-500" : "bg-white/10"}`}
                 />
@@ -273,7 +349,7 @@ export default function Checkout() {
                 </div>
               </section>
 
-              {PAYMENT_DISABLED && (
+              {!mpEnabled && (
                 <div className="p-6 rounded-[24px] bg-primary/5 border border-primary/15 flex gap-4">
                   <MessageCircle className="w-6 h-6 text-primary shrink-0" />
                   <div className="space-y-1">
@@ -313,14 +389,28 @@ export default function Checkout() {
                   className="h-16 sm:h-20 rounded-2xl sm:rounded-3xl flex-[2] gap-4 text-lg sm:text-xl font-display font-black uppercase tracking-tight"
                   onClick={handleCompleteOrder}
                 >
-                  {user ? "ENVIAR SOLICITAÇÃO" : "ENTRAR E CONTINUAR"}{" "}
+                  {user ? "CONTINUAR" : "ENTRAR E CONTINUAR"}{" "}
                   <ArrowRight className="w-5 h-5 sm:w-6 sm:h-6" />
                 </Button>
               </div>
             </div>
           )}
 
-          {step === 2 && (
+          {step === 2 && mpEnabled && (
+            <PixPaymentStep
+              payment={pixData}
+              loading={loading || paymentLoading}
+              onBack={() => setStep(1)}
+              onGenerate={handleProcessPayment}
+              onCopy={copyPixCode}
+              onTrackOrder={() => {
+                clearCart();
+                navigate("/meus-pedidos");
+              }}
+            />
+          )}
+
+          {step === 3 && (
             <div className="text-center py-16 flex flex-col items-center">
               <div className="relative mb-12">
                 <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
@@ -329,17 +419,17 @@ export default function Checkout() {
                 </div>
               </div>
               <h2 className="text-5xl lg:text-7xl font-display font-black mb-6 uppercase tracking-tighter leading-none">
-                Pedido <br /> Recebido.
+                {mpEnabled ? "Pagamento" : "Pedido"} <br /> Confirmado.
               </h2>
               <p className="text-xl text-white/40 font-medium mb-4 leading-relaxed max-w-md">
                 Seu pedido{" "}
                 <span className="text-primary">#{createdOrderId?.slice(0, 10).toUpperCase()}</span>{" "}
-                foi registrado.
+                foi {mpEnabled ? "pago e" : ""} registrado.
               </p>
               <p className="text-sm text-white/50 font-medium mb-12 leading-relaxed max-w-md">
-                Entraremos em contato em breve para combinar{" "}
-                <span className="text-white">pagamento e entrega</span>. Acompanhe pelo WhatsApp ou
-                em Meus Pedidos.
+                {mpEnabled
+                  ? "Acompanhe o status do pedido em Meus Pedidos."
+                  : "Entraremos em contato em breve para combinar pagamento e entrega. Acompanhe pelo WhatsApp ou em Meus Pedidos."}
               </p>
               <div className="flex flex-col sm:flex-row gap-6 w-full max-w-2xl">
                 <Button
@@ -377,7 +467,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between">
                   <span>Pagamento</span>
-                  <span>Após confirmação</span>
+                  <span>{mpEnabled ? "Mercado Pago" : "Após confirmação"}</span>
                 </div>
               </div>
 
@@ -392,9 +482,11 @@ export default function Checkout() {
                       {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
-                  <p className="mt-4 text-[10px] font-bold leading-relaxed text-white/35">
-                    Nenhum pagamento será realizado ao enviar esta solicitação.
-                  </p>
+                  {!mpEnabled && (
+                    <p className="mt-4 text-[10px] font-bold leading-relaxed text-white/35">
+                      Nenhum pagamento será realizado ao enviar esta solicitação.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -422,7 +514,7 @@ export default function Checkout() {
                 loading={loading || authLoading}
                 className="h-14 px-8 rounded-2xl text-[10px] font-black uppercase tracking-[0.1em]"
               >
-                {user ? "CONFIRMAR" : "ENTRAR"}
+                {user ? "CONTINUAR" : "ENTRAR"}
               </Button>
             </div>
           </div>
