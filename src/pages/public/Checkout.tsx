@@ -22,6 +22,12 @@ import { isEnabled as isMercadoPagoEnabled } from "../../lib/mercadopago/config"
 import { usePayment } from "../../hooks/usePayment";
 import { PixPaymentStep, type PixPaymentData } from "../../components/checkout/PixPaymentStep";
 
+interface OrderTotals {
+  subtotal: number;
+  discount: number;
+  total: number;
+}
+
 export default function Checkout() {
   const { items, total, clearCart, updateQuantity, removeItem } = useCart();
   const { user, loginWithGoogle } = useAuth();
@@ -34,7 +40,9 @@ export default function Checkout() {
   const [loading, setLoading] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [createdOrderId, setCreatedOrderId] = useState<string | null>(null);
+  const [confirmedTotals, setConfirmedTotals] = useState<OrderTotals | null>(null);
   const [pixData, setPixData] = useState<PixPaymentData | null>(null);
+  const checkoutTotal = confirmedTotals?.total ?? total;
 
   const trackedCheckout = useRef(false);
   const trackedPurchase = useRef(false);
@@ -97,10 +105,13 @@ export default function Checkout() {
         toast.error(err.error || "Erro ao gerar pedido. Tente novamente.");
         return;
       }
-      const { orderId, total: serverTotal } = (await resp.json()) as {
+      const order = (await resp.json()) as {
         orderId: string;
+        subtotal: number;
+        discount: number;
         total: number;
       };
+      const { orderId, total: serverTotal } = order;
 
       fetch("/api/notify/new-order", {
         method: "POST",
@@ -116,6 +127,11 @@ export default function Checkout() {
       }).catch(() => {});
 
       setCreatedOrderId(orderId);
+      setConfirmedTotals({
+        subtotal: order.subtotal,
+        discount: order.discount,
+        total: order.total,
+      });
 
       if (mpEnabled) {
         setStep(2);
@@ -169,7 +185,7 @@ export default function Checkout() {
   const handlePaymentSuccess = (paymentId?: string) => {
     if (!trackedPurchase.current && createdOrderId) {
       trackedPurchase.current = true;
-      trackPurchase(total, createdOrderId);
+      trackPurchase(checkoutTotal, createdOrderId);
     }
     setStep(3);
     clearCart();
@@ -472,6 +488,31 @@ export default function Checkout() {
               </div>
 
               <div className="pt-6 border-t border-white/5 space-y-3 sm:space-y-4">
+                {confirmedTotals && (
+                  <div className="space-y-3 text-xs">
+                    <div className="flex justify-between text-white/45">
+                      <span>Subtotal</span>
+                      <span>
+                        {confirmedTotals.subtotal.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                      </span>
+                    </div>
+                    {confirmedTotals.discount > 0 && (
+                      <div className="flex justify-between text-emerald-400">
+                        <span>Desconto no Pix</span>
+                        <span>
+                          −
+                          {confirmedTotals.discount.toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL",
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="pt-4 sm:pt-6">
                   <p className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-white/30 mb-2">
                     Total
@@ -479,7 +520,7 @@ export default function Checkout() {
                   <div className="flex items-baseline gap-2">
                     <span className="text-base sm:text-lg text-white/40 font-mono">R$</span>
                     <p className="text-4xl sm:text-5xl font-display font-black text-shimmer leading-none">
-                      {total.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                      {checkoutTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
                     </p>
                   </div>
                   {!mpEnabled && (

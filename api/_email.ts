@@ -53,10 +53,12 @@ export interface SendEmailInput {
 
 /** Envia um e-mail. Retorna true se aceito pela SendPulse. Nunca lança. */
 export async function sendEmail(input: SendEmailInput): Promise<boolean> {
+  const fromEmail = process.env.EMAIL_FROM?.trim();
+  if (!fromEmail) return false; // remetente não verificado → no-op seguro
+
   const token = await getToken();
   if (!token) return false; // não configurado → no-op
 
-  const fromEmail = process.env.EMAIL_FROM || "vendas@inovapro3d.com.br";
   const fromName = process.env.EMAIL_FROM_NAME || "INOVAPRO3D";
 
   try {

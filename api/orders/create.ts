@@ -9,6 +9,7 @@ import {
   type ProductRecord,
   type MaterialRecord,
 } from "../_orderPricing.js";
+import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing.js";
 
 interface CreateOrderPayload {
   items?: OrderLineInput[];
@@ -81,6 +82,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    const mercadoPagoEnabled = process.env.MERCADOPAGO_ENABLED === "true";
+    let pixDiscountPercent = DEFAULT_PIX_DISCOUNT_PERCENT;
+    if (mercadoPagoEnabled) {
+      const pricingSnapshot = await adminDb.collection("settings").doc("pricing").get();
+      const configuredPercent = Number(pricingSnapshot.data()?.pixDiscountPct);
+      if (Number.isFinite(configuredPercent)) pixDiscountPercent = configuredPercent;
+    }
+    const totals = mercadoPagoEnabled
+      ? calculatePixTotal(result.total, pixDiscountPercent)
+      : { subtotal: result.total, discount: 0, total: result.total };
+
     const orderItems = result.lines.map((l) => ({
       id: l.materialId ? `${l.productId}-${l.materialId}` : l.productId,
       productId: l.productId,
@@ -97,17 +109,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userEmail: body.userEmail ?? null,
       phone: body.phone ?? null,
       items: orderItems,
-      subtotal: result.total,
-      total: result.total,
+      subtotal: totals.subtotal,
+      discount: totals.discount,
+      pixDiscountPercent: mercadoPagoEnabled ? pixDiscountPercent : 0,
+      total: totals.total,
       shippingRate: 0,
       couponCode: null,
       couponDiscount: null,
       shippingAddress: null,
       status: "PENDING_PAYMENT",
-      paymentMethod: "manual",
+      paymentMethod: mercadoPagoEnabled ? "pix" : "manual",
+      paymentProvider: mercadoPagoEnabled ? "mercadopago" : "manual",
       createdAt: new Date(),
     });
-    res.status(200).json({ orderId: ref.id, total: result.total });
+    res.status(200).json({ orderId: ref.id, ...totals });
   } catch {
     res.status(500).json({ error: "Erro ao criar pedido." });
   }

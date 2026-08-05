@@ -1,3 +1,5 @@
+import { DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing";
+
 // ============================================================================
 // MOTOR DE PRECIFICAÇÃO INOVAPRO3D
 // ----------------------------------------------------------------------------
@@ -203,7 +205,7 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   wholesaleMarkup: 1.6,
   retailMarkup: 2.5,
   minPrice: 35,
-  pixDiscountPct: 5,
+  pixDiscountPct: DEFAULT_PIX_DISCOUNT_PERCENT,
   maxInstallments: 6,
   materials: {
     pla: {
