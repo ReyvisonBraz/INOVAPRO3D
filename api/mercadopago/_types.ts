@@ -90,7 +90,10 @@ export function mapMercadoPagoStatus(mpStatus: string): PaymentStatus {
     case "rejected":
       return "REJECTED";
     case "cancelled":
+    case "canceled":
       return "CANCELED";
+    case "expired":
+      return "EXPIRED";
     case "refunded":
       return "REFUNDED";
     case "charged_back":

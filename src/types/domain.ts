@@ -1,4 +1,8 @@
 import type { FieldValue, Timestamp } from "firebase/firestore";
+import type {
+  PaymentMethod as PaymentMethodContract,
+  PaymentStatus as PaymentStatusContract,
+} from "../../shared/payments/contracts";
 
 export type FirestoreDate = Timestamp | { seconds: number };
 
@@ -49,17 +53,9 @@ export type OrderStatus =
   | "COMPLETED"
   | "CANCELED";
 
-export type PaymentStatus =
-  | "NOT_STARTED"
-  | "PROCESSING"
-  | "PENDING"
-  | "APPROVED"
-  | "REJECTED"
-  | "CANCELED"
-  | "REFUNDED"
-  | "CHARGED_BACK";
+export type PaymentStatus = PaymentStatusContract;
 
-export type PaymentMethod = "pix" | "credit_card" | "debit_card" | "manual" | "unknown";
+export type PaymentMethod = PaymentMethodContract;
 
 export interface PaymentAttempt {
   id: string;

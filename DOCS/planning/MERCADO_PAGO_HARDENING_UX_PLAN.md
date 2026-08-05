@@ -27,6 +27,9 @@ completo, resiliência operacional e endurecimento de segurança.
 
 ## Decisões fechadas em 5 de agosto de 2026
 
+As fronteiras e responsabilidades da migração estão registradas em
+[ADR-001 — Fronteira do provedor de pagamentos](../architecture/ADR-001-PAYMENT-PROVIDER-BOUNDARY.md).
+
 ### Validade: 30 minutos, sem polling contínuo
 
 A API Orders aceita no mínimo 30 minutos e no máximo 30 dias para Pix. Não criaremos uma validade
