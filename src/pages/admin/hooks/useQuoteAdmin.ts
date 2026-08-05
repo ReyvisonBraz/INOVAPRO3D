@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { auth, db } from "../../../services/firebase";
 import type { AdminTabId } from "../../../lib/adminHelpers";
 import type { Customer, Quote, Ticket } from "../../../types/domain";
+import { buildCommercialQuoteMessage } from "../../../lib/quoteMessage";
 
 interface Deps {
   customers: Customer[];
@@ -79,9 +80,9 @@ export function useQuoteAdmin({
       finalPrice: number,
       orderId?: string,
       phoneOverride?: string,
-      infillOverride?: number,
-      timeOverride?: string,
-      weightOverride?: number,
+      _infillOverride?: number,
+      _timeOverride?: string,
+      _weightOverride?: number,
     ) => {
       const rawPhone = phoneOverride !== undefined ? phoneOverride : editingQuotePhone;
       const phoneClean = (rawPhone || "").replace(/\D/g, "");
@@ -89,17 +90,20 @@ export function useQuoteAdmin({
         toast.error("Preencha o celular do cliente.");
         return;
       }
-      const orderMsg = orderId ? ` e o pedido oficial #${orderId.slice(0, 8)} foi gerado` : "";
-      const infillToUse = infillOverride ?? editingQuoteInfill;
-      const timeToUse = timeOverride ?? editingQuoteTime;
-      const weightToUse = weightOverride ?? editingQuoteWeight;
-      const text = `Olá, *${q.userName}*!\n\nSeu orçamento para a peça *${q.fileName}* foi analisado pela equipe *INOVAPRO3D*${orderMsg}.\n\n*Detalhes do Projeto:*\n• Preenchimento (Infill): ${infillToUse}%\n• Tempo de Impressão: ${timeToUse}\n• Peso Estimado: ${weightToUse}g\n\n*Investimento Final:* R$ ${finalPrice.toFixed(2).replace(".", ",")}\n\nAcesse o painel para verificar os detalhes e acompanhar a manufatura.\n\nFicamos à disposição! 🚀`;
+      const quantity = "quantity" in q && Number(q.quantity) > 0 ? Number(q.quantity) : 1;
+      const text = buildCommercialQuoteMessage({
+        customerName: q.userName,
+        projectName: q.fileName,
+        quantity,
+        total: finalPrice,
+        orderId,
+      });
       window.open(
         `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`,
         "_blank",
       );
     },
-    [editingQuotePhone, editingQuoteInfill, editingQuoteTime, editingQuoteWeight],
+    [editingQuotePhone],
   );
 
   const handleApproveQuote = useCallback(

@@ -101,6 +101,32 @@ describe("computePricing — preços e piso mínimo", () => {
     expect(r.retailTotal).toBeCloseTo(r.totalCost * 2.5, 6);
   });
 
+  it("não aplica markup novamente sobre o valor cobrado pela mão de obra", () => {
+    const r = computePricing(
+      makeInput({
+        weightGrams: 0,
+        hours: 0,
+        laborHours: 1,
+        laborRate: 30,
+        minPrice: 35,
+      }),
+    );
+
+    expect(r.totalCost).toBe(30);
+    expect(r.wholesaleTotal).toBe(30);
+    expect(r.retailTotal).toBe(30);
+    expect(r.isBelowMinWholesale).toBe(false);
+    expect(r.isBelowMinRetail).toBe(false);
+  });
+
+  it("aplica markup na impressão e soma a mão de obra apenas uma vez", () => {
+    const semMaoDeObra = computePricing(makeInput({ minPrice: 0 }));
+    const comMaoDeObra = computePricing(makeInput({ laborHours: 1, laborRate: 30, minPrice: 0 }));
+
+    expect(comMaoDeObra.wholesaleTotal - semMaoDeObra.wholesaleTotal).toBeCloseTo(30, 6);
+    expect(comMaoDeObra.retailTotal - semMaoDeObra.retailTotal).toBeCloseTo(30, 6);
+  });
+
   it("aplica o piso mínimo quando o markup fica abaixo", () => {
     // Job minúsculo: custo × markup < minPrice alto → prevalece o piso.
     const r = computePricing(makeInput({ weightGrams: 1, hours: 0.05, minPrice: 100 }));

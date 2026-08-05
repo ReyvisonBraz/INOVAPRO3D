@@ -795,6 +795,11 @@
     break-after: auto;
   }
 
+  .maker-print-report-client .maker-report-page-production,
+  .maker-print-report-production .maker-report-page-client {
+    display: none !important;
+  }
+
   .maker-report-header {
     display: flex;
     justify-content: space-between;

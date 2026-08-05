@@ -370,13 +370,13 @@ export interface PricingResult {
   profitWholesaleUnit: number;
   /** Margem: lucro ÷ preço de venda (%). */
   profitWholesalePct: number;
-  /** Markup: lucro ÷ custo (%). Bate com o multiplicador que você digita. */
+  /** Lucro total ÷ custo total (%), após somar a mão de obra sem novo markup. */
   profitWholesaleMarkupPct: number;
   profitRetail: number;
   profitRetailUnit: number;
   /** Margem: lucro ÷ preço de venda (%). */
   profitRetailPct: number;
-  /** Markup: lucro ÷ custo (%). Bate com o multiplicador que você digita. */
+  /** Lucro total ÷ custo total (%), após somar a mão de obra sem novo markup. */
   profitRetailMarkupPct: number;
 }
 
@@ -437,12 +437,21 @@ export function computePricing(input: PricingInputs): PricingResult {
   const costPerGram = weightGrams > 0 ? totalCost / weightGrams : 0;
 
   // --- Preços (com piso mínimo) ---
-  const minPrice = Math.max(0, num(input.minPrice));
+  const configuredMinPrice = Math.max(0, num(input.minPrice));
   const capacityContributionTarget =
     hours * Math.max(0, num(input.targetProfitPerMachineHour ?? 0));
   const minimumSustainablePrice = totalCost + capacityContributionTarget;
-  const wholesaleRaw = totalCost * Math.max(0, num(input.wholesaleMarkup));
-  const retailRaw = totalCost * Math.max(0, num(input.retailMarkup));
+  // A hora de mão de obra representa o valor que o profissional decidiu cobrar
+  // pelo trabalho humano. Aplicar novamente o markup geral transformava, por
+  // exemplo, R$ 30/h em R$ 75 no varejo. O markup permanece sobre os custos de
+  // fabricação e os demais insumos; a mão de obra entra uma única vez.
+  const markupBaseCost = Math.max(0, totalCost - laborCost);
+  const wholesaleRaw = markupBaseCost * Math.max(0, num(input.wholesaleMarkup)) + laborCost;
+  const retailRaw = markupBaseCost * Math.max(0, num(input.retailMarkup)) + laborCost;
+  // O preço mínimo é um piso da impressão. Em um serviço exclusivamente
+  // manual, sem material nem tempo de máquina, vale a hora informada pelo admin.
+  const hasPrintProduction = weightGrams > 0 || hours > 0;
+  const minPrice = hasPrintProduction ? configuredMinPrice : 0;
   const wholesaleTotal = Math.max(wholesaleRaw, minPrice, minimumSustainablePrice);
   const retailTotal = Math.max(retailRaw, minPrice, minimumSustainablePrice);
 
@@ -578,17 +587,17 @@ export const HELP = {
   maint:
     "Custo por hora de graxa, tubo PTFE, limpeza e pequenos imprevistos. Um fundo para não ser pego de surpresa.",
   laborHours:
-    "Seu tempo de trabalho HUMANO no job: revisar arquivo, fatiar, tirar suportes, lixar, embalar. Mesmo impressão automática tem seu tempo.",
+    "Seu tempo de trabalho HUMANO no job: revisar arquivo, modelar, tirar suportes, lixar ou embalar. A hora informada é cobrada uma vez e não recebe novamente o markup da impressão.",
   laborRate:
-    "Quanto vale 1 hora do seu trabalho. Não trabalhe de graça: coloque um valor justo para a sua mão de obra.",
+    "Valor final cobrado por 1 hora do seu trabalho. Exemplo: 1 hora a R$ 30 acrescenta exatamente R$ 30 ao preço, sem outro multiplicador.",
   extraSupplies:
     "Insumos específicos deste job que não são filamento: parafusos, ímãs, tinta, cola, embalagem especial.",
   wholesale:
-    "Margem sobre o custo para revenda ou lotes recorrentes. 2× equivale a custo + 100%; no modo %, informe 100%. Se esse resultado ficar abaixo do preço mínimo ou do piso por hora de máquina, o maior piso prevalece.",
+    "Margem sobre os custos de fabricação para revenda ou lotes recorrentes. A mão de obra é somada pelo valor informado, sem receber este multiplicador novamente. O maior piso aplicável prevalece.",
   retail:
-    "Margem sobre o custo para venda direta. 2× equivale a custo + 100%; no modo %, informe 100%. Se esse resultado ficar abaixo do preço mínimo ou do piso por hora de máquina, o maior piso prevalece.",
+    "Margem sobre os custos de fabricação para venda direta. A mão de obra é somada pelo valor informado, sem receber este multiplicador novamente. O maior piso aplicável prevalece.",
   minPrice:
-    "Menor valor aceito para o trabalho inteiro. A calculadora compara custo × markup, este preço mínimo e o piso sustentável por hora; usa sempre o maior.",
+    "Menor valor aceito para um trabalho de impressão. Não altera um serviço exclusivamente manual, sem filamento e sem tempo de máquina.",
   depreciation:
     "Quanto da máquina 'se gasta' a cada hora de impressão. É o preço da P2S diluído na vida útil dela.",
   replacement:
@@ -603,9 +612,9 @@ export const HELP = {
   shares:
     "Como o custo se divide entre material, energia, máquina, mão de obra e falhas. Ajuda a ver onde o dinheiro está indo.",
   sellPrice:
-    "A calculadora compara três valores: custo × markup, preço mínimo e piso sustentável (custo + meta por hora ocupada). O preço sugerido é o maior deles; por isso alterar o markup pode não mudar o preço enquanto ele continuar abaixo de um dos pisos.",
+    "A calculadora aplica o markup aos custos de fabricação, soma a mão de obra uma única vez e compara o resultado com os pisos aplicáveis. Por isso o preço pode não mudar enquanto outro piso for maior.",
   profit:
-    "Lucro = preço de venda − custo real. A 'margem' é o lucro sobre o preço de venda; o 'markup' é o lucro sobre o custo (é o mesmo número do multiplicador que você digita).",
+    "Lucro = preço de venda − custo real. A margem é o lucro sobre o preço de venda; o percentual sobre custo considera o resultado completo depois de somar a mão de obra sem um novo markup.",
   wholesaleBox:
     "Preço de atacado/B2B: para quem revende ou fecha lotes recorrentes. Markup menor porque o volume compensa.",
   retailBox:

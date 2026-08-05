@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import { db } from "../../../services/firebase";
 import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
@@ -21,6 +21,22 @@ import {
   type CalculatorProject,
 } from "../../../lib/calculatorProject";
 import type { Material, MaterialUsage } from "../../../types/domain";
+import {
+  customerMatchesSearch,
+  normalizeCustomerName,
+  normalizeCustomerPhone,
+  splitCustomerName,
+  uppercaseCustomerName,
+} from "../../../lib/customerIdentity";
+
+type QuoteCustomer = {
+  id: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  whatsapp?: string;
+};
 
 export const CALCULATOR_DRAFT_STORAGE_KEY = "inovapro3d:calculator-draft:v1";
 export const CALCULATOR_DRAFT_EVENT = "inovapro3d:calculator-draft-saved";
@@ -59,7 +75,10 @@ type CalculatorDraft = {
   minPrice: number;
   markupMode: "mult" | "pct";
   clientName: string;
+  clientLastName?: string;
   clientPhone: string;
+  selectedCustomerId?: string;
+  priceTier?: "RETAIL" | "WHOLESALE";
   quoteImageUrl: string;
 };
 
@@ -212,7 +231,16 @@ export function useCalculatorState() {
   // --- Save calc / orçamento ---
   const [savingCalc, setSavingCalc] = useState(false);
   const [clientName, setClientName] = useState(initialDraft?.clientName ?? "");
+  const [clientLastName, setClientLastName] = useState(initialDraft?.clientLastName ?? "");
   const [clientPhone, setClientPhone] = useState(initialDraft?.clientPhone ?? "");
+  const [selectedCustomerId, setSelectedCustomerId] = useState(
+    initialDraft?.selectedCustomerId ?? "",
+  );
+  const [priceTier, setPriceTier] = useState<"RETAIL" | "WHOLESALE">(
+    initialDraft?.priceTier ?? "RETAIL",
+  );
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState<QuoteCustomer[]>([]);
   const [quoteImageUrl, setQuoteImageUrl] = useState(initialDraft?.quoteImageUrl ?? "");
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -324,7 +352,10 @@ export function useCalculatorState() {
         minPrice,
         markupMode,
         clientName,
+        clientLastName,
         clientPhone,
+        selectedCustomerId,
+        priceTier,
         quoteImageUrl,
       };
       try {
@@ -372,7 +403,10 @@ export function useCalculatorState() {
     minPrice,
     markupMode,
     clientName,
+    clientLastName,
     clientPhone,
+    selectedCustomerId,
+    priceTier,
     quoteImageUrl,
   ]);
 
@@ -389,6 +423,46 @@ export function useCalculatorState() {
       )
       .catch(() => setInventoryMaterials([]));
   }, []);
+
+  useEffect(() => {
+    getDocs(collection(db, "customers"))
+      .then((snapshot) =>
+        setCustomers(
+          snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuoteCustomer),
+        ),
+      )
+      .catch(() => setCustomers([]));
+  }, []);
+
+  const customerMatches = useMemo(
+    () =>
+      customerSearch.trim()
+        ? customers
+            .filter((customer) => customerMatchesSearch(customer, customerSearch))
+            .slice(0, 6)
+        : [],
+    [customerSearch, customers],
+  );
+
+  const selectQuoteCustomer = (customer: QuoteCustomer) => {
+    const rawName =
+      customer.name || [customer.firstName, customer.lastName].filter(Boolean).join(" ");
+    const parts = uppercaseCustomerName(rawName || "")
+      .trim()
+      .split(/\s+/);
+    setClientName(parts.shift() || "");
+    setClientLastName(parts.join(" "));
+    setClientPhone(customer.phone || customer.whatsapp || "");
+    setSelectedCustomerId(customer.id);
+    setCustomerSearch("");
+  };
+
+  const clearQuoteCustomer = () => {
+    setSelectedCustomerId("");
+    setClientName("");
+    setClientLastName("");
+    setClientPhone("");
+  };
 
   // --- Load machine config from Firestore (overrides localStorage defaults) ---
   useEffect(() => {
@@ -509,7 +583,11 @@ export function useCalculatorState() {
     setExtraSupplies(0);
     setPackagingCost(0);
     setClientName("");
+    setClientLastName("");
     setClientPhone("");
+    setSelectedCustomerId("");
+    setCustomerSearch("");
+    setPriceTier("RETAIL");
     setQuoteImageUrl("");
   };
 
@@ -578,9 +656,40 @@ export function useCalculatorState() {
     );
     setSavingCalc(true);
     try {
+      const identity = splitCustomerName(clientName, clientLastName);
+      const phoneClean = normalizeCustomerPhone(clientPhone);
+      let customerId = selectedCustomerId;
+      if (!customerId) {
+        const duplicate = customers.find(
+          (customer) =>
+            phoneClean &&
+            normalizeCustomerPhone(customer.phone || customer.whatsapp || "") === phoneClean,
+        );
+        if (duplicate) {
+          customerId = duplicate.id;
+        } else {
+          const customerRef = await addDoc(collection(db, "customers"), {
+            name: identity.fullName,
+            firstName: identity.firstName,
+            lastName: identity.lastName,
+            ...(phoneClean ? { phone: phoneClean, whatsapp: phoneClean } : {}),
+            nameNormalized: normalizeCustomerName(identity.fullName),
+            phoneNormalized: phoneClean,
+            source: "CALCULATOR",
+            profileStatus: "DRAFT",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          customerId = customerRef.id;
+        }
+      }
+      const selectedTotal = priceTier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
+      const selectedUnit = priceTier === "WHOLESALE" ? result.wholesaleUnit : result.retailUnit;
       await saveQuoteFromCalc({
-        clientName,
+        clientName: identity.fullName,
         phone: clientPhone,
+        customerId,
+        priceTier,
         pieceName: project.name,
         materialLabel: project.plates.some((plate) => plate.type === "MULTICOLOR")
           ? "Multicolor"
@@ -588,9 +697,12 @@ export function useCalculatorState() {
         weight: result.weightGrams,
         printTime: `${result.hours.toFixed(2)}h`,
         quantity: projectPricing.totalPieces,
-        price: result.retailTotal,
-        unitPrice: result.retailUnit,
+        price: selectedTotal,
+        unitPrice: selectedUnit,
         costTotal: result.totalCost,
+        retailReference: result.retailTotal,
+        wholesaleReference: result.wholesaleTotal,
+        sustainableFloor: result.minimumSustainablePrice,
         imageUrl: quoteImageUrl || undefined,
         materialUsages: predictedUsages,
         calculationProject: project,
@@ -712,8 +824,18 @@ export function useCalculatorState() {
     handleSaveCalc,
     clientName,
     setClientName,
+    clientLastName,
+    setClientLastName,
     clientPhone,
     setClientPhone,
+    selectedCustomerId,
+    customerSearch,
+    setCustomerSearch,
+    customerMatches,
+    selectQuoteCustomer,
+    clearQuoteCustomer,
+    priceTier,
+    setPriceTier,
     quoteImageUrl,
     setQuoteImageUrl,
     uploadingImage,

@@ -17,7 +17,9 @@ import {
   Loader2,
   Package,
   Save,
+  Search,
   Settings2,
+  UserCheck,
   Wrench,
   X,
   Zap,
@@ -438,6 +440,7 @@ function ReportLine({ label, value }: { label: string; value: React.ReactNode })
 }
 
 export default function FilamentCalculator({ embedded = false }: { embedded?: boolean }) {
+  const [printMode, setPrintMode] = useState<"CLIENT" | "PRODUCTION">("CLIENT");
   const {
     project,
     setProject,
@@ -521,8 +524,18 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
     handleSaveCalc,
     clientName,
     setClientName,
+    clientLastName,
+    setClientLastName,
     clientPhone,
     setClientPhone,
+    selectedCustomerId,
+    customerSearch,
+    setCustomerSearch,
+    customerMatches,
+    selectQuoteCustomer,
+    clearQuoteCustomer,
+    priceTier,
+    setPriceTier,
     quoteImageUrl,
     setQuoteImageUrl,
     uploadingImage,
@@ -533,6 +546,26 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
     laborTotal,
     generatedAt,
   } = useCalculatorState();
+
+  const quotedTotal = priceTier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
+  const quotedUnit = priceTier === "WHOLESALE" ? result.wholesaleUnit : result.retailUnit;
+  const negotiationFloor = Math.max(
+    result.minimumSustainablePrice,
+    result.weightGrams > 0 || result.hours > 0 ? minPrice : 0,
+  );
+  const maximumSafeDiscountPct =
+    quotedTotal > 0 ? Math.max(0, ((quotedTotal - negotiationFloor) / quotedTotal) * 100) : 0;
+  const comfortableDiscountPct =
+    priceTier === "RETAIL" ? Math.min(pricingSettings.pixDiscountPct, maximumSafeDiscountPct) : 0;
+  const comfortableOffer = quotedTotal * (1 - comfortableDiscountPct / 100);
+  const selectedReprintProfit =
+    priceTier === "WHOLESALE"
+      ? result.wholesaleProfitAfterFullReprint
+      : result.retailProfitAfterFullReprint;
+  const printReport = (mode: "CLIENT" | "PRODUCTION") => {
+    setPrintMode(mode);
+    window.setTimeout(() => window.print(), 0);
+  };
 
   return (
     <>
@@ -1111,7 +1144,7 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                 </div>
               </div>
 
-              <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="mt-5 grid gap-3 xl:grid-cols-3">
                 <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
                   <p className="text-[11px] font-black uppercase tracking-wider text-white/60">
                     Piso sustentável
@@ -1120,24 +1153,44 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                     {formatBRL(result.minimumSustainablePrice)}
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-white/60">
-                    Inclui {formatBRL(result.capacityContributionTarget)} pela ocupação de{" "}
-                    {result.hours.toFixed(1)}h.
+                    Menor valor recomendado: custo real de {formatBRL(result.totalCost)} mais{" "}
+                    {formatBRL(result.capacityContributionTarget)} pela ocupação da máquina
+                    {result.hours > 0 ? ` durante ${formatHoursToHHMM(result.hours)}` : ""}.
+                  </p>
+                </div>
+                <div className="rounded-xl border border-blue-400/25 bg-blue-400/[0.06] p-4">
+                  <p className="text-[11px] font-black uppercase tracking-wider text-blue-200/80">
+                    Faixa de negociação
+                  </p>
+                  <p className="mt-1 text-lg font-black text-blue-200">
+                    {comfortableDiscountPct > 0
+                      ? `Pode oferecer ${formatBRL(comfortableOffer)}`
+                      : priceTier === "WHOLESALE"
+                        ? "Atacado já negociado"
+                        : "Mantenha o preço sugerido"}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/60">
+                    {priceTier === "WHOLESALE"
+                      ? "Evite desconto adicional sem rever quantidade e custos."
+                      : `Desconto confortável de ${comfortableDiscountPct.toFixed(1)}%. Limite máximo seguro: ${maximumSafeDiscountPct.toFixed(1)}%, nunca abaixo de ${formatBRL(negotiationFloor)}.`}
                   </p>
                 </div>
                 <div
-                  className={`rounded-xl border p-4 ${result.retailProfitAfterFullReprint >= 0 ? "border-emerald-400/25 bg-emerald-400/[0.06]" : "border-red-400/25 bg-red-400/[0.06]"}`}
+                  className={`rounded-xl border p-4 ${selectedReprintProfit >= 0 ? "border-emerald-400/25 bg-emerald-400/[0.06]" : "border-red-400/25 bg-red-400/[0.06]"}`}
                 >
                   <p className="text-[11px] font-black uppercase tracking-wider text-white/60">
                     Se houver uma reimpressão completa
                   </p>
                   <p
-                    className={`mt-1 text-lg font-black ${result.retailProfitAfterFullReprint >= 0 ? "text-emerald-300" : "text-red-300"}`}
+                    className={`mt-1 text-lg font-black ${selectedReprintProfit >= 0 ? "text-emerald-300" : "text-red-300"}`}
                   >
-                    {result.retailProfitAfterFullReprint >= 0 ? "Ainda sobra " : "Prejuízo de "}
-                    {formatBRL(Math.abs(result.retailProfitAfterFullReprint))}
+                    {selectedReprintProfit >= 0 ? "Ainda sobra " : "Prejuízo de "}
+                    {formatBRL(Math.abs(selectedReprintProfit))}
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-white/60">
-                    Cenário de varejo, antes de taxas e impostos.
+                    {selectedReprintProfit >= 0
+                      ? "O preço escolhido suporta uma reimpressão completa."
+                      : "Não ofereça desconto; revise o preço ou a provisão de falha."}
                   </p>
                 </div>
               </div>
@@ -1155,11 +1208,18 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
 
               <button
                 type="button"
-                onClick={() => window.print()}
+                onClick={() => printReport("CLIENT")}
                 className="mt-5 inline-flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-primary px-5 text-xs font-black uppercase tracking-[0.18em] text-white transition hover:bg-primary-dark hover:shadow-[0_0_30px_rgba(37,99,235,0.25)] active:scale-[0.99]"
               >
                 <Download className="h-4 w-4" />
-                Gerar relatório PDF
+                Gerar proposta do cliente
+              </button>
+              <button
+                type="button"
+                onClick={() => printReport("PRODUCTION")}
+                className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 text-[11px] font-black uppercase tracking-[0.14em] text-white/60 transition hover:border-white/30 hover:text-white"
+              >
+                <Factory className="h-4 w-4" /> Ficha interna de produção
               </button>
 
               <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
@@ -1167,25 +1227,125 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                   <Save className="h-4 w-4 text-emerald-300" />
                   <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.2em] text-white/90">
                     Salvar orçamento
-                    <HelpTip text="Salva este orçamento na aba Orçamentos do painel, com o preço de varejo, dados do cliente e imagem. Requer login de admin." />
+                    <HelpTip text="Salva este orçamento na aba Orçamentos com o preço comercial escolhido (varejo ou atacado), o cliente vinculado e a ficha técnica interna. Requer login de admin." />
                   </h3>
                 </div>
+                <div className="mb-4 rounded-xl border border-white/10 bg-black/20 p-3">
+                  <label className="mb-2 flex items-center gap-2 text-[11px] font-black uppercase tracking-wider text-white/65">
+                    <Search className="h-4 w-4 text-cyan-300" /> Buscar cliente já cadastrado
+                  </label>
+                  <input
+                    type="search"
+                    placeholder="Digite nome, sobrenome ou telefone"
+                    value={customerSearch}
+                    onChange={(event) => setCustomerSearch(event.target.value)}
+                    className="h-11 w-full rounded-xl border border-white/10 bg-white/[0.05] px-3 text-sm font-bold uppercase text-white placeholder:normal-case placeholder:text-white/30 focus:border-cyan-400/40 focus:outline-none"
+                  />
+                  {customerMatches.length > 0 && (
+                    <div className="mt-2 grid gap-1.5">
+                      {customerMatches.map((customer) => (
+                        <button
+                          key={customer.id}
+                          type="button"
+                          onClick={() => selectQuoteCustomer(customer)}
+                          className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-left transition hover:border-cyan-300/30 hover:bg-cyan-400/[0.07]"
+                        >
+                          <span className="min-w-0">
+                            <strong className="block truncate text-xs text-white">
+                              {(
+                                customer.name ||
+                                [customer.firstName, customer.lastName].filter(Boolean).join(" ")
+                              ).toLocaleUpperCase("pt-BR")}
+                            </strong>
+                            <span className="block text-[11px] font-mono text-white/45">
+                              {customer.phone || customer.whatsapp || "SEM TELEFONE"}
+                            </span>
+                          </span>
+                          <span className="shrink-0 text-[10px] font-black uppercase text-cyan-300">
+                            Selecionar
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {selectedCustomerId && (
+                  <div className="mb-3 flex items-center justify-between gap-3 rounded-xl border border-emerald-400/25 bg-emerald-400/[0.07] p-3">
+                    <span className="flex min-w-0 items-center gap-2 text-xs font-black text-emerald-200">
+                      <UserCheck className="h-4 w-4 shrink-0" />
+                      <span className="truncate">
+                        {[clientName, clientLastName].filter(Boolean).join(" ")}
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={clearQuoteCustomer}
+                      className="shrink-0 text-[10px] font-black uppercase text-white/55 hover:text-white"
+                    >
+                      Alterar
+                    </button>
+                  </div>
+                )}
+
+                <div className="mb-3 grid grid-cols-2 gap-2 rounded-xl border border-white/10 bg-black/20 p-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setPriceTier("RETAIL")}
+                    className={`min-h-11 rounded-lg px-3 text-xs font-black transition ${priceTier === "RETAIL" ? "bg-blue-500 text-white shadow-lg" : "text-white/45 hover:bg-white/[0.05] hover:text-white"}`}
+                  >
+                    Varejo <span className="block text-[9px] font-medium opacity-75">padrão</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPriceTier("WHOLESALE")}
+                    className={`min-h-11 rounded-lg px-3 text-xs font-black transition ${priceTier === "WHOLESALE" ? "bg-amber-500 text-black shadow-lg" : "text-white/45 hover:bg-white/[0.05] hover:text-white"}`}
+                  >
+                    Atacado{" "}
+                    <span className="block text-[9px] font-medium opacity-75">lote ou revenda</span>
+                  </button>
+                </div>
+
+                {!selectedCustomerId && (
+                  <p className="mb-2 text-[11px] leading-relaxed text-white/45">
+                    Cliente novo: será criado um cadastro rápido no CRM ao salvar. Nome obrigatório,
+                    sobrenome opcional.
+                  </p>
+                )}
                 <div className="grid gap-2.5 sm:grid-cols-2">
                   <input
                     type="text"
-                    placeholder="Nome do cliente *"
+                    placeholder="Nome *"
                     value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                    className="h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold text-white placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none"
+                    disabled={Boolean(selectedCustomerId)}
+                    onChange={(e) => setClientName(e.target.value.toLocaleUpperCase("pt-BR"))}
+                    className="h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold uppercase text-white placeholder:normal-case placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none disabled:opacity-60"
                   />
                   <input
-                    type="tel"
-                    inputMode="numeric"
-                    placeholder="WhatsApp do cliente"
-                    value={clientPhone}
-                    onChange={(e) => setClientPhone(e.target.value)}
-                    className="h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-mono font-bold text-white placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none"
+                    type="text"
+                    placeholder="Sobrenome (opcional)"
+                    value={clientLastName}
+                    disabled={Boolean(selectedCustomerId)}
+                    onChange={(e) => setClientLastName(e.target.value.toLocaleUpperCase("pt-BR"))}
+                    className="h-11 w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.05] px-3 text-xs font-bold uppercase text-white placeholder:normal-case placeholder:text-white/30 focus:border-emerald-400/40 focus:outline-none disabled:opacity-60"
                   />
+                  <div className="sm:col-span-2">
+                    <label className="mb-1.5 flex items-center justify-between text-[10px] font-black uppercase tracking-wider text-amber-200">
+                      WhatsApp{" "}
+                      <span className="normal-case tracking-normal text-amber-200/70">
+                        Importante para enviar a proposta
+                      </span>
+                    </label>
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      placeholder="(DDD) número do WhatsApp"
+                      value={clientPhone}
+                      disabled={Boolean(selectedCustomerId)}
+                      onChange={(e) => setClientPhone(e.target.value)}
+                      className="h-11 w-full min-w-0 rounded-xl border border-amber-300/20 bg-amber-300/[0.04] px-3 text-xs font-mono font-bold text-white placeholder:text-white/30 focus:border-amber-300/50 focus:outline-none disabled:opacity-60"
+                    />
+                  </div>
                 </div>
                 {quoteImageUrl ? (
                   <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2">
@@ -1279,13 +1439,20 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
           </div>
         </div>
       </div>
-      <section className="maker-print-report" aria-label="Relatório Cálculo Maker">
-        <article className="maker-report-page">
+      <section
+        className={`maker-print-report ${printMode === "CLIENT" ? "maker-print-report-client" : "maker-print-report-production"}`}
+        aria-label="Relatório Cálculo Maker"
+      >
+        <article className="maker-report-page maker-report-page-client">
           <header className="maker-report-header">
             <div>
               <p className="maker-report-kicker">INOVAPRO3D</p>
               <h1>Orçamento</h1>
-              <p>{clientName ? `Cliente: ${clientName}` : "Proposta para manufatura 3D"}</p>
+              <p>
+                {clientName
+                  ? `Cliente: ${[clientName, clientLastName].filter(Boolean).join(" ")}`
+                  : "Proposta para manufatura 3D"}
+              </p>
             </div>
             <div className="maker-report-meta">
               <span>{generatedAt}</span>
@@ -1296,11 +1463,11 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
           <div className="maker-report-highlight maker-report-highlight-client">
             <div>
               <span>Valor total</span>
-              <strong>{formatBRL(result.retailTotal)}</strong>
+              <strong>{formatBRL(quotedTotal)}</strong>
             </div>
             <div>
               <span>Valor por unidade</span>
-              <strong>{formatBRL(result.retailUnit)}</strong>
+              <strong>{formatBRL(quotedUnit)}</strong>
             </div>
             <div>
               <span>Quantidade</span>
@@ -1311,7 +1478,6 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
           <div className="maker-report-grid">
             <section className="maker-report-card">
               <h2>Seu Projeto</h2>
-              <ReportLine label="Projeto" value={project.name || "Projeto Bambu Studio"} />
               <ReportLine label="Projeto" value={project.name || "Projeto Bambu Studio"} />
               <ReportLine
                 label="Quantidade"
@@ -1325,12 +1491,17 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
 
             <section className="maker-report-card">
               <h2>Atendimento</h2>
-              {clientName && <ReportLine label="Cliente" value={clientName} />}
+              {clientName && (
+                <ReportLine
+                  label="Cliente"
+                  value={[clientName, clientLastName].filter(Boolean).join(" ")}
+                />
+              )}
               {clientPhone && <ReportLine label="Contato" value={clientPhone} />}
               <ReportLine label="Processo" value="Impressão 3D (FDM)" />
               <ReportLine
-                label="Tempo total de impressão"
-                value={formatHoursToHHMM(result.hours)}
+                label="Condição comercial"
+                value={priceTier === "WHOLESALE" ? "Atacado / lote" : "Varejo"}
               />
             </section>
           </div>

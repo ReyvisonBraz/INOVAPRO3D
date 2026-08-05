@@ -3,7 +3,6 @@ import { toast } from "sonner";
 import {
   DEFAULT_PRICING_SETTINGS,
   machineHourBreakdown,
-  formatBRL,
   formatHoursToHHMM,
   type MaterialKey,
   type MachineConfig,
@@ -17,6 +16,7 @@ import {
 } from "../../../lib/calculatorProject";
 import type { Material, MaterialUsage } from "../../../types/domain";
 import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
+import { buildCommercialQuoteMessage } from "../../../lib/quoteMessage";
 
 /**
  * Calculadora rápida de orçamento do admin: entradas, resultado do motor de
@@ -126,7 +126,12 @@ export function useQuickCalc(
     }
     const clientName = quickCalcCustomerName || "Cliente";
     const pieceName = quickProject.name || quickCalcPieceName || "Peça personalizada";
-    const text = `Olá, *${clientName}*!\n\nSeu orçamento de manufatura 3D para o projeto *${pieceName}* foi gerado pela *INOVAPRO3D*.\n\n*Especificações:*\n- Bandejas: ${quickProject.plates.length}\n- Produtos finais: ${quickCalcResult.quantity} unidade(s)\n- Filamento total: ${quickCalcResult.weightGrams.toFixed(1).replace(".", ",")}g\n- Tempo total: ${formatHoursToHHMM(quickCalcResult.hours)}\n\n*Investimento final (varejo):*\nTotal: ${formatBRL(quickCalcResult.retailTotal)}\nUnitário: ${formatBRL(quickCalcResult.retailUnit)}\n\nProposta baseada nos dados do Bambu Studio, com material, energia e hora-máquina P2S.`;
+    const text = buildCommercialQuoteMessage({
+      customerName: clientName,
+      projectName: pieceName,
+      quantity: quickCalcResult.quantity,
+      total: quickCalcResult.retailTotal,
+    });
     window.open(
       `https://api.whatsapp.com/send?phone=55${phoneClean}&text=${encodeURIComponent(text)}`,
       "_blank",
