@@ -2,6 +2,7 @@
 // Centraliza a lógica de negócio de pagamentos
 
 import { getAdminDb } from "../firebaseAdmin.js";
+import { omitUndefined } from "../_firestoreData.js";
 import { createPayment, getPaymentStatus } from "./_client.js";
 import { mapMercadoPagoStatus, mapMercadoPagoPaymentMethod } from "./_types.js";
 
@@ -153,25 +154,27 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
     await adminDb
       .collection("paymentAttempts")
       .doc(attemptId)
-      .set({
-        id: attemptId,
-        orderId,
-        paymentId: result.paymentId,
-        paymentProvider: "mercadopago",
-        paymentProviderStatus: result.status,
-        paymentStatusDetail: result.statusDetail,
-        paymentMethod: mappedPaymentMethod,
-        idempotencyKey,
-        status: paymentStatus,
-        amount,
-        currency: "BRL",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        qrCodeBase64: result.qrCodeBase64,
-        qrCodeUrl: result.qrCodeUrl,
-        pixCode: result.pixCode,
-        expirationDate: result.expirationDate ? new Date(result.expirationDate) : undefined,
-      });
+      .set(
+        omitUndefined({
+          id: attemptId,
+          orderId,
+          paymentId: result.paymentId,
+          paymentProvider: "mercadopago",
+          paymentProviderStatus: result.status,
+          paymentStatusDetail: result.statusDetail,
+          paymentMethod: mappedPaymentMethod,
+          idempotencyKey,
+          status: paymentStatus,
+          amount,
+          currency: "BRL",
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          qrCodeBase64: result.qrCodeBase64,
+          qrCodeUrl: result.qrCodeUrl,
+          pixCode: result.pixCode,
+          expirationDate: result.expirationDate ? new Date(result.expirationDate) : undefined,
+        }),
+      );
 
     // Atualizar pedido
     await adminDb.collection("orders").doc(orderId).update({
