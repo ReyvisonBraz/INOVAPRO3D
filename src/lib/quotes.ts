@@ -17,6 +17,10 @@ export interface SaveQuoteInput {
   clientName: string;
   /** WhatsApp/telefone do cliente (somente dígitos ou formatado). */
   phone?: string;
+  /** Cadastro do CRM selecionado ou criado pela calculadora. */
+  customerId?: string;
+  /** Tabela comercial escolhida para esta proposta. */
+  priceTier?: "RETAIL" | "WHOLESALE";
   /** Nome da peça / modelo 3D. */
   pieceName?: string;
   /** Rótulo do material (ex.: "PLA"). */
@@ -33,6 +37,9 @@ export interface SaveQuoteInput {
   unitPrice?: number;
   /** Custo real de produção (interno). */
   costTotal?: number;
+  retailReference?: number;
+  wholesaleReference?: number;
+  sustainableFloor?: number;
   /** URL de uma imagem opcional do produto. */
   imageUrl?: string;
   /** Observações internas (resumo de custos, etc.). */
@@ -71,8 +78,16 @@ export async function saveQuoteFromCalc(input: SaveQuoteInput): Promise<string> 
     updatedAt: serverTimestamp(),
   };
   if (phoneClean) data.phone = phoneClean;
+  if (optional(input.customerId)) data.customerId = input.customerId;
+  if (optional(input.priceTier)) data.priceTier = input.priceTier;
   if (optional(input.unitPrice)) data.unitPrice = Math.max(0, Number(input.unitPrice) || 0);
   if (optional(input.costTotal)) data.costTotal = Math.max(0, Number(input.costTotal) || 0);
+  if (optional(input.retailReference))
+    data.retailReference = Math.max(0, Number(input.retailReference) || 0);
+  if (optional(input.wholesaleReference))
+    data.wholesaleReference = Math.max(0, Number(input.wholesaleReference) || 0);
+  if (optional(input.sustainableFloor))
+    data.sustainableFloor = Math.max(0, Number(input.sustainableFloor) || 0);
   if (optional(input.imageUrl)) data.imageUrl = input.imageUrl;
   if (optional(input.notes)) data.adminNotes = input.notes;
   if (input.materialUsages?.length) {

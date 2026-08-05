@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { collection, doc, getDoc, getDocs } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp } from "firebase/firestore";
 import { toast } from "sonner";
 import { db } from "../../../services/firebase";
 import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
@@ -21,6 +21,22 @@ import {
   type CalculatorProject,
 } from "../../../lib/calculatorProject";
 import type { Material, MaterialUsage } from "../../../types/domain";
+import {
+  customerMatchesSearch,
+  normalizeCustomerName,
+  normalizeCustomerPhone,
+  splitCustomerName,
+  uppercaseCustomerName,
+} from "../../../lib/customerIdentity";
+
+type QuoteCustomer = {
+  id: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  whatsapp?: string;
+};
 
 export const CALCULATOR_DRAFT_STORAGE_KEY = "inovapro3d:calculator-draft:v1";
 export const CALCULATOR_DRAFT_EVENT = "inovapro3d:calculator-draft-saved";
@@ -59,7 +75,10 @@ type CalculatorDraft = {
   minPrice: number;
   markupMode: "mult" | "pct";
   clientName: string;
+  clientLastName?: string;
   clientPhone: string;
+  selectedCustomerId?: string;
+  priceTier?: "RETAIL" | "WHOLESALE";
   quoteImageUrl: string;
 };
 
@@ -71,8 +90,11 @@ export type CalculatorDraftSummary = {
 function readCalculatorDraft(): CalculatorDraft | null {
   if (typeof window === "undefined") return null;
   try {
-    const parsed = JSON.parse(window.localStorage.getItem(CALCULATOR_DRAFT_STORAGE_KEY) || "null") as CalculatorDraft | null;
-    if (parsed?.version !== 1 || !parsed.project || !Array.isArray(parsed.project.plates)) return null;
+    const parsed = JSON.parse(
+      window.localStorage.getItem(CALCULATOR_DRAFT_STORAGE_KEY) || "null",
+    ) as CalculatorDraft | null;
+    if (parsed?.version !== 1 || !parsed.project || !Array.isArray(parsed.project.plates))
+      return null;
     return parsed;
   } catch {
     return null;
@@ -102,12 +124,17 @@ export function useCalculatorState() {
   const [initialDraft] = useState(readCalculatorDraft);
   const skipNextDraftSave = useRef(false);
   const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialDraft?.savedAt || null);
-  const [project, setProject] = useState<CalculatorProject>(() => initialDraft?.project || ({
-    name: "",
-    outputQuantity: 1,
-    plates: [createEmptyPlate(1)],
-  }));
-  const [projectIssues, setProjectIssues] = useState<ReturnType<typeof validateCalculatorProject>>([]);
+  const [project, setProject] = useState<CalculatorProject>(
+    () =>
+      initialDraft?.project || {
+        name: "",
+        outputQuantity: 1,
+        plates: [createEmptyPlate(1)],
+      },
+  );
+  const [projectIssues, setProjectIssues] = useState<ReturnType<typeof validateCalculatorProject>>(
+    [],
+  );
   const [pricingSettings, setPricingSettings] = useState(DEFAULT_PRICING_SETTINGS);
   // --- Parâmetros centrais de material (vindos de settings/pricing) ---
   const [materialSettings, setMaterialSettings] = useState<Record<MaterialKey, MaterialSettings>>(
@@ -116,32 +143,58 @@ export function useCalculatorState() {
 
   // --- Material / job ---
   const [material, setMaterial] = useState<MaterialKey>(initialDraft?.material ?? "pla");
-  const [spoolPrice, setSpoolPrice] = useState(initialDraft?.spoolPrice ?? MATERIAL_PRESETS.pla.spoolPrice);
+  const [spoolPrice, setSpoolPrice] = useState(
+    initialDraft?.spoolPrice ?? MATERIAL_PRESETS.pla.spoolPrice,
+  );
   const [spoolWeight, setSpoolWeight] = useState(initialDraft?.spoolWeight ?? 1000);
   const [slicerWeight, setSlicerWeight] = useState(120);
-  const [reservePct, setReservePct] = useState(initialDraft?.reservePct ?? MATERIAL_PRESETS.pla.defaultReservePct);
+  const [reservePct, setReservePct] = useState(
+    initialDraft?.reservePct ?? MATERIAL_PRESETS.pla.defaultReservePct,
+  );
   const [failureRatePct, setFailureRatePct] = useState(initialDraft?.failureRatePct ?? 0);
-  const [failureImpactPct, setFailureImpactPct] = useState(initialDraft?.failureImpactPct ?? DEFAULT_PRICING_SETTINGS.failureImpactPct);
+  const [failureImpactPct, setFailureImpactPct] = useState(
+    initialDraft?.failureImpactPct ?? DEFAULT_PRICING_SETTINGS.failureImpactPct,
+  );
   const [batchQuantity, setBatchQuantity] = useState(1);
   const [inventoryMaterials, setInventoryMaterials] = useState<Material[]>([]);
   const [materialUsages, setMaterialUsages] = useState<MaterialUsage[]>([]);
 
   // --- Machine ---
-  const [machinePrice, setMachinePrice] = useState(initialDraft?.machinePrice ?? DEFAULT_MACHINE.price);
-  const [lifespanHours, setLifespanHours] = useState(initialDraft?.lifespanHours ?? DEFAULT_MACHINE.lifespanHours);
-  const [nozzlePrice, setNozzlePrice] = useState(initialDraft?.nozzlePrice ?? DEFAULT_MACHINE.nozzlePrice);
-  const [nozzleLifeHours, setNozzleLifeHours] = useState(initialDraft?.nozzleLifeHours ?? DEFAULT_MACHINE.nozzleLifeHours);
-  const [platePrice, setPlatePrice] = useState(initialDraft?.platePrice ?? DEFAULT_MACHINE.platePrice);
-  const [plateLifeHours, setPlateLifeHours] = useState(initialDraft?.plateLifeHours ?? DEFAULT_MACHINE.plateLifeHours);
-  const [beltsPrice, setBeltsPrice] = useState(initialDraft?.beltsPrice ?? DEFAULT_MACHINE.beltsPrice);
-  const [beltsLifeHours, setBeltsLifeHours] = useState(initialDraft?.beltsLifeHours ?? DEFAULT_MACHINE.beltsLifeHours);
-  const [maintPerHour, setMaintPerHour] = useState(initialDraft?.maintPerHour ?? DEFAULT_MACHINE.maintPerHour);
+  const [machinePrice, setMachinePrice] = useState(
+    initialDraft?.machinePrice ?? DEFAULT_MACHINE.price,
+  );
+  const [lifespanHours, setLifespanHours] = useState(
+    initialDraft?.lifespanHours ?? DEFAULT_MACHINE.lifespanHours,
+  );
+  const [nozzlePrice, setNozzlePrice] = useState(
+    initialDraft?.nozzlePrice ?? DEFAULT_MACHINE.nozzlePrice,
+  );
+  const [nozzleLifeHours, setNozzleLifeHours] = useState(
+    initialDraft?.nozzleLifeHours ?? DEFAULT_MACHINE.nozzleLifeHours,
+  );
+  const [platePrice, setPlatePrice] = useState(
+    initialDraft?.platePrice ?? DEFAULT_MACHINE.platePrice,
+  );
+  const [plateLifeHours, setPlateLifeHours] = useState(
+    initialDraft?.plateLifeHours ?? DEFAULT_MACHINE.plateLifeHours,
+  );
+  const [beltsPrice, setBeltsPrice] = useState(
+    initialDraft?.beltsPrice ?? DEFAULT_MACHINE.beltsPrice,
+  );
+  const [beltsLifeHours, setBeltsLifeHours] = useState(
+    initialDraft?.beltsLifeHours ?? DEFAULT_MACHINE.beltsLifeHours,
+  );
+  const [maintPerHour, setMaintPerHour] = useState(
+    initialDraft?.maintPerHour ?? DEFAULT_MACHINE.maintPerHour,
+  );
 
   // --- Energy ---
   const [printTimeStr, setPrintTimeStr] = useState("3h 28min");
   const printTime = parseTimeToHours(printTimeStr);
   const [kwhCost, setKwhCost] = useState(initialDraft?.kwhCost ?? DEFAULT_ENERGY.kwhCost);
-  const [steadyPower, setSteadyPower] = useState(initialDraft?.steadyPower ?? MATERIAL_PRESETS.pla.steadyPowerWatts);
+  const [steadyPower, setSteadyPower] = useState(
+    initialDraft?.steadyPower ?? MATERIAL_PRESETS.pla.steadyPowerWatts,
+  );
   const [startupPower, setStartupPower] = useState(initialDraft?.startupPower ?? 1000);
   const [startupMinutes, setStartupMinutes] = useState(initialDraft?.startupMinutes ?? 8);
 
@@ -156,9 +209,15 @@ export function useCalculatorState() {
   );
 
   // --- Pricing / markup ---
-  const [wholesaleMarkup, setWholesaleMarkup] = useState(initialDraft?.wholesaleMarkup ?? DEFAULT_PRICING_SETTINGS.wholesaleMarkup);
-  const [retailMarkup, setRetailMarkup] = useState(initialDraft?.retailMarkup ?? DEFAULT_PRICING_SETTINGS.retailMarkup);
-  const [minPrice, setMinPrice] = useState(initialDraft?.minPrice ?? DEFAULT_PRICING_SETTINGS.minPrice);
+  const [wholesaleMarkup, setWholesaleMarkup] = useState(
+    initialDraft?.wholesaleMarkup ?? DEFAULT_PRICING_SETTINGS.wholesaleMarkup,
+  );
+  const [retailMarkup, setRetailMarkup] = useState(
+    initialDraft?.retailMarkup ?? DEFAULT_PRICING_SETTINGS.retailMarkup,
+  );
+  const [minPrice, setMinPrice] = useState(
+    initialDraft?.minPrice ?? DEFAULT_PRICING_SETTINGS.minPrice,
+  );
   const [markupMode, setMarkupMode] = useState<"mult" | "pct">(initialDraft?.markupMode ?? "mult");
 
   // --- UI toggles ---
@@ -172,13 +231,25 @@ export function useCalculatorState() {
   // --- Save calc / orçamento ---
   const [savingCalc, setSavingCalc] = useState(false);
   const [clientName, setClientName] = useState(initialDraft?.clientName ?? "");
+  const [clientLastName, setClientLastName] = useState(initialDraft?.clientLastName ?? "");
   const [clientPhone, setClientPhone] = useState(initialDraft?.clientPhone ?? "");
+  const [selectedCustomerId, setSelectedCustomerId] = useState(
+    initialDraft?.selectedCustomerId ?? "",
+  );
+  const [priceTier, setPriceTier] = useState<"RETAIL" | "WHOLESALE">(
+    initialDraft?.priceTier ?? "RETAIL",
+  );
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customers, setCustomers] = useState<QuoteCustomer[]>([]);
   const [quoteImageUrl, setQuoteImageUrl] = useState(initialDraft?.quoteImageUrl ?? "");
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     if (initialDraft) {
-      toast.info("Rascunho da calculadora recuperado.", { duration: 2600, position: "bottom-center" });
+      toast.info("Rascunho da calculadora recuperado.", {
+        duration: 2600,
+        position: "bottom-center",
+      });
     }
   }, [initialDraft]);
 
@@ -194,9 +265,7 @@ export function useCalculatorState() {
 
   // --- Markup helpers (mult ↔ %) ---
   const markupLabel = (mult: number) =>
-    markupMode === "pct"
-      ? `${((mult - 1) * 100).toFixed(0)}%`
-      : `${mult.toFixed(1)}×`;
+    markupMode === "pct" ? `${((mult - 1) * 100).toFixed(0)}%` : `${mult.toFixed(1)}×`;
 
   const wholesaleDisplay =
     markupMode === "pct" ? Math.round((wholesaleMarkup - 1) * 10000) / 100 : wholesaleMarkup;
@@ -283,40 +352,117 @@ export function useCalculatorState() {
         minPrice,
         markupMode,
         clientName,
+        clientLastName,
         clientPhone,
+        selectedCustomerId,
+        priceTier,
         quoteImageUrl,
       };
       try {
         window.localStorage.setItem(CALCULATOR_DRAFT_STORAGE_KEY, JSON.stringify(draft));
         setDraftSavedAt(savedAt);
-        window.dispatchEvent(new CustomEvent(CALCULATOR_DRAFT_EVENT, {
-          detail: { projectName: project.name.trim() || "Cálculo sem nome", savedAt },
-        }));
+        window.dispatchEvent(
+          new CustomEvent(CALCULATOR_DRAFT_EVENT, {
+            detail: { projectName: project.name.trim() || "Cálculo sem nome", savedAt },
+          }),
+        );
       } catch {
         // A calculadora continua funcionando mesmo se o navegador bloquear o armazenamento local.
       }
     }, 450);
     return () => window.clearTimeout(timer);
   }, [
-    project, material, spoolPrice, spoolWeight, reservePct, failureRatePct, failureImpactPct,
-    machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours, platePrice, plateLifeHours,
-    beltsPrice, beltsLifeHours, maintPerHour, kwhCost, steadyPower, startupPower, startupMinutes,
-    requiresLabor, laborHours, laborRate,
-    extraSupplies, packagingCost, targetProfitPerMachineHour, wholesaleMarkup,
-    retailMarkup, minPrice, markupMode, clientName, clientPhone, quoteImageUrl,
+    project,
+    material,
+    spoolPrice,
+    spoolWeight,
+    reservePct,
+    failureRatePct,
+    failureImpactPct,
+    machinePrice,
+    lifespanHours,
+    nozzlePrice,
+    nozzleLifeHours,
+    platePrice,
+    plateLifeHours,
+    beltsPrice,
+    beltsLifeHours,
+    maintPerHour,
+    kwhCost,
+    steadyPower,
+    startupPower,
+    startupMinutes,
+    requiresLabor,
+    laborHours,
+    laborRate,
+    extraSupplies,
+    packagingCost,
+    targetProfitPerMachineHour,
+    wholesaleMarkup,
+    retailMarkup,
+    minPrice,
+    markupMode,
+    clientName,
+    clientLastName,
+    clientPhone,
+    selectedCustomerId,
+    priceTier,
+    quoteImageUrl,
   ]);
 
   // Filamentos reais cadastrados no painel. O orçamento apenas registra a
   // previsão; a reserva/baixa acontece nas transições do pedido.
   useEffect(() => {
     getDocs(collection(db, "materials"))
-      .then((snapshot) => setInventoryMaterials(
-        snapshot.docs
-          .map((item) => ({ id: item.id, ...item.data() } as Material))
-          .filter((item) => item.active !== false),
-      ))
+      .then((snapshot) =>
+        setInventoryMaterials(
+          snapshot.docs
+            .map((item) => ({ id: item.id, ...item.data() }) as Material)
+            .filter((item) => item.active !== false),
+        ),
+      )
       .catch(() => setInventoryMaterials([]));
   }, []);
+
+  useEffect(() => {
+    getDocs(collection(db, "customers"))
+      .then((snapshot) =>
+        setCustomers(
+          snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuoteCustomer),
+        ),
+      )
+      .catch(() => setCustomers([]));
+  }, []);
+
+  const customerMatches = useMemo(
+    () =>
+      customerSearch.trim()
+        ? customers
+            .filter((customer) => customerMatchesSearch(customer, customerSearch))
+            .slice(0, 6)
+        : [],
+    [customerSearch, customers],
+  );
+
+  const selectQuoteCustomer = (customer: QuoteCustomer) => {
+    const rawName =
+      customer.name || [customer.firstName, customer.lastName].filter(Boolean).join(" ");
+    const parts = uppercaseCustomerName(rawName || "")
+      .trim()
+      .split(/\s+/);
+    setClientName(parts.shift() || "");
+    setClientLastName(parts.join(" "));
+    setClientPhone(customer.phone || customer.whatsapp || "");
+    setSelectedCustomerId(customer.id);
+    setCustomerSearch("");
+  };
+
+  const clearQuoteCustomer = () => {
+    setSelectedCustomerId("");
+    setClientName("");
+    setClientLastName("");
+    setClientPhone("");
+  };
 
   // --- Load machine config from Firestore (overrides localStorage defaults) ---
   useEffect(() => {
@@ -337,54 +483,93 @@ export function useCalculatorState() {
 
   // --- Computed values ---
   const machineBreak = machineHourBreakdown({
-    price: machinePrice, lifespanHours,
-    nozzlePrice, nozzleLifeHours,
-    platePrice, plateLifeHours,
-    beltsPrice, beltsLifeHours,
+    price: machinePrice,
+    lifespanHours,
+    nozzlePrice,
+    nozzleLifeHours,
+    platePrice,
+    plateLifeHours,
+    beltsPrice,
+    beltsLifeHours,
     maintPerHour,
   });
 
-  const projectPricingSettings = useMemo(() => ({
-    ...pricingSettings,
-    kwhCost,
-    startupPowerWatts: startupPower,
-    startupMinutes,
-    failureRatePct,
-    failureImpactPct,
-    targetProfitPerMachineHour,
-  }), [pricingSettings, kwhCost, startupPower, startupMinutes, failureRatePct, failureImpactPct, targetProfitPerMachineHour]);
-  const projectPricing = useMemo(
-    () => computeProjectPricing(
-      project,
-      {
-        price: machinePrice, lifespanHours,
-        nozzlePrice, nozzleLifeHours,
-        platePrice, plateLifeHours,
-        beltsPrice, beltsLifeHours, maintPerHour,
-      },
-      projectPricingSettings,
-      {
-        laborHours: requiresLabor ? laborHours : 0,
-        laborRate,
-        extraSupplies,
-        packagingCost,
-        wholesaleMarkup,
-        retailMarkup,
-        minPrice,
-      },
-    ),
+  const projectPricingSettings = useMemo(
+    () => ({
+      ...pricingSettings,
+      kwhCost,
+      startupPowerWatts: startupPower,
+      startupMinutes,
+      failureRatePct,
+      failureImpactPct,
+      targetProfitPerMachineHour,
+    }),
     [
-      project, machinePrice, lifespanHours, nozzlePrice, nozzleLifeHours,
-      platePrice, plateLifeHours, beltsPrice, beltsLifeHours, maintPerHour,
-      projectPricingSettings, requiresLabor, laborHours, laborRate, extraSupplies,
-      packagingCost, wholesaleMarkup, retailMarkup, minPrice,
+      pricingSettings,
+      kwhCost,
+      startupPower,
+      startupMinutes,
+      failureRatePct,
+      failureImpactPct,
+      targetProfitPerMachineHour,
+    ],
+  );
+  const projectPricing = useMemo(
+    () =>
+      computeProjectPricing(
+        project,
+        {
+          price: machinePrice,
+          lifespanHours,
+          nozzlePrice,
+          nozzleLifeHours,
+          platePrice,
+          plateLifeHours,
+          beltsPrice,
+          beltsLifeHours,
+          maintPerHour,
+        },
+        projectPricingSettings,
+        {
+          laborHours: requiresLabor ? laborHours : 0,
+          laborRate,
+          extraSupplies,
+          packagingCost,
+          wholesaleMarkup,
+          retailMarkup,
+          minPrice,
+        },
+      ),
+    [
+      project,
+      machinePrice,
+      lifespanHours,
+      nozzlePrice,
+      nozzleLifeHours,
+      platePrice,
+      plateLifeHours,
+      beltsPrice,
+      beltsLifeHours,
+      maintPerHour,
+      projectPricingSettings,
+      requiresLabor,
+      laborHours,
+      laborRate,
+      extraSupplies,
+      packagingCost,
+      wholesaleMarkup,
+      retailMarkup,
+      minPrice,
     ],
   );
   const result = projectPricing.result;
 
   const reserveMultiplier = 1 + Math.max(0, reservePct) / 100;
   const laborTotal = result.laborCost + result.extraSupplies + result.packagingCost;
-  const generatedAt = new Date().toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+  const generatedAt = new Date().toLocaleString("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  });
 
   const discardCalculatorDraft = () => {
     skipNextDraftSave.current = true;
@@ -398,7 +583,11 @@ export function useCalculatorState() {
     setExtraSupplies(0);
     setPackagingCost(0);
     setClientName("");
+    setClientLastName("");
     setClientPhone("");
+    setSelectedCustomerId("");
+    setCustomerSearch("");
+    setPriceTier("RETAIL");
     setQuoteImageUrl("");
   };
 
@@ -423,7 +612,10 @@ export function useCalculatorState() {
       if (code === "storage/unauthenticated") {
         toast.error("Faça login como admin para anexar imagem.", { position: "bottom-center" });
       } else if (code === "storage/unauthorized") {
-        toast.error("Upload bloqueado: publique as regras do Storage (firebase deploy --only storage).", { duration: 5000, position: "bottom-center" });
+        toast.error(
+          "Upload bloqueado: publique as regras do Storage (firebase deploy --only storage).",
+          { duration: 5000, position: "bottom-center" },
+        );
       } else {
         toast.error("Falha ao enviar imagem.", { position: "bottom-center" });
       }
@@ -451,85 +643,211 @@ export function useCalculatorState() {
         plateId: plate.id,
         plateName: plate.name,
         inventoryTracked: Boolean(filament.materialId),
-        ...(filament.manual ? {
-          manualColor: filament.manual.color,
-          manualBrand: filament.manual.brand,
-          manualType: filament.manual.type,
-          pricePerKg: filament.manual.pricePerKg,
-        } : {}),
+        ...(filament.manual
+          ? {
+              manualColor: filament.manual.color,
+              manualBrand: filament.manual.brand,
+              manualType: filament.manual.type,
+              pricePerKg: filament.manual.pricePerKg,
+            }
+          : {}),
         estimatedGrams: filament.totalGrams * Math.max(1, plate.repetitions),
       })),
     );
     setSavingCalc(true);
     try {
+      const identity = splitCustomerName(clientName, clientLastName);
+      const phoneClean = normalizeCustomerPhone(clientPhone);
+      let customerId = selectedCustomerId;
+      if (!customerId) {
+        const duplicate = customers.find(
+          (customer) =>
+            phoneClean &&
+            normalizeCustomerPhone(customer.phone || customer.whatsapp || "") === phoneClean,
+        );
+        if (duplicate) {
+          customerId = duplicate.id;
+        } else {
+          const customerRef = await addDoc(collection(db, "customers"), {
+            name: identity.fullName,
+            firstName: identity.firstName,
+            lastName: identity.lastName,
+            ...(phoneClean ? { phone: phoneClean, whatsapp: phoneClean } : {}),
+            nameNormalized: normalizeCustomerName(identity.fullName),
+            phoneNormalized: phoneClean,
+            source: "CALCULATOR",
+            profileStatus: "DRAFT",
+            createdAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          });
+          customerId = customerRef.id;
+        }
+      }
+      const selectedTotal = priceTier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
+      const selectedUnit = priceTier === "WHOLESALE" ? result.wholesaleUnit : result.retailUnit;
       await saveQuoteFromCalc({
-        clientName,
+        clientName: identity.fullName,
         phone: clientPhone,
+        customerId,
+        priceTier,
         pieceName: project.name,
-        materialLabel: project.plates.some((plate) => plate.type === "MULTICOLOR") ? "Multicolor" : "Cor única",
+        materialLabel: project.plates.some((plate) => plate.type === "MULTICOLOR")
+          ? "Multicolor"
+          : "Cor única",
         weight: result.weightGrams,
         printTime: `${result.hours.toFixed(2)}h`,
         quantity: projectPricing.totalPieces,
-        price: result.retailTotal,
-        unitPrice: result.retailUnit,
+        price: selectedTotal,
+        unitPrice: selectedUnit,
         costTotal: result.totalCost,
+        retailReference: result.retailTotal,
+        wholesaleReference: result.wholesaleTotal,
+        sustainableFloor: result.minimumSustainablePrice,
         imageUrl: quoteImageUrl || undefined,
         materialUsages: predictedUsages,
         calculationProject: project,
         notes: `Custo previsto ${result.totalCost.toFixed(2)} · atacado ${result.wholesaleTotal.toFixed(2)} · varejo ${result.retailTotal.toFixed(2)} · ${project.plates.length} bandeja(s) · ${result.weightGrams.toFixed(2)}g · ${result.hours.toFixed(2)}h`,
       });
-      toast.success("Orçamento salvo na aba Orçamentos!", { duration: 2800, position: "bottom-center" });
+      toast.success("Orçamento salvo na aba Orçamentos!", {
+        duration: 2800,
+        position: "bottom-center",
+      });
       discardCalculatorDraft();
     } catch {
-      toast.error("Erro ao salvar. É preciso estar logado como admin.", { position: "bottom-center" });
+      toast.error("Erro ao salvar. É preciso estar logado como admin.", {
+        position: "bottom-center",
+      });
     } finally {
       setSavingCalc(false);
     }
   };
 
   return {
-    project, setProject, projectIssues, setProjectIssues, pricingSettings: projectPricingSettings,
+    project,
+    setProject,
+    projectIssues,
+    setProjectIssues,
+    pricingSettings: projectPricingSettings,
     projectPricing,
     // material
-    material, spoolPrice, setSpoolPrice, spoolWeight, setSpoolWeight,
-    slicerWeight, setSlicerWeight, reservePct, setReservePct,
-    failureRatePct, setFailureRatePct, failureImpactPct, setFailureImpactPct,
-    batchQuantity, setBatchQuantity,
-    selectMaterial, materialSettings, inventoryMaterials, materialUsages, setMaterialUsages,
+    material,
+    spoolPrice,
+    setSpoolPrice,
+    spoolWeight,
+    setSpoolWeight,
+    slicerWeight,
+    setSlicerWeight,
+    reservePct,
+    setReservePct,
+    failureRatePct,
+    setFailureRatePct,
+    failureImpactPct,
+    setFailureImpactPct,
+    batchQuantity,
+    setBatchQuantity,
+    selectMaterial,
+    materialSettings,
+    inventoryMaterials,
+    materialUsages,
+    setMaterialUsages,
     // machine
-    machinePrice, setMachinePrice, lifespanHours, setLifespanHours,
-    nozzlePrice, setNozzlePrice, nozzleLifeHours, setNozzleLifeHours,
-    platePrice, setPlatePrice, plateLifeHours, setPlateLifeHours,
-    beltsPrice, setBeltsPrice, beltsLifeHours, setBeltsLifeHours,
-    maintPerHour, setMaintPerHour,
+    machinePrice,
+    setMachinePrice,
+    lifespanHours,
+    setLifespanHours,
+    nozzlePrice,
+    setNozzlePrice,
+    nozzleLifeHours,
+    setNozzleLifeHours,
+    platePrice,
+    setPlatePrice,
+    plateLifeHours,
+    setPlateLifeHours,
+    beltsPrice,
+    setBeltsPrice,
+    beltsLifeHours,
+    setBeltsLifeHours,
+    maintPerHour,
+    setMaintPerHour,
     // energy
-    printTimeStr, setPrintTimeStr, printTime, kwhCost, setKwhCost,
-    steadyPower, setSteadyPower, startupPower, setStartupPower,
-    startupMinutes, setStartupMinutes,
+    printTimeStr,
+    setPrintTimeStr,
+    printTime,
+    kwhCost,
+    setKwhCost,
+    steadyPower,
+    setSteadyPower,
+    startupPower,
+    setStartupPower,
+    startupMinutes,
+    setStartupMinutes,
     // labor
-    requiresLabor, setRequiresLabor, laborHours, setLaborHours,
-    laborRate, setLaborRate, extraSupplies, setExtraSupplies,
-    packagingCost, setPackagingCost,
-    targetProfitPerMachineHour, setTargetProfitPerMachineHour,
+    requiresLabor,
+    setRequiresLabor,
+    laborHours,
+    setLaborHours,
+    laborRate,
+    setLaborRate,
+    extraSupplies,
+    setExtraSupplies,
+    packagingCost,
+    setPackagingCost,
+    targetProfitPerMachineHour,
+    setTargetProfitPerMachineHour,
     // pricing
-    wholesaleMarkup, retailMarkup, minPrice, setMinPrice,
-    markupMode, setMarkupMode,
-    wholesaleDisplay, retailDisplay, markupLabel,
-    handleWholesaleMarkup, handleRetailMarkup,
+    wholesaleMarkup,
+    retailMarkup,
+    minPrice,
+    setMinPrice,
+    markupMode,
+    setMarkupMode,
+    wholesaleDisplay,
+    retailDisplay,
+    markupLabel,
+    handleWholesaleMarkup,
+    handleRetailMarkup,
     // ui toggles
-    showAdvancedMachine, setShowAdvancedMachine,
-    showAdvancedEnergy, setShowAdvancedEnergy,
-    showMachineConfig, setShowMachineConfig,
-    showMaterialConfig, setShowMaterialConfig,
-    showEnergyConfig, setShowEnergyConfig,
-    showLaborConfig, setShowLaborConfig,
+    showAdvancedMachine,
+    setShowAdvancedMachine,
+    showAdvancedEnergy,
+    setShowAdvancedEnergy,
+    showMachineConfig,
+    setShowMachineConfig,
+    showMaterialConfig,
+    setShowMaterialConfig,
+    showEnergyConfig,
+    setShowEnergyConfig,
+    showLaborConfig,
+    setShowLaborConfig,
     // save
-    savingCalc, handleSaveCalc,
-    clientName, setClientName, clientPhone, setClientPhone,
-    quoteImageUrl, setQuoteImageUrl, uploadingImage, handleUploadImage,
-    draftSavedAt, discardCalculatorDraft,
+    savingCalc,
+    handleSaveCalc,
+    clientName,
+    setClientName,
+    clientLastName,
+    setClientLastName,
+    clientPhone,
+    setClientPhone,
+    selectedCustomerId,
+    customerSearch,
+    setCustomerSearch,
+    customerMatches,
+    selectQuoteCustomer,
+    clearQuoteCustomer,
+    priceTier,
+    setPriceTier,
+    quoteImageUrl,
+    setQuoteImageUrl,
+    uploadingImage,
+    handleUploadImage,
+    draftSavedAt,
+    discardCalculatorDraft,
     // computed
-    result, machineBreak, reserveMultiplier, laborTotal, generatedAt,
+    result,
+    machineBreak,
+    reserveMultiplier,
+    laborTotal,
+    generatedAt,
   };
 }
 
