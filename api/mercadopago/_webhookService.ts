@@ -1,4 +1,5 @@
 import { getAdminDb } from "../firebaseAdmin.js";
+import { omitUndefined } from "../_firestoreData.js";
 import { getPaymentStatusById } from "./_service.js";
 import { mapMercadoPagoPaymentMethod, mapMercadoPagoStatus } from "./_types.js";
 
@@ -59,7 +60,7 @@ export async function processPaymentWebhook(
   }
 
   const now = new Date();
-  const updateData: Record<string, unknown> = {
+  const updateData: FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData> = {
     paymentId: event.paymentId,
     paymentStatus: nextPaymentStatus,
     paymentProvider: "mercadopago",
@@ -73,8 +74,24 @@ export async function processPaymentWebhook(
     updateData.status = "PAID";
   }
 
-  await orderRef.update(updateData);
-  await adminDb.collection("paymentEvents").add({
+  const batch = adminDb.batch();
+  batch.update(orderRef, updateData);
+
+  if (order.paymentAttemptId) {
+    const attemptRef = adminDb.collection("paymentAttempts").doc(order.paymentAttemptId);
+    batch.update(
+      attemptRef,
+      omitUndefined({
+        status: nextPaymentStatus,
+        paymentProviderStatus: payment.status,
+        paymentStatusDetail: payment.statusDetail,
+        updatedAt: now,
+      }),
+    );
+  }
+
+  const eventRef = adminDb.collection("paymentEvents").doc();
+  batch.set(eventRef, {
     orderId: payment.externalReference,
     paymentId: event.paymentId,
     action: event.action ?? null,
@@ -84,5 +101,6 @@ export async function processPaymentWebhook(
     providerStatus: payment.status,
     createdAt: now,
   });
+  await batch.commit();
   return "updated";
 }
