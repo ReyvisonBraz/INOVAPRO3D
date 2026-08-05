@@ -25,6 +25,77 @@ Pago e marca o pedido como pago. O teste real de R$ 0,95 foi concluído com suce
 O que falta não invalida o núcleo existente. Trata-se da segunda etapa: experiência, ciclo de vida
 completo, resiliência operacional e endurecimento de segurança.
 
+## Decisões fechadas em 5 de agosto de 2026
+
+### Validade: 30 minutos, sem polling contínuo
+
+A API Orders aceita no mínimo 30 minutos e no máximo 30 dias para Pix. Não criaremos uma validade
+visual menor que a validade real do provedor, pois isso produziria dois relógios e uma experiência
+enganosa.
+
+O contador será calculado localmente a partir de `expiresAt`; ele não consome Firestore nem Vercel a
+cada segundo. A confirmação usará um listener de um único documento. Esse listener gera uma leitura
+inicial e novas leituras quando o documento muda, em vez de consultas repetidas por intervalo.
+
+### API principal: migrar para Orders antes do redesign
+
+A API `/v1/payments` continuará funcionando durante a transição, mas o destino arquitetural será a
+API `/v1/orders`, atualmente recomendada para Checkout Transparente. Ela oferece expiração explícita,
+um agregado único para pedido e transações, erros mais completos, cancelamento/reembolso próprios e
+um caminho mais coerente para adicionar cartão futuramente.
+
+A migração será feita atrás da interface interna do provedor. A regra de pedido e os componentes não
+conhecerão o formato bruto da API, permitindo rollback temporário sem duplicar lógica de negócio.
+
+### Estados financeiros: implementação aprovada
+
+A máquina completa descrita abaixo será implementada. Toda transição terá teste, precedência e
+efeito comercial explícito antes de alterar o webhook de produção.
+
+## Orçamento de uso nos planos gratuitos
+
+### Firestore Spark
+
+Quota gratuita diária atual: 50.000 leituras, 20.000 escritas e 20.000 exclusões, além de 1 GiB de
+armazenamento e 10 GiB mensais de saída.
+
+Estimativa conservadora exclusiva do pagamento por venda:
+
+| Operação                                   | Consumo aproximado |
+| ------------------------------------------ | ------------------ |
+| Carregar produto e configuração            | 2 a 4 leituras     |
+| Criar e validar pedido/tentativa           | 2 a 4 leituras     |
+| Listener do pedido até a aprovação         | 2 a 4 leituras     |
+| Gravar pedido, tentativa, webhook e evento | 5 a 8 escritas     |
+
+Mesmo 100 pagamentos em um dia representariam aproximadamente 1.200 leituras e 800 escritas neste
+orçamento conservador. Isso fica muito abaixo da quota, mas o painel deve monitorar o consumo total
+do site, pois catálogo, administração e “Meus Pedidos” também usam Firestore.
+
+### Vercel Hobby
+
+O plano inclui atualmente até 1 milhão de invocações mensais, 4 horas de CPU ativa e 360 GB-horas de
+memória provisionada. O fluxo esperado usa aproximadamente 5 a 8 invocações por venda: criar pedido,
+notificar, criar Pix, receber webhook e uma pequena margem para retentativas/revalidação.
+
+Não faremos polling HTTP a cada poucos segundos. A Vercel será usada somente para comandos e
+revalidações pontuais; o estado em tempo real virá do Firestore. Isso protege as duas quotas.
+
+**Restrição comercial importante:** a Vercel declara o plano Hobby como destinado a uso pessoal e
+não comercial. A capacidade técnica é suficiente para o início, mas uma loja recebendo vendas deve
+planejar a mudança para um plano comercial compatível, independentemente de ainda estar abaixo da
+quota.
+
+### Proteções de consumo
+
+- Listener apenas no documento do pedido atual, nunca em toda a coleção no checkout.
+- Encerrar listener imediatamente em estado financeiro final.
+- Pausar revalidação quando a aba estiver oculta ou offline.
+- Revalidar pela API somente ao recuperar foco, após erro ou atraso anormal.
+- Alertas em 50%, 75% e 90% das quotas quando a plataforma permitir.
+- Painel operacional com leituras, escritas, invocações e webhooks por venda.
+- Sem cron frequente na Vercel Hobby: esse plano limita cron a uma execução diária.
+
 ## Modelo de estados proposto
 
 ### Estado financeiro (`paymentStatus`)
@@ -79,7 +150,7 @@ máquina de estados, não por condições espalhadas.
 
 **Problema:** a validade não é definida pelo sistema e nem sempre é retornada pela API atual.
 
-**Decisão proposta:** definir uma duração de negócio explícita, inicialmente 30 minutos, persistir
+**Decisão aprovada:** definir a duração de negócio em 30 minutos, persistir
 `expiresAt` no pedido e na tentativa e mostrar contador baseado no horário do servidor.
 
 **Critérios de aceite:**
@@ -115,7 +186,7 @@ para impedir concorrência.
 **Problema:** aprovação está correta, mas expiração, recusa, cancelamento, estorno e chargeback não
 produzem todas as transições comerciais necessárias.
 
-**Decisão proposta:** centralizar o mapeamento em uma função pura que devolva a alteração financeira
+**Decisão aprovada:** centralizar o mapeamento em uma função pura que devolva a alteração financeira
 e a alteração comercial permitida. O webhook e a reconciliação usarão a mesma regra.
 
 **Critérios de aceite:**
@@ -133,8 +204,10 @@ e a alteração comercial permitida. O webhook e a reconciliação usarão a mes
 **Problema:** webhooks possuem retentativas, mas indisponibilidade prolongada ou configuração
 incorreta pode deixar pagamentos divergentes.
 
-**Decisão proposta:** criar rotina agendada que consulta no Mercado Pago apenas tentativas não
-finais, atrasadas ou inconsistentes. A rotina reutiliza o mesmo reconciliador do webhook.
+**Decisão proposta:** no Hobby, reconciliar sob demanda ao retomar o checkout e executar uma
+varredura diária de segurança. Se a operação exigir recuperação em minutos sem o cliente online,
+migrar o agendamento para um serviço apropriado ou para plano que aceite cron frequente. Toda rota
+reutiliza o mesmo reconciliador do webhook.
 
 **Critérios de aceite:**
 
@@ -265,9 +338,9 @@ a identidade da marca sem competir com as informações essenciais.
 pela API `/v1/payments`. O fluxo funciona, mas precisamos decidir conscientemente se permanecemos
 nessa API ou migramos para a API Orders atualmente documentada para o Checkout Transparente.
 
-**Decisão a tomar em investigação técnica:** comparar suporte a expiração, notificações, estados,
-cancelamento, compatibilidade e esforço de migração. Não migrar apenas por estética e não manter a
-API atual apenas por inércia.
+**Decisão aprovada:** migrar para a API Orders atrás de um adaptador interno, preservando a API
+Payments apenas como rollback durante a validação. Antes da troca, documentar os contratos de
+criação, consulta, cancelamento, reembolso e webhook das duas versões.
 
 **Critérios de aceite:**
 
@@ -283,8 +356,8 @@ API atual apenas por inércia.
 
 ### Fase 0 — Decisões e contratos
 
-- Confirmar duração comercial do Pix.
-- Decidir entre manter Payments API ou migrar para Orders API.
+- Registrar 30 minutos como duração comercial do Pix.
+- Preparar a migração da Payments API para Orders API.
 - Fechar tabelas de estados e transições.
 - Definir contratos públicos de erro e status.
 
@@ -340,5 +413,9 @@ Uma fase somente estará pronta quando:
 ## Referências oficiais
 
 - [Pix no Checkout Transparente](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/payment-integration/pix)
+- [Modelo da API Orders](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/integration-model)
 - [Notificações Webhooks](https://www.mercadopago.com.br/developers/pt/docs/checkout-api-orders/notifications)
 - [Expiração de pagamentos](https://www.mercadopago.com.br/developers/pt/docs/checkout-pro/additional-settings/expiration-date)
+- [Quota e cobrança do Firestore](https://firebase.google.com/docs/firestore/pricing)
+- [Limites do plano Vercel Hobby](https://vercel.com/docs/plans/hobby)
+- [Limites dos Cron Jobs da Vercel](https://vercel.com/docs/cron-jobs/usage-and-pricing)
