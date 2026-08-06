@@ -29,6 +29,8 @@ completo, resiliência operacional e endurecimento de segurança.
 
 As fronteiras e responsabilidades da migração estão registradas em
 [ADR-001 — Fronteira do provedor de pagamentos](../architecture/ADR-001-PAYMENT-PROVIDER-BOUNDARY.md).
+O contrato entre mensagens públicas, protocolos e diagnóstico interno está registrado em
+[ADR-002 — Contrato de erros e observabilidade](../architecture/ADR-002-ERROR-OBSERVABILITY.md).
 
 ### Validade: 30 minutos, sem polling contínuo
 
@@ -261,7 +263,7 @@ com TTL. Limites financeiros devem ser mais restritos que consultas de status.
 **Problema:** mensagens técnicas do SDK/provedor podem chegar à interface e os logs ainda repetem
 código de mascaramento.
 
-**Decisão proposta:** criar erros de domínio com `code`, mensagem pública, status HTTP, causa
+**Decisão aprovada:** criar erros de domínio com `code`, mensagem pública, status HTTP, causa
 interna e indicação de retentativa. Centralizar logs estruturados e mascaramento.
 
 **Critérios de aceite:**

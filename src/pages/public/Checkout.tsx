@@ -18,6 +18,7 @@ import { Button } from "../../components/ui/Button";
 import { auth } from "../../services/firebase";
 import { toast } from "sonner";
 import { trackBeginCheckout, trackPurchase } from "../../lib/analytics";
+import { ApiClientError, formatSupportCode, readApiError } from "../../lib/apiError";
 import { isEnabled as isMercadoPagoEnabled } from "../../lib/mercadopago/config";
 import { usePayment } from "../../hooks/usePayment";
 import { PixPaymentStep, type PixPaymentData } from "../../components/checkout/PixPaymentStep";
@@ -101,9 +102,7 @@ export default function Checkout() {
         }),
       });
       if (!resp.ok) {
-        const err = await resp.json().catch(() => ({}));
-        toast.error(err.error || "Erro ao gerar pedido. Tente novamente.");
-        return;
+        throw await readApiError(resp, "Não foi possível gerar o pedido agora. Tente novamente.");
       }
       const order = (await resp.json()) as {
         orderId: string;
@@ -146,8 +145,16 @@ export default function Checkout() {
           description: "Entraremos em contato para combinar pagamento e entrega.",
         });
       }
-    } catch {
-      toast.error("Erro ao gerar pedido. Tente novamente.");
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Não foi possível gerar o pedido agora. Tente novamente.";
+      const supportCode =
+        error instanceof ApiClientError ? formatSupportCode(error.correlationId) : null;
+      toast.error(message, {
+        description: supportCode ? `Código de atendimento: ${supportCode}` : undefined,
+      });
     } finally {
       setLoading(false);
     }

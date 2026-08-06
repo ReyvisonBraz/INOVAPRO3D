@@ -3,42 +3,17 @@
 
 import { getAdminDb } from "../firebaseAdmin.js";
 import { omitUndefined } from "../_firestoreData.js";
-import { createPayment, getPaymentStatus } from "./_client.js";
+import type { ErrorCode } from "../../shared/errors/catalog.js";
+import type { RequestContext } from "../_observability/context.js";
+import { createPayment, getPaymentStatus, MercadoPagoApiError } from "./_client.js";
 import { mapMercadoPagoStatus, mapMercadoPagoPaymentMethod } from "./_types.js";
-
-// Log estruturado para pagamentos
-function log(level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) {
-  const maskedData = data ? maskSensitiveData(data) : undefined;
-  console.log(
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level,
-      service: "payment-service",
-      message,
-      ...maskedData,
-    }),
-  );
-}
-
-// Mascarar dados sensíveis nos logs
-function maskSensitiveData(data: Record<string, unknown>): Record<string, unknown> {
-  const masked = { ...data };
-  const sensitiveKeys = ["accessToken", "secret", "key", "token", "password"];
-
-  for (const key of Object.keys(masked)) {
-    if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
-      masked[key] = "***MASKED***";
-    }
-  }
-
-  return masked;
-}
 
 // Interface para criação de pagamento
 export interface CreatePaymentRequest {
   orderId: string;
   paymentMethod: "pix";
   userId: string;
+  context?: RequestContext;
 }
 
 // Interface para resultado do pagamento
@@ -51,54 +26,60 @@ export interface CreatePaymentResult {
   qrCodeUrl?: string;
   pixCode?: string;
   expirationDate?: string;
+  errorCode?: ErrorCode;
   error?: string;
+  errorDetails?: Record<string, unknown>;
 }
 
 // Processar pagamento
 export async function processPayment(request: CreatePaymentRequest): Promise<CreatePaymentResult> {
   const { orderId, paymentMethod, userId } = request;
 
-  log("info", "Processando pagamento", { orderId, paymentMethod, userId });
-
   // Verificar se Admin SDK está configurado
   const adminDb = getAdminDb();
   if (!adminDb) {
-    log("error", "Admin SDK não configurado");
-    return { success: false, error: "Serviço indisponível" };
+    return {
+      success: false,
+      errorCode: "PAYMENT_CONFIGURATION_ERROR",
+      error: "Admin SDK não configurado",
+    };
   }
 
   // Buscar pedido
   const orderDoc = await adminDb.collection("orders").doc(orderId).get();
 
   if (!orderDoc.exists) {
-    log("warn", "Pedido não encontrado", { orderId });
-    return { success: false, error: "Pedido não encontrado" };
+    return { success: false, errorCode: "ORDER_NOT_FOUND", error: "Pedido não encontrado" };
   }
 
   const order = orderDoc.data()!;
 
   const amount = Number(order.total);
   if (!Number.isFinite(amount) || amount <= 0) {
-    log("error", "Pedido com valor inválido", { orderId });
-    return { success: false, error: "O pedido possui um valor inválido" };
+    return {
+      success: false,
+      errorCode: "INVALID_ORDER_TOTAL",
+      error: "O pedido possui um valor inválido",
+    };
   }
 
   // Verificar propriedade do pedido
   if (order.userId !== userId) {
-    log("warn", "Usuário não tem permissão para pagar este pedido", { orderId, userId });
-    return { success: false, error: "Você não tem permissão para pagar este pedido" };
+    return {
+      success: false,
+      errorCode: "FORBIDDEN",
+      error: "Usuário não tem permissão para pagar este pedido",
+    };
   }
 
   // Verificar se pedido já foi pago
   if (order.status === "PAID") {
-    log("warn", "Pedido já foi pago", { orderId });
-    return { success: false, error: "Pedido já foi pago" };
+    return { success: false, errorCode: "ORDER_ALREADY_PAID", error: "Pedido já foi pago" };
   }
 
   // Verificar se pedido foi cancelado
   if (order.status === "CANCELED") {
-    log("warn", "Pedido foi cancelado", { orderId });
-    return { success: false, error: "Pedido foi cancelado" };
+    return { success: false, errorCode: "ORDER_CANCELED", error: "Pedido foi cancelado" };
   }
 
   // Reutiliza a cobrança pendente. Isso evita criar vários Pix quando a pessoa
@@ -143,6 +124,7 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
       paymentMethod,
       idempotencyKey,
       email: order.userEmail || undefined,
+      context: request.context,
     });
 
     const paymentStatus = mapMercadoPagoStatus(result.status);
@@ -189,12 +171,6 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
       paymentUpdatedAt: new Date(),
     });
 
-    log("info", "Pagamento processado com sucesso", {
-      orderId,
-      paymentId: result.paymentId,
-      status: paymentStatus,
-    });
-
     return {
       success: true,
       paymentId: result.paymentId,
@@ -207,14 +183,25 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao processar pagamento";
-    log("error", "Erro ao processar pagamento", { orderId, error: message });
-    return { success: false, error: message };
+    const errorCode: ErrorCode =
+      error instanceof MercadoPagoApiError ? "PAYMENT_PROVIDER_ERROR" : "PAYMENT_PROCESSING_FAILED";
+    return {
+      success: false,
+      errorCode,
+      error: message,
+      errorDetails: {
+        providerStatus: error instanceof MercadoPagoApiError ? error.status : undefined,
+      },
+    };
   }
 }
 
 // Verificar idempotência (verificar se pagamento já existe)
 // Consultar status do pagamento
-export async function getPaymentStatusById(paymentId: string): Promise<{
+export async function getPaymentStatusById(
+  paymentId: string,
+  context?: RequestContext,
+): Promise<{
   id: string;
   status: string;
   statusDetail: string;
@@ -224,12 +211,6 @@ export async function getPaymentStatusById(paymentId: string): Promise<{
   dateCreated: string;
   dateApproved?: string;
   externalReference?: string;
-} | null> {
-  try {
-    return await getPaymentStatus(paymentId);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Erro desconhecido";
-    log("error", "Erro ao consultar status do pagamento", { paymentId, error: message });
-    return null;
-  }
+}> {
+  return getPaymentStatus(paymentId, context);
 }

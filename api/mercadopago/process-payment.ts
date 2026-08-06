@@ -1,38 +1,14 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, isAdminSdkConfigured } from "../firebaseAdmin.js";
+import { AppError } from "../_observability/appError.js";
+import { createRequestContext } from "../_observability/context.js";
+import { sendApiError } from "../_observability/http.js";
+import { logEvent } from "../_observability/logger.js";
 import { processPayment } from "./_service.js";
-
-// Log estruturado para endpoint de pagamento
-function log(level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) {
-  const maskedData = data ? maskSensitiveData(data) : undefined;
-  console.log(
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level,
-      service: "process-payment-endpoint",
-      message,
-      ...maskedData,
-    }),
-  );
-}
-
-// Mascarar dados sensíveis nos logs
-function maskSensitiveData(data: Record<string, unknown>): Record<string, unknown> {
-  const masked = { ...data };
-  const sensitiveKeys = ["accessToken", "secret", "key", "token", "password"];
-
-  for (const key of Object.keys(masked)) {
-    if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
-      masked[key] = "***MASKED***";
-    }
-  }
-
-  return masked;
-}
 
 // Rate limiting simples
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-function rateLimit(maxPerMinute: number) {
+function rateLimit(maxPerMinute: number, context: ReturnType<typeof createRequestContext>) {
   return (req: VercelRequest, res: VercelResponse, next: () => void) => {
     const key = `${req.method}:${req.url}:${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
     const now = Date.now();
@@ -46,7 +22,8 @@ function rateLimit(maxPerMinute: number) {
 
     bucket.count++;
     if (bucket.count > maxPerMinute) {
-      res.status(429).json({ error: "Muitas requisições. Tente novamente em instantes." });
+      res.setHeader("Retry-After", "60");
+      sendApiError(res, context, new AppError("RATE_LIMITED"));
       return;
     }
 
@@ -73,14 +50,21 @@ async function authenticate(
 
 // Handler principal
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const context = createRequestContext(req, "payment-api", "create-pix");
+  res.setHeader("X-Correlation-Id", context.correlationId);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    res.status(405).json({ error: "Método não permitido." });
+    sendApiError(
+      res,
+      context,
+      new AppError("METHOD_NOT_ALLOWED", { technicalMessage: "Método HTTP não permitido" }),
+    );
     return;
   }
 
   // Rate limiting: 10 requisições por minuto
-  rateLimit(10)(req, res, () => {});
+  rateLimit(10, context)(req, res, () => {});
 
   if (res.writableEnded) {
     return;
@@ -88,23 +72,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Verificar se serviço está habilitado
   if (process.env.MERCADOPAGO_ENABLED !== "true") {
-    log("warn", "Tentativa de acesso a serviço desabilitado");
-    res.status(503).json({ error: "Pagamento indisponível no momento." });
+    sendApiError(
+      res,
+      context,
+      new AppError("PAYMENT_CONFIGURATION_ERROR", {
+        technicalMessage: "Integração Mercado Pago desabilitada",
+      }),
+    );
     return;
   }
 
   // Verificar se Admin SDK está configurado
   if (!isAdminSdkConfigured()) {
-    log("error", "Admin SDK não configurado");
-    res.status(503).json({ error: "Serviço indisponível." });
+    sendApiError(
+      res,
+      context,
+      new AppError("PAYMENT_CONFIGURATION_ERROR", {
+        technicalMessage: "Firebase Admin SDK não configurado",
+      }),
+    );
     return;
   }
 
   // Autenticar usuário
   const user = await authenticate(req);
   if (!user) {
-    log("warn", "Tentativa de acesso não autorizado");
-    res.status(401).json({ error: "Não autorizado." });
+    sendApiError(res, context, new AppError("AUTH_REQUIRED"));
     return;
   }
 
@@ -118,31 +111,58 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const paymentMethod = body.paymentMethod || "pix";
 
   if (!orderId || paymentMethod !== "pix") {
-    log("warn", "Payload inválido", { body });
-    res.status(400).json({ error: "orderId e paymentMethod são obrigatórios." });
+    sendApiError(
+      res,
+      context,
+      new AppError("INVALID_REQUEST", {
+        technicalMessage: "orderId ausente ou paymentMethod diferente de pix",
+      }),
+    );
     return;
   }
 
   // Processar pagamento
-  log("info", "Iniciando processamento de pagamento", {
+  logEvent("info", context, "Iniciando processamento de pagamento", {
     orderId,
     paymentMethod,
     userId: user.userId,
   });
 
-  const result = await processPayment({
-    orderId,
-    paymentMethod,
-    userId: user.userId,
-  });
-
-  if (!result.success) {
-    log("error", "Falha ao processar pagamento", { orderId, error: result.error });
-    res.status(400).json({ error: result.error });
+  let result;
+  try {
+    result = await processPayment({
+      orderId,
+      paymentMethod,
+      userId: user.userId,
+      context,
+    });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("PAYMENT_PROCESSING_FAILED", {
+        cause: error,
+        technicalMessage: "Falha inesperada ao processar o pagamento",
+      }),
+      { orderId },
+    );
     return;
   }
 
-  log("info", "Pagamento processado com sucesso", {
+  if (!result.success) {
+    sendApiError(
+      res,
+      context,
+      new AppError(result.errorCode ?? "PAYMENT_PROCESSING_FAILED", {
+        technicalMessage: result.error,
+        details: result.errorDetails,
+      }),
+      { orderId },
+    );
+    return;
+  }
+
+  logEvent("info", context, "Pagamento processado com sucesso", {
     orderId,
     paymentId: result.paymentId,
     status: result.status,

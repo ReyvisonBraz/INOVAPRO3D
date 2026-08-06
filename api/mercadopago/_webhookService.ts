@@ -1,5 +1,6 @@
 import { getAdminDb } from "../firebaseAdmin.js";
 import { omitUndefined } from "../_firestoreData.js";
+import type { RequestContext } from "../_observability/context.js";
 import { getPaymentStatusById } from "./_service.js";
 import { mapMercadoPagoPaymentMethod, mapMercadoPagoStatus } from "./_types.js";
 
@@ -7,6 +8,7 @@ export interface PaymentWebhookEvent {
   paymentId: string;
   action?: string;
   type?: string;
+  context?: RequestContext;
 }
 
 export type PaymentWebhookOutcome =
@@ -28,8 +30,7 @@ function toCents(value: unknown): number {
 export async function processPaymentWebhook(
   event: PaymentWebhookEvent,
 ): Promise<PaymentWebhookOutcome> {
-  const payment = await getPaymentStatusById(event.paymentId);
-  if (!payment) throw new Error("Não foi possível consultar o pagamento no Mercado Pago");
+  const payment = await getPaymentStatusById(event.paymentId, event.context);
   if (!payment.externalReference) return "external_reference_missing";
 
   const adminDb = getAdminDb();

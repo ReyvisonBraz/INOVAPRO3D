@@ -3,6 +3,7 @@
 
 import { useState, useCallback } from "react";
 import { toast } from "sonner";
+import { ApiClientError, formatSupportCode, readApiError } from "../lib/apiError";
 
 export interface ProcessPaymentResult {
   success: boolean;
@@ -49,8 +50,7 @@ export function usePayment(): UsePaymentReturn {
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Erro ao processar pagamento");
+        throw await readApiError(response, "Não foi possível gerar o Pix agora. Tente novamente.");
       }
 
       const data = await response.json();
@@ -82,7 +82,11 @@ export function usePayment(): UsePaymentReturn {
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro desconhecido";
       setError(message);
-      toast.error(message);
+      const supportCode =
+        err instanceof ApiClientError ? formatSupportCode(err.correlationId) : null;
+      toast.error(message, {
+        description: supportCode ? `Código de atendimento: ${supportCode}` : undefined,
+      });
       return { success: false };
     } finally {
       setLoading(false);

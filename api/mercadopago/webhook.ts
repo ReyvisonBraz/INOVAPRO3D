@@ -1,5 +1,9 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { isAdminSdkConfigured } from "../firebaseAdmin.js";
+import { AppError } from "../_observability/appError.js";
+import { createRequestContext } from "../_observability/context.js";
+import { sendApiError } from "../_observability/http.js";
+import { logEvent } from "../_observability/logger.js";
 import { validateWebhookSignature } from "./_webhook.js";
 import { processPaymentWebhook } from "./_webhookService.js";
 
@@ -14,13 +18,22 @@ function firstHeader(value: string | string[] | undefined): string | undefined {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const context = createRequestContext(req, "payment-webhook", "receive-notification");
+  res.setHeader("X-Correlation-Id", context.correlationId);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    res.status(405).json({ error: "Método não permitido." });
+    sendApiError(res, context, new AppError("METHOD_NOT_ALLOWED"));
     return;
   }
   if (!isAdminSdkConfigured()) {
-    res.status(503).json({ error: "Serviço indisponível." });
+    sendApiError(
+      res,
+      context,
+      new AppError("PAYMENT_CONFIGURATION_ERROR", {
+        technicalMessage: "Firebase Admin SDK não configurado para o webhook",
+      }),
+    );
     return;
   }
 
@@ -32,7 +45,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!paymentId) {
     // Eventos sem pagamento não pertencem a este endpoint, mas retornamos 200
     // para evitar novas tentativas desnecessárias do provedor.
-    res.status(200).json({ received: true, outcome: "ignored" });
+    logEvent("info", context, "Notificação sem pagamento ignorada", {
+      action: payload.action,
+      type: payload.type,
+      context,
+    });
+    res
+      .status(200)
+      .json({ received: true, outcome: "ignored", correlationId: context.correlationId });
     return;
   }
 
@@ -43,8 +63,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     secret: process.env.MERCADOPAGO_WEBHOOK_SECRET,
   });
   if (!validation.valid) {
-    console.warn("[mercadopago-webhook] Notificação rejeitada", { reason: validation.reason });
-    res.status(401).json({ error: "Assinatura inválida." });
+    sendApiError(
+      res,
+      context,
+      new AppError("WEBHOOK_SIGNATURE_INVALID", {
+        technicalMessage: "Assinatura da notificação inválida",
+        details: { reason: validation.reason },
+      }),
+      { paymentId },
+    );
     return;
   }
 
@@ -54,12 +81,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       action: payload.action,
       type: payload.type,
     });
-    res.status(200).json({ received: true, outcome });
-  } catch (error) {
-    console.error("[mercadopago-webhook] Falha ao processar notificação", {
+    logEvent(outcome === "amount_mismatch" ? "error" : "info", context, "Webhook processado", {
       paymentId,
-      error: error instanceof Error ? error.message : "Erro desconhecido",
+      outcome,
     });
-    res.status(500).json({ error: "Erro ao processar webhook." });
+    res.status(200).json({ received: true, outcome, correlationId: context.correlationId });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("PAYMENT_PROCESSING_FAILED", {
+        cause: error,
+        technicalMessage: "Falha ao processar notificação de pagamento",
+      }),
+      { paymentId },
+    );
   }
 }

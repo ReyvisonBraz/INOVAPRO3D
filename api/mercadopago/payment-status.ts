@@ -1,144 +1,122 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../firebaseAdmin.js";
+import { AppError } from "../_observability/appError.js";
+import { createRequestContext, type RequestContext } from "../_observability/context.js";
+import { sendApiError } from "../_observability/http.js";
+import { logEvent } from "../_observability/logger.js";
 
-// Log estruturado para endpoint de status
-function log(level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) {
-  const maskedData = data ? maskSensitiveData(data) : undefined;
-  console.log(
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level,
-      service: "payment-status-endpoint",
-      message,
-      ...maskedData,
-    }),
-  );
-}
-
-// Mascarar dados sensíveis nos logs
-function maskSensitiveData(data: Record<string, unknown>): Record<string, unknown> {
-  const masked = { ...data };
-  const sensitiveKeys = ["accessToken", "secret", "key", "token", "password"];
-
-  for (const key of Object.keys(masked)) {
-    if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
-      masked[key] = "***MASKED***";
-    }
-  }
-
-  return masked;
-}
-
-// Rate limiting para status (30 requisições por minuto)
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-function rateLimit(maxPerMinute: number) {
-  return (req: VercelRequest, res: VercelResponse, next: () => void) => {
-    const key = `${req.method}:${req.url}:${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
-    const now = Date.now();
-    const bucket = rateBuckets.get(key);
 
-    if (!bucket || now > bucket.resetAt) {
-      rateBuckets.set(key, { count: 1, resetAt: now + 60_000 });
-      next();
-      return;
-    }
+function applyRateLimit(
+  req: VercelRequest,
+  res: VercelResponse,
+  context: RequestContext,
+  maxPerMinute: number,
+): boolean {
+  const key = `${req.method}:${req.url}:${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
+  const now = Date.now();
+  const bucket = rateBuckets.get(key);
 
-    bucket.count++;
-    if (bucket.count > maxPerMinute) {
-      res.status(429).json({ error: "Muitas requisições." });
-      return;
-    }
+  if (!bucket || now > bucket.resetAt) {
+    rateBuckets.set(key, { count: 1, resetAt: now + 60_000 });
+    return true;
+  }
 
-    next();
-  };
+  bucket.count++;
+  if (bucket.count <= maxPerMinute) return true;
+
+  res.setHeader("Retry-After", "60");
+  sendApiError(res, context, new AppError("RATE_LIMITED"));
+  return false;
 }
 
-// Middleware de autenticação
-async function authenticate(
-  req: VercelRequest,
-): Promise<{ userId: string; email?: string } | null> {
+async function authenticate(req: VercelRequest): Promise<string | null> {
   const authHeader = req.headers.authorization as string | undefined;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
-  }
+  if (!authHeader?.startsWith("Bearer ")) return null;
 
   try {
-    const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
-    return { userId: decoded.uid, email: decoded.email };
+    return (await getAdminAuth().verifyIdToken(authHeader.slice(7))).uid;
   } catch {
     return null;
   }
 }
 
-// Handler principal
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const context = createRequestContext(req, "payment-api", "get-payment-status");
+  res.setHeader("X-Correlation-Id", context.correlationId);
+
   if (req.method !== "GET") {
     res.setHeader("Allow", "GET");
-    res.status(405).json({ error: "Método não permitido." });
+    sendApiError(res, context, new AppError("METHOD_NOT_ALLOWED"));
     return;
   }
 
-  // Rate limiting: 30 requisições por minuto
-  rateLimit(30)(req, res, () => {});
+  if (!applyRateLimit(req, res, context, 30)) return;
 
-  if (res.writableEnded) {
-    return;
-  }
-
-  // Verificar se Admin SDK está configurado
   if (!isAdminSdkConfigured()) {
-    log("error", "Admin SDK não configurado");
-    res.status(503).json({ error: "Serviço indisponível." });
+    sendApiError(
+      res,
+      context,
+      new AppError("PAYMENT_CONFIGURATION_ERROR", {
+        technicalMessage: "Firebase Admin SDK não configurado",
+      }),
+    );
     return;
   }
 
-  // Autenticar usuário
-  const user = await authenticate(req);
-  if (!user) {
-    log("warn", "Tentativa de acesso não autorizado");
-    res.status(401).json({ error: "Não autorizado." });
+  const userId = await authenticate(req);
+  if (!userId) {
+    sendApiError(res, context, new AppError("AUTH_REQUIRED"));
     return;
   }
 
-  // Validar parâmetros
-  const orderId = req.query.orderId as string;
+  const rawOrderId = req.query.orderId;
+  const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
   if (!orderId) {
-    log("warn", "Parâmetro orderId não fornecido");
-    res.status(400).json({ error: "orderId é obrigatório." });
+    sendApiError(
+      res,
+      context,
+      new AppError("INVALID_REQUEST", { technicalMessage: "orderId ausente" }),
+    );
     return;
   }
 
-  // Buscar pedido
-  const adminDb = getAdminDb();
-  const orderDoc = await adminDb.collection("orders").doc(orderId).get();
+  try {
+    const orderDoc = await getAdminDb().collection("orders").doc(orderId).get();
+    if (!orderDoc.exists) {
+      sendApiError(res, context, new AppError("ORDER_NOT_FOUND"), { orderId });
+      return;
+    }
 
-  if (!orderDoc.exists) {
-    log("warn", "Pedido não encontrado", { orderId });
-    res.status(404).json({ error: "Pedido não encontrado." });
-    return;
-  }
+    const order = orderDoc.data()!;
+    if (order.userId !== userId) {
+      sendApiError(res, context, new AppError("FORBIDDEN"), { orderId, userId });
+      return;
+    }
 
-  const order = orderDoc.data()!;
-
-  // Verificar propriedade do pedido
-  if (order.userId !== user.userId) {
-    log("warn", "Usuário não tem permissão para consultar este pedido", {
+    logEvent("info", context, "Status do pagamento consultado", {
       orderId,
-      userId: user.userId,
+      paymentStatus: order.paymentStatus || "NOT_STARTED",
     });
-    res.status(403).json({ error: "Você não tem permissão para consultar este pedido." });
-    return;
+    res.status(200).json({
+      orderId,
+      paymentStatus: order.paymentStatus || "NOT_STARTED",
+      paymentProvider: order.paymentProvider || "manual",
+      paymentProviderStatus: order.paymentProviderStatus,
+      paymentProviderStatusDetail: order.paymentProviderStatusDetail,
+      paymentMethod: order.paymentMethod,
+      paidAt: order.paidAt,
+      paymentUpdatedAt: order.paymentUpdatedAt,
+    });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("PAYMENT_PROCESSING_FAILED", {
+        cause: error,
+        technicalMessage: "Falha ao consultar o pedido no Firestore",
+      }),
+      { orderId },
+    );
   }
-
-  // Retornar status do pagamento
-  res.status(200).json({
-    orderId,
-    paymentStatus: order.paymentStatus || "NOT_STARTED",
-    paymentProvider: order.paymentProvider || "manual",
-    paymentProviderStatus: order.paymentProviderStatus,
-    paymentProviderStatusDetail: order.paymentProviderStatusDetail,
-    paymentMethod: order.paymentMethod,
-    paidAt: order.paidAt,
-    paymentUpdatedAt: order.paymentUpdatedAt,
-  });
 }

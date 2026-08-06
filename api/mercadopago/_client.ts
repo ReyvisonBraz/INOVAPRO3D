@@ -2,10 +2,12 @@
 // Inclui retry com backoff exponencial, timeout e logs estruturados
 
 import { getMercadoPagoServerConfig } from "./_config.js";
+import type { RequestContext } from "../_observability/context.js";
+import { logEvent } from "../_observability/logger.js";
 
 const API_BASE_URL = "https://api.mercadopago.com/v1";
 
-class MercadoPagoApiError extends Error {
+export class MercadoPagoApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -19,36 +21,13 @@ class MercadoPagoApiError extends Error {
   }
 }
 
-// Log estruturado com mascaramento de dados sensíveis
-function log(level: "info" | "warn" | "error", message: string, data?: Record<string, unknown>) {
-  const maskedData = data ? maskSensitiveData(data) : undefined;
-  console.log(
-    JSON.stringify({
-      timestamp: new Date().toISOString(),
-      level,
-      service: "mercadopago",
-      message,
-      ...maskedData,
-    }),
-  );
-}
-
-// Mascarar dados sensíveis nos logs
-function maskSensitiveData(data: Record<string, unknown>): Record<string, unknown> {
-  const masked = { ...data };
-  const sensitiveKeys = ["accessToken", "secret", "key", "token", "password"];
-
-  for (const key of Object.keys(masked)) {
-    if (sensitiveKeys.some((sk) => key.toLowerCase().includes(sk))) {
-      masked[key] = "***MASKED***";
-    }
-  }
-
-  return masked;
-}
-
 // Retry com backoff exponencial
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, baseDelay = 500): Promise<T> {
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  context: RequestContext,
+  maxRetries = 2,
+  baseDelay = 500,
+): Promise<T> {
   let lastError: Error | null = null;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -65,7 +44,10 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 2, baseDelay = 50
 
       if (attempt < maxRetries) {
         const delay = baseDelay * Math.pow(2, attempt);
-        log("warn", `Retry attempt ${attempt + 1}/${maxRetries} after ${delay}ms`, {
+        logEvent("warn", context, "Nova tentativa de comunicação com o provedor", {
+          attempt: attempt + 1,
+          maxRetries,
+          delayMs: delay,
           error: lastError.message,
         });
         await new Promise((resolve) => setTimeout(resolve, delay));
@@ -128,6 +110,7 @@ export async function createPayment(data: {
   paymentMethod: "pix";
   idempotencyKey: string;
   email?: string;
+  context?: RequestContext;
 }): Promise<{
   paymentId: string;
   status: string;
@@ -138,9 +121,14 @@ export async function createPayment(data: {
   pixCode?: string;
   expirationDate?: string;
 }> {
+  const context = data.context ?? {
+    correlationId: `order_${data.orderId}`,
+    service: "mercadopago-client",
+    operation: "create-payment",
+  };
   return withRetry(async () => {
     return withTimeout(async () => {
-      log("info", "Criando pagamento", {
+      logEvent("info", context, "Criando pagamento no provedor", {
         orderId: data.orderId,
         paymentMethod: data.paymentMethod,
       });
@@ -151,9 +139,6 @@ export async function createPayment(data: {
         payment_method_id: data.paymentMethod,
         external_reference: data.orderId,
         statement_descriptor: "INOVAPRO3D",
-        additional_info: {
-          ip_address: "127.0.0.1",
-        },
       };
 
       if (data.email) {
@@ -211,15 +196,21 @@ export async function createPayment(data: {
         response.expirationDate = pixData.date_of_expiration;
       }
 
-      log("info", "Pagamento criado", { paymentId: response.paymentId, status: response.status });
+      logEvent("info", context, "Pagamento criado no provedor", {
+        paymentId: response.paymentId,
+        status: response.status,
+      });
 
       return response;
     });
-  });
+  }, context);
 }
 
 // Consultar status do pagamento
-export async function getPaymentStatus(paymentId: string): Promise<{
+export async function getPaymentStatus(
+  paymentId: string,
+  requestContext?: RequestContext,
+): Promise<{
   id: string;
   status: string;
   statusDetail: string;
@@ -230,9 +221,14 @@ export async function getPaymentStatus(paymentId: string): Promise<{
   dateApproved?: string;
   externalReference?: string;
 }> {
+  const context = requestContext ?? {
+    correlationId: `payment_${paymentId}`,
+    service: "mercadopago-client",
+    operation: "get-payment-status",
+  };
   return withRetry(async () => {
     return withTimeout(async () => {
-      log("info", "Consultando status do pagamento", { paymentId });
+      logEvent("info", context, "Consultando status no provedor", { paymentId });
 
       const result = await apiRequest<{
         id: number;
@@ -270,9 +266,12 @@ export async function getPaymentStatus(paymentId: string): Promise<{
         externalReference: result.external_reference,
       };
 
-      log("info", "Status do pagamento consultado", { paymentId, status: response.status });
+      logEvent("info", context, "Status consultado no provedor", {
+        paymentId,
+        status: response.status,
+      });
 
       return response;
     });
-  });
+  }, context);
 }

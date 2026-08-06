@@ -3,6 +3,10 @@
 // produção são estas funções de api/, não o Express. Mantenha os dois em sincronia.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../firebaseAdmin.js";
+import { AppError } from "../_observability/appError.js";
+import { createRequestContext } from "../_observability/context.js";
+import { sendApiError } from "../_observability/http.js";
+import { logEvent } from "../_observability/logger.js";
 import {
   computeOrderTotal,
   type OrderLineInput,
@@ -19,28 +23,44 @@ interface CreateOrderPayload {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const context = createRequestContext(req, "order-api", "create-order");
+  res.setHeader("X-Correlation-Id", context.correlationId);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    res.status(405).json({ error: "Método não permitido." });
+    sendApiError(res, context, new AppError("METHOD_NOT_ALLOWED"));
     return;
   }
 
   // Auth obrigatória + Admin SDK obrigatório (sem ele não há recálculo confiável).
   if (!isAdminSdkConfigured()) {
-    res.status(503).json({ error: "Criação de pedido indisponível (servidor não configurado)." });
+    sendApiError(
+      res,
+      context,
+      new AppError("SERVICE_CONFIGURATION_ERROR", {
+        technicalMessage: "Firebase Admin SDK não configurado para criar pedido",
+      }),
+    );
     return;
   }
   const authHeader = req.headers.authorization as string | undefined;
   if (!authHeader?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Não autorizado." });
+    sendApiError(res, context, new AppError("AUTH_REQUIRED"));
     return;
   }
   let uid: string;
   try {
     const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
     uid = decoded.uid;
-  } catch {
-    res.status(401).json({ error: "Token inválido." });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("AUTH_REQUIRED", {
+        cause: error,
+        technicalMessage: "Token Firebase inválido",
+      }),
+    );
     return;
   }
 
@@ -70,14 +90,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }),
     );
-  } catch {
-    res.status(500).json({ error: "Erro ao carregar catálogo." });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("ORDER_CREATION_FAILED", {
+        cause: error,
+        technicalMessage: "Falha ao carregar catálogo para criar pedido",
+      }),
+      { productCount: productIds.length },
+    );
     return;
   }
 
   const result = computeOrderTotal(items, products, materials);
   if (!result.ok) {
-    res.status(400).json({ error: result.error });
+    sendApiError(
+      res,
+      context,
+      new AppError("INVALID_REQUEST", {
+        technicalMessage: result.error,
+        details: { itemCount: items.length },
+      }),
+    );
     return;
   }
 
@@ -122,8 +157,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       paymentProvider: mercadoPagoEnabled ? "mercadopago" : "manual",
       createdAt: new Date(),
     });
+    logEvent("info", context, "Pedido criado", {
+      orderId: ref.id,
+      userId: uid,
+      itemCount: orderItems.length,
+      paymentMethod: mercadoPagoEnabled ? "pix" : "manual",
+    });
     res.status(200).json({ orderId: ref.id, ...totals });
-  } catch {
-    res.status(500).json({ error: "Erro ao criar pedido." });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("ORDER_CREATION_FAILED", {
+        cause: error,
+        technicalMessage: "Falha ao persistir o pedido",
+      }),
+      { userId: uid, itemCount: items.length },
+    );
   }
 }
