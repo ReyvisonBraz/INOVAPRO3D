@@ -1,9 +1,4 @@
-import {
-  collection,
-  doc,
-  runTransaction,
-  serverTimestamp,
-} from "firebase/firestore";
+import { collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { aggregateMaterialUsages, inventoryActionForTransition } from "../lib/inventory";
 import type { InventoryMovementType, MaterialUsage, Order, OrderStatus } from "../types/domain";
@@ -26,11 +21,13 @@ export async function transitionOrderStatus(order: Order, nextStatus: OrderStatu
 
   await runTransaction(db, async (transaction) => {
     const orderRef = doc(db, "orders", order.id);
-    const materialEntries = await Promise.all([...totals].map(async ([materialId, grams]) => {
-      const ref = doc(db, "materials", materialId);
-      const snapshot = await transaction.get(ref);
-      return { materialId, grams, ref, snapshot };
-    }));
+    const materialEntries = await Promise.all(
+      [...totals].map(async ([materialId, grams]) => {
+        const ref = doc(db, "materials", materialId);
+        const snapshot = await transaction.get(ref);
+        return { materialId, grams, ref, snapshot };
+      }),
+    );
 
     const shortages: string[] = [];
     if (action === "RESERVE" || action === "CONSUME") {
@@ -42,12 +39,17 @@ export async function transitionOrderStatus(order: Order, nextStatus: OrderStatu
         const data = entry.snapshot.data();
         const stock = Number(data.stockGrams ?? 0);
         const reserved = Number(data.reservedGrams ?? 0);
-        const alreadyReserved = action === "CONSUME"
-          ? usages.filter((u) => u.materialId === entry.materialId).reduce((sum, u) => sum + Number(u.reservedGrams ?? 0), 0)
-          : 0;
+        const alreadyReserved =
+          action === "CONSUME"
+            ? usages
+                .filter((u) => u.materialId === entry.materialId)
+                .reduce((sum, u) => sum + Number(u.reservedGrams ?? 0), 0)
+            : 0;
         const neededFromAvailable = Math.max(0, entry.grams - alreadyReserved);
         if (stock - reserved < neededFromAvailable) {
-          shortages.push(`${data.name ?? entry.materialId}: faltam ${Math.ceil(neededFromAvailable - (stock - reserved))}g`);
+          shortages.push(
+            `${data.name ?? entry.materialId}: faltam ${Math.ceil(neededFromAvailable - (stock - reserved))}g`,
+          );
         }
       }
     }
@@ -59,7 +61,9 @@ export async function transitionOrderStatus(order: Order, nextStatus: OrderStatu
       const data = entry.snapshot.data();
       const stock = Number(data.stockGrams ?? 0);
       const reserved = Number(data.reservedGrams ?? 0);
-      const reservedForOrder = usages.filter((u) => u.materialId === entry.materialId).reduce((sum, u) => sum + Number(u.reservedGrams ?? 0), 0);
+      const reservedForOrder = usages
+        .filter((u) => u.materialId === entry.materialId)
+        .reduce((sum, u) => sum + Number(u.reservedGrams ?? 0), 0);
       let stockAfter = stock;
       let reservedAfter = reserved;
       let quantity = entry.grams;
@@ -102,7 +106,8 @@ export async function transitionOrderStatus(order: Order, nextStatus: OrderStatu
     const updatedUsages: MaterialUsage[] = usages.map((usage) => {
       if (usage.inventoryTracked === false) return usage;
       if (action === "RESERVE") return { ...usage, reservedGrams: usage.estimatedGrams };
-      if (action === "CONSUME") return { ...usage, reservedGrams: 0, consumedGrams: usage.estimatedGrams };
+      if (action === "CONSUME")
+        return { ...usage, reservedGrams: 0, consumedGrams: usage.estimatedGrams };
       if (action === "RELEASE") return { ...usage, reservedGrams: 0 };
       return usage;
     });
@@ -114,8 +119,13 @@ export async function transitionOrderStatus(order: Order, nextStatus: OrderStatu
   });
 }
 
-export async function adjustMaterialStock(materialId: string, deltaGrams: number, reason: string): Promise<void> {
-  if (!Number.isFinite(deltaGrams) || deltaGrams === 0) throw new Error("Informe uma quantidade diferente de zero.");
+export async function adjustMaterialStock(
+  materialId: string,
+  deltaGrams: number,
+  reason: string,
+): Promise<void> {
+  if (!Number.isFinite(deltaGrams) || deltaGrams === 0)
+    throw new Error("Informe uma quantidade diferente de zero.");
   await runTransaction(db, async (transaction) => {
     const materialRef = doc(db, "materials", materialId);
     const snapshot = await transaction.get(materialRef);
@@ -124,14 +134,22 @@ export async function adjustMaterialStock(materialId: string, deltaGrams: number
     const stock = Number(data.stockGrams ?? 0);
     const reserved = Number(data.reservedGrams ?? 0);
     const stockAfter = stock + deltaGrams;
-    if (stockAfter < reserved || stockAfter < 0) throw new Error("O ajuste deixaria o estoque abaixo do saldo reservado.");
-    transaction.update(materialRef, { stockGrams: stockAfter, inStock: stockAfter - reserved > 0, updatedAt: serverTimestamp() });
+    if (stockAfter < reserved || stockAfter < 0)
+      throw new Error("O ajuste deixaria o estoque abaixo do saldo reservado.");
+    transaction.update(materialRef, {
+      stockGrams: stockAfter,
+      inStock: stockAfter - reserved > 0,
+      updatedAt: serverTimestamp(),
+    });
     transaction.set(doc(collection(db, "inventoryMovements")), {
-      materialId, materialName: data.name ?? materialId,
+      materialId,
+      materialName: data.name ?? materialId,
       type: deltaGrams > 0 ? "ENTRY" : "ADJUSTMENT",
-      quantityGrams: Math.abs(deltaGrams), reason,
+      quantityGrams: Math.abs(deltaGrams),
+      reason,
       adminId: auth.currentUser?.uid ?? null,
-      stockAfterGrams: stockAfter, reservedAfterGrams: reserved,
+      stockAfterGrams: stockAfter,
+      reservedAfterGrams: reserved,
       createdAt: serverTimestamp(),
     });
   });

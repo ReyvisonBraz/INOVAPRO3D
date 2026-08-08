@@ -9,12 +9,27 @@ import { toast } from "sonner";
 
 function relativeDate(seconds: number): string {
   if (!seconds) return "";
-  return new Date(seconds * 1000).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" });
+  return new Date(seconds * 1000).toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 export function ProductReviews({ productId }: { productId: string }) {
   const { user, loginWithGoogle } = useAuth();
-  const { reviews, loading, average, count, myReview, voteStats, submit, removeMine, vote, report } = useReviews(productId);
+  const {
+    reviews,
+    loading,
+    average,
+    count,
+    myReview,
+    voteStats,
+    submit,
+    removeMine,
+    vote,
+    report,
+  } = useReviews(productId);
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
@@ -23,12 +38,22 @@ export function ProductReviews({ productId }: { productId: string }) {
   const [reported, setReported] = useState<Set<string>>(new Set());
 
   const handleVote = async (reviewId: string, value: 1 | -1) => {
-    if (!user) { loginWithGoogle().catch(() => {}); return; }
-    try { await vote(reviewId, value); } catch { toast.error("Não foi possível votar."); }
+    if (!user) {
+      loginWithGoogle().catch(() => {});
+      return;
+    }
+    try {
+      await vote(reviewId, value);
+    } catch {
+      toast.error("Não foi possível votar.");
+    }
   };
 
   const handleReport = async (reviewId: string) => {
-    if (!user) { loginWithGoogle().catch(() => {}); return; }
+    if (!user) {
+      loginWithGoogle().catch(() => {});
+      return;
+    }
     try {
       await report(reviewId);
       setReported((p) => new Set(p).add(reviewId));
@@ -85,7 +110,9 @@ export function ProductReviews({ productId }: { productId: string }) {
         <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6 text-center lg:sticky lg:top-28">
           {count > 0 ? (
             <>
-              <p className="font-display text-5xl font-black text-white leading-none">{average.toFixed(1)}</p>
+              <p className="font-display text-5xl font-black text-white leading-none">
+                {average.toFixed(1)}
+              </p>
               <Stars value={average} size="w-5 h-5" className="mt-2 justify-center" />
               <p className="mt-2 text-xs text-white/40">
                 {count} avaliação{count > 1 ? "ões" : ""}
@@ -100,8 +127,8 @@ export function ProductReviews({ productId }: { productId: string }) {
           )}
 
           {/* CTA avaliar */}
-          {!formOpen && (
-            user ? (
+          {!formOpen &&
+            (user ? (
               <button
                 onClick={startForm}
                 className="mt-5 w-full h-11 rounded-xl bg-primary text-white text-[11px] font-black uppercase tracking-widest hover:bg-primary-dark transition-all"
@@ -115,8 +142,7 @@ export function ProductReviews({ productId }: { productId: string }) {
               >
                 <LogIn className="w-4 h-4" /> Entrar para avaliar
               </button>
-            )
-          )}
+            ))}
         </div>
 
         {/* Form + lista */}
@@ -128,7 +154,9 @@ export function ProductReviews({ productId }: { productId: string }) {
               className="rounded-2xl border border-primary/20 bg-primary/[0.04] p-5 space-y-4"
             >
               <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Sua nota</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">
+                  Sua nota
+                </p>
                 <Stars value={rating} onChange={setRating} size="w-7 h-7" />
               </div>
               <textarea
@@ -173,24 +201,40 @@ export function ProductReviews({ productId }: { productId: string }) {
             </div>
           ) : (
             reviews.map((r) => (
-              <div key={r.id} className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4">
+              <div
+                key={r.id}
+                className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4"
+              >
                 <div className="flex items-center gap-3">
                   {r.userPhoto ? (
-                    <img src={r.userPhoto} alt="" className="h-9 w-9 rounded-full object-cover border border-white/10" referrerPolicy="no-referrer" />
+                    <img
+                      src={r.userPhoto}
+                      alt=""
+                      className="h-9 w-9 rounded-full object-cover border border-white/10"
+                      referrerPolicy="no-referrer"
+                    />
                   ) : (
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/12 border border-primary/20 text-xs font-black text-primary">
                       {(r.userName || "C")[0].toUpperCase()}
                     </div>
                   )}
                   <div className="min-w-0">
-                    <p className="text-sm font-bold text-white/90 truncate">{r.userName || "Cliente"}</p>
+                    <p className="text-sm font-bold text-white/90 truncate">
+                      {r.userName || "Cliente"}
+                    </p>
                     <div className="flex items-center gap-2">
                       <Stars value={r.rating} size="w-3 h-3" />
-                      <span className="text-[10px] text-white/30">{relativeDate(r.createdAt && "seconds" in r.createdAt ? r.createdAt.seconds : 0)}</span>
+                      <span className="text-[10px] text-white/30">
+                        {relativeDate(
+                          r.createdAt && "seconds" in r.createdAt ? r.createdAt.seconds : 0,
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
-                {r.comment && <p className="mt-3 text-sm leading-relaxed text-white/60">{r.comment}</p>}
+                {r.comment && (
+                  <p className="mt-3 text-sm leading-relaxed text-white/60">{r.comment}</p>
+                )}
 
                 {/* Útil / não útil + denunciar */}
                 {(() => {
@@ -198,14 +242,18 @@ export function ProductReviews({ productId }: { productId: string }) {
                   const isOwn = r.userId === user?.uid;
                   return (
                     <div className="mt-3 flex flex-wrap items-center gap-3 border-t border-white/[0.05] pt-3">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/25">Isto foi útil?</span>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-white/25">
+                        Isto foi útil?
+                      </span>
                       <button
                         type="button"
                         onClick={() => !isOwn && handleVote(r.id, 1)}
                         disabled={isOwn}
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-all",
-                          st.mine === 1 ? "border-green-400/30 bg-green-400/10 text-green-300" : "border-white/10 text-white/45 hover:text-white",
+                          st.mine === 1
+                            ? "border-green-400/30 bg-green-400/10 text-green-300"
+                            : "border-white/10 text-white/45 hover:text-white",
                           isOwn && "opacity-40 cursor-default",
                         )}
                       >
@@ -217,15 +265,19 @@ export function ProductReviews({ productId }: { productId: string }) {
                         disabled={isOwn}
                         className={cn(
                           "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-bold transition-all",
-                          st.mine === -1 ? "border-red-400/30 bg-red-400/10 text-red-300" : "border-white/10 text-white/45 hover:text-white",
+                          st.mine === -1
+                            ? "border-red-400/30 bg-red-400/10 text-red-300"
+                            : "border-white/10 text-white/45 hover:text-white",
                           isOwn && "opacity-40 cursor-default",
                         )}
                       >
                         <ThumbsDown className="h-3 w-3" /> {st.down > 0 ? st.down : "Não"}
                       </button>
-                      {!isOwn && (
-                        reported.has(r.id) ? (
-                          <span className="ml-auto text-[10px] font-medium text-white/25">Denunciado ✓</span>
+                      {!isOwn &&
+                        (reported.has(r.id) ? (
+                          <span className="ml-auto text-[10px] font-medium text-white/25">
+                            Denunciado ✓
+                          </span>
                         ) : (
                           <button
                             type="button"
@@ -234,8 +286,7 @@ export function ProductReviews({ productId }: { productId: string }) {
                           >
                             <Flag className="h-3 w-3" /> Denunciar
                           </button>
-                        )
-                      )}
+                        ))}
                     </div>
                   );
                 })()}

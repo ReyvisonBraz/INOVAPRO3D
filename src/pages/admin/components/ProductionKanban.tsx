@@ -22,7 +22,13 @@ export function ProductionKanban({
 
   return (
     <div className="space-y-4">
-      <div className={isCompact ? "flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center bg-white/[0.02] p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-white/5" : "flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5"}>
+      <div
+        className={
+          isCompact
+            ? "flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center bg-white/[0.02] p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-white/5"
+            : "flex justify-between items-center bg-white/[0.02] p-6 rounded-[24px] border border-white/5"
+        }
+      >
         <div className="min-w-0">
           <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2">
             {isCompact && <Layers className="w-4 h-4 shrink-0 text-primary" />}
@@ -41,7 +47,13 @@ export function ProductionKanban({
         )}
       </div>
 
-      <div className={isCompact ? "flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0" : "flex gap-4 sm:gap-6 overflow-x-auto pb-8 snap-x no-scrollbar"}>
+      <div
+        className={
+          isCompact
+            ? "flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0"
+            : "flex gap-4 sm:gap-6 overflow-x-auto pb-8 snap-x no-scrollbar"
+        }
+      >
         {PRODUCTION_STAGES.map((stage) => {
           const stageOrders = orders.filter((order) => {
             const matchesStage = order.status === stage.id;
@@ -63,15 +75,43 @@ export function ProductionKanban({
                   : "min-w-[260px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[32px] flex flex-col h-[65vh] sm:h-[70vh]"
               }
             >
-              <div className={isCompact ? "p-4 border-b border-white/5 bg-white/[0.01]" : "p-4 sm:p-5 border-b border-white/5 bg-white/[0.02]"}>
-                <div className={isCompact ? "flex items-center justify-between" : "flex items-center justify-between mb-1"}>
+              <div
+                className={
+                  isCompact
+                    ? "p-4 border-b border-white/5 bg-white/[0.01]"
+                    : "p-4 sm:p-5 border-b border-white/5 bg-white/[0.02]"
+                }
+              >
+                <div
+                  className={
+                    isCompact
+                      ? "flex items-center justify-between"
+                      : "flex items-center justify-between mb-1"
+                  }
+                >
                   <div className="flex items-center gap-2 min-w-0">
-                    <Icon className={isCompact ? "w-3.5 h-3.5 shrink-0 text-primary" : "w-4 h-4 text-primary"} />
-                    <h4 className={isCompact ? "text-[10px] font-black uppercase text-white/70 truncate" : "text-xs font-black uppercase text-white/80"}>
+                    <Icon
+                      className={
+                        isCompact ? "w-3.5 h-3.5 shrink-0 text-primary" : "w-4 h-4 text-primary"
+                      }
+                    />
+                    <h4
+                      className={
+                        isCompact
+                          ? "text-[10px] font-black uppercase text-white/70 truncate"
+                          : "text-xs font-black uppercase text-white/80"
+                      }
+                    >
                       {stage.label}
                     </h4>
                   </div>
-                  <span className={isCompact ? "text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40" : "text-[10px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40"}>
+                  <span
+                    className={
+                      isCompact
+                        ? "text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40"
+                        : "text-[10px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40"
+                    }
+                  >
                     {stageOrders.length}
                   </span>
                 </div>
@@ -89,22 +129,90 @@ export function ProductionKanban({
                         : "w-full text-left glass p-4 sm:p-5 rounded-[24px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_20px_rgba(37,99,235,0.1)]"
                     }
                   >
-                    <div className={isCompact ? "flex justify-between items-start mb-2" : "flex justify-between items-start mb-3"}>
-                      <p className={isCompact ? "text-[11px] font-mono text-secondary" : "text-[9px] font-mono text-secondary"}>#{order.id.slice(0, 8)}</p>
-                      <p className={isCompact ? "text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md" : "text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md"}>
+                    <div
+                      className={
+                        isCompact
+                          ? "flex justify-between items-start mb-2"
+                          : "flex justify-between items-start mb-3"
+                      }
+                    >
+                      <p
+                        className={
+                          isCompact
+                            ? "text-[11px] font-mono text-secondary"
+                            : "text-[9px] font-mono text-secondary"
+                        }
+                      >
+                        #{order.id.slice(0, 8)}
+                      </p>
+                      <p
+                        className={
+                          isCompact
+                            ? "text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md"
+                            : "text-[10px] font-display font-black text-primary italic bg-primary/10 px-2 py-0.5 rounded-md"
+                        }
+                      >
                         R$ {(order.total || 0).toFixed(2)}
                       </p>
                     </div>
-                    <h5 className={isCompact ? "text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors" : "text-sm font-black uppercase truncate group-hover:text-white text-white/80 transition-colors"}>
+                    {order.items?.[0]?.image && (
+                      <div
+                        className={
+                          isCompact
+                            ? "mb-2 rounded-xl overflow-hidden border border-white/5 bg-black/20"
+                            : "mb-3 rounded-xl overflow-hidden border border-white/5 bg-black/20"
+                        }
+                      >
+                        <img
+                          src={order.items[0].image}
+                          alt=""
+                          loading="lazy"
+                          className={
+                            isCompact
+                              ? "w-full h-20 object-cover"
+                              : "w-full h-24 sm:h-28 object-cover"
+                          }
+                        />
+                      </div>
+                    )}
+                    <h5
+                      className={
+                        isCompact
+                          ? "text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors"
+                          : "text-sm font-black uppercase truncate group-hover:text-white text-white/80 transition-colors"
+                      }
+                    >
                       {order.userName}
                     </h5>
-                    <p className={isCompact ? "text-[9px] text-secondary line-clamp-1 mb-3 mt-1 font-bold" : "text-[10px] text-secondary line-clamp-1 mb-4 mt-1 font-bold"}>
-                      {order.items?.map((item: OrderItem) => item.name || item.fileName).join(" • ")}
+                    <p
+                      className={
+                        isCompact
+                          ? "text-[9px] text-secondary line-clamp-1 mb-3 mt-1 font-bold"
+                          : "text-[10px] text-secondary line-clamp-1 mb-4 mt-1 font-bold"
+                      }
+                    >
+                      {order.items
+                        ?.map((item: OrderItem) => item.name || item.fileName)
+                        .join(" • ")}
                     </p>
 
-                    <div className={isCompact ? "flex items-center justify-between border-t border-white/5 pt-2" : "flex items-center justify-between border-t border-white/5 pt-3"}>
-                      <p className="text-[11px] font-mono text-dim">{new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString()}</p>
-                      <div className={isCompact ? "w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all" : "w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all"}>
+                    <div
+                      className={
+                        isCompact
+                          ? "flex items-center justify-between border-t border-white/5 pt-2"
+                          : "flex items-center justify-between border-t border-white/5 pt-3"
+                      }
+                    >
+                      <p className="text-[11px] font-mono text-dim">
+                        {new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString()}
+                      </p>
+                      <div
+                        className={
+                          isCompact
+                            ? "w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all"
+                            : "w-6 h-6 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all"
+                        }
+                      >
                         <ArrowRight className={isCompact ? "w-2.5 h-2.5" : "w-3 h-3"} />
                       </div>
                     </div>
@@ -113,7 +221,13 @@ export function ProductionKanban({
 
                 {stageOrders.length === 0 && (
                   <div className={isCompact ? "py-12 text-center" : "py-10 text-center"}>
-                    <p className={isCompact ? "text-[11px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto" : "text-[9px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-4 w-1/2 mx-auto"}>
+                    <p
+                      className={
+                        isCompact
+                          ? "text-[11px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto"
+                          : "text-[9px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-4 w-1/2 mx-auto"
+                      }
+                    >
                       {isCompact ? "Sem Pedidos" : "Vazio"}
                     </p>
                   </div>

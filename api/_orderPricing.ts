@@ -17,6 +17,7 @@ export interface ProductRecord {
   basePrice: number;
   active?: boolean;
   name?: string;
+  productionMaterial?: "PLA" | "SILK" | "PETG";
 }
 
 export interface MaterialRecord {
@@ -27,6 +28,7 @@ export interface MaterialRecord {
 export interface ComputedLine {
   productId: string;
   materialId: string | null;
+  productionMaterial: "PLA" | "SILK" | "PETG";
   name: string;
   quantity: number;
   unitPrice: number;
@@ -34,8 +36,7 @@ export interface ComputedLine {
 }
 
 export type ComputeResult =
-  | { ok: true; lines: ComputedLine[]; total: number }
-  | { ok: false; error: string };
+  { ok: true; lines: ComputedLine[]; total: number } | { ok: false; error: string };
 
 const MAX_ITEMS = 50;
 const MAX_QTY = 99;
@@ -47,7 +48,7 @@ function round2(n: number): number {
 export function computeOrderTotal(
   items: OrderLineInput[],
   products: Map<string, ProductRecord>,
-  materials: Map<string, MaterialRecord>,
+  _materials: Map<string, MaterialRecord>,
 ): ComputeResult {
   if (!Array.isArray(items) || items.length === 0) return { ok: false, error: "Pedido sem itens." };
   if (items.length > MAX_ITEMS) return { ok: false, error: "Itens demais no pedido." };
@@ -56,30 +57,37 @@ export function computeOrderTotal(
   for (const it of items) {
     if (!it || it.type !== "PRODUCT") return { ok: false, error: "Tipo de item não suportado." };
     const productId = it.productId;
-    if (typeof productId !== "string" || !productId) return { ok: false, error: "Item sem productId." };
+    if (typeof productId !== "string" || !productId)
+      return { ok: false, error: "Item sem productId." };
 
     const product = products.get(productId);
     if (!product) return { ok: false, error: `Produto não encontrado: ${productId}` };
     if (product.active === false) return { ok: false, error: `Produto indisponível: ${productId}` };
 
     const base = Number(product.basePrice);
-    if (!Number.isFinite(base) || base <= 0) return { ok: false, error: `Preço inválido: ${productId}` };
+    if (!Number.isFinite(base) || base <= 0)
+      return { ok: false, error: `Preço inválido: ${productId}` };
 
     const qty = Math.min(MAX_QTY, Math.max(1, Math.floor(Number(it.quantity) || 1)));
 
-    let mult = 1;
-    let materialId: string | null = null;
-    if (it.materialId) {
-      const mat = materials.get(it.materialId);
-      if (!mat) return { ok: false, error: `Material não encontrado: ${it.materialId}` };
-      const m = Number(mat.priceMult ?? 1);
-      mult = Number.isFinite(m) && m > 0 ? m : 1;
-      materialId = it.materialId;
-    }
-
-    const unitPrice = round2(base * mult);
+    // O produto tem preço e material de produção fixos. Qualquer materialId
+    // legado enviado pelo cliente é ignorado para não alterar o valor.
+    const materialId: string | null = null;
+    const productionMaterial =
+      product.productionMaterial === "SILK" || product.productionMaterial === "PETG"
+        ? product.productionMaterial
+        : "PLA";
+    const unitPrice = round2(base);
     const lineTotal = round2(unitPrice * qty);
-    lines.push({ productId, materialId, name: product.name ?? productId, quantity: qty, unitPrice, lineTotal });
+    lines.push({
+      productId,
+      materialId,
+      productionMaterial,
+      name: product.name ?? productId,
+      quantity: qty,
+      unitPrice,
+      lineTotal,
+    });
   }
 
   const total = round2(lines.reduce((s, l) => s + l.lineTotal, 0));

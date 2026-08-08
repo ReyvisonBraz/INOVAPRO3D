@@ -1,6 +1,6 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../contexts/AuthContext';
+import React from "react";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -23,7 +23,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
     return <Navigate to="/" state={{ from: location }} replace />;
   }
 
-  if (requireAdmin && profile?.role !== 'ADMIN') {
+  if (requireAdmin && profile?.role !== "ADMIN") {
     return <Navigate to="/" replace />;
   }
 

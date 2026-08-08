@@ -25,14 +25,22 @@ export function ConfirmDialog({ state, onCancel }: ConfirmDialogProps) {
         <div
           className={cn(
             "w-16 h-16 rounded-full flex items-center justify-center mx-auto border transition-all",
-            state.isDanger ? "bg-red-500/10 text-red-500 border-red-500/20" : "bg-green-500/10 text-green-500 border-green-500/20",
+            state.isDanger
+              ? "bg-red-500/10 text-red-500 border-red-500/20"
+              : "bg-green-500/10 text-green-500 border-green-500/20",
           )}
         >
-          {state.isDanger ? <AlertCircle className="w-8 h-8 animate-pulse" /> : <CheckCircle2 className="w-8 h-8 animate-pulse" />}
+          {state.isDanger ? (
+            <AlertCircle className="w-8 h-8 animate-pulse" />
+          ) : (
+            <CheckCircle2 className="w-8 h-8 animate-pulse" />
+          )}
         </div>
 
         <div className="space-y-2">
-          <h3 className="text-lg font-black text-white italic uppercase tracking-wider">{state.title}</h3>
+          <h3 className="text-lg font-black text-white italic uppercase tracking-wider">
+            {state.title}
+          </h3>
           <p className="text-xs text-white/50 leading-relaxed font-bold">{state.description}</p>
         </div>
 

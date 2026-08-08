@@ -12,7 +12,13 @@ interface Props {
   noindex?: boolean;
 }
 
-export function PageSEO({ title, description, path = "", image = DEFAULT_IMAGE, noindex = false }: Props) {
+export function PageSEO({
+  title,
+  description,
+  path = "",
+  image = DEFAULT_IMAGE,
+  noindex = false,
+}: Props) {
   const fullTitle = title === SITE_NAME ? title : `${title} — ${SITE_NAME}`;
   const url = `${BASE_URL}${path}`;
 

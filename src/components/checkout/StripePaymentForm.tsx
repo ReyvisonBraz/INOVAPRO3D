@@ -35,13 +35,13 @@ export function StripePaymentForm({ orderId, amount, onSuccess, onError, onBack 
     const { error, paymentIntent } = await stripe.confirmPayment({
       elements,
       confirmParams: { return_url: returnUrl },
-      redirect: 'if_required', // redirect only for methods that need it (PIX)
+      redirect: "if_required", // redirect only for methods that need it (PIX)
     });
 
     if (error) {
       onError(error.message ?? "Erro ao processar pagamento.");
       setProcessing(false);
-    } else if (paymentIntent?.status === 'succeeded') {
+    } else if (paymentIntent?.status === "succeeded") {
       // Card payment confirmed immediately
       onSuccess();
     }
@@ -54,9 +54,9 @@ export function StripePaymentForm({ orderId, amount, onSuccess, onError, onBack 
     <form onSubmit={handleSubmit} className="space-y-8">
       <PaymentElement
         options={{
-          layout: 'tabs',
-          paymentMethodOrder: ['card', 'pix'],
-          fields: { billingDetails: { email: 'never' } },
+          layout: "tabs",
+          paymentMethodOrder: ["card", "pix"],
+          fields: { billingDetails: { email: "never" } },
         }}
       />
 
@@ -80,14 +80,15 @@ export function StripePaymentForm({ orderId, amount, onSuccess, onError, onBack 
         >
           {processing
             ? "PROCESSANDO..."
-            : `PAGAR R$ ${amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+            : `PAGAR R$ ${amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`}
           <ArrowRight className="w-6 h-6" />
         </Button>
       </div>
 
       <p className="flex items-center gap-2 text-[10px] text-white/25 font-medium">
         <Lock className="w-3 h-3 shrink-0" />
-        Pagamento processado com segurança pela Stripe. Seus dados nunca passam pelos nossos servidores.
+        Pagamento processado com segurança pela Stripe. Seus dados nunca passam pelos nossos
+        servidores.
       </p>
     </form>
   );

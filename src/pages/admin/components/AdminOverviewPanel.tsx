@@ -167,11 +167,17 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
 }: AdminOverviewPanelProps) {
   const [stockMaterialId, setStockMaterialId] = useState("");
   const [stockUsageGrams, setStockUsageGrams] = useState(0);
-  const allocatedStockGrams = quickMaterialUsages.reduce((sum, usage) => sum + Number(usage.estimatedGrams || 0), 0);
+  const allocatedStockGrams = quickMaterialUsages.reduce(
+    (sum, usage) => sum + Number(usage.estimatedGrams || 0),
+    0,
+  );
   const addStockUsage = () => {
     const selected = inventoryMaterials.find((entry) => entry.id === stockMaterialId);
     if (!selected || stockUsageGrams <= 0) return;
-    setQuickMaterialUsages((current) => [...current.filter((entry) => entry.materialId !== selected.id), { materialId: selected.id, materialName: selected.name, estimatedGrams: stockUsageGrams }]);
+    setQuickMaterialUsages((current) => [
+      ...current.filter((entry) => entry.materialId !== selected.id),
+      { materialId: selected.id, materialName: selected.name, estimatedGrams: stockUsageGrams },
+    ]);
     setStockMaterialId("");
     setStockUsageGrams(0);
   };
@@ -183,16 +189,18 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
     () =>
       [...orders]
         .map((o) => ({
-          name:
-            new Date((o.createdAt?.seconds ?? 0) * 1000).toLocaleDateString() || "N/A",
+          name: new Date((o.createdAt?.seconds ?? 0) * 1000).toLocaleDateString() || "N/A",
           total: o.total || 0,
         }))
         .reverse(),
-    [orders]
+    [orders],
   );
 
   const pieData = useMemo(() => {
-    let pending = 0, paid = 0, production = 0, completed = 0;
+    let pending = 0,
+      paid = 0,
+      production = 0,
+      completed = 0;
     for (const o of orders) {
       if (o.status === "PENDING_PAYMENT") pending++;
       else if (o.status === "PAID") paid++;
@@ -210,7 +218,12 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   const ordersByStatus = useMemo(() => {
     const map = new Map<string, Order[]>();
     for (const o of orders) {
-      if (searchTerm && !(o.userName?.toLowerCase().includes(searchTerm.toLowerCase())) && !(o.id.toLowerCase().includes(searchTerm.toLowerCase()))) continue;
+      if (
+        searchTerm &&
+        !o.userName?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !o.id.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+        continue;
       const arr = map.get(o.status) || [];
       arr.push(o);
       map.set(o.status, arr);
@@ -246,7 +259,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 Calculadora profissional de orçamento
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/65">
-                Calcule projetos da Bambu, bandejas multicolor, filamentos, hora-máquina, atacado e varejo sem ocupar permanentemente o painel.
+                Calcule projetos da Bambu, bandejas multicolor, filamentos, hora-máquina, atacado e
+                varejo sem ocupar permanentemente o painel.
               </p>
             </div>
           </div>
@@ -296,12 +310,26 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">Nome do cliente</label>
-            <input value={quickCalcCustomerName} onChange={(event) => setQuickCalcCustomerName(event.target.value)} placeholder="Ex.: João Silva" className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60" />
+            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">
+              Nome do cliente
+            </label>
+            <input
+              value={quickCalcCustomerName}
+              onChange={(event) => setQuickCalcCustomerName(event.target.value)}
+              placeholder="Ex.: João Silva"
+              className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60"
+            />
           </div>
           <div>
-            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">WhatsApp</label>
-            <input value={quickCalcPhone} onChange={(event) => setQuickCalcPhone(event.target.value)} placeholder="DDD + número" className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60" />
+            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">
+              WhatsApp
+            </label>
+            <input
+              value={quickCalcPhone}
+              onChange={(event) => setQuickCalcPhone(event.target.value)}
+              placeholder="DDD + número"
+              className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60"
+            />
           </div>
         </div>
 
@@ -317,10 +345,30 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
         />
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-white/10 bg-black/25 p-4"><span className="text-[9px] font-black uppercase text-white/35">Material</span><strong className="mt-1 block font-mono text-sm text-white">{formatBRL(quickCalcResult.materialCost)}</strong></div>
-          <div className="rounded-xl border border-white/10 bg-black/25 p-4"><span className="text-[9px] font-black uppercase text-white/35">Energia + máquina</span><strong className="mt-1 block font-mono text-sm text-white">{formatBRL(quickCalcResult.energyCost + quickCalcResult.machineCost)}</strong></div>
-          <div className="rounded-xl border border-white/10 bg-black/25 p-4"><span className="text-[9px] font-black uppercase text-white/35">Custo previsto</span><strong className="mt-1 block font-mono text-sm text-white">{formatBRL(quickCalcResult.totalCost)}</strong></div>
-          <div className="rounded-xl border border-blue-400/25 bg-blue-400/[0.08] p-4"><span className="text-[9px] font-black uppercase text-blue-200">Varejo</span><strong className="mt-1 block font-mono text-lg text-blue-300">{formatBRL(quickCalcResult.retailTotal)}</strong></div>
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+            <span className="text-[9px] font-black uppercase text-white/35">Material</span>
+            <strong className="mt-1 block font-mono text-sm text-white">
+              {formatBRL(quickCalcResult.materialCost)}
+            </strong>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+            <span className="text-[9px] font-black uppercase text-white/35">Energia + máquina</span>
+            <strong className="mt-1 block font-mono text-sm text-white">
+              {formatBRL(quickCalcResult.energyCost + quickCalcResult.machineCost)}
+            </strong>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
+            <span className="text-[9px] font-black uppercase text-white/35">Custo previsto</span>
+            <strong className="mt-1 block font-mono text-sm text-white">
+              {formatBRL(quickCalcResult.totalCost)}
+            </strong>
+          </div>
+          <div className="rounded-xl border border-blue-400/25 bg-blue-400/[0.08] p-4">
+            <span className="text-[9px] font-black uppercase text-blue-200">Varejo</span>
+            <strong className="mt-1 block font-mono text-lg text-blue-300">
+              {formatBRL(quickCalcResult.retailTotal)}
+            </strong>
+          </div>
         </div>
 
         <div className="grid gap-2 sm:grid-cols-2">
@@ -330,7 +378,11 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
             onClick={onSaveQuote}
             className="min-h-11 rounded-2xl bg-emerald-500 text-[10px] font-black uppercase text-black hover:bg-emerald-600 disabled:opacity-50"
           >
-            {quickCalcSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            {quickCalcSaving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
             {quickCalcSaving ? "Salvando..." : "Salvar orçamento"}
           </Button>
           <Button
@@ -459,37 +511,101 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 </span>
               </label>
               <div className="flex gap-2">
-                {(
-                  Object.keys(MATERIAL_PRESETS) as Array<
-                    keyof typeof MATERIAL_PRESETS
-                  >
-                ).map((key) => (
-                  <button
-                    key={key}
-                    type="button"
-                    onClick={() => selectQuickMaterial(key)}
-                    className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
-                      quickCalcMaterial === key
-                        ? "bg-white text-[#07080d] border-white"
-                        : "bg-white/[0.03] border-white/10 text-white/40 hover:border-white/20"
-                    }`}
-                  >
-                    {MATERIAL_PRESETS[key].label}
-                    <span className="block text-[11px] font-bold mt-0.5 opacity-70">
-                      R$
-                      {(pricingSettings.materials[key].spoolPrice / 10).toFixed(0)}
-                      /100g
-                    </span>
-                  </button>
-                ))}
+                {(Object.keys(MATERIAL_PRESETS) as Array<keyof typeof MATERIAL_PRESETS>).map(
+                  (key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => selectQuickMaterial(key)}
+                      className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
+                        quickCalcMaterial === key
+                          ? "bg-white text-[#07080d] border-white"
+                          : "bg-white/[0.03] border-white/10 text-white/40 hover:border-white/20"
+                      }`}
+                    >
+                      {MATERIAL_PRESETS[key].label}
+                      <span className="block text-[11px] font-bold mt-0.5 opacity-70">
+                        R$
+                        {(pricingSettings.materials[key].spoolPrice / 10).toFixed(0)}
+                        /100g
+                      </span>
+                    </button>
+                  ),
+                )}
               </div>
             </div>
 
             <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.04] p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2"><span className="text-[9px] font-black uppercase text-blue-200">Filamento do estoque</span><span className={`text-[9px] font-bold ${Math.abs(allocatedStockGrams - quickCalcWeight) < 0.01 ? 'text-emerald-300' : 'text-amber-300'}`}>{allocatedStockGrams.toFixed(1)}g / {quickCalcWeight.toFixed(1)}g</span></div>
-              <div className="grid gap-2 sm:grid-cols-[1fr_90px_auto]"><select value={stockMaterialId} onChange={(event) => setStockMaterialId(event.target.value)} className="min-w-0 rounded-lg border border-white/10 bg-black p-2 text-[10px]"><option value="">Selecionar estoque...</option>{inventoryMaterials.map((entry) => <option key={entry.id} value={entry.id}>{entry.name} ({Math.max(0, Number(entry.stockGrams || 0) - Number(entry.reservedGrams || 0))}g livres)</option>)}</select><NumInput min={0} step={0.1} value={stockUsageGrams} onChange={setStockUsageGrams} className="rounded-lg border border-white/10 bg-black p-2 text-[10px]" /><button type="button" onClick={addStockUsage} disabled={!stockMaterialId || stockUsageGrams <= 0} className="rounded-lg bg-blue-500 px-3 text-[9px] font-black uppercase disabled:opacity-40">Adicionar</button></div>
-              {quickMaterialUsages.map((usage) => <div key={usage.materialId} className="flex items-center justify-between rounded-lg bg-black/30 px-2.5 py-2 text-[10px]"><span className="text-white/60">{usage.materialName}</span><span className="flex items-center gap-2 font-mono"><strong>{usage.estimatedGrams}g</strong><button type="button" aria-label={`Remover ${usage.materialName}`} onClick={() => setQuickMaterialUsages((current) => current.filter((entry) => entry.materialId !== usage.materialId))} className="text-white/30 hover:text-red-300"><X className="h-3 w-3" /></button></span></div>)}
-              <p className="text-[9px] text-white/30">Reserva ao entrar na fila de produção; baixa ao iniciar impressão.</p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[9px] font-black uppercase text-blue-200">
+                  Filamento do estoque
+                </span>
+                <span
+                  className={`text-[9px] font-bold ${Math.abs(allocatedStockGrams - quickCalcWeight) < 0.01 ? "text-emerald-300" : "text-amber-300"}`}
+                >
+                  {allocatedStockGrams.toFixed(1)}g / {quickCalcWeight.toFixed(1)}g
+                </span>
+              </div>
+              <div className="grid gap-2 sm:grid-cols-[1fr_90px_auto]">
+                <select
+                  value={stockMaterialId}
+                  onChange={(event) => setStockMaterialId(event.target.value)}
+                  className="min-w-0 rounded-lg border border-white/10 bg-black p-2 text-[10px]"
+                >
+                  <option value="">Selecionar estoque...</option>
+                  {inventoryMaterials.map((entry) => (
+                    <option key={entry.id} value={entry.id}>
+                      {entry.name} (
+                      {Math.max(
+                        0,
+                        Number(entry.stockGrams || 0) - Number(entry.reservedGrams || 0),
+                      )}
+                      g livres)
+                    </option>
+                  ))}
+                </select>
+                <NumInput
+                  min={0}
+                  step={0.1}
+                  value={stockUsageGrams}
+                  onChange={setStockUsageGrams}
+                  className="rounded-lg border border-white/10 bg-black p-2 text-[10px]"
+                />
+                <button
+                  type="button"
+                  onClick={addStockUsage}
+                  disabled={!stockMaterialId || stockUsageGrams <= 0}
+                  className="rounded-lg bg-blue-500 px-3 text-[9px] font-black uppercase disabled:opacity-40"
+                >
+                  Adicionar
+                </button>
+              </div>
+              {quickMaterialUsages.map((usage) => (
+                <div
+                  key={usage.materialId}
+                  className="flex items-center justify-between rounded-lg bg-black/30 px-2.5 py-2 text-[10px]"
+                >
+                  <span className="text-white/60">{usage.materialName}</span>
+                  <span className="flex items-center gap-2 font-mono">
+                    <strong>{usage.estimatedGrams}g</strong>
+                    <button
+                      type="button"
+                      aria-label={`Remover ${usage.materialName}`}
+                      onClick={() =>
+                        setQuickMaterialUsages((current) =>
+                          current.filter((entry) => entry.materialId !== usage.materialId),
+                        )
+                      }
+                      className="text-white/30 hover:text-red-300"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                </div>
+              ))}
+              <p className="text-[9px] text-white/30">
+                Reserva ao entrar na fila de produção; baixa ao iniciar impressão.
+              </p>
             </div>
 
             <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
@@ -548,15 +664,13 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
                   <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
                     Energia P2S
-                    <span
-                      title={`${HELP.steadyPower} ${HELP.startupPower}`}
-                    >
+                    <span title={`${HELP.steadyPower} ${HELP.startupPower}`}>
                       <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </span>
                   <strong className="text-[10px] text-white font-mono">
-                    {pricingSettings.materials[quickCalcMaterial].steadyPowerWatts}W +
-                    pico {(pricingSettings.startupPowerWatts / 1000).toFixed(1)}kW
+                    {pricingSettings.materials[quickCalcMaterial].steadyPowerWatts}W + pico{" "}
+                    {(pricingSettings.startupPowerWatts / 1000).toFixed(1)}kW
                   </strong>
                 </div>
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
@@ -573,9 +687,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
                   <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
                     Hora-Máquina
-                    <span
-                      title={`${HELP.depreciation} ${HELP.replacement}`}
-                    >
+                    <span title={`${HELP.depreciation} ${HELP.replacement}`}>
                       <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
                     </span>
                   </span>
@@ -583,8 +695,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                     {formatBRL(quickCalcResult.machineHourCost)}/h
                   </strong>
                   <span className="block text-[10px] text-white/40 font-mono leading-tight mt-0.5">
-                    Deprec. {formatBRL(quickMachineBreak.depreciation)}/h ·
-                    Reposição {formatBRL(quickMachineBreak.replacement)}/h
+                    Deprec. {formatBRL(quickMachineBreak.depreciation)}/h · Reposição{" "}
+                    {formatBRL(quickMachineBreak.replacement)}/h
                   </span>
                 </div>
                 <div className="rounded-xl bg-black/50 border border-white/5 p-2">
@@ -693,8 +805,8 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               {/* CUSTO REAL */}
               <div className="flex justify-between gap-3 text-xs text-white/70">
                 <span className="min-w-0">
-                  Material ({quickCalcResult.weightGrams.toFixed(1)}g +{" "}
-                  {quickCalcMaterialReserve}% reserva):
+                  Material ({quickCalcResult.weightGrams.toFixed(1)}g + {quickCalcMaterialReserve}%
+                  reserva):
                 </span>
                 <span className="shrink-0 font-mono text-white">
                   {formatBRL(quickCalcResult.materialCost)}
@@ -719,9 +831,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               </div>
               {quickCalcResult.failureLoss > 0 && (
                 <div className="flex justify-between gap-3 text-xs text-white/70">
-                  <span className="min-w-0">
-                    Falhas ({quickCalcFailureRate}% de retrabalho):
-                  </span>
+                  <span className="min-w-0">Falhas ({quickCalcFailureRate}% de retrabalho):</span>
                   <span className="shrink-0 font-mono text-white">
                     {formatBRL(quickCalcResult.failureLoss)}
                   </span>
@@ -868,7 +978,11 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 type="button"
                 disabled={quickCalcSaving || !quickCalcCustomerName.trim()}
                 onClick={onSaveQuote}
-                title={!quickCalcCustomerName.trim() ? "Informe o nome do cliente para salvar" : "Salvar na aba Orçamentos"}
+                title={
+                  !quickCalcCustomerName.trim()
+                    ? "Informe o nome do cliente para salvar"
+                    : "Salvar na aba Orçamentos"
+                }
                 className="w-full min-h-11 h-auto rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {quickCalcSaving ? (
@@ -896,8 +1010,7 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center bg-white/[0.02] p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-white/5">
           <div className="min-w-0">
             <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2">
-              <Layers className="w-4 h-4 shrink-0 text-primary" /> Esteira de
-              Produção
+              <Layers className="w-4 h-4 shrink-0 text-primary" /> Esteira de Produção
             </h3>
             <p className="text-[10px] text-dim uppercase font-bold tracking-widest">
               Controle logístico e manufatura diretamente no dashboard inicial
@@ -908,7 +1021,11 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           </span>
         </div>
 
-        <div className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0" role="list" aria-label="Esteira de produção - Kanban">
+        <div
+          className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0"
+          role="list"
+          aria-label="Esteira de produção - Kanban"
+        >
           {KANBAN_STAGES.map((stage) => {
             const stageOrders = ordersByStatus.get(stage.id) || [];
             const Icon = stage.icon;
@@ -945,7 +1062,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                         {o.status !== "CANCELED" && o.status !== "COMPLETED" && (
                           <button
-                            onClick={(e) => { e.stopPropagation(); onCancelOrder(o); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onCancelOrder(o);
+                            }}
                             className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
                             title="Cancelar pedido"
                           >
@@ -953,7 +1073,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                           </button>
                         )}
                         <button
-                          onClick={(e) => { e.stopPropagation(); onDeleteOrder(o); }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteOrder(o);
+                          }}
                           className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
                           title="Excluir pedido"
                         >
@@ -961,32 +1084,28 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                         </button>
                       </div>
                       <div onClick={() => onSelectOrder(o)}>
-                      <div className="flex justify-between items-start mb-2">
-                        <p className="text-[11px] font-mono text-secondary">
-                          #{o.id.slice(0, 8)}
-                        </p>
-                        <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">
-                          R$ {(o.total || 0).toFixed(2)}
-                        </p>
-                      </div>
-                      <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">
-                        {o.userName}
-                      </h5>
-                      <p className="text-[9px] text-secondary line-clamp-1 mb-3 mt-1 font-bold">
-                        {o.items
-                          ?.map((i: OrderItem) => i.name || i.fileName)
-                          .join(" • ")}
-                      </p>
-                      <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                        <p className="text-[11px] font-mono text-dim">
-                          {new Date(
-                            (o.createdAt?.seconds ?? 0) * 1000
-                          ).toLocaleDateString()}
-                        </p>
-                        <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">
-                          <ArrowRight className="w-2.5 h-2.5" />
+                        <div className="flex justify-between items-start mb-2">
+                          <p className="text-[11px] font-mono text-secondary">
+                            #{o.id.slice(0, 8)}
+                          </p>
+                          <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">
+                            R$ {(o.total || 0).toFixed(2)}
+                          </p>
                         </div>
-                      </div>
+                        <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">
+                          {o.userName}
+                        </h5>
+                        <p className="text-[9px] text-secondary line-clamp-1 mb-3 mt-1 font-bold">
+                          {o.items?.map((i: OrderItem) => i.name || i.fileName).join(" • ")}
+                        </p>
+                        <div className="flex items-center justify-between border-t border-white/5 pt-2">
+                          <p className="text-[11px] font-mono text-dim">
+                            {new Date((o.createdAt?.seconds ?? 0) * 1000).toLocaleDateString()}
+                          </p>
+                          <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">
+                            <ArrowRight className="w-2.5 h-2.5" />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   ))}
@@ -1006,7 +1125,11 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
 
       {/* CHARTS ROW */}
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
-        <div className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]" role="img" aria-label="Gráfico de receita acumulada por data">
+        <div
+          className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]"
+          role="img"
+          aria-label="Gráfico de receita acumulada por data"
+        >
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
@@ -1015,22 +1138,9 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                   <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid
-                strokeDasharray="3 3"
-                stroke="#ffffff05"
-                vertical={false}
-              />
-              <XAxis
-                dataKey="name"
-                stroke="#ffffff10"
-                fontSize={9}
-                tick={{ fill: "#ffffff20" }}
-              />
-              <YAxis
-                stroke="#ffffff10"
-                fontSize={9}
-                tick={{ fill: "#ffffff20" }}
-              />
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
+              <XAxis dataKey="name" stroke="#ffffff10" fontSize={9} tick={{ fill: "#ffffff20" }} />
+              <YAxis stroke="#ffffff10" fontSize={9} tick={{ fill: "#ffffff20" }} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "#0A0A0F",
@@ -1050,7 +1160,11 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           </ResponsiveContainer>
         </div>
 
-        <div className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]" role="img" aria-label={`Gráfico de distribuição de pedidos: ${orders.length} no total`}>
+        <div
+          className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]"
+          role="img"
+          aria-label={`Gráfico de distribuição de pedidos: ${orders.length} no total`}
+        >
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
@@ -1061,19 +1175,14 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 dataKey="value"
               >
                 {pieData.map((_, i) => (
-                  <Cell
-                    key={i}
-                    fill={CHART_COLORS[i % CHART_COLORS.length]}
-                  />
+                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
           <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
             <span className="text-2xl font-black italic">{orders.length}</span>
-            <span className="text-[11px] font-black uppercase text-dim">
-              Pedidos
-            </span>
+            <span className="text-[11px] font-black uppercase text-dim">Pedidos</span>
           </div>
         </div>
       </div>

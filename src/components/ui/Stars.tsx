@@ -31,9 +31,18 @@ export function Stars({
           onMouseLeave={() => interactive && setHover(0)}
           onClick={() => onChange?.(i)}
           aria-label={`${i} estrela${i > 1 ? "s" : ""}`}
-          className={cn(interactive ? "cursor-pointer transition-transform hover:scale-110 active:scale-95" : "cursor-default")}
+          className={cn(
+            interactive
+              ? "cursor-pointer transition-transform hover:scale-110 active:scale-95"
+              : "cursor-default",
+          )}
         >
-          <Star className={cn(size, i <= Math.round(display) ? "fill-amber-400 text-amber-400" : "text-white/20")} />
+          <Star
+            className={cn(
+              size,
+              i <= Math.round(display) ? "fill-amber-400 text-amber-400" : "text-white/20",
+            )}
+          />
         </button>
       ))}
     </div>

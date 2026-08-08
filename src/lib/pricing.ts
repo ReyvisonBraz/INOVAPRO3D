@@ -1,3 +1,5 @@
+import { DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing";
+
 // ============================================================================
 // MOTOR DE PRECIFICAÇÃO INOVAPRO3D
 // ----------------------------------------------------------------------------
@@ -203,7 +205,7 @@ export const DEFAULT_PRICING_SETTINGS: PricingSettings = {
   wholesaleMarkup: 1.6,
   retailMarkup: 2.5,
   minPrice: 35,
-  pixDiscountPct: 5,
+  pixDiscountPct: DEFAULT_PIX_DISCOUNT_PERCENT,
   maxInstallments: 6,
   materials: {
     pla: {
@@ -235,8 +237,7 @@ export function mergePricingSettings(raw: unknown): PricingSettings {
   const mergeMaterial = (key: MaterialKey): MaterialSettings => {
     const def = base.materials[key];
     const m = (r.materials as Record<string, unknown> | undefined)?.[key] as
-      | Record<string, unknown>
-      | undefined;
+      Record<string, unknown> | undefined;
     if (!m) return def;
     return {
       spoolPrice: numOr(m.spoolPrice, def.spoolPrice),
@@ -253,7 +254,10 @@ export function mergePricingSettings(raw: unknown): PricingSettings {
     failureRatePct: numOr(r.failureRatePct, base.failureRatePct),
     failureImpactPct: numOr(r.failureImpactPct, base.failureImpactPct),
     defaultPackagingCost: numOr(r.defaultPackagingCost, base.defaultPackagingCost),
-    targetProfitPerMachineHour: numOr(r.targetProfitPerMachineHour, base.targetProfitPerMachineHour),
+    targetProfitPerMachineHour: numOr(
+      r.targetProfitPerMachineHour,
+      base.targetProfitPerMachineHour,
+    ),
     wholesaleMarkup: numOr(r.wholesaleMarkup, base.wholesaleMarkup),
     retailMarkup: numOr(r.retailMarkup, base.retailMarkup),
     minPrice: numOr(r.minPrice, base.minPrice),
@@ -378,8 +382,7 @@ export interface PricingResult {
   profitRetailMarkupPct: number;
 }
 
-const num = (v: number, fallback = 0) =>
-  Number.isFinite(v) ? v : fallback;
+const num = (v: number, fallback = 0) => (Number.isFinite(v) ? v : fallback);
 
 export function computePricing(input: PricingInputs): PricingResult {
   const preset = MATERIAL_PRESETS[input.material];
@@ -394,23 +397,24 @@ export function computePricing(input: PricingInputs): PricingResult {
 
   // --- Material ---
   const gramCost = spoolPrice / spoolWeight;
-  const materialCost = input.materialCostOverride === undefined
-    ? weightGrams * gramCost * reserveMultiplier
-    : Math.max(0, num(input.materialCostOverride));
+  const materialCost =
+    input.materialCostOverride === undefined
+      ? weightGrams * gramCost * reserveMultiplier
+      : Math.max(0, num(input.materialCostOverride));
 
   // --- Energia (pico de aquecimento + regime estável) ---
   const startupHours = Math.min(hours, Math.max(0, num(input.startupMinutes)) / 60);
   const steadyHours = Math.max(0, hours - startupHours);
   const calculatedEnergyKwh =
-    (startupHours * Math.max(0, num(input.startupPowerWatts)) +
-      steadyHours * steadyPower) /
-    1000;
-  const energyKwh = input.energyKwhOverride === undefined
-    ? calculatedEnergyKwh
-    : Math.max(0, num(input.energyKwhOverride));
-  const energyCost = input.energyCostOverride === undefined
-    ? energyKwh * Math.max(0, num(input.kwhCost))
-    : Math.max(0, num(input.energyCostOverride));
+    (startupHours * Math.max(0, num(input.startupPowerWatts)) + steadyHours * steadyPower) / 1000;
+  const energyKwh =
+    input.energyKwhOverride === undefined
+      ? calculatedEnergyKwh
+      : Math.max(0, num(input.energyKwhOverride));
+  const energyCost =
+    input.energyCostOverride === undefined
+      ? energyKwh * Math.max(0, num(input.kwhCost))
+      : Math.max(0, num(input.energyCostOverride));
 
   // --- Máquina (depreciação + reposição) ---
   const machineHourCost = machineHourBreakdown(input.machine).total;
@@ -426,12 +430,10 @@ export function computePricing(input: PricingInputs): PricingResult {
   const failureRatePct = Math.min(95, Math.max(0, num(input.failureRatePct ?? 0)));
   const failureImpactPct = Math.min(100, Math.max(0, num(input.failureImpactPct ?? 70)));
   const baseProductionCost = materialCost + energyCost + machineCost;
-  const expectedFailedRuns =
-    (failureRatePct / 100) / Math.max(0.05, 1 - failureRatePct / 100);
+  const expectedFailedRuns = failureRatePct / 100 / Math.max(0.05, 1 - failureRatePct / 100);
   const failureLoss = baseProductionCost * expectedFailedRuns * (failureImpactPct / 100);
 
-  const totalCost =
-    baseProductionCost + laborCost + extraSupplies + packagingCost + failureLoss;
+  const totalCost = baseProductionCost + laborCost + extraSupplies + packagingCost + failureLoss;
   const safe = totalCost > 0 ? totalCost : 1;
   const unitCost = totalCost / quantity;
   const costPerGram = weightGrams > 0 ? totalCost / weightGrams : 0;
@@ -480,8 +482,7 @@ export function computePricing(input: PricingInputs): PricingResult {
     fullReprintCost: baseProductionCost,
     wholesaleProfitAfterFullReprint:
       wholesaleTotal - (totalCost - failureLoss + baseProductionCost),
-    retailProfitAfterFullReprint:
-      retailTotal - (totalCost - failureLoss + baseProductionCost),
+    retailProfitAfterFullReprint: retailTotal - (totalCost - failureLoss + baseProductionCost),
     totalCost,
     unitCost,
     costPerGram,
@@ -564,18 +565,15 @@ export const HELP = {
     "Peso líquido do carretel de referência, sem o peso do plástico vazio. Normalmente é 1000 g. Nas bandejas com preço informado por kg, esse campo não altera o custo.",
   weight:
     "Use a coluna Total do Bambu Studio para cada filamento. Ela reúne modelo, suporte, material purgado/corado e torre; não use apenas o peso do modelo.",
-  time:
-    "Tempo total mostrado pelo Bambu Studio. Aceita 2h30m, 36m57s, 2:30 ou horas decimais. Segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",
+  time: "Tempo total mostrado pelo Bambu Studio. Aceita 2h30m, 36m57s, 2:30 ou horas decimais. Segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",
   quantity:
     "Quantidade de produtos completos e vendáveis. Um boneco dividido em várias bandejas continua sendo 1 produto; 20 chaveiros completos são 20.",
   reserve:
     "Margem adicional sobre uma estimativa simples de peso. Quando o novo projeto usa o Total de cada filamento da Bambu, suportes, purga e torre já estão incluídos e o custo exato das bandejas não recebe esta margem novamente.",
   failureRate:
     "Percentual médio de trabalhos que exigem nova tentativa. Zero deixa esse custo desmarcado. Ao informar uma taxa, a calculadora cria uma provisão proporcional para falhas futuras; a baixa real de filamento continua sendo registrada manualmente na produção.",
-  kwh:
-    "Preço do kWh na sua conta de luz. Equatorial Pará (CELPA) 2025→2026: R$0,97/kWh na tarifa residencial B1 com ICMS 25% + PIS/COFINS, sem bandeira tarifária.",
-  steadyPower:
-    "Potência média da P2S imprimindo. Medida real: ~200 W em PLA e ~230 W em PETG.",
+  kwh: "Preço do kWh na sua conta de luz. Equatorial Pará (CELPA) 2025→2026: R$0,97/kWh na tarifa residencial B1 com ICMS 25% + PIS/COFINS, sem bandeira tarifária.",
+  steadyPower: "Potência média da P2S imprimindo. Medida real: ~200 W em PLA e ~230 W em PETG.",
   startupPower:
     "Pico de consumo nos primeiros minutos, quando a câmara e a mesa aquecem. P2S chega a ~1000 W.",
   startupMinutes:
@@ -586,10 +584,8 @@ export const HELP = {
     "Total estimado de horas produtivas antes de uma grande reforma ou troca. Quanto menor a vida útil, maior a depreciação por hora.",
   nozzle:
     "Bico se desgasta com o uso e perde precisão. Preço da peça e quantas horas ela costuma durar.",
-  plate:
-    "Placa/PEI perde aderência com o tempo. Preço e vida útil em horas de impressão.",
-  belts:
-    "Correias esticam e folgam. Preço do par e horas até a troca.",
+  plate: "Placa/PEI perde aderência com o tempo. Preço e vida útil em horas de impressão.",
+  belts: "Correias esticam e folgam. Preço do par e horas até a troca.",
   maint:
     "Custo por hora de graxa, tubo PTFE, limpeza e pequenos imprevistos. Um fundo para não ser pego de surpresa.",
   laborHours:
@@ -614,8 +610,7 @@ export const HELP = {
     "Custo total dividido pelo peso da peça. Serve para comparar peças de tamanhos diferentes na mesma base.",
   unitCost:
     "Custo real de um produto completo: custo do trabalho dividido por Produtos finais. Não é dividido pelo número de partes ou objetos físicos das bandejas.",
-  gramCost:
-    "Quanto custa 1 grama do filamento já com a reserva para falhas embutida.",
+  gramCost: "Quanto custa 1 grama do filamento já com a reserva para falhas embutida.",
   shares:
     "Como o custo se divide entre material, energia, máquina, mão de obra e falhas. Ajuda a ver onde o dinheiro está indo.",
   sellPrice:

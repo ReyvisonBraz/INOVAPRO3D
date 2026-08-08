@@ -1,15 +1,15 @@
 /* eslint-disable react-refresh/only-export-components -- Provider + hook no mesmo módulo é o padrão idiomático deste projeto (não afeta runtime, só Fast Refresh). */
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { 
-  User, 
-  onAuthStateChanged, 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  signOut 
-} from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, handleFirestoreError, OperationType } from '../services/firebase';
-import type { UserProfile, UserProfileUpdate } from '../types/domain';
+import React, { createContext, useContext, useEffect, useState } from "react";
+import {
+  User,
+  onAuthStateChanged,
+  signInWithPopup,
+  GoogleAuthProvider,
+  signOut,
+} from "firebase/auth";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { auth, db, handleFirestoreError, OperationType } from "../services/firebase";
+import type { UserProfile, UserProfileUpdate } from "../types/domain";
 
 interface AuthContextType {
   user: User | null;
@@ -31,14 +31,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-      
+
       if (currentUser) {
         // Sync user profile with Firestore
         const path = `users/${currentUser.uid}`;
         try {
-          const userDocRef = doc(db, 'users', currentUser.uid);
+          const userDocRef = doc(db, "users", currentUser.uid);
           const userDoc = await getDoc(userDocRef);
-          
+
           if (!userDoc.exists()) {
             const nameParts = currentUser.displayName?.trim().split(/\s+/) ?? [];
             const newProfile: UserProfile = {
@@ -47,9 +47,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               firstName: nameParts[0] ?? undefined,
               lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
               photoURL: currentUser.photoURL,
-              role: 'CUSTOMER',
+              role: "CUSTOMER",
               createdAt: serverTimestamp(),
-              loyaltyPoints: 0
+              loyaltyPoints: 0,
             };
             try {
               await setDoc(userDocRef, newProfile);
@@ -59,11 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } else {
             const data = userDoc.data() as UserProfile;
-            
+
             // Sincronização Inteligente no Login (Profile Sync)
             let needsUpdate = false;
             const updatedFields: UserProfileUpdate = {};
-            
+
             if (currentUser.displayName && data.name !== currentUser.displayName) {
               updatedFields.name = currentUser.displayName;
               needsUpdate = true;
@@ -72,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               updatedFields.photoURL = currentUser.photoURL;
               needsUpdate = true;
             }
-            
+
             if (needsUpdate) {
               const updatedProfile = { ...data, ...updatedFields };
               await setDoc(userDocRef, updatedFields, { merge: true });
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfile(null);
       }
-      
+
       setLoading(false);
     });
 
@@ -115,15 +115,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (data: UserProfileUpdate) => {
     if (!user) return;
     try {
-      const allowedKeys = ['name', 'firstName', 'lastName', 'phone', 'addresses', 'photoURL'];
+      const allowedKeys = ["name", "firstName", "lastName", "phone", "addresses", "photoURL"];
       const safeData = Object.fromEntries(
-        Object.entries(data).filter(([key]) => allowedKeys.includes(key))
+        Object.entries(data).filter(([key]) => allowedKeys.includes(key)),
       );
       if (Object.keys(safeData).length === 0) return;
 
-      const userDocRef = doc(db, 'users', user.uid);
+      const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, safeData, { merge: true });
-      setProfile((prev) => prev ? { ...prev, ...safeData } : prev);
+      setProfile((prev) => (prev ? { ...prev, ...safeData } : prev));
     } catch (err) {
       console.error("Failed to update profile:", err);
       throw err;
@@ -133,7 +133,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const needsProfileCompletion = !!user && !!profile && !profile.phone;
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, needsProfileCompletion, loginWithGoogle, logout, updateProfile }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        profile,
+        loading,
+        needsProfileCompletion,
+        loginWithGoogle,
+        logout,
+        updateProfile,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -142,7 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }

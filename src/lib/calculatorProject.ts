@@ -91,36 +91,36 @@ export function computeProjectPricing(
     const repetitions = Math.max(1, Math.floor(Number(plate.repetitions) || 1));
     const hoursPerRun = Math.max(0, parseTimeToHours(plate.totalTime));
     const hours = hoursPerRun * repetitions;
-    const weightGrams = plate.filaments.reduce(
-      (sum, filament) => sum + Math.max(0, Number(filament.totalGrams) || 0),
-      0,
-    ) * repetitions;
-    const materialCost = plate.filaments.reduce(
-      (sum, filament) =>
-        sum +
-        Math.max(0, Number(filament.totalGrams) || 0) *
-          Math.max(0, Number(filament.pricePerGram) || 0),
-      0,
-    ) * repetitions;
+    const weightGrams =
+      plate.filaments.reduce(
+        (sum, filament) => sum + Math.max(0, Number(filament.totalGrams) || 0),
+        0,
+      ) * repetitions;
+    const materialCost =
+      plate.filaments.reduce(
+        (sum, filament) =>
+          sum +
+          Math.max(0, Number(filament.totalGrams) || 0) *
+            Math.max(0, Number(filament.pricePerGram) || 0),
+        0,
+      ) * repetitions;
 
-    const startupHoursPerRun = Math.min(
-      hoursPerRun,
-      Math.max(0, settings.startupMinutes) / 60,
-    );
+    const startupHoursPerRun = Math.min(hoursPerRun, Math.max(0, settings.startupMinutes) / 60);
     const steadyHoursPerRun = Math.max(0, hoursPerRun - startupHoursPerRun);
     const totalFilamentGrams = plate.filaments.reduce(
       (sum, filament) => sum + Math.max(0, Number(filament.totalGrams) || 0),
       0,
     );
-    const weightedPower = totalFilamentGrams > 0
-      ? plate.filaments.reduce(
-          (sum, filament) =>
-            sum +
-            Math.max(0, Number(filament.totalGrams) || 0) *
-              Math.max(0, Number(filament.steadyPowerWatts) || 0),
-          0,
-        ) / totalFilamentGrams
-      : settings.materials.pla.steadyPowerWatts;
+    const weightedPower =
+      totalFilamentGrams > 0
+        ? plate.filaments.reduce(
+            (sum, filament) =>
+              sum +
+              Math.max(0, Number(filament.totalGrams) || 0) *
+                Math.max(0, Number(filament.steadyPowerWatts) || 0),
+            0,
+          ) / totalFilamentGrams
+        : settings.materials.pla.steadyPowerWatts;
     const energyKwh =
       ((startupHoursPerRun * Math.max(0, settings.startupPowerWatts) +
         steadyHoursPerRun * weightedPower) /
@@ -190,32 +190,48 @@ export interface ProjectValidationIssue {
 
 export function validateCalculatorProject(project: CalculatorProject): ProjectValidationIssue[] {
   const issues: ProjectValidationIssue[] = [];
-  if (!project.name.trim()) issues.push({ path: "project.name", message: "Informe o nome do projeto." });
+  if (!project.name.trim())
+    issues.push({ path: "project.name", message: "Informe o nome do projeto." });
   if (project.outputQuantity < 1) {
     issues.push({ path: "project.outputQuantity", message: "Informe ao menos um produto final." });
   }
-  if (!project.plates.length) issues.push({ path: "project.plates", message: "Adicione ao menos uma bandeja." });
+  if (!project.plates.length)
+    issues.push({ path: "project.plates", message: "Adicione ao menos uma bandeja." });
   project.plates.forEach((plate, plateIndex) => {
     const base = `plates.${plate.id}`;
-    if (!plate.name.trim()) issues.push({ path: `${base}.name`, message: `Informe o nome da bandeja ${plateIndex + 1}.` });
-    if (parseTimeToHours(plate.totalTime) <= 0) issues.push({ path: `${base}.totalTime`, message: "Informe um tempo total válido." });
-    if (plate.pieces < 1) issues.push({ path: `${base}.pieces`, message: "Informe ao menos uma peça." });
-    if (plate.repetitions < 1) issues.push({ path: `${base}.repetitions`, message: "Informe ao menos uma repetição." });
+    if (!plate.name.trim())
+      issues.push({
+        path: `${base}.name`,
+        message: `Informe o nome da bandeja ${plateIndex + 1}.`,
+      });
+    if (parseTimeToHours(plate.totalTime) <= 0)
+      issues.push({ path: `${base}.totalTime`, message: "Informe um tempo total válido." });
+    if (plate.pieces < 1)
+      issues.push({ path: `${base}.pieces`, message: "Informe ao menos uma peça." });
+    if (plate.repetitions < 1)
+      issues.push({ path: `${base}.repetitions`, message: "Informe ao menos uma repetição." });
     const minimumFilaments = plate.type === "MULTICOLOR" ? 2 : 1;
     if (plate.filaments.length < minimumFilaments) {
       issues.push({
         path: `${base}.filaments`,
-        message: plate.type === "MULTICOLOR"
-          ? "Adicione ao menos dois filamentos."
-          : "Adicione o filamento da bandeja.",
+        message:
+          plate.type === "MULTICOLOR"
+            ? "Adicione ao menos dois filamentos."
+            : "Adicione o filamento da bandeja.",
       });
     }
     plate.filaments.forEach((filament) => {
       if (filament.totalGrams <= 0) {
-        issues.push({ path: `${base}.filaments.${filament.id}`, message: "Informe o total em gramas." });
+        issues.push({
+          path: `${base}.filaments.${filament.id}`,
+          message: "Informe o total em gramas.",
+        });
       }
       if (!filament.materialId && (!filament.manual || filament.manual.pricePerKg <= 0)) {
-        issues.push({ path: `${base}.filaments.${filament.id}`, message: "Selecione o estoque ou informe o valor manual." });
+        issues.push({
+          path: `${base}.filaments.${filament.id}`,
+          message: "Selecione o estoque ou informe o valor manual.",
+        });
       }
     });
   });

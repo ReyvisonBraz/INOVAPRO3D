@@ -24,14 +24,14 @@ export function useCoupon(orderTotal: number) {
     const trimmed = code.trim().toUpperCase();
     if (!trimmed) return;
 
-    setState(s => ({ ...s, loading: true, error: null }));
+    setState((s) => ({ ...s, loading: true, error: null }));
     try {
       const snap = await getDocs(
-        query(collection(db, "coupons"), where("code", "==", trimmed), where("active", "==", true))
+        query(collection(db, "coupons"), where("code", "==", trimmed), where("active", "==", true)),
       );
 
       if (snap.empty) {
-        setState(s => ({ ...s, loading: false, error: "Cupom inválido ou inativo." }));
+        setState((s) => ({ ...s, loading: false, error: "Cupom inválido ou inativo." }));
         return;
       }
 
@@ -40,21 +40,22 @@ export function useCoupon(orderTotal: number) {
       if (coupon.expiresAt) {
         const expiry = toJsDate(coupon.expiresAt);
         if (expiry && expiry < new Date()) {
-          setState(s => ({ ...s, loading: false, error: "Este cupom já expirou." }));
+          setState((s) => ({ ...s, loading: false, error: "Este cupom já expirou." }));
           return;
         }
       }
 
       if (coupon.minOrderValue && orderTotal < coupon.minOrderValue) {
-        setState(s => ({
-          ...s, loading: false,
+        setState((s) => ({
+          ...s,
+          loading: false,
           error: `Valor mínimo para este cupom: R$ ${coupon.minOrderValue!.toFixed(2).replace(".", ",")}`,
         }));
         return;
       }
 
       if (coupon.maxUses != null && (coupon.usedCount ?? 0) >= coupon.maxUses) {
-        setState(s => ({ ...s, loading: false, error: "Este cupom atingiu o limite de usos." }));
+        setState((s) => ({ ...s, loading: false, error: "Este cupom atingiu o limite de usos." }));
         return;
       }
 
@@ -65,7 +66,7 @@ export function useCoupon(orderTotal: number) {
 
       setState({ coupon, discount, error: null, loading: false });
     } catch {
-      setState(s => ({ ...s, loading: false, error: "Erro ao validar cupom. Tente novamente." }));
+      setState((s) => ({ ...s, loading: false, error: "Erro ao validar cupom. Tente novamente." }));
     }
   }, [code, orderTotal]);
 

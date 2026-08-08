@@ -13,7 +13,7 @@ export const SOCIAL = {
   instagramHandle: "@inovapro3d",
   facebook: "https://www.facebook.com/profile.php?id=61591133682774",
   tiktok: "", // em breve — cole o link aqui que ele aparece sozinho
-  kwai: "",   // em breve — cole o link aqui que ele aparece sozinho
+  kwai: "", // em breve — cole o link aqui que ele aparece sozinho
 };
 
 export function waLink(message: string): string {

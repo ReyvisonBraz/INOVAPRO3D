@@ -13,7 +13,6 @@ const quickLinks = [
   { label: "Games", to: "/catalogo?categoria=Games" },
 ];
 
-
 export default function NotFound() {
   return (
     <div className="min-h-[80vh] flex flex-col items-center justify-center text-center px-6 py-16">
@@ -33,10 +32,13 @@ export default function NotFound() {
           <Box className="w-9 h-9 text-white/20" />
         </div>
 
-        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-4">Erro 404</p>
+        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary mb-4">
+          Erro 404
+        </p>
 
         <h1 className="font-display text-5xl sm:text-7xl font-black uppercase leading-[0.9] tracking-tight text-white mb-6">
-          Página não<br />
+          Página não
+          <br />
           <span className="text-shimmer italic">encontrada.</span>
         </h1>
 
@@ -46,9 +48,11 @@ export default function NotFound() {
 
         {/* Quick category chips */}
         <div className="mb-10">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 mb-4">Categorias populares</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 mb-4">
+            Categorias populares
+          </p>
           <div className="flex flex-wrap gap-2 justify-center">
-            {quickLinks.map(link => (
+            {quickLinks.map((link) => (
               <Link
                 key={link.label}
                 to={link.to}
@@ -68,7 +72,10 @@ export default function NotFound() {
             </Button>
           </Link>
           <Link to="/">
-            <Button variant="outline" className="h-14 px-8 rounded-2xl gap-2 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto">
+            <Button
+              variant="outline"
+              className="h-14 px-8 rounded-2xl gap-2 text-[10px] font-black uppercase tracking-widest w-full sm:w-auto"
+            >
               <Home className="w-4 h-4" /> Início
             </Button>
           </Link>
@@ -76,7 +83,9 @@ export default function NotFound() {
 
         {/* Help link */}
         <a
-          href={waLink("Olá INOVAPRO3D! Estava navegando e encontrei uma página que não existe. Podem me ajudar?")}
+          href={waLink(
+            "Olá INOVAPRO3D! Estava navegando e encontrei uma página que não existe. Podem me ajudar?",
+          )}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-white/25 hover:text-primary transition-colors"

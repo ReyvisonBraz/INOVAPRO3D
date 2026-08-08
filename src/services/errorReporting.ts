@@ -37,7 +37,7 @@ export interface ReportContext {
 export async function reportError(error: unknown, ctx: ReportContext = {}): Promise<string | null> {
   try {
     const message = error instanceof Error ? error.message : String(error ?? "Erro desconhecido");
-    const stack = error instanceof Error ? error.stack ?? "" : "";
+    const stack = error instanceof Error ? (error.stack ?? "") : "";
 
     // Relato automático de erros ignoráveis é descartado; relato manual passa.
     if (!ctx.userNote && isIgnorable(message)) return null;

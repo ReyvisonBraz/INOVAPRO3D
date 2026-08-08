@@ -33,7 +33,16 @@ export function BrandWordmark({ className }: { className?: string }) {
     >
       <span className="text-white">INOVA</span>
       <span className="text-white/40"> PRO </span>
-      <span style={{ background: "linear-gradient(120deg,#60a5fa,#06b6d4)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>3D</span>
+      <span
+        style={{
+          background: "linear-gradient(120deg,#60a5fa,#06b6d4)",
+          WebkitBackgroundClip: "text",
+          backgroundClip: "text",
+          color: "transparent",
+        }}
+      >
+        3D
+      </span>
     </span>
   );
 }

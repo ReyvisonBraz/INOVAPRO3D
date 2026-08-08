@@ -51,7 +51,7 @@ export interface SaveQuoteInput {
 }
 
 /** Extensões visuais/legíveis não previstas no tipo Quote base. */
-const optional = <T,>(value: T | undefined | null): value is T =>
+const optional = <T>(value: T | undefined | null): value is T =>
   value !== undefined && value !== null && value !== ("" as unknown as T);
 
 /**
@@ -120,12 +120,13 @@ export async function uploadQuoteImage(file: File): Promise<string> {
   const { ref: storageRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
   const uid = auth.currentUser?.uid || "anon";
   const extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-  const safeName = file.name
-    .replace(/\.[^.]+$/, "")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase()
-    .slice(0, 50) || "imagem";
+  const safeName =
+    file.name
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^a-zA-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .toLowerCase()
+      .slice(0, 50) || "imagem";
   const path = `quotes/${uid}/${Date.now()}-${safeName}.${extension}`;
   const fileRef = storageRef(await getStorageInstance(), path);
   await uploadBytes(fileRef, file, {

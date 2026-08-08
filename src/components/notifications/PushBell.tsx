@@ -147,9 +147,9 @@ export function PushBell() {
                     Notificações bloqueadas
                   </div>
                   <p className="px-2 text-[11px] leading-relaxed text-white/45">
-                    Você bloqueou as notificações no navegador. Para reativar, clique
-                    no cadeado 🔒 ao lado do endereço, vá em <b>Notificações</b> →{" "}
-                    <b>Permitir</b> e recarregue a página.
+                    Você bloqueou as notificações no navegador. Para reativar, clique no cadeado 🔒
+                    ao lado do endereço, vá em <b>Notificações</b> → <b>Permitir</b> e recarregue a
+                    página.
                   </p>
                 </>
               )}

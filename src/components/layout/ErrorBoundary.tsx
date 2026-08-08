@@ -1,5 +1,12 @@
 import { Component, ErrorInfo, ReactNode } from "react";
-import { AlertTriangle, RefreshCw, Home, Send, CheckCircle2, MessageSquareWarning } from "lucide-react";
+import {
+  AlertTriangle,
+  RefreshCw,
+  Home,
+  Send,
+  CheckCircle2,
+  MessageSquareWarning,
+} from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "../ui/Button";
 import { reportError } from "../../services/errorReporting";
@@ -66,7 +73,15 @@ export class ErrorBoundary extends Component<Props, State> {
       window.location.reload();
       return;
     }
-    this.setState({ hasError: false, error: null, protocol: null, reportOpen: false, note: "", sending: false, sent: false });
+    this.setState({
+      hasError: false,
+      error: null,
+      protocol: null,
+      reportOpen: false,
+      note: "",
+      sending: false,
+      sent: false,
+    });
   };
 
   handleSendReport = async () => {
@@ -123,7 +138,9 @@ export class ErrorBoundary extends Component<Props, State> {
                       <CheckCircle2 className="w-4 h-4" /> Relato enviado. Obrigado!
                     </p>
                     {protocol && (
-                      <p className="mt-1 text-[11px] text-white/40 font-mono">Protocolo: {protocol}</p>
+                      <p className="mt-1 text-[11px] text-white/40 font-mono">
+                        Protocolo: {protocol}
+                      </p>
                     )}
                   </div>
                 ) : reportOpen ? (
@@ -138,7 +155,11 @@ export class ErrorBoundary extends Component<Props, State> {
                       placeholder="Ex: cliquei em finalizar pedido e a tela travou…"
                       className="w-full resize-none rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-white outline-none focus:border-primary/50 placeholder:text-white/25"
                     />
-                    <Button onClick={this.handleSendReport} loading={sending} className="w-full gap-2 h-11">
+                    <Button
+                      onClick={this.handleSendReport}
+                      loading={sending}
+                      className="w-full gap-2 h-11"
+                    >
                       <Send className="w-4 h-4" /> Enviar relato
                     </Button>
                   </div>

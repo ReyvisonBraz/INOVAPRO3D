@@ -27,7 +27,12 @@ export interface AdminSettingsPanelProps {
   onToggleMaintenance: () => void;
 }
 
-const MACHINE_CONFIG_FIELDS: { label: string; key: keyof MachineConfig; min: number; step?: number }[] = [
+const MACHINE_CONFIG_FIELDS: {
+  label: string;
+  key: keyof MachineConfig;
+  min: number;
+  step?: number;
+}[] = [
   { label: "Preço da Máquina (R$)", key: "price", min: 0 },
   { label: "Vida útil (horas)", key: "lifespanHours", min: 1, step: 100 },
   { label: "Preço do Bico (R$)", key: "nozzlePrice", min: 0 },
@@ -39,25 +44,93 @@ const MACHINE_CONFIG_FIELDS: { label: string; key: keyof MachineConfig; min: num
   { label: "Manutenção R$/h", key: "maintPerHour", min: 0, step: 0.01 },
 ];
 
-const ENERGY_FIELDS: { label: string; key: keyof PricingSettings; min: number; step: number; suffix: string }[] = [
+const ENERGY_FIELDS: {
+  label: string;
+  key: keyof PricingSettings;
+  min: number;
+  step: number;
+  suffix: string;
+}[] = [
   { label: "Tarifa de energia", key: "kwhCost", min: 0, step: 0.01, suffix: "R$/kWh" },
   { label: "Pico de aquecimento", key: "startupPowerWatts", min: 0, step: 10, suffix: "W" },
   { label: "Duração do pico", key: "startupMinutes", min: 0, step: 0.5, suffix: "min" },
 ];
 
-const PRICING_FIELDS: { label: string; key: keyof PricingSettings; min: number; step: number; suffix: string; hint?: string }[] = [
-  { label: "Markup atacado", key: "wholesaleMarkup", min: 0, step: 0.1, suffix: "×", hint: "1.6 = custo + 60%" },
-  { label: "Markup varejo", key: "retailMarkup", min: 0, step: 0.1, suffix: "×", hint: "2.5 = custo × 2,5" },
+const PRICING_FIELDS: {
+  label: string;
+  key: keyof PricingSettings;
+  min: number;
+  step: number;
+  suffix: string;
+  hint?: string;
+}[] = [
+  {
+    label: "Markup atacado",
+    key: "wholesaleMarkup",
+    min: 0,
+    step: 0.1,
+    suffix: "×",
+    hint: "1.6 = custo + 60%",
+  },
+  {
+    label: "Markup varejo",
+    key: "retailMarkup",
+    min: 0,
+    step: 0.1,
+    suffix: "×",
+    hint: "2.5 = custo × 2,5",
+  },
   { label: "Preço mínimo", key: "minPrice", min: 0, step: 1, suffix: "R$" },
   { label: "Taxa de falha", key: "failureRatePct", min: 0, step: 1, suffix: "%" },
-  { label: "Perda média da falha", key: "failureImpactPct", min: 0, step: 5, suffix: "%", hint: "quanto do job costuma ser perdido" },
-  { label: "Embalagem padrão", key: "defaultPackagingCost", min: 0, step: 0.5, suffix: "R$", hint: "por pedido" },
-  { label: "Meta por hora ocupada", key: "targetProfitPerMachineHour", min: 0, step: 1, suffix: "R$/h", hint: "contribuição mínima" },
-  { label: "Desconto PIX", key: "pixDiscountPct", min: 0, step: 1, suffix: "%", hint: "à vista na vitrine" },
-  { label: "Parcelas s/ juros", key: "maxInstallments", min: 1, step: 1, suffix: "x", hint: "máx. no cartão" },
+  {
+    label: "Perda média da falha",
+    key: "failureImpactPct",
+    min: 0,
+    step: 5,
+    suffix: "%",
+    hint: "quanto do job costuma ser perdido",
+  },
+  {
+    label: "Embalagem padrão",
+    key: "defaultPackagingCost",
+    min: 0,
+    step: 0.5,
+    suffix: "R$",
+    hint: "por pedido",
+  },
+  {
+    label: "Meta por hora ocupada",
+    key: "targetProfitPerMachineHour",
+    min: 0,
+    step: 1,
+    suffix: "R$/h",
+    hint: "contribuição mínima",
+  },
+  {
+    label: "Desconto PIX",
+    key: "pixDiscountPct",
+    min: 0,
+    step: 1,
+    suffix: "%",
+    hint: "à vista na vitrine",
+  },
+  {
+    label: "Parcelas s/ juros",
+    key: "maxInstallments",
+    min: 1,
+    step: 1,
+    suffix: "x",
+    hint: "máx. no cartão",
+  },
 ];
 
-const MATERIAL_FIELDS: { label: string; key: keyof MaterialSettings; min: number; step: number; suffix: string }[] = [
+const MATERIAL_FIELDS: {
+  label: string;
+  key: keyof MaterialSettings;
+  min: number;
+  step: number;
+  suffix: string;
+}[] = [
   { label: "Preço do rolo", key: "spoolPrice", min: 0, step: 1, suffix: "R$" },
   { label: "Peso do rolo", key: "spoolWeight", min: 1, step: 50, suffix: "g" },
   { label: "Potência média", key: "steadyPowerWatts", min: 0, step: 10, suffix: "W" },
@@ -85,7 +158,9 @@ function Field({
     <div className="space-y-1.5">
       <label className="flex items-baseline justify-between gap-2 text-[10px] font-black uppercase tracking-widest text-secondary">
         <span>{label}</span>
-        {suffix && <span className="text-[9px] text-dim normal-case tracking-normal">{suffix}</span>}
+        {suffix && (
+          <span className="text-[9px] text-dim normal-case tracking-normal">{suffix}</span>
+        )}
       </label>
       <NumInput {...rest} className={inputCls} />
       {hint && <p className="text-[9px] text-dim">{hint}</p>}
@@ -114,7 +189,9 @@ function Card({
         </div>
         <div>
           <h3 className="text-sm font-black uppercase tracking-widest italic">{title}</h3>
-          {subtitle && <p className="mt-1 text-[10px] text-secondary tracking-wide leading-snug">{subtitle}</p>}
+          {subtitle && (
+            <p className="mt-1 text-[10px] text-secondary tracking-wide leading-snug">{subtitle}</p>
+          )}
         </div>
       </div>
       {children}
@@ -158,11 +235,15 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
             <input
               className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50"
               value={globalSettings.promoBanner || ""}
-              onChange={(e) => onUpdateGlobalSettings({ ...globalSettings, promoBanner: e.target.value })}
+              onChange={(e) =>
+                onUpdateGlobalSettings({ ...globalSettings, promoBanner: e.target.value })
+              }
             />
           </div>
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase text-dim">Valor Mínimo para Orçamento (R$)</label>
+            <label className="text-[10px] font-black uppercase text-dim">
+              Valor Mínimo para Orçamento (R$)
+            </label>
             <NumInput
               min={0}
               className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-xs font-bold outline-none focus:border-primary/50"
@@ -183,16 +264,30 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
             onClick={onToggleMaintenance}
             className={cn(
               "w-full flex items-center justify-between p-5 rounded-2xl border transition-all",
-              globalSettings.maintenanceMode ? "bg-red-500/10 border-red-500/20" : "bg-green-500/10 border-green-500/20"
+              globalSettings.maintenanceMode
+                ? "bg-red-500/10 border-red-500/20"
+                : "bg-green-500/10 border-green-500/20",
             )}
           >
             <div className="flex items-center gap-3">
-              <div className={cn("w-2 h-2 rounded-full animate-pulse", globalSettings.maintenanceMode ? "bg-red-500" : "bg-green-500")} />
+              <div
+                className={cn(
+                  "w-2 h-2 rounded-full animate-pulse",
+                  globalSettings.maintenanceMode ? "bg-red-500" : "bg-green-500",
+                )}
+              />
               <span className="text-[10px] font-black uppercase">
                 {globalSettings.maintenanceMode ? "Modo Manutenção Ativo" : "Sistema Online"}
               </span>
             </div>
-            <span className={cn("text-[11px] font-black uppercase px-2 py-0.5 rounded", globalSettings.maintenanceMode ? "bg-red-500 text-white" : "bg-green-500 text-white")}>
+            <span
+              className={cn(
+                "text-[11px] font-black uppercase px-2 py-0.5 rounded",
+                globalSettings.maintenanceMode
+                  ? "bg-red-500 text-white"
+                  : "bg-green-500 text-white",
+              )}
+            >
               {globalSettings.maintenanceMode ? "OFFLINE" : "LIVE"}
             </span>
           </button>
@@ -267,7 +362,10 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {(Object.keys(pricingSettings.materials) as MaterialKey[]).map((key) => (
-              <div key={key} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4">
+              <div
+                key={key}
+                className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 space-y-4"
+              >
                 <p className="text-xs font-black uppercase tracking-widest text-white/80">
                   {MATERIAL_PRESETS[key]?.label ?? key}
                 </p>

@@ -36,7 +36,17 @@ export function useAdminData() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [ordersSnap, quotesSnap, productsSnap, showcaseSnap, materialsSnap, customersSnap, ticketsSnap, faqsSnap, logsSnap] = await Promise.all([
+      const [
+        ordersSnap,
+        quotesSnap,
+        productsSnap,
+        showcaseSnap,
+        materialsSnap,
+        customersSnap,
+        ticketsSnap,
+        faqsSnap,
+        logsSnap,
+      ] = await Promise.all([
         getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50))),
         getDocs(query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(50))),
         getDocs(collection(db, "products")),
@@ -48,15 +58,19 @@ export function useAdminData() {
         getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
       ]);
 
-      setOrders(ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() } as Order)).filter(o => !o._deleted));
-      setQuotes(quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() } as Quote)).filter(q => !q._deleted));
-      setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() } as Product)));
-      setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() } as ShowcaseItem)));
-      setMaterials(materialsSnap.docs.map((m) => ({ id: m.id, ...m.data() } as Material)));
-      setCustomers(customersSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Customer)));
-      setTickets(ticketsSnap.docs.map((t) => ({ id: t.id, ...t.data() } as Ticket)));
-      setFaqs(faqsSnap.docs.map((f) => ({ id: f.id, ...f.data() } as FAQ)));
-      setLogs(logsSnap.docs.map((l) => ({ id: l.id, ...l.data() } as AuditLog)));
+      setOrders(
+        ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() }) as Order).filter((o) => !o._deleted),
+      );
+      setQuotes(
+        quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() }) as Quote).filter((q) => !q._deleted),
+      );
+      setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() }) as Product));
+      setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() }) as ShowcaseItem));
+      setMaterials(materialsSnap.docs.map((m) => ({ id: m.id, ...m.data() }) as Material));
+      setCustomers(customersSnap.docs.map((c) => ({ id: c.id, ...c.data() }) as Customer));
+      setTickets(ticketsSnap.docs.map((t) => ({ id: t.id, ...t.data() }) as Ticket));
+      setFaqs(faqsSnap.docs.map((f) => ({ id: f.id, ...f.data() }) as FAQ));
+      setLogs(logsSnap.docs.map((l) => ({ id: l.id, ...l.data() }) as AuditLog));
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, "admin/data");
     } finally {
@@ -65,14 +79,16 @@ export function useAdminData() {
 
     try {
       const categoriesSnap = await getDocs(collection(db, "categories"));
-      setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Category)));
+      setCategories(categoriesSnap.docs.map((c) => ({ id: c.id, ...c.data() }) as Category));
     } catch {
       toast.warning("Não foi possível carregar as categorias. Tente sincronizar novamente.");
     }
 
     try {
-      const couponsSnap = await getDocs(query(collection(db, "coupons"), orderBy("createdAt", "desc")));
-      setCoupons(couponsSnap.docs.map((c) => ({ id: c.id, ...c.data() } as Coupon)));
+      const couponsSnap = await getDocs(
+        query(collection(db, "coupons"), orderBy("createdAt", "desc")),
+      );
+      setCoupons(couponsSnap.docs.map((c) => ({ id: c.id, ...c.data() }) as Coupon));
     } catch {
       toast.warning("Não foi possível carregar os cupons. Tente sincronizar novamente.");
     }
@@ -104,15 +120,19 @@ export function useAdminData() {
   }, [fetchData]);
 
   return {
-    orders, setOrders,
-    quotes, setQuotes,
-    products, setProducts,
+    orders,
+    setOrders,
+    quotes,
+    setQuotes,
+    products,
+    setProducts,
     showcase,
     materials,
     customers,
     tickets,
     faqs,
-    categories, setCategories,
+    categories,
+    setCategories,
     coupons,
     logs,
     loading,

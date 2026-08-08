@@ -67,7 +67,21 @@ export function initAnalytics(): void {
   // TikTok Pixel
   if (TIKTOK) {
     const ttq: any = (window.ttq = window.ttq || []);
-    ttq.methods = ["page", "track", "identify", "instances", "debug", "on", "off", "once", "ready", "alias", "group", "enableCookie", "disableCookie"];
+    ttq.methods = [
+      "page",
+      "track",
+      "identify",
+      "instances",
+      "debug",
+      "on",
+      "off",
+      "once",
+      "ready",
+      "alias",
+      "group",
+      "enableCookie",
+      "disableCookie",
+    ];
     ttq.setAndDefer = function (t: any, e: string) {
       t[e] = function () {
         t.push([e].concat(Array.prototype.slice.call(arguments, 0)));
@@ -96,14 +110,21 @@ export function initAnalytics(): void {
 
 export function trackPageView(path: string): void {
   if (!initialized) return;
-  window.gtag?.("event", "page_view", { page_path: path, page_location: typeof location !== "undefined" ? location.href : path });
+  window.gtag?.("event", "page_view", {
+    page_path: path,
+    page_location: typeof location !== "undefined" ? location.href : path,
+  });
   window.fbq?.("track", "PageView");
   window.ttq?.page?.();
 }
 
 export function trackAddToCart(value: number, label?: string): void {
   if (!initialized) return;
-  window.gtag?.("event", "add_to_cart", { currency: "BRL", value, items: label ? [{ item_name: label }] : undefined });
+  window.gtag?.("event", "add_to_cart", {
+    currency: "BRL",
+    value,
+    items: label ? [{ item_name: label }] : undefined,
+  });
   window.fbq?.("track", "AddToCart", { currency: "BRL", value, content_name: label });
   window.ttq?.track?.("AddToCart", { currency: "BRL", value });
 }

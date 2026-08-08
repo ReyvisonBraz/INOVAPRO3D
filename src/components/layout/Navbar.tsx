@@ -25,7 +25,11 @@ import { CartSheet } from "./CartSheet";
 import { PushBell } from "../notifications/PushBell";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCart } from "../../contexts/CartContext";
-import { buildCategoryTree, categoryNameToSlug, type CategoryTreeNode } from "../../lib/categoryTree";
+import {
+  buildCategoryTree,
+  categoryNameToSlug,
+  type CategoryTreeNode,
+} from "../../lib/categoryTree";
 import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import type { Category } from "../../types/domain";
 
@@ -71,7 +75,7 @@ export function Navbar() {
   }, [user, profile, isDismissed]);
 
   const { data: categories } = useFirestoreCollection<Category>("categories", {
-    transform: (cats) => cats.filter(c => c.active !== false),
+    transform: (cats) => cats.filter((c) => c.active !== false),
     silent: true,
   });
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([]);
@@ -152,7 +156,7 @@ export function Navbar() {
 
           <div ref={catalogRef} className="relative">
             <button
-              onClick={() => setIsCatalogOpen(v => !v)}
+              onClick={() => setIsCatalogOpen((v) => !v)}
               className={`relative flex h-10 items-center gap-2 rounded-full px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${
                 location.pathname === "/catalogo" || isCatalogOpen
                   ? "bg-white text-slate-950 shadow-lg shadow-white/10"
@@ -161,9 +165,14 @@ export function Navbar() {
             >
               <Folder className="h-3.5 w-3.5" />
               Catálogo
-              <ChevronDown className={`h-3 w-3 transition-transform ${isCatalogOpen ? "rotate-180" : ""}`} />
+              <ChevronDown
+                className={`h-3 w-3 transition-transform ${isCatalogOpen ? "rotate-180" : ""}`}
+              />
               {(location.pathname === "/catalogo" || isCatalogOpen) && (
-                <motion.div layoutId="active-nav" className="absolute inset-0 -z-10 rounded-full bg-white" />
+                <motion.div
+                  layoutId="active-nav"
+                  className="absolute inset-0 -z-10 rounded-full bg-white"
+                />
               )}
             </button>
 
@@ -188,11 +197,11 @@ export function Navbar() {
 
                     {categoryTree.length === 0 && (
                       <p className="px-4 py-3 text-[10px] font-bold uppercase tracking-widest text-dim text-center">
-                        Nenhuma pasta criada
+                        Nenhuma categoria criada
                       </p>
                     )}
 
-                    {categoryTree.map(node => (
+                    {categoryTree.map((node) => (
                       <CatalogDropdownItem
                         key={node.category.id}
                         node={node}
@@ -294,7 +303,9 @@ export function Navbar() {
             className="fixed inset-0 z-40 flex flex-col bg-[#020617]/98 px-6 pt-24 backdrop-blur-2xl lg:hidden"
           >
             <div className="mb-7 rounded-[28px] border border-white/10 bg-white/[0.04] p-5">
-              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-primary">Comece aqui</p>
+              <p className="text-[9px] font-black uppercase tracking-[0.24em] text-primary">
+                Comece aqui
+              </p>
               <h2 className="mt-3 font-display text-3xl font-black uppercase leading-none text-white">
                 Abra o catálogo e escolha sua peça.
               </h2>
@@ -307,7 +318,10 @@ export function Navbar() {
               </Link>
             </div>
 
-            <div className="flex flex-col gap-3 overflow-y-auto no-scrollbar" style={{ maxHeight: "calc(100vh - 280px)" }}>
+            <div
+              className="flex flex-col gap-3 overflow-y-auto no-scrollbar"
+              style={{ maxHeight: "calc(100vh - 280px)" }}
+            >
               {navLinks.map((link) => (
                 <Link
                   key={link.path}
@@ -327,8 +341,13 @@ export function Navbar() {
                 Catálogo
               </Link>
 
-              {categoryTree.map(node => (
-                <MobileCategoryItem key={node.category.id} node={node} depth={0} onClose={() => setIsMobileMenuOpen(false)} />
+              {categoryTree.map((node) => (
+                <MobileCategoryItem
+                  key={node.category.id}
+                  node={node}
+                  depth={0}
+                  onClose={() => setIsMobileMenuOpen(false)}
+                />
               ))}
 
               {profile?.role === "ADMIN" && (
@@ -361,7 +380,10 @@ export function Navbar() {
                   </Link>
                   <button
                     type="button"
-                    onClick={() => { logout(); setIsMobileMenuOpen(false); }}
+                    onClick={() => {
+                      logout();
+                      setIsMobileMenuOpen(false);
+                    }}
                     className="flex w-full items-center gap-3 rounded-2xl border border-red-500/10 bg-red-500/5 px-5 py-4 text-sm font-black uppercase tracking-[0.16em] text-red-400 transition-colors hover:bg-red-500/10"
                   >
                     <LogOut className="h-5 w-5" />
@@ -401,10 +423,14 @@ export function Navbar() {
                   <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-400" />
                 </span>
                 <p className="text-xs font-medium leading-relaxed text-white/50">
-                  Acompanhamento em tempo real: cadastre seu WhatsApp para receber atualizações da fila.
+                  Acompanhamento em tempo real: cadastre seu WhatsApp para receber atualizações da
+                  fila.
                 </p>
               </div>
-              <form onSubmit={handleSavePhone} className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
+              <form
+                onSubmit={handleSavePhone}
+                className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto"
+              >
                 <input
                   type="tel"
                   placeholder="(00) 99999-9999"
@@ -452,12 +478,19 @@ function NavPill({
     <Link
       to={path}
       className={`relative flex h-10 items-center gap-2 rounded-full px-4 text-[10px] font-black uppercase tracking-[0.16em] transition-all ${
-        active ? "bg-white text-slate-950 shadow-lg shadow-white/10" : "text-white/[0.52] hover:bg-white/[0.08] hover:text-white"
+        active
+          ? "bg-white text-slate-950 shadow-lg shadow-white/10"
+          : "text-white/[0.52] hover:bg-white/[0.08] hover:text-white"
       }`}
     >
       {Icon && <Icon className="h-3.5 w-3.5" />}
       {name}
-      {active && <motion.div layoutId="active-nav" className="absolute inset-0 -z-10 rounded-full bg-white" />}
+      {active && (
+        <motion.div
+          layoutId="active-nav"
+          className="absolute inset-0 -z-10 rounded-full bg-white"
+        />
+      )}
     </Link>
   );
 }
@@ -486,17 +519,27 @@ function CatalogDropdownItem({
         {hasChildren ? (
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
             className="p-0.5 rounded hover:bg-white/10 transition-colors"
           >
-            {expanded ? <FolderOpen className="h-3.5 w-3.5 text-primary" /> : <Folder className="h-3.5 w-3.5 text-dim" />}
+            {expanded ? (
+              <FolderOpen className="h-3.5 w-3.5 text-primary" />
+            ) : (
+              <Folder className="h-3.5 w-3.5 text-dim" />
+            )}
           </button>
         ) : (
           <Folder className="h-3.5 w-3.5 text-dim" />
         )}
         <span className="flex-1 truncate">{node.category.name}</span>
         {hasChildren && (
-          <ChevronRight className={`h-3 w-3 text-dim transition-transform ${expanded ? "rotate-90" : ""}`} />
+          <ChevronRight
+            className={`h-3 w-3 text-dim transition-transform ${expanded ? "rotate-90" : ""}`}
+          />
         )}
       </Link>
 
@@ -509,7 +552,7 @@ function CatalogDropdownItem({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            {node.children.map(child => (
+            {node.children.map((child) => (
               <CatalogDropdownItem
                 key={child.category.id}
                 node={child}
@@ -548,17 +591,27 @@ function MobileCategoryItem({
         {hasChildren ? (
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(v => !v); }}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setExpanded((v) => !v);
+            }}
             className="p-0.5"
           >
-            {expanded ? <FolderOpen className="h-4 w-4 text-primary" /> : <Folder className="h-4 w-4 text-dim" />}
+            {expanded ? (
+              <FolderOpen className="h-4 w-4 text-primary" />
+            ) : (
+              <Folder className="h-4 w-4 text-dim" />
+            )}
           </button>
         ) : (
           <Folder className="h-4 w-4 text-dim" />
         )}
         <span className="flex-1">{node.category.name}</span>
         {hasChildren && (
-          <ChevronDown className={`h-4 w-4 text-dim transition-transform ${expanded ? "rotate-180" : ""}`} />
+          <ChevronDown
+            className={`h-4 w-4 text-dim transition-transform ${expanded ? "rotate-180" : ""}`}
+          />
         )}
       </Link>
 
@@ -571,7 +624,7 @@ function MobileCategoryItem({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            {node.children.map(child => (
+            {node.children.map((child) => (
               <MobileCategoryItem
                 key={child.category.id}
                 node={child}
@@ -607,7 +660,9 @@ function ProfileMenu({
         <span className="max-w-[120px] truncate text-[10px] font-black uppercase tracking-widest text-white/90">
           {user.displayName}
         </span>
-        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/30">{profileRole}</span>
+        <span className="text-[8px] font-black uppercase tracking-[0.2em] text-white/30">
+          {profileRole}
+        </span>
       </div>
       <img
         src={user.photoURL || ""}
@@ -629,7 +684,9 @@ function ProfileMenu({
           >
             <div className="rounded-2xl border border-white/10 bg-[#0c0d14] p-3 shadow-xl shadow-black/50 backdrop-blur-2xl">
               <div className="mb-2 border-b border-white/[0.06] px-4 py-3">
-                <p className="truncate text-[8px] font-black uppercase tracking-widest text-white/20">{user.email}</p>
+                <p className="truncate text-[8px] font-black uppercase tracking-widest text-white/20">
+                  {user.email}
+                </p>
               </div>
               <Link
                 to="/meus-pedidos"

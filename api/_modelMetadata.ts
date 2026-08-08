@@ -12,15 +12,15 @@ export function getAllowedModelImportHosts() {
 
 export function isAllowedImportHost(hostname: string) {
   const normalizedHost = hostname.toLowerCase();
-  return getAllowedModelImportHosts().some((allowedHost) =>
-    normalizedHost === allowedHost || normalizedHost.endsWith(`.${allowedHost}`),
+  return getAllowedModelImportHosts().some(
+    (allowedHost) => normalizedHost === allowedHost || normalizedHost.endsWith(`.${allowedHost}`),
   );
 }
 
 function decodeHtmlEntities(value: string) {
   return value
     .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, "\"")
+    .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">");
@@ -90,7 +90,9 @@ function stripHtml(value: string) {
 }
 
 function looksEnglish(text: string): boolean {
-  const m = text.match(/\b(the|and|with|for|this|that|from|your|print(?:ed|able)?|model|file|design|object|thing|remix|base|stand|holder|bracket|wall|ring|box|clip)\b/gi);
+  const m = text.match(
+    /\b(the|and|with|for|this|that|from|your|print(?:ed|able)?|model|file|design|object|thing|remix|base|stand|holder|bracket|wall|ring|box|clip)\b/gi,
+  );
   return (m?.length ?? 0) >= 2;
 }
 
@@ -103,18 +105,26 @@ async function translateToPtBR(text: string): Promise<string> {
       `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|pt-BR`,
     );
     if (!res.ok) return text;
-    const data = (await res.json()) as { responseStatus?: number; responseData?: { translatedText?: string } };
+    const data = (await res.json()) as {
+      responseStatus?: number;
+      responseData?: { translatedText?: string };
+    };
     if (data.responseStatus === 200 && data.responseData?.translatedText) {
       return data.responseData.translatedText.trim();
     }
-  } catch { /* silent fallback */ }
+  } catch {
+    /* silent fallback */
+  }
   return text;
 }
 
 // Strips common site-name suffixes and noisy 3D-printing prefixes from titles
 function cleanRawTitle(title: string): string {
   return title
-    .replace(/\s*[|\-–—]\s*(Thingiverse|Printables|MakerWorld|Cults3D|MyMiniFactory|GrabCAD|Free 3D Models?|3D Models?|STL Files?|Free Download).*$/i, "")
+    .replace(
+      /\s*[|\-–—]\s*(Thingiverse|Printables|MakerWorld|Cults3D|MyMiniFactory|GrabCAD|Free 3D Models?|3D Models?|STL Files?|Free Download).*$/i,
+      "",
+    )
     .replace(/^(3D Printed?|Printable|FDM)\s+/i, "")
     .replace(/\s+/g, " ")
     .trim();
@@ -178,11 +188,11 @@ async function readMakerWorldMetadata(targetUrl: URL) {
 
   const response = await fetch(`${BAMBU_API_BASE_URL}/${makerWorldLink.designId}`, {
     headers: {
-      "accept": "application/json, text/plain, */*",
+      accept: "application/json, text/plain, */*",
       "user-agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
-      "origin": "https://makerworld.com",
-      "referer": targetUrl.toString(),
+      origin: "https://makerworld.com",
+      referer: targetUrl.toString(),
     },
     redirect: "follow",
   });
@@ -205,11 +215,12 @@ async function readMakerWorldMetadata(targetUrl: URL) {
   ];
 
   const uniqueImages = Array.from(new Set(images.filter(Boolean)));
-  const tags = Array.isArray(design.tagsTranslated) && design.tagsTranslated.length > 0
-    ? design.tagsTranslated
-    : Array.isArray(design.tags)
-      ? design.tags
-      : [];
+  const tags =
+    Array.isArray(design.tagsTranslated) && design.tagsTranslated.length > 0
+      ? design.tagsTranslated
+      : Array.isArray(design.tags)
+        ? design.tags
+        : [];
 
   const rawTitle = cleanRawTitle(design.titleTranslated || design.title || "Modelo MakerWorld");
   const rawDesc = stripHtml(design.summaryTranslated || design.summary || "");
@@ -231,7 +242,8 @@ async function readMakerWorldMetadata(targetUrl: URL) {
       author: design.designCreator?.name || "",
       tags,
       technical: {
-        infill: parseInt(String(settings.sparseInfillDensity || "").replace(/\D/g, ""), 10) || undefined,
+        infill:
+          parseInt(String(settings.sparseInfillDensity || "").replace(/\D/g, ""), 10) || undefined,
         resolution: settings.layerHeight ? `${settings.layerHeight}mm` : undefined,
         printTime: secondsToPrintTime(instance?.prediction || firstPlate.prediction),
         weight: Number(instance?.weight || firstPlate.weight) || undefined,
@@ -262,10 +274,10 @@ export async function readModelMetadata(rawUrl: string) {
 
   const response = await fetch(targetUrl, {
     headers: {
-      "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+      accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       "accept-language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
       "cache-control": "no-cache",
-      "pragma": "no-cache",
+      pragma: "no-cache",
       "user-agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125 Safari/537.36",
     },
@@ -282,7 +294,10 @@ export async function readModelMetadata(rawUrl: string) {
         },
       };
     }
-    return { status: 502, body: { error: `Nao foi possivel ler o link. Status ${response.status}.` } };
+    return {
+      status: 502,
+      body: { error: `Nao foi possivel ler o link. Status ${response.status}.` },
+    };
   }
 
   const finalUrl = response.url || targetUrl.toString();
@@ -304,7 +319,9 @@ export async function readModelMetadata(rawUrl: string) {
 
   const html = await response.text();
   const image = findMetaContent(html, ["og:image", "twitter:image", "image"]);
-  const rawDescription = stripHtml(findMetaContent(html, ["og:description", "twitter:description", "description"]));
+  const rawDescription = stripHtml(
+    findMetaContent(html, ["og:description", "twitter:description", "description"]),
+  );
   const rawTitle = cleanRawTitle(findTitle(html));
   const canonical = findMetaContent(html, ["og:url"]) || finalUrl;
 

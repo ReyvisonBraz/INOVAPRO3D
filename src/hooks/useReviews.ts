@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { collection, getDocs, query, where, setDoc, deleteDoc, doc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  setDoc,
+  deleteDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db, auth } from "../services/firebase";
 import type { Review, ReviewVote } from "../types/domain";
 
@@ -28,11 +37,11 @@ export function useReviews(productId?: string) {
         getDocs(query(collection(db, "reviewVotes"), where("productId", "==", productId))),
       ]);
       const items = reviewSnap.docs
-        .map((d) => ({ id: d.id, ...d.data() } as Review))
+        .map((d) => ({ id: d.id, ...d.data() }) as Review)
         .filter((r) => !r.hidden); // ocultadas pelo admin não aparecem
       items.sort((a, b) => secondsOf(b.createdAt) - secondsOf(a.createdAt));
       setReviews(items);
-      setVotes(voteSnap.docs.map((d) => ({ id: d.id, ...d.data() } as ReviewVote)));
+      setVotes(voteSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as ReviewVote));
     } catch (err) {
       console.error("[useReviews] falha ao carregar:", err);
     } finally {
@@ -136,5 +145,17 @@ export function useReviews(productId?: string) {
     [productId],
   );
 
-  return { reviews, loading, average, count, myReview, voteStats, submit, removeMine, vote, report, reload: load };
+  return {
+    reviews,
+    loading,
+    average,
+    count,
+    myReview,
+    voteStats,
+    submit,
+    removeMine,
+    vote,
+    report,
+    reload: load,
+  };
 }

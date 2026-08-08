@@ -3,7 +3,17 @@
 // produção são estas funções de api/, não o Express. Mantenha os dois em sincronia.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../firebaseAdmin.js";
-import { computeOrderTotal, type OrderLineInput, type ProductRecord, type MaterialRecord } from "../_orderPricing.js";
+import { AppError } from "../_observability/appError.js";
+import { createRequestContext } from "../_observability/context.js";
+import { sendApiError } from "../_observability/http.js";
+import { logEvent } from "../_observability/logger.js";
+import {
+  computeOrderTotal,
+  type OrderLineInput,
+  type ProductRecord,
+  type MaterialRecord,
+} from "../_orderPricing.js";
+import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing.js";
 
 interface CreateOrderPayload {
   items?: OrderLineInput[];
@@ -13,71 +23,116 @@ interface CreateOrderPayload {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const context = createRequestContext(req, "order-api", "create-order");
+  res.setHeader("X-Correlation-Id", context.correlationId);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
-    res.status(405).json({ error: "Método não permitido." });
+    sendApiError(res, context, new AppError("METHOD_NOT_ALLOWED"));
     return;
   }
 
   // Auth obrigatória + Admin SDK obrigatório (sem ele não há recálculo confiável).
   if (!isAdminSdkConfigured()) {
-    res.status(503).json({ error: "Criação de pedido indisponível (servidor não configurado)." });
+    sendApiError(
+      res,
+      context,
+      new AppError("SERVICE_CONFIGURATION_ERROR", {
+        technicalMessage: "Firebase Admin SDK não configurado para criar pedido",
+      }),
+    );
     return;
   }
   const authHeader = req.headers.authorization as string | undefined;
   if (!authHeader?.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Não autorizado." });
+    sendApiError(res, context, new AppError("AUTH_REQUIRED"));
     return;
   }
   let uid: string;
   try {
     const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
     uid = decoded.uid;
-  } catch {
-    res.status(401).json({ error: "Token inválido." });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("AUTH_REQUIRED", {
+        cause: error,
+        technicalMessage: "Token Firebase inválido",
+      }),
+    );
     return;
   }
 
   const body = (req.body ?? {}) as CreateOrderPayload;
   const items = Array.isArray(body.items) ? body.items : [];
 
-  const productIds = [...new Set(items.filter((i) => i?.type === "PRODUCT" && i.productId).map((i) => i.productId as string))];
-  const materialIds = [...new Set(items.map((i) => i?.materialId).filter((x): x is string => !!x))];
-
+  const productIds = [
+    ...new Set(
+      items.filter((i) => i?.type === "PRODUCT" && i.productId).map((i) => i.productId as string),
+    ),
+  ];
   const adminDb = getAdminDb();
   const products = new Map<string, ProductRecord>();
   const materials = new Map<string, MaterialRecord>();
   try {
-    await Promise.all(productIds.map(async (id) => {
-      const snap = await adminDb.collection("products").doc(id).get();
-      if (snap.exists) {
-        const d = snap.data()!;
-        products.set(id, { basePrice: Number(d.basePrice), active: d.active, name: d.name });
-      }
-    }));
-    await Promise.all(materialIds.map(async (id) => {
-      const snap = await adminDb.collection("materials").doc(id).get();
-      if (snap.exists) {
-        const d = snap.data()!;
-        materials.set(id, { priceMult: d.priceMult, name: d.name });
-      }
-    }));
-  } catch {
-    res.status(500).json({ error: "Erro ao carregar catálogo." });
+    await Promise.all(
+      productIds.map(async (id) => {
+        const snap = await adminDb.collection("products").doc(id).get();
+        if (snap.exists) {
+          const d = snap.data()!;
+          products.set(id, {
+            basePrice: Number(d.basePrice),
+            active: d.active,
+            name: d.name,
+            productionMaterial: d.productionMaterial,
+          });
+        }
+      }),
+    );
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("ORDER_CREATION_FAILED", {
+        cause: error,
+        technicalMessage: "Falha ao carregar catálogo para criar pedido",
+      }),
+      { productCount: productIds.length },
+    );
     return;
   }
 
   const result = computeOrderTotal(items, products, materials);
   if (!result.ok) {
-    res.status(400).json({ error: result.error });
+    sendApiError(
+      res,
+      context,
+      new AppError("INVALID_REQUEST", {
+        technicalMessage: result.error,
+        details: { itemCount: items.length },
+      }),
+    );
     return;
   }
 
   try {
+    const mercadoPagoEnabled = process.env.MERCADOPAGO_ENABLED === "true";
+    let pixDiscountPercent = DEFAULT_PIX_DISCOUNT_PERCENT;
+    if (mercadoPagoEnabled) {
+      const pricingSnapshot = await adminDb.collection("settings").doc("pricing").get();
+      const configuredPercent = Number(pricingSnapshot.data()?.pixDiscountPct);
+      if (Number.isFinite(configuredPercent)) pixDiscountPercent = configuredPercent;
+    }
+    const totals = mercadoPagoEnabled
+      ? calculatePixTotal(result.total, pixDiscountPercent)
+      : { subtotal: result.total, discount: 0, total: result.total };
+
     const orderItems = result.lines.map((l) => ({
       id: l.materialId ? `${l.productId}-${l.materialId}` : l.productId,
       productId: l.productId,
       materialId: l.materialId,
+      productionMaterial: l.productionMaterial,
       name: l.name,
       price: l.unitPrice,
       quantity: l.quantity,
@@ -89,18 +144,35 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       userEmail: body.userEmail ?? null,
       phone: body.phone ?? null,
       items: orderItems,
-      subtotal: result.total,
-      total: result.total,
+      subtotal: totals.subtotal,
+      discount: totals.discount,
+      pixDiscountPercent: mercadoPagoEnabled ? pixDiscountPercent : 0,
+      total: totals.total,
       shippingRate: 0,
       couponCode: null,
       couponDiscount: null,
       shippingAddress: null,
       status: "PENDING_PAYMENT",
-      paymentMethod: "manual",
+      paymentMethod: mercadoPagoEnabled ? "pix" : "manual",
+      paymentProvider: mercadoPagoEnabled ? "mercadopago" : "manual",
       createdAt: new Date(),
     });
-    res.status(200).json({ orderId: ref.id, total: result.total });
-  } catch {
-    res.status(500).json({ error: "Erro ao criar pedido." });
+    logEvent("info", context, "Pedido criado", {
+      orderId: ref.id,
+      userId: uid,
+      itemCount: orderItems.length,
+      paymentMethod: mercadoPagoEnabled ? "pix" : "manual",
+    });
+    res.status(200).json({ orderId: ref.id, ...totals });
+  } catch (error) {
+    sendApiError(
+      res,
+      context,
+      new AppError("ORDER_CREATION_FAILED", {
+        cause: error,
+        technicalMessage: "Falha ao persistir o pedido",
+      }),
+      { userId: uid, itemCount: items.length },
+    );
   }
 }

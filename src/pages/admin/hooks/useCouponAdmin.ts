@@ -15,8 +15,13 @@ export interface NewCouponForm {
 }
 
 const EMPTY_FORM: NewCouponForm = {
-  code: "", type: "percentage", value: "", minOrderValue: "",
-  maxUses: "", description: "", expiresAt: "",
+  code: "",
+  type: "percentage",
+  value: "",
+  minOrderValue: "",
+  maxUses: "",
+  description: "",
+  expiresAt: "",
 };
 
 export function useCouponAdmin(fetchData: () => Promise<void>) {
@@ -30,10 +35,19 @@ export function useCouponAdmin(fetchData: () => Promise<void>) {
 
   const handleCreate = useCallback(async () => {
     const code = form.code.trim().toUpperCase();
-    if (!code) { toast.error("Informe o código do cupom."); return; }
+    if (!code) {
+      toast.error("Informe o código do cupom.");
+      return;
+    }
     const value = parseFloat(form.value);
-    if (!value || value <= 0) { toast.error("Informe um valor válido."); return; }
-    if (form.type === "percentage" && value > 100) { toast.error("Percentual máximo: 100%."); return; }
+    if (!value || value <= 0) {
+      toast.error("Informe um valor válido.");
+      return;
+    }
+    if (form.type === "percentage" && value > 100) {
+      toast.error("Percentual máximo: 100%.");
+      return;
+    }
 
     try {
       await addDoc(collection(db, "coupons"), {
@@ -57,29 +71,37 @@ export function useCouponAdmin(fetchData: () => Promise<void>) {
     }
   }, [form, fetchData]);
 
-  const handleToggle = useCallback(async (coupon: Coupon) => {
-    try {
-      await updateDoc(doc(db, "coupons", coupon.id), { active: !coupon.active });
-      toast.success(coupon.active ? "Cupom desativado." : "Cupom ativado.");
-      fetchData();
-    } catch {
-      toast.error("Erro ao atualizar cupom.");
-    }
-  }, [fetchData]);
+  const handleToggle = useCallback(
+    async (coupon: Coupon) => {
+      try {
+        await updateDoc(doc(db, "coupons", coupon.id), { active: !coupon.active });
+        toast.success(coupon.active ? "Cupom desativado." : "Cupom ativado.");
+        fetchData();
+      } catch {
+        toast.error("Erro ao atualizar cupom.");
+      }
+    },
+    [fetchData],
+  );
 
-  const handleDelete = useCallback(async (couponId: string) => {
-    try {
-      await deleteDoc(doc(db, "coupons", couponId));
-      toast.success("Cupom excluído.");
-      fetchData();
-    } catch {
-      toast.error("Erro ao excluir cupom.");
-    }
-  }, [fetchData]);
+  const handleDelete = useCallback(
+    async (couponId: string) => {
+      try {
+        await deleteDoc(doc(db, "coupons", couponId));
+        toast.success("Cupom excluído.");
+        fetchData();
+      } catch {
+        toast.error("Erro ao excluir cupom.");
+      }
+    },
+    [fetchData],
+  );
 
   return {
-    isAdding, setIsAdding,
-    form, setForm,
+    isAdding,
+    setIsAdding,
+    form,
+    setForm,
     openForm,
     handleCreate,
     handleToggle,
