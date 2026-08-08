@@ -159,6 +159,9 @@ export interface Order {
   idempotencyKey?: string;
   paidAt?: FirestoreDate;
   paymentUpdatedAt?: FirestoreDate;
+  /** Estorno ou chargeback tiram o pedido do fluxo normal até revisão manual. */
+  fulfillmentHold?: boolean;
+  fulfillmentHoldReason?: PaymentStatus;
 }
 
 export interface Quote {

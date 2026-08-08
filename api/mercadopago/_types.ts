@@ -77,6 +77,27 @@ export interface PaymentStatusResult {
   externalReference?: string;
 }
 
+const KNOWN_MERCADO_PAGO_STATUSES = new Set([
+  "approved",
+  "pending",
+  "in_process",
+  "authorized",
+  "rejected",
+  "cancelled",
+  "canceled",
+  "expired",
+  "refunded",
+  "charged_back",
+]);
+
+/**
+ * Um status fora desta lista vira `PROCESSING` e precisa gerar alerta: pode
+ * indicar mudança de contrato do provedor, nunca uma aprovação implícita.
+ */
+export function isKnownMercadoPagoStatus(mpStatus: string): boolean {
+  return KNOWN_MERCADO_PAGO_STATUSES.has(mpStatus.toLowerCase());
+}
+
 // Mapeamento de status
 export function mapMercadoPagoStatus(mpStatus: string): PaymentStatus {
   const normalized = mpStatus.toLowerCase();

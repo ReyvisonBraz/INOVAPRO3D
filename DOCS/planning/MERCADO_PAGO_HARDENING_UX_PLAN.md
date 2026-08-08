@@ -25,6 +25,26 @@ Pago e marca o pedido como pago. O teste real de R$ 0,95 foi concluído com suce
 O que falta não invalida o núcleo existente. Trata-se da segunda etapa: experiência, ciclo de vida
 completo, resiliência operacional e endurecimento de segurança.
 
+## Estado de execução
+
+Atualizar esta tabela no mesmo commit que muda o código. Ela existe para que qualquer retomada
+comece pela leitura do plano, e não por uma investigação do repositório.
+
+| #   | Ponto                          | Estado    | Onde vive no código                                                              |
+| --- | ------------------------------ | --------- | -------------------------------------------------------------------------------- |
+| 1   | Atualização em tempo real      | Pendente  | `useOrderPaymentStatus` ainda não existe                                         |
+| 2   | Expiração explícita do Pix     | Pendente  | `api/mercadopago/_client.ts` não envia `date_of_expiration`                      |
+| 3   | Nova tentativa após vencimento | Pendente  | chave fixa `pix:v1` em `api/mercadopago/_service.ts`                             |
+| 4   | Máquina de estados financeiros | Concluído | `shared/payments/paymentStateMachine.ts` + `api/mercadopago/_webhookDecision.ts` |
+| 5   | Reconciliação automática       | Pendente  | —                                                                                |
+| 6   | Endpoint de status confiável   | Pendente  | `api/mercadopago/payment-status.ts` ainda só lê o Firestore                      |
+| 7   | Rate limiting distribuído      | Pendente  | —                                                                                |
+| 8   | Contratos de erro e observação | Concluído | `shared/errors/catalog.ts`, `api/_observability/`, `src/lib/apiError.ts`         |
+| 9   | CSP bloqueante                 | Pendente  | `vercel.json` mantém `Report-Only`                                               |
+| 10  | IP e dados adicionais corretos | Concluído | IP fictício removido de `api/mercadopago/_client.ts`                             |
+| 11  | Redesign do checkout           | Pendente  | `src/pages/public/Checkout.tsx`                                                  |
+| 12  | Consolidar a API (Orders)      | Decidido  | decisão registrada; execução após a Fase 1                                       |
+
 ## Decisões fechadas em 5 de agosto de 2026
 
 As fronteiras e responsabilidades da migração estão registradas em
@@ -166,7 +186,13 @@ máquina de estados, não por condições espalhadas.
 - Diferença no relógio do dispositivo não altera a decisão financeira.
 - Duração pode ser configurada sem espalhar constantes pelo código.
 
-**Prioridade:** P0. **Dependências:** decisão sobre API no ponto 12.
+**Ajuste de sequência (8 de agosto de 2026):** a expiração deixa de esperar a migração do ponto 12.
+A API `/v1/payments` já aceita `date_of_expiration` na criação, então os 30 minutos serão
+implementados atrás do adaptador atual e sobreviverão à migração para Orders sem mudar a regra de
+negócio. Adiar a expiração até a troca de API manteria o cliente preso a um Pix vencido por semanas
+sem ganho arquitetural.
+
+**Prioridade:** P0. **Dependências:** nenhuma.
 
 ### 3. Nova tentativa após vencimento
 
@@ -201,6 +227,21 @@ e a alteração comercial permitida. O webhook e a reconciliação usarão a mes
 - `REFUNDED` e `CHARGED_BACK` retiram o pedido do fluxo normal e avisam a operação.
 - Uma notificação antiga não regride um estado final mais novo.
 - Pedido e tentativa são atualizados atomicamente.
+
+**Executado em 8 de agosto de 2026.** `decidePaymentWebhook` (`api/mercadopago/_webhookDecision.ts`)
+é a função pura que recebe o pagamento consultado no provedor e o pedido gravado, e devolve o que
+escrever. `processPaymentWebhook` apenas persiste o resultado, dentro de uma única transação do
+Firestore que cobre pedido, tentativa e evento de auditoria.
+
+Comportamentos garantidos por teste:
+
+- Aprovação libera `status=PAID`, mas nunca rebaixa um pedido já em produção.
+- Notificação atrasada que tentaria regredir um estado final é registrada e descartada
+  (`ignored_stale`), sem tocar o pedido.
+- Aprovação tardia após expiração ou recusa continua sendo aceita.
+- Vencimento, recusa e cancelamento mantêm o pedido aguardando pagamento, sem cancelá-lo.
+- Estorno e chargeback marcam `fulfillmentHold` e emitem alerta de operação.
+- Status desconhecido vira `PROCESSING` com alerta, nunca aprovação.
 
 **Prioridade:** P0. **Dependências:** nenhuma.
 
