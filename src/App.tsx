@@ -24,6 +24,7 @@ import { maybeShowInstallToast } from "./lib/pwaInstall";
 import { OnboardingProvider, useOnboarding } from "./contexts/OnboardingContext";
 import CookieConsent from "./components/CookieConsent";
 import { trackPageView } from "./lib/analytics";
+import ShapeGrid from "./components/ui/ShapeGrid";
 
 const WELCOME_KEY = "inovapro3d:welcomed";
 
@@ -145,18 +146,32 @@ function RouterContent() {
   const isAdminPage = location.pathname.startsWith("/admin");
   const { theme } = useTheme();
 
+  // Cores do ShapeGrid de fundo — seguem o tema claro/escuro.
+  const gridBorderColor = theme === "dark" ? "rgba(148, 163, 184, 0.14)" : "rgba(15, 23, 42, 0.14)";
+  const gridHoverColor = theme === "dark" ? "rgba(59, 130, 246, 0.18)" : "rgba(37, 99, 235, 0.14)";
+
   return (
     <AuthProvider>
       <CartProvider>
-        <div className="relative min-h-screen selection:bg-primary/30 text-foreground bg-surface transition-colors duration-300">
+        {/* `isolate` cria um stacking context: o fundo fixo em z-[-1] pinta
+            acima do bg-surface e abaixo do conteúdo (sem isso, o background
+            opaco do wrapper encobriria a camada). */}
+        <div className="relative isolate min-h-screen selection:bg-primary/30 text-foreground bg-surface transition-colors duration-300">
           <div className="noise" />
-          {/* BACKGROUND EFFECTS — radial-gradients em vez de filter: blur().
-              O gradiente já nasce difuso, então não há camada para o
-              compositor re-desfocar enquanto o conteúdo rola por cima. */}
+          {/* BACKGROUND EFFECTS — ShapeGrid (canvas animado) + glow radial.
+              O canvas já nasce nítido, sem blur, e a grade estática antiga
+              foi substituída pela malha hexagonal animada. */}
           <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[radial-gradient(circle,rgba(37,99,235,0.10),transparent_70%)]" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-[radial-gradient(circle,rgba(30,64,175,0.10),transparent_70%)]" />
-            <div className="absolute inset-0 opacity-70 bg-[linear-gradient(to_right,#64748b18_1px,transparent_1px),linear-gradient(to_bottom,#64748b18_1px,transparent_1px)] bg-[size:24px_24px]" />
+            <ShapeGrid
+              direction="diagonal"
+              speed={0.25}
+              squareSize={48}
+              shape="hexagon"
+              borderColor={gridBorderColor}
+              hoverFillColor={gridHoverColor}
+            />
           </div>
 
           {!isAdminPage && (

@@ -15,7 +15,6 @@ import {
 } from "lucide-react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { BrandMark, BrandWordmark } from "../../components/brand/BrandLogo";
-import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { SocialLinks } from "../../components/ui/SocialLinks";
 import { waLink } from "../../lib/config";
 
@@ -116,7 +115,6 @@ export default function About() {
       <div className="relative overflow-hidden">
         {/* HERO */}
         <section className="relative overflow-hidden">
-          <FloatingBackground subtle variant="grid" />
           <div className="container-section relative z-10 py-16 sm:py-24 text-center">
             <motion.div
               initial={{ opacity: 0, scale: 0.85 }}

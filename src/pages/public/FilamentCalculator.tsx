@@ -28,7 +28,6 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatBRL, formatHoursToHHMM, HELP } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
-import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { Reveal } from "../../components/ui/Reveal";
 import { useCalculatorState, safeNumber } from "./calculator/useCalculatorState";
 import { CalculatorProjectEditor } from "../../components/calculator/CalculatorProjectEditor";
@@ -579,7 +578,6 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
       <div
         className={`maker-screen relative overflow-hidden bg-[#07080d] px-4 text-white sm:px-6 lg:px-8 ${embedded ? "min-h-full py-5 sm:py-6" : "min-h-screen py-8"}`}
       >
-        <FloatingBackground subtle variant="grid" />
         <div className="relative z-10 mx-auto max-w-7xl">
           <header className="mb-8 flex flex-col gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end lg:justify-between">
             <div>

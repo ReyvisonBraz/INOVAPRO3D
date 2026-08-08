@@ -6,7 +6,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useCart } from "../../contexts/CartContext";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
-import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { Reveal } from "../../components/ui/Reveal";
 import { ProductCard } from "../../components/ui/ProductCard";
 import { getCategoryPath, categoryNameToSlug } from "../../lib/categoryTree";
@@ -211,7 +210,7 @@ export default function Catalog() {
   }, [selectedCategory, categories, childNamesByParent]);
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="min-h-screen">
       <PageSEO
         title="Catálogo"
         description="Explore centenas de peças impressas em 3D: miniaturas, decoração, funcional, educacional e muito mais. Produção na Bambu Lab P2S com entrega nacional."
@@ -219,7 +218,6 @@ export default function Catalog() {
       />
 
       <div className="relative overflow-hidden pt-20 pb-5 sm:pt-24 sm:pb-7">
-        <FloatingBackground variant="grid" subtle />
         <div className="container-section relative z-10">
           <Reveal direction="up" delay={0}>
             <div className="flex items-center gap-2 mb-3">
