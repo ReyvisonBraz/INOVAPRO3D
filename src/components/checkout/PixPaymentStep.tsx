@@ -1,4 +1,4 @@
-import { ArrowRight, Copy, QrCode, RefreshCw, WifiOff } from "lucide-react";
+import { AlertTriangle, ArrowRight, Copy, QrCode, RefreshCw, WifiOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { describeDuration, formatClock } from "../../lib/duration";
 import type { PaymentStatus } from "../../types/domain";
@@ -24,6 +24,8 @@ interface PixPaymentStepProps {
   remoteStatus?: PaymentStatus | null;
   /** `true` quando a confirmação em tempo real está tentando se recuperar. */
   connectionUnstable?: boolean;
+  /** Mensagem persistente de falha ao gerar o Pix — nenhuma cobrança foi feita. */
+  error?: string | null;
 }
 
 export function PixPaymentStep({
@@ -35,6 +37,7 @@ export function PixPaymentStep({
   onTrackOrder,
   remoteStatus = null,
   connectionUnstable = false,
+  error = null,
 }: PixPaymentStepProps) {
   if (payment) {
     return (
@@ -46,6 +49,7 @@ export function PixPaymentStep({
         onTrackOrder={onTrackOrder}
         remoteStatus={remoteStatus}
         connectionUnstable={connectionUnstable}
+        error={error}
       />
     );
   }
@@ -63,6 +67,7 @@ export function PixPaymentStep({
             Aprovação rápida. Escaneie o QR Code ou copie o código no aplicativo do seu banco.
           </p>
         </div>
+        {error && <PixErrorBanner message={error} />}
       </section>
       <div className="flex flex-col gap-4 sm:flex-row">
         <Button
@@ -130,6 +135,7 @@ function PixPaymentPending({
   onTrackOrder,
   remoteStatus,
   connectionUnstable,
+  error,
 }: {
   payment: PixPaymentData;
   loading: boolean;
@@ -138,6 +144,7 @@ function PixPaymentPending({
   onTrackOrder: () => void;
   remoteStatus: PaymentStatus | null;
   connectionUnstable: boolean;
+  error: string | null;
 }) {
   const remainingMs = useTimeRemaining(payment.expiresAt);
   const localExpired = remainingMs !== null && remainingMs <= 0;
@@ -155,6 +162,7 @@ function PixPaymentPending({
               {BLOCKED_COPY[blockedReason].title}
             </p>
             <p className="text-xs text-white/50">{BLOCKED_COPY[blockedReason].description}</p>
+            {error && <PixErrorBanner message={error} />}
             <Button
               loading={loading}
               className="h-12 w-full gap-2 rounded-xl text-xs font-black uppercase tracking-widest"
@@ -239,6 +247,29 @@ function PixWaitingIndicator({ connectionUnstable }: { connectionUnstable: boole
       </span>
       Aguardando confirmação do pagamento…
     </p>
+  );
+}
+
+/**
+ * Estado de erro persistente (não um toast que some sozinho): a pessoa pode
+ * ler a causa com calma antes de decidir tentar de novo. Some assim que uma
+ * nova tentativa começa, porque `resetPayment()` limpa o erro na origem.
+ */
+function PixErrorBanner({ message }: { message: string }) {
+  return (
+    <div
+      role="alert"
+      className="flex items-start gap-3 rounded-2xl border border-red-500/20 bg-red-500/[0.06] p-4 text-left"
+    >
+      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-400" />
+      <div className="space-y-1">
+        <p className="text-xs font-black uppercase tracking-widest text-red-300">
+          Não foi possível gerar o Pix
+        </p>
+        <p className="text-xs text-white/60">{message}</p>
+        <p className="text-[11px] text-white/40">Nenhuma cobrança foi feita.</p>
+      </div>
+    </div>
   );
 }
 

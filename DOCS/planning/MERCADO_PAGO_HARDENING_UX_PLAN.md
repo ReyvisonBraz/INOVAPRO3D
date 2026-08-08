@@ -42,7 +42,7 @@ comece pela leitura do plano, e não por uma investigação do repositório.
 | 8   | Contratos de erro e observação | Concluído | `shared/errors/catalog.ts`, `api/_observability/`, `src/lib/apiError.ts`         |
 | 9   | CSP bloqueante                 | Pendente  | `vercel.json` mantém `Report-Only`                                               |
 | 10  | IP e dados adicionais corretos | Concluído | IP fictício removido de `api/mercadopago/_client.ts`                             |
-| 11  | Redesign do checkout           | Pendente  | `src/pages/public/Checkout.tsx`                                                  |
+| 11  | Redesign do checkout           | Concluído | `Checkout.tsx` + `PixPaymentStep.tsx` (hierarquia/feedback/acessibilidade)       |
 | 12  | Consolidar a API (Orders)      | Decidido  | decisão registrada; execução após a Fase 1                                       |
 
 ## Decisões fechadas em 5 de agosto de 2026
@@ -409,6 +409,30 @@ a identidade da marca sem competir com as informações essenciais.
 - Sem layout quebrado entre 320 px e telas grandes.
 - Feedback de carregamento não permite cliques duplicados.
 - Testes visuais nos estados vazio, criando, pendente, aprovado, expirado e erro.
+
+**Executado em 8 de agosto de 2026, com escopo deliberadamente restrito.** Os itens 1, 2, 4 e 5 da
+estrutura proposta já existiam dos pontos anteriores desta fase (revisão compacta, resumo financeiro,
+QR Code com contador, confirmação automática). O que faltava — e foi fechado agora — foram as lacunas
+concretas contra os critérios de aceite, sem tocar a identidade visual:
+
+- **Estado de erro visível:** `usePayment()` já devolvia `error`, mas `Checkout.tsx` nunca lia o
+  campo — só existia um toast que some sozinho. `PixPaymentStep` ganhou um bloco `role="alert"`
+  persistente, com a mensagem, aviso de que nenhuma cobrança foi feita, e o mesmo botão de ação já
+  existente (sem CTA duplicada). Some sozinho porque `resetPayment()` já limpava o erro a cada nova
+  tentativa.
+- **Indicador de etapas acessível:** virou `<nav aria-label="Etapas do pedido"><ol>` com
+  `aria-current="step"`. O rótulo do passo usava `hidden sm:block`, que remove o texto da árvore de
+  acessibilidade abaixo de 640px, não só da tela — trocado por `sr-only sm:not-sr-only`.
+- **Área de toque dos controles de quantidade/remover:** de 28×28px (`h-7 w-7`) para 36×36px
+  (`h-9 w-9`).
+- **Guarda explícita contra duplo envio:** `if (loading) return;` no topo de `handleCompleteOrder` e
+  `handleProcessPayment`, reforçando o `disabled` do botão.
+
+**Verificado no navegador (Playwright, sessão já autenticada) apenas até a etapa 1** — layout em
+320px sem quebra, árvore de acessibilidade confirmando o rótulo do passo atual. As etapas 2 e 3 (Pix
+gerado e confirmação) e o próprio bloco de erro não foram vistos rodando nesta sessão: validados por
+leitura de código, não por execução. Recomenda-se um teste manual completo do fluxo Pix antes de
+considerar o ponto 11 encerrado de fato.
 
 **Prioridade:** P0. **Dependências:** pontos 1, 2 e 4 para representar estados reais.
 
