@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   collection,
   getDoc,
@@ -20,6 +20,10 @@ import {
   Calculator,
   Plus,
   Upload,
+  ImageIcon,
+  Box,
+  User,
+  BadgeDollarSign,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -59,6 +63,7 @@ import { useAdminActions } from "./hooks/useAdminActions";
 import { useCategoryAdmin } from "./hooks/useCategoryAdmin";
 import { useProductAdmin } from "./hooks/useProductAdmin";
 import { useQuoteAdmin } from "./hooks/useQuoteAdmin";
+import { uploadQuoteImage } from "../../lib/quotes";
 import { useQuickCalc } from "./hooks/useQuickCalc";
 import { useCouponAdmin } from "./hooks/useCouponAdmin";
 import AdminOverviewPanel from "./components/AdminOverviewPanel";
@@ -549,6 +554,19 @@ export default function AdminDashboard() {
     setEditingQuotePhone,
     editingQuoteNotes,
     setEditingQuoteNotes,
+    editingQuoteFileName,
+    setEditingQuoteFileName,
+    editingQuoteMaterial,
+    setEditingQuoteMaterial,
+    editingQuoteQuantity,
+    editingQuoteUnitPrice,
+    editingQuoteImageUrl,
+    setEditingQuoteImageUrl,
+    editingQuoteCustomerNotes,
+    setEditingQuoteCustomerNotes,
+    handleQuantityChange,
+    handleUnitPriceChange,
+    handleQuoteTotalChange,
     isCalcAssistantOpen,
     setIsCalcAssistantOpen,
     isApprovingQuote,
@@ -558,6 +576,20 @@ export default function AdminDashboard() {
     handleApproveQuote,
     handleSaveQuoteSpecifications,
   } = useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer, activeTab, fetchData });
+
+  const quoteImageInputRef = useRef<HTMLInputElement>(null);
+  const handleQuoteImageUpload = useCallback(
+    async (file: File) => {
+      try {
+        const url = await uploadQuoteImage(file);
+        setEditingQuoteImageUrl(url);
+        toast.success("Imagem enviada com sucesso!");
+      } catch {
+        toast.error("Falha ao enviar a imagem.");
+      }
+    },
+    [setEditingQuoteImageUrl],
+  );
 
   // O modal de homologação usa exatamente o mesmo motor e os mesmos
   // parâmetros das calculadoras completa e rápida.
@@ -1447,13 +1479,13 @@ export default function AdminDashboard() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-surface border border-white/10 rounded-[32px] sm:rounded-[48px] p-6 sm:p-12 max-w-3xl w-full relative my-auto"
+              className="bg-surface border border-white/10 rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 max-w-4xl w-full relative my-auto"
             >
               <button
                 onClick={() => setSelectedCustomer(null)}
-                className="absolute top-8 right-8 text-dim hover:text-white transition-all"
+                className="absolute top-6 right-6 z-10 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-black/40 text-white/60 hover:text-white hover:border-white/30 transition-all"
               >
-                <X className="w-8 h-8" />
+                <X className="w-5 h-5" />
               </button>
               {approvalStatus?.success ? (
                 <div className="text-center py-6 space-y-8">
@@ -1586,129 +1618,290 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <>
-                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 italic">
-                    Refinamento de Orçamento Personalizado
-                  </p>
-                  <h2 className="text-3xl font-black italic tracking-tighter mb-8">
-                    Revisão do Engenheiro
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                    <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                      <p className="text-[9px] font-black uppercase text-dim mb-1">Cliente</p>
-                      <p className="text-xs font-bold text-white/80">{selectedCustomer.userName}</p>
-                    </div>
-                    <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5">
-                      <p className="text-[9px] font-black uppercase text-dim mb-1">
-                        Geometria / Arquivo
-                      </p>
-                      <p
-                        className="text-xs font-bold text-primary truncate"
-                        title={selectedCustomer.fileName}
-                      >
-                        {selectedCustomer.fileName}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="p-4 bg-white/[0.02] rounded-2xl border border-white/5 mb-6">
-                    <p className="text-[9px] font-black uppercase text-dim mb-1">
-                      Especificações de Entrada (Cliente)
+                  <div className="mb-8 pr-16">
+                    <p className="text-xs font-bold uppercase tracking-[0.35em] text-primary mb-2">
+                      Refinamento de Orçamento Personalizado
                     </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-xs mt-2">
-                      <div>
-                        <span className="text-white/40">Material:</span>{" "}
-                        <strong className="text-white/80 uppercase">
-                          {selectedCustomer.materialId || "PLA Pro"}
-                        </strong>
-                      </div>
-                      <div>
-                        <span className="text-white/40">Infill:</span>{" "}
-                        <strong className="text-white/80">{selectedCustomer.infill || 20}%</strong>
-                      </div>
-                      <div>
-                        <span className="text-white/40">Preço Est.:</span>{" "}
-                        <strong className="text-primary font-mono">
-                          R$ {selectedCustomer.estimatedPrice || "45,90"}
-                        </strong>
-                      </div>
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
+                      Revisão do Engenheiro
+                    </h2>
+                    <p className="text-sm text-white/50 mt-2 leading-relaxed max-w-2xl">
+                      Ajuste as especificações técnicas e a proposta comercial antes de enviar ao
+                      cliente ou faturar.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row gap-5 mb-8">
+                    <div className="w-full sm:w-44 sm:h-44 shrink-0 rounded-2xl border border-white/10 bg-[#0C0E14] overflow-hidden flex items-center justify-center">
+                      {editingQuoteImageUrl ? (
+                        <img
+                          src={editingQuoteImageUrl}
+                          alt="Peça"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-white/25">
+                          <ImageIcon className="w-8 h-8" />
+                          <span className="text-[11px] font-semibold uppercase tracking-wider">
+                            Sem imagem
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    {selectedCustomer.notes && (
-                      <div className="mt-3 pt-3 border-t border-white/5">
-                        <span className="text-white/40 text-[10px] uppercase font-black">
-                          Observações:
-                        </span>
-                        <p className="text-[11px] text-white/60 leading-relaxed mt-1">
-                          {selectedCustomer.notes}
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4">
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1.5">
+                          Cliente
+                        </p>
+                        <p className="text-base font-bold text-white/90">
+                          {selectedCustomer.userName || "—"}
                         </p>
                       </div>
-                    )}
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4">
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1.5">
+                          Preço Estimado
+                        </p>
+                        <p className="text-base font-black text-primary font-mono">
+                          {formatBRL(
+                            selectedCustomer.estimatedPrice || selectedCustomer.total || 0,
+                          )}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 sm:col-span-2">
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1.5">
+                          Peça / Arquivo
+                        </p>
+                        <input
+                          type="text"
+                          value={editingQuoteFileName}
+                          onChange={(e) => setEditingQuoteFileName(e.target.value)}
+                          placeholder="Ex: Suporte de celular v3"
+                          className="w-full bg-transparent text-base font-semibold text-white outline-none placeholder:text-white/25"
+                        />
+                      </div>
+                    </div>
                   </div>
+
                   <div className="space-y-6">
-                    <h3 className="text-xs font-black uppercase tracking-widest text-[#2563EB] italic">
-                      Parâmetros de Homologação
-                    </h3>
-                    {/* Calculator Assistant */}
-                    <div className="border border-white/5 rounded-2xl bg-white/[0.02] overflow-hidden">
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
+                        <Box className="w-4 h-4" /> Especificações Técnicas
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                        <div className="sm:col-span-2 lg:col-span-3">
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Material
+                          </label>
+                          <input
+                            type="text"
+                            value={editingQuoteMaterial}
+                            onChange={(e) => setEditingQuoteMaterial(e.target.value)}
+                            placeholder="Ex: PLA Pro"
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Quantidade de Peças
+                          </label>
+                          <NumInput
+                            min={1}
+                            step={1}
+                            value={editingQuoteQuantity}
+                            onChange={handleQuantityChange}
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-bold text-white outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Preço Unitário (R$)
+                          </label>
+                          <NumInput
+                            min={0}
+                            step={0.01}
+                            value={editingQuoteUnitPrice}
+                            onChange={handleUnitPriceChange}
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-bold text-white outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Tempo de Impressão
+                          </label>
+                          <input
+                            type="text"
+                            value={editingQuoteTime}
+                            onChange={(e) => setEditingQuoteTime(e.target.value)}
+                            placeholder="Ex: 2h 30m"
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Peso Estimado (g)
+                          </label>
+                          <NumInput
+                            min={0}
+                            value={editingQuoteWeight}
+                            onChange={setEditingQuoteWeight}
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-bold text-white outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
+                          />
+                        </div>
+                        <div className="sm:col-span-2 lg:col-span-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-xs font-semibold text-white/55">
+                              Densidade do Preenchimento (Infill)
+                            </label>
+                            <span className="text-sm font-black text-primary font-mono">
+                              {editingQuoteInfill}%
+                            </span>
+                          </div>
+                          <input
+                            type="range"
+                            min="10"
+                            max="100"
+                            step="5"
+                            value={editingQuoteInfill}
+                            onChange={(e) => setEditingQuoteInfill(Number(e.target.value))}
+                            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
+                          />
+                        </div>
+                      </div>
+                    </section>
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
+                        <User className="w-4 h-4" /> Dados do Cliente
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                        <div>
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Nome
+                          </label>
+                          <div className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white/70">
+                            {selectedCustomer.userName || "—"}
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            WhatsApp (apenas números)
+                          </label>
+                          <input
+                            type="text"
+                            value={editingQuotePhone}
+                            onChange={(e) => setEditingQuotePhone(e.target.value)}
+                            placeholder="Ex: 11999998888"
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Observações do Cliente
+                          </label>
+                          <textarea
+                            rows={3}
+                            value={editingQuoteCustomerNotes}
+                            onChange={(e) => setEditingQuoteCustomerNotes(e.target.value)}
+                            placeholder="Anotações feitas pelo cliente na solicitação..."
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white/85 placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 resize-none"
+                          />
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
+                        <ImageIcon className="w-4 h-4" /> Imagem do Produto
+                      </h3>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5">
+                        <div className="w-full sm:w-32 h-32 shrink-0 rounded-2xl border border-white/10 bg-[#0C0E14] overflow-hidden flex items-center justify-center">
+                          {editingQuoteImageUrl ? (
+                            <img
+                              src={editingQuoteImageUrl}
+                              alt="Peça"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <ImageIcon className="w-7 h-7 text-white/20" />
+                          )}
+                        </div>
+                        <div className="flex-1 space-y-3">
+                          <input
+                            type="text"
+                            value={editingQuoteImageUrl}
+                            onChange={(e) => setEditingQuoteImageUrl(e.target.value)}
+                            placeholder="Cole a URL da imagem aqui..."
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
+                          />
+                          <input
+                            ref={quoteImageInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleQuoteImageUpload(file);
+                              e.target.value = "";
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => quoteImageInputRef.current?.click()}
+                            className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/20 hover:text-white transition-all"
+                          >
+                            <Upload className="w-4 h-4" /> Enviar imagem
+                          </button>
+                        </div>
+                      </div>
+                    </section>
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
                       <button
                         type="button"
                         onClick={() => setIsCalcAssistantOpen(!isCalcAssistantOpen)}
-                        className="w-full p-4 flex items-center justify-between text-left text-xs font-black uppercase tracking-wider text-primary hover:bg-white/[0.03] transition-colors"
+                        className="w-full flex items-center justify-between gap-4 text-left"
                       >
-                        <span className="flex items-center gap-2">
-                          <Calculator className="w-4 h-4" />
-                          Assistente de Precificação {isCalcAssistantOpen ? "▲" : "▼"}
+                        <span className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary">
+                          <Calculator className="w-4 h-4" /> Assistente de Precificação
                         </span>
-                        <span className="text-[9px] text-white/35 font-mono">
-                          Motor unificado INOVAPRO3D
+                        <span className="text-[11px] text-white/35 font-mono whitespace-nowrap">
+                          {isCalcAssistantOpen ? "Fechar ▲" : "Abrir ▼"}
                         </span>
                       </button>
                       {isCalcAssistantOpen && (
-                        <div className="p-4 border-t border-white/5 space-y-4 bg-black/40 text-xs">
-                          <p className="text-[10px] text-white/50 leading-relaxed">
+                        <div className="mt-5 border-t border-white/10 pt-5 space-y-4">
+                          <p className="text-sm text-white/50 leading-relaxed">
                             Preço calculado com os mesmos parâmetros centrais de material, energia,
                             máquina, falhas, embalagem, contribuição por hora e piso mínimo.
                           </p>
-                          <div className="p-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-2">
-                            <h4 className="text-[10px] uppercase font-black tracking-wider text-white/60 mb-1 border-b border-white/5 pb-1 flex justify-between">
+                          <div className="rounded-2xl border border-white/10 bg-[#0C0E14] p-5 space-y-2.5">
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2 flex justify-between items-center">
                               <span>Demonstrativo do Cálculo</span>
                               <span className="text-primary font-mono">
                                 {quoteAssistantResult.hours.toFixed(2)}h
                               </span>
                             </h4>
-                            <div className="flex justify-between text-[11px] text-white/70">
-                              <span>Material:</span>
-                              <span className="font-mono">
-                                {formatBRL(quoteAssistantResult.materialCost)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-white/70">
-                              <span>Energia:</span>
-                              <span className="font-mono">
-                                {formatBRL(quoteAssistantResult.energyCost)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-white/70">
-                              <span>Máquina:</span>
-                              <span className="font-mono">
-                                {formatBRL(quoteAssistantResult.machineCost)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-white/70">
-                              <span>Falhas + embalagem:</span>
-                              <span className="font-mono">
-                                {formatBRL(
+                            {(
+                              [
+                                ["Material", quoteAssistantResult.materialCost],
+                                ["Energia", quoteAssistantResult.energyCost],
+                                ["Máquina", quoteAssistantResult.machineCost],
+                                [
+                                  "Falhas + embalagem",
                                   quoteAssistantResult.failureLoss +
                                     quoteAssistantResult.packagingCost,
-                                )}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] text-white/70 border-t border-white/5 pt-1.5">
-                              <span>Custo real:</span>
-                              <span className="font-mono">
-                                {formatBRL(quoteAssistantResult.totalCost)}
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-[11px] font-black border-t border-white/5 pt-1.5 uppercase text-white">
-                              <span>Preço sugerido (varejo):</span>
+                                ],
+                                ["Custo real", quoteAssistantResult.totalCost],
+                              ] as const
+                            ).map(([label, value]) => (
+                              <div
+                                key={label}
+                                className="flex justify-between text-sm text-white/70"
+                              >
+                                <span>{label}</span>
+                                <span className="font-mono">{formatBRL(value)}</span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between text-sm font-black uppercase text-white border-t border-white/10 pt-2.5">
+                              <span>Preço sugerido (varejo)</span>
                               <span className="text-primary font-mono select-all">
                                 {formatBRL(quoteAssistantResult.retailTotal)}
                               </span>
@@ -1723,100 +1916,71 @@ export default function AdminDashboard() {
                                 `${formatBRL(suggestedPrice)} aplicado pelo motor unificado!`,
                               );
                             }}
-                            className="w-full h-10 rounded-xl bg-primary text-[10px] font-black uppercase tracking-wider text-white"
+                            className="w-full h-11 rounded-xl bg-primary text-sm font-bold uppercase tracking-wider text-white"
                           >
                             Aplicar Preço Sugerido
                           </Button>
                         </div>
                       )}
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-white/40 mb-1 block">
-                          Valor Final Aprovado (R$)
-                        </label>
-                        <NumInput
-                          min={0}
-                          step={0.01}
-                          value={editingQuoteTotal}
-                          onChange={setEditingQuoteTotal}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm text-primary font-bold outline-none focus:border-primary/50 transition-all font-mono"
-                        />
+                    </section>
+
+                    <section className="rounded-3xl border border-primary/20 bg-primary/[0.03] p-6 sm:p-8">
+                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
+                        <BadgeDollarSign className="w-4 h-4" /> Valor da Proposta
+                      </h3>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5">
+                        <div className="flex-1">
+                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
+                            Valor Final Aprovado (R$)
+                          </label>
+                          <NumInput
+                            min={0}
+                            step={0.01}
+                            value={editingQuoteTotal}
+                            onChange={handleQuoteTotalChange}
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-lg font-black text-primary outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
+                          />
+                        </div>
+                        <div className="rounded-2xl border border-white/10 bg-[#0C0E14] px-6 py-4 text-center shrink-0">
+                          <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1">
+                            Total do Lote
+                          </p>
+                          <p className="text-2xl font-black text-primary font-mono">
+                            {formatBRL(editingQuoteTotal)}
+                          </p>
+                          <p className="text-xs text-white/40 font-mono mt-1">
+                            {editingQuoteQuantity}x {formatBRL(editingQuoteUnitPrice)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-white/40 mb-1 block">
-                          WhatsApp (Apenas Números)
-                        </label>
-                        <input
-                          type="text"
-                          value={editingQuotePhone}
-                          onChange={(e) => setEditingQuotePhone(e.target.value)}
-                          placeholder="Ex: 11999998888"
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-primary/50 transition-all font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-[#2563EB] mb-1 block font-bold">
-                          Tempo de Impressão
-                        </label>
-                        <input
-                          type="text"
-                          value={editingQuoteTime}
-                          onChange={(e) => setEditingQuoteTime(e.target.value)}
-                          placeholder="Ex: 2h 30m"
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-primary/50 transition-all font-mono"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-black uppercase tracking-wider text-[#2563EB] mb-1 block font-bold">
-                          Peso Estimado (g)
-                        </label>
-                        <NumInput
-                          min={0}
-                          value={editingQuoteWeight}
-                          onChange={setEditingQuoteWeight}
-                          className="w-full bg-black border border-white/10 rounded-xl p-3 text-sm outline-none focus:border-primary/50 transition-all font-mono"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label className="text-[10px] font-black uppercase tracking-wider text-white/40">
-                          Infill Final (%)
-                        </label>
-                        <span className="text-xs font-mono text-primary font-bold">
-                          {editingQuoteInfill}%
-                        </span>
-                      </div>
-                      <input
-                        type="range"
-                        min="10"
-                        max="100"
-                        step="5"
-                        value={editingQuoteInfill}
-                        onChange={(e) => setEditingQuoteInfill(Number(e.target.value))}
-                        className="w-full h-1 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] font-black uppercase tracking-wider text-white/40 mb-1 block">
-                        Notas do Técnico
-                      </label>
+                    </section>
+
+                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
+                        <Edit className="w-4 h-4" /> Notas do Técnico
+                      </h3>
                       <textarea
-                        rows={2}
+                        rows={3}
                         value={editingQuoteNotes}
                         onChange={(e) => setEditingQuoteNotes(e.target.value)}
-                        placeholder="Insira notas de qualidade..."
-                        className="w-full bg-black border border-white/10 rounded-xl p-4 text-xs leading-relaxed outline-none focus:border-primary/50 transition-all resize-none"
+                        placeholder="Insira notas de qualidade, instruções de acabamento ou controle interno..."
+                        className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white/85 placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 resize-none"
                       />
-                    </div>
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-white/10">
+                    </section>
+                    <div className="flex flex-col lg:flex-row items-stretch gap-3 pt-6 border-t border-white/10">
                       <Button
                         variant="outline"
                         onClick={() => handleWhatsAppQuote(selectedCustomer, editingQuoteTotal)}
-                        className="h-12 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black text-green-400 hover:text-green-300 uppercase border-green-500/20 hover:bg-green-500/10 whitespace-nowrap"
+                        className="h-12 px-5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-green-400 hover:text-green-300 uppercase border-green-500/25 hover:bg-green-500/10 whitespace-nowrap"
                       >
                         <Smartphone className="w-4 h-4" /> WhatsApp
+                      </Button>
+                      <Button
+                        variant="outline"
+                        onClick={() => handleSaveQuoteSpecifications(selectedCustomer)}
+                        className="h-12 px-5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold uppercase border-white/15 hover:bg-white/5 whitespace-nowrap text-white/85 hover:text-white"
+                      >
+                        <Edit className="w-4 h-4" /> Salvar Alterações
                       </Button>
                       <Button
                         onClick={() =>
@@ -1826,16 +1990,9 @@ export default function AdminDashboard() {
                             () => handleApproveQuote(selectedCustomer),
                           )
                         }
-                        className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 gap-2 text-[10px] font-black uppercase whitespace-nowrap shadow-lg shadow-green-500/10"
+                        className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 gap-2 text-sm font-black uppercase whitespace-nowrap shadow-lg shadow-green-500/10"
                       >
                         <CheckCircle2 className="w-4 h-4" /> Aprovar e Faturar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleSaveQuoteSpecifications(selectedCustomer)}
-                        className="h-12 rounded-xl flex items-center justify-center gap-2 text-[10px] font-black uppercase border-white/15 hover:bg-white/5 whitespace-nowrap text-white/85 hover:text-white"
-                      >
-                        <Edit className="w-4 h-4" /> Salvar Alterações
                       </Button>
                       <Button
                         variant="outline"
@@ -1850,7 +2007,7 @@ export default function AdminDashboard() {
                             true,
                           )
                         }
-                        className="h-12 rounded-xl border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 flex items-center justify-center gap-2 text-[10px] font-black uppercase whitespace-nowrap"
+                        className="h-12 px-5 rounded-xl border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 flex items-center justify-center gap-2 text-sm font-black uppercase whitespace-nowrap"
                       >
                         <Trash2 className="w-4 h-4" /> Descartar
                       </Button>

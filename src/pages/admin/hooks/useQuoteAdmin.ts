@@ -1,5 +1,13 @@
 import { Dispatch, SetStateAction, useCallback, useEffect, useState } from "react";
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  deleteField,
+  doc,
+  getDoc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
 import { toast } from "sonner";
 import { auth, db } from "../../../services/firebase";
 import type { AdminTabId } from "../../../lib/adminHelpers";
@@ -39,6 +47,12 @@ export function useQuoteAdmin({
   const [editingQuoteInfill, setEditingQuoteInfill] = useState(20);
   const [editingQuotePhone, setEditingQuotePhone] = useState("");
   const [editingQuoteNotes, setEditingQuoteNotes] = useState("");
+  const [editingQuoteFileName, setEditingQuoteFileName] = useState("");
+  const [editingQuoteMaterial, setEditingQuoteMaterial] = useState("");
+  const [editingQuoteQuantity, setEditingQuoteQuantity] = useState(1);
+  const [editingQuoteUnitPrice, setEditingQuoteUnitPrice] = useState(0);
+  const [editingQuoteImageUrl, setEditingQuoteImageUrl] = useState("");
+  const [editingQuoteCustomerNotes, setEditingQuoteCustomerNotes] = useState("");
   const [isCalcAssistantOpen, setIsCalcAssistantOpen] = useState(false);
   const [isApprovingQuote, setIsApprovingQuote] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<{
@@ -54,11 +68,24 @@ export function useQuoteAdmin({
 
   useEffect(() => {
     if (selectedCustomer && activeTab === "quotes") {
+      const quoteRecord = isQuote(selectedCustomer) ? selectedCustomer : null;
       setEditingQuoteTotal(selectedCustomer.estimatedPrice || selectedCustomer.total || 45.9);
       setEditingQuoteWeight(selectedCustomer.weight || 30);
       setEditingQuoteTime(selectedCustomer.printTime || "2h 30m");
       setEditingQuoteInfill(selectedCustomer.infill || 20);
       setEditingQuoteNotes(selectedCustomer.adminNotes || "");
+      setEditingQuoteFileName(selectedCustomer.fileName || "");
+      setEditingQuoteMaterial(selectedCustomer.materialId || "");
+      const quantity = Math.max(1, Number(quoteRecord?.quantity) || 1);
+      setEditingQuoteQuantity(quantity);
+      const unitPrice = Number(quoteRecord?.unitPrice) || 0;
+      setEditingQuoteUnitPrice(
+        unitPrice > 0
+          ? unitPrice
+          : (selectedCustomer.total || selectedCustomer.estimatedPrice || 0) / quantity,
+      );
+      setEditingQuoteImageUrl(quoteRecord?.imageUrl || "");
+      setEditingQuoteCustomerNotes(selectedCustomer.notes || "");
       const matchedCustomer = customers.find(
         (c) =>
           (c.email &&
@@ -73,6 +100,35 @@ export function useQuoteAdmin({
   useEffect(() => {
     if (!selectedCustomer) setApprovalStatus(null);
   }, [selectedCustomer]);
+
+  const roundMoney = (value: number): number => Number(Number(value).toFixed(2));
+
+  const handleQuantityChange = useCallback(
+    (quantity: number) => {
+      const qty = Math.max(1, Math.floor(Number(quantity) || 1));
+      setEditingQuoteQuantity(qty);
+      setEditingQuoteTotal(roundMoney(editingQuoteUnitPrice * qty));
+    },
+    [editingQuoteUnitPrice],
+  );
+
+  const handleUnitPriceChange = useCallback(
+    (unitPrice: number) => {
+      const unit = Math.max(0, Number(unitPrice) || 0);
+      setEditingQuoteUnitPrice(unit);
+      setEditingQuoteTotal(roundMoney(unit * editingQuoteQuantity));
+    },
+    [editingQuoteQuantity],
+  );
+
+  const handleQuoteTotalChange = useCallback(
+    (total: number) => {
+      const value = Math.max(0, Number(total) || 0);
+      setEditingQuoteTotal(value);
+      setEditingQuoteUnitPrice(roundMoney(value / Math.max(1, editingQuoteQuantity)));
+    },
+    [editingQuoteQuantity],
+  );
 
   const handleWhatsAppQuote = useCallback(
     (
@@ -90,10 +146,15 @@ export function useQuoteAdmin({
         toast.error("Preencha o celular do cliente.");
         return;
       }
-      const quantity = "quantity" in q && Number(q.quantity) > 0 ? Number(q.quantity) : 1;
+      const quantity =
+        "quantity" in q && Number(q.quantity) > 0
+          ? Number(q.quantity)
+          : Math.max(1, Number(editingQuoteQuantity) || 1);
+      const projectName =
+        selectedCustomer?.id === q.id && editingQuoteFileName ? editingQuoteFileName : q.fileName;
       const text = buildCommercialQuoteMessage({
         customerName: q.userName,
-        projectName: q.fileName,
+        projectName,
         quantity,
         total: finalPrice,
         orderId,
@@ -103,7 +164,7 @@ export function useQuoteAdmin({
         "_blank",
       );
     },
-    [editingQuotePhone],
+    [editingQuotePhone, editingQuoteQuantity, editingQuoteFileName, selectedCustomer],
   );
 
   const handleApproveQuote = useCallback(
@@ -127,6 +188,11 @@ export function useQuoteAdmin({
         const finalTime = isSelected ? editingQuoteTime : quote.printTime || "2h 30m";
         const finalWeight = isSelected ? editingQuoteWeight : quote.weight || 30;
         const finalNotes = isSelected ? editingQuoteNotes : quote.adminNotes || "";
+        const finalFileName = isSelected ? editingQuoteFileName : quote.fileName || "";
+        const finalMaterial = isSelected ? editingQuoteMaterial : quote.materialId || "PLA Pro";
+        const finalQuantity = isSelected
+          ? Math.max(1, editingQuoteQuantity)
+          : Math.max(1, Number(quote.quantity) || 1);
         const matchedCustomer = customers.find(
           (c) =>
             (c.email &&
@@ -137,29 +203,36 @@ export function useQuoteAdmin({
         const finalPhone = isSelected
           ? editingQuotePhone
           : matchedCustomer?.phone || quote.phone || "";
+        const finalImage = (isSelected ? editingQuoteImageUrl : quote.imageUrl) || "";
+        const fallbackImage =
+          "https://images.unsplash.com/photo-1615810231586-52233952673d?q=80&w=400";
+
+        const orderItems = quote.items?.length
+          ? quote.items.map((item, index) =>
+              index === 0 && !item.image && finalImage ? { ...item, image: finalImage } : item,
+            )
+          : [
+              {
+                name: finalFileName || "Impressão Personalizada",
+                quantity: finalQuantity,
+                price: finalPrice,
+                image: finalImage || fallbackImage,
+                options: {
+                  material: finalMaterial,
+                  infill: finalInfill,
+                  printTime: finalTime,
+                  weight: finalWeight,
+                  adminNotes: finalNotes,
+                },
+              },
+            ];
 
         const orderRef = await addDoc(collection(db, "orders"), {
           userId: quote.userId || "guest",
           userEmail: quote.userEmail || "",
           userName: quote.userName || "Visitante",
           customerId: quote.customerId || matchedCustomer?.id || null,
-          items: quote.items?.length
-            ? quote.items
-            : [
-                {
-                  name: quote.fileName || "Impressão Personalizada",
-                  quantity: 1,
-                  price: finalPrice,
-                  image: "https://images.unsplash.com/photo-1615810231586-52233952673d?q=80&w=400",
-                  options: {
-                    material: quote.materialId || "PLA Pro",
-                    infill: finalInfill,
-                    printTime: finalTime,
-                    weight: finalWeight,
-                    adminNotes: finalNotes,
-                  },
-                },
-              ],
+          items: orderItems,
           materialUsages: quote.materialUsages || [],
           ...(quote.calculationProject ? { calculationProject: quote.calculationProject } : {}),
           source: "quote",
@@ -213,6 +286,10 @@ export function useQuoteAdmin({
       editingQuoteWeight,
       editingQuoteNotes,
       editingQuotePhone,
+      editingQuoteFileName,
+      editingQuoteMaterial,
+      editingQuoteQuantity,
+      editingQuoteImageUrl,
       customers,
       fetchData,
     ],
@@ -222,24 +299,80 @@ export function useQuoteAdmin({
     async (quote: Quote | Ticket) => {
       try {
         const phoneClean = editingQuotePhone.replace(/\D/g, "");
+        const quantity = Math.max(1, Math.floor(Number(editingQuoteQuantity) || 1));
+        const unitPrice = Math.max(0, Number(editingQuoteUnitPrice) || 0);
+        const imagePayload =
+          editingQuoteImageUrl.trim() !== "" ? { imageUrl: editingQuoteImageUrl.trim() } : {};
         await updateDoc(doc(db, "quotes", quote.id), {
+          fileName: editingQuoteFileName.trim() || "Peça personalizada",
+          materialId: editingQuoteMaterial.trim() || "PLA Pro",
+          quantity,
+          unitPrice,
           total: editingQuoteTotal,
           infill: editingQuoteInfill,
           printTime: editingQuoteTime,
           weight: editingQuoteWeight,
           adminNotes: editingQuoteNotes,
+          notes: editingQuoteCustomerNotes,
           phone: phoneClean,
+          ...imagePayload,
           updatedAt: serverTimestamp(),
         });
+        if (editingQuoteImageUrl.trim() === "") {
+          await updateDoc(doc(db, "quotes", quote.id), { imageUrl: deleteField() });
+        }
+
+        const isQuoteRecord = isQuote(quote);
+        const convertedOrderId = isQuoteRecord ? quote.convertedOrderId : undefined;
+        if (convertedOrderId) {
+          const orderSnap = await getDoc(doc(db, "orders", convertedOrderId));
+          if (orderSnap.exists()) {
+            const orderData = orderSnap.data();
+            const currentItems: Array<Record<string, unknown>> = Array.isArray(orderData?.items)
+              ? orderData.items
+              : [];
+            const items =
+              currentItems.length === 1
+                ? currentItems.map((item) => ({
+                    ...item,
+                    name: editingQuoteFileName.trim() || item.name,
+                    quantity,
+                    price: editingQuoteTotal,
+                    ...(editingQuoteImageUrl.trim() ? { image: editingQuoteImageUrl.trim() } : {}),
+                    options: {
+                      ...((item.options as Record<string, unknown>) || {}),
+                      material: editingQuoteMaterial.trim() || "PLA Pro",
+                      infill: editingQuoteInfill,
+                      printTime: editingQuoteTime,
+                      weight: editingQuoteWeight,
+                      adminNotes: editingQuoteNotes,
+                    },
+                  }))
+                : currentItems;
+            await updateDoc(doc(db, "orders", convertedOrderId), {
+              total: editingQuoteTotal,
+              items,
+              updatedAt: serverTimestamp(),
+            });
+          }
+        }
+
         setSelectedCustomer((prev) =>
           prev
             ? {
                 ...prev,
+                fileName: editingQuoteFileName.trim() || "Peça personalizada",
+                materialId: editingQuoteMaterial.trim() || "PLA Pro",
+                quantity,
+                unitPrice,
                 total: editingQuoteTotal,
                 infill: editingQuoteInfill,
                 printTime: editingQuoteTime,
                 weight: editingQuoteWeight,
                 adminNotes: editingQuoteNotes,
+                notes: editingQuoteCustomerNotes,
+                imageUrl:
+                  editingQuoteImageUrl.trim() || (isQuote(prev) ? prev.imageUrl : undefined),
                 phone: phoneClean,
               }
             : null,
@@ -257,6 +390,12 @@ export function useQuoteAdmin({
       editingQuoteWeight,
       editingQuoteNotes,
       editingQuotePhone,
+      editingQuoteFileName,
+      editingQuoteMaterial,
+      editingQuoteQuantity,
+      editingQuoteUnitPrice,
+      editingQuoteImageUrl,
+      editingQuoteCustomerNotes,
       setSelectedCustomer,
       fetchData,
     ],
@@ -275,6 +414,20 @@ export function useQuoteAdmin({
     setEditingQuotePhone,
     editingQuoteNotes,
     setEditingQuoteNotes,
+    editingQuoteFileName,
+    setEditingQuoteFileName,
+    editingQuoteMaterial,
+    setEditingQuoteMaterial,
+    editingQuoteQuantity,
+    editingQuoteUnitPrice,
+    setEditingQuoteUnitPrice,
+    editingQuoteImageUrl,
+    setEditingQuoteImageUrl,
+    editingQuoteCustomerNotes,
+    setEditingQuoteCustomerNotes,
+    handleQuantityChange,
+    handleUnitPriceChange,
+    handleQuoteTotalChange,
     isCalcAssistantOpen,
     setIsCalcAssistantOpen,
     isApprovingQuote,

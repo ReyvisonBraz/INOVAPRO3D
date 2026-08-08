@@ -168,6 +168,8 @@ export interface Quote {
   userEmail?: string | null;
   customerId?: string;
   status: QuoteStatus;
+  /** Pedido gerado quando o orçamento é aprovado/faturado. */
+  convertedOrderId?: string;
   fileName: string;
   materialId: string;
   infill: number;
