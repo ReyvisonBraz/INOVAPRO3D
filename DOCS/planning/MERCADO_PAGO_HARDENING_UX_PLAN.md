@@ -33,8 +33,8 @@ comece pela leitura do plano, e não por uma investigação do repositório.
 | #   | Ponto                          | Estado    | Onde vive no código                                                              |
 | --- | ------------------------------ | --------- | -------------------------------------------------------------------------------- |
 | 1   | Atualização em tempo real      | Pendente  | `useOrderPaymentStatus` ainda não existe                                         |
-| 2   | Expiração explícita do Pix     | Pendente  | `api/mercadopago/_client.ts` não envia `date_of_expiration`                      |
-| 3   | Nova tentativa após vencimento | Pendente  | chave fixa `pix:v1` em `api/mercadopago/_service.ts`                             |
+| 2   | Expiração explícita do Pix     | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_client.ts`                   |
+| 3   | Nova tentativa após vencimento | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_service.ts`                  |
 | 4   | Máquina de estados financeiros | Concluído | `shared/payments/paymentStateMachine.ts` + `api/mercadopago/_webhookDecision.ts` |
 | 5   | Reconciliação automática       | Pendente  | —                                                                                |
 | 6   | Endpoint de status confiável   | Pendente  | `api/mercadopago/payment-status.ts` ainda só lê o Firestore                      |
@@ -192,6 +192,17 @@ implementados atrás do adaptador atual e sobreviverão à migração para Order
 negócio. Adiar a expiração até a troca de API manteria o cliente preso a um Pix vencido por semanas
 sem ganho arquitetural.
 
+**Executado em 8 de agosto de 2026.** A duração vive em `shared/payments/pixAttempt.ts`, com
+`PIX_EXPIRATION_MINUTES` configurável por ambiente e travada nos limites do provedor (30 minutos a
+30 dias). O servidor calcula `expiresAt`, envia `date_of_expiration` na criação da cobrança e grava
+o vencimento no pedido (`paymentExpiresAt`) e na tentativa (`expiresAt`). Quando o provedor devolve
+a própria expiração, ela prevalece sobre a calculada.
+
+O contador (`PixCountdown`) é apresentação: lê `expiresAt`, encerra o temporizador no vencimento e
+desmonta com o componente. Ao vencer, o QR Code e o botão de copiar somem e dão lugar à ação de
+gerar um código novo. Nenhuma decisão financeira depende do relógio do dispositivo — quem recusa
+um Pix vencido é o Mercado Pago.
+
 **Prioridade:** P0. **Dependências:** nenhuma.
 
 ### 3. Nova tentativa após vencimento
@@ -209,6 +220,19 @@ para impedir concorrência.
 - Um Pix expirado gera uma tentativa nova e auditável.
 - Duas requisições simultâneas resultam em uma única tentativa válida.
 - Tentativas anteriores permanecem imutáveis para auditoria.
+
+**Executado em 8 de agosto de 2026.** `decidePaymentAttempt` decide entre reaproveitar a cobrança
+vigente e abrir a tentativa seguinte; os identificadores passaram a ser
+`order:{orderId}:pix:v{n}` e `{orderId}-pix-v{n}`, com `paymentAttemptNumber` no pedido.
+
+A validação do pedido e a reserva da tentativa acontecem na mesma transação do Firestore, antes da
+chamada ao provedor. A reserva grava a tentativa como `PROCESSING`; se a criação no Mercado Pago
+falhar, a requisição seguinte retoma a mesma chave em vez de abrir uma cobrança paralela — e, como
+a chave é idempotente, uma cobrança que tenha sido criada sem resposta não vira segunda cobrança.
+
+Três caminhos, todos cobertos por teste: `reuse_stored` (devolve o QR Code gravado, sem chamar o
+provedor), `resume_provider` (repete a chamada com a mesma chave) e `create` (nova tentativa após
+vencimento, recusa ou cancelamento).
 
 **Prioridade:** P0. **Dependências:** ponto 2.
 

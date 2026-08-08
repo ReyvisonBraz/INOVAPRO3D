@@ -60,6 +60,8 @@ export type PaymentMethod = PaymentMethodContract;
 export interface PaymentAttempt {
   id: string;
   orderId: string;
+  /** Tentativas do mesmo pedido são versionadas: v1, v2, v3… */
+  attemptNumber?: number;
   paymentId?: string;
   paymentProvider: "mercadopago" | "manual";
   paymentProviderStatus?: string;
@@ -75,6 +77,9 @@ export interface PaymentAttempt {
   qrCodeBase64?: string;
   qrCodeUrl?: string;
   pixCode?: string;
+  /** Vencimento definido pelo servidor ao criar a cobrança. */
+  expiresAt?: FirestoreDate;
+  /** @deprecated Nome usado antes da política de expiração; só para leitura. */
   expirationDate?: FirestoreDate;
 }
 
@@ -159,6 +164,10 @@ export interface Order {
   idempotencyKey?: string;
   paidAt?: FirestoreDate;
   paymentUpdatedAt?: FirestoreDate;
+  /** Número da tentativa de pagamento vigente. */
+  paymentAttemptNumber?: number;
+  /** Vencimento da cobrança vigente, definido pelo servidor. */
+  paymentExpiresAt?: FirestoreDate;
   /** Estorno ou chargeback tiram o pedido do fluxo normal até revisão manual. */
   fulfillmentHold?: boolean;
   fulfillmentHoldReason?: PaymentStatus;

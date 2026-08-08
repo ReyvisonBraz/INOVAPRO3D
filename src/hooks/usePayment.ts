@@ -10,7 +10,8 @@ export interface ProcessPaymentResult {
   pixCode?: string;
   qrCodeBase64?: string;
   qrCodeUrl?: string;
-  expirationDate?: string;
+  /** Vencimento definido pelo servidor, em ISO 8601. */
+  expiresAt?: string;
   paymentId?: string;
   status?: string;
 }
@@ -61,7 +62,7 @@ export function usePayment(): UsePaymentReturn {
           pixCode: data.pixCode,
           qrCodeBase64: data.qrCodeBase64,
           qrCodeUrl: data.qrCodeUrl,
-          expirationDate: data.expirationDate,
+          expiresAt: data.expiresAt,
           paymentId: data.paymentId,
         };
       }

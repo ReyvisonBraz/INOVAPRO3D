@@ -4,6 +4,7 @@
 import { getMercadoPagoServerConfig } from "./_config.js";
 import type { RequestContext } from "../_observability/context.js";
 import { logEvent } from "../_observability/logger.js";
+import { formatMercadoPagoDate } from "./_types.js";
 
 const API_BASE_URL = "https://api.mercadopago.com/v1";
 
@@ -109,6 +110,8 @@ export async function createPayment(data: {
   description: string;
   paymentMethod: "pix";
   idempotencyKey: string;
+  /** Vencimento decidido pelo servidor; o provedor apenas o confirma. */
+  expiresAt: Date;
   email?: string;
   context?: RequestContext;
 }): Promise<{
@@ -119,7 +122,7 @@ export async function createPayment(data: {
   qrCodeBase64?: string;
   qrCodeUrl?: string;
   pixCode?: string;
-  expirationDate?: string;
+  expiresAt?: string;
 }> {
   const context = data.context ?? {
     correlationId: `order_${data.orderId}`,
@@ -139,6 +142,7 @@ export async function createPayment(data: {
         payment_method_id: data.paymentMethod,
         external_reference: data.orderId,
         statement_descriptor: "INOVAPRO3D",
+        date_of_expiration: formatMercadoPagoDate(data.expiresAt),
       };
 
       if (data.email) {
@@ -156,6 +160,7 @@ export async function createPayment(data: {
         status: string;
         status_detail?: string;
         payment_method_id?: string;
+        date_of_expiration?: string;
         point_of_interaction?: {
           transaction_data?: {
             qr_code?: string;
@@ -180,12 +185,15 @@ export async function createPayment(data: {
         qrCodeBase64?: string;
         qrCodeUrl?: string;
         pixCode?: string;
-        expirationDate?: string;
+        expiresAt?: string;
       } = {
         paymentId: result.id.toString(),
         status: result.status,
         statusDetail: result.status_detail,
         paymentMethodId: result.payment_method_id,
+        // O provedor confirma a expiração no pagamento; a do QR Code é a mesma
+        // e serve de reserva quando a resposta principal a omite.
+        expiresAt: result.date_of_expiration,
       };
 
       if (result.point_of_interaction?.transaction_data) {
@@ -193,7 +201,7 @@ export async function createPayment(data: {
         response.qrCodeBase64 = pixData.qr_code_base64;
         response.qrCodeUrl = pixData.ticket_url;
         response.pixCode = pixData.qr_code;
-        response.expirationDate = pixData.date_of_expiration;
+        response.expiresAt = result.date_of_expiration ?? pixData.date_of_expiration;
       }
 
       logEvent("info", context, "Pagamento criado no provedor", {

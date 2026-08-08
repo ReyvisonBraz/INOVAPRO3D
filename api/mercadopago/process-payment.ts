@@ -176,6 +176,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     qrCodeBase64: result.qrCodeBase64,
     qrCodeUrl: result.qrCodeUrl,
     pixCode: result.pixCode,
-    expirationDate: result.expirationDate,
+    expiresAt: result.expiresAt,
+    attemptNumber: result.attemptNumber,
   });
 }

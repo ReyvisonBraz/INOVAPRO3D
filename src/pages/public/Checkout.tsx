@@ -175,7 +175,7 @@ export default function Checkout() {
             pixCode: result.pixCode,
             qrCodeBase64: result.qrCodeBase64,
             qrCodeUrl: result.qrCodeUrl,
-            expirationDate: result.expirationDate,
+            expiresAt: result.expiresAt,
             paymentId: result.paymentId,
           });
         } else if (result.status === "approved") {

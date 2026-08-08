@@ -1,11 +1,14 @@
-import { ArrowRight, Copy, QrCode } from "lucide-react";
+import { ArrowRight, Copy, QrCode, RefreshCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { describeDuration, formatClock } from "../../lib/duration";
 import { Button } from "../ui/Button";
 
 export interface PixPaymentData {
   pixCode: string;
   qrCodeBase64?: string;
   qrCodeUrl?: string;
-  expirationDate?: string;
+  /** Vencimento definido pelo servidor, em ISO 8601. */
+  expiresAt?: string;
   paymentId?: string;
 }
 
@@ -28,54 +31,13 @@ export function PixPaymentStep({
 }: PixPaymentStepProps) {
   if (payment) {
     return (
-      <section className="space-y-6">
-        <SectionTitle label="Pagamento Pix" />
-        <div className="space-y-6 rounded-2xl border border-white/5 bg-white/[0.02] p-6">
-          <div className="flex flex-col items-center gap-4">
-            {payment.qrCodeBase64 && (
-              <img
-                src={`data:image/png;base64,${payment.qrCodeBase64}`}
-                alt="QR Code Pix"
-                className="h-48 w-48 rounded-xl bg-white p-2"
-              />
-            )}
-            <p className="text-center text-sm text-white/60">
-              Escaneie o QR Code com o aplicativo do seu banco.
-            </p>
-          </div>
-
-          <div className="space-y-3">
-            <p className="text-xs font-black uppercase tracking-widest text-white/40">
-              Ou copie o código Pix:
-            </p>
-            <div className="max-h-24 overflow-y-auto break-all rounded-xl border border-white/5 bg-black/40 p-3 font-mono text-xs text-white/60">
-              {payment.pixCode}
-            </div>
-            <Button
-              variant="outline"
-              className="h-12 w-full gap-2 rounded-xl border-white/10 text-xs font-black uppercase tracking-widest"
-              onClick={onCopy}
-            >
-              <Copy className="h-4 w-4" /> Copiar código Pix
-            </Button>
-          </div>
-
-          {payment.expirationDate && (
-            <p className="text-center text-xs text-white/40">
-              Válido até: {new Date(payment.expirationDate).toLocaleString("pt-BR")}
-            </p>
-          )}
-          <p className="border-t border-white/5 pt-4 text-center text-xs text-white/50">
-            Após o pagamento, o status será atualizado automaticamente em Meus Pedidos.
-          </p>
-        </div>
-        <Button
-          className="h-14 w-full rounded-2xl text-sm font-black uppercase tracking-widest"
-          onClick={onTrackOrder}
-        >
-          Acompanhar pedido
-        </Button>
-      </section>
+      <PixPaymentPending
+        payment={payment}
+        loading={loading}
+        onGenerate={onGenerate}
+        onCopy={onCopy}
+        onTrackOrder={onTrackOrder}
+      />
     );
   }
 
@@ -113,6 +75,138 @@ export function PixPaymentStep({
       </div>
     </div>
   );
+}
+
+/**
+ * Cobrança gerada e aguardando pagamento. O vencimento vem do servidor; a tela
+ * apenas o apresenta e bloqueia as ações quando o prazo termina, para ninguém
+ * pagar um código que o provedor já recusa.
+ */
+function PixPaymentPending({
+  payment,
+  loading,
+  onGenerate,
+  onCopy,
+  onTrackOrder,
+}: {
+  payment: PixPaymentData;
+  loading: boolean;
+  onGenerate: () => void;
+  onCopy: () => void;
+  onTrackOrder: () => void;
+}) {
+  const remainingMs = useTimeRemaining(payment.expiresAt);
+  const expired = remainingMs !== null && remainingMs <= 0;
+
+  return (
+    <section className="space-y-6">
+      <SectionTitle label="Pagamento Pix" />
+      <div className="space-y-6 rounded-2xl border border-white/5 bg-white/[0.02] p-6">
+        {expired ? (
+          <div className="space-y-4 text-center">
+            <p className="text-sm font-black uppercase tracking-widest text-white/70">
+              Este código Pix venceu
+            </p>
+            <p className="text-xs text-white/50">
+              Nenhuma cobrança foi feita. Gere um novo código para concluir o pedido.
+            </p>
+            <Button
+              loading={loading}
+              className="h-12 w-full gap-2 rounded-xl text-xs font-black uppercase tracking-widest"
+              onClick={onGenerate}
+            >
+              <RefreshCw className="h-4 w-4" /> Gerar novo código Pix
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col items-center gap-4">
+              {payment.qrCodeBase64 && (
+                <img
+                  src={`data:image/png;base64,${payment.qrCodeBase64}`}
+                  alt="QR Code Pix"
+                  className="h-48 w-48 rounded-xl bg-white p-2"
+                />
+              )}
+              <p className="text-center text-sm text-white/60">
+                Escaneie o QR Code com o aplicativo do seu banco.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-xs font-black uppercase tracking-widest text-white/40">
+                Ou copie o código Pix:
+              </p>
+              <div className="max-h-24 overflow-y-auto break-all rounded-xl border border-white/5 bg-black/40 p-3 font-mono text-xs text-white/60">
+                {payment.pixCode}
+              </div>
+              <Button
+                variant="outline"
+                className="h-12 w-full gap-2 rounded-xl border-white/10 text-xs font-black uppercase tracking-widest"
+                onClick={onCopy}
+              >
+                <Copy className="h-4 w-4" /> Copiar código Pix
+              </Button>
+            </div>
+
+            {remainingMs !== null && <PixCountdown remainingMs={remainingMs} />}
+          </>
+        )}
+
+        <p className="border-t border-white/5 pt-4 text-center text-xs text-white/50">
+          Após o pagamento, o status será atualizado automaticamente em Meus Pedidos.
+        </p>
+      </div>
+      <Button
+        className="h-14 w-full rounded-2xl text-sm font-black uppercase tracking-widest"
+        onClick={onTrackOrder}
+      >
+        Acompanhar pedido
+      </Button>
+    </section>
+  );
+}
+
+function PixCountdown({ remainingMs }: { remainingMs: number }) {
+  return (
+    <p
+      role="timer"
+      // Anunciar a cada segundo tornaria a tela ilegível em leitor de tela; o
+      // valor por extenso é lido quando a pessoa navega até o contador.
+      aria-live="off"
+      aria-label={`Código Pix válido por mais ${describeDuration(remainingMs)}`}
+      className="text-center text-xs text-white/40"
+    >
+      Válido por mais <span className="font-mono text-white/70">{formatClock(remainingMs)}</span>
+    </p>
+  );
+}
+
+/**
+ * Conta o tempo restante a partir do vencimento enviado pelo servidor. O relógio
+ * do dispositivo afeta apenas a apresentação: quem recusa um Pix vencido é o
+ * provedor, nunca esta tela.
+ */
+function useTimeRemaining(expiresAt?: string): number | null {
+  const target = useMemo(() => {
+    if (!expiresAt) return null;
+    const parsed = new Date(expiresAt).getTime();
+    return Number.isNaN(parsed) ? null : parsed;
+  }, [expiresAt]);
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    if (target === null) return;
+    const interval = window.setInterval(() => {
+      const current = Date.now();
+      setNow(current);
+      // Temporizador encerrado no vencimento: sem tique perpétuo em segundo plano.
+      if (current >= target) window.clearInterval(interval);
+    }, 1000);
+    return () => window.clearInterval(interval);
+  }, [target]);
+
+  return target === null ? null : Math.max(0, target - now);
 }
 
 function SectionTitle({ label }: { label: string }) {
