@@ -21,6 +21,7 @@ import { trackBeginCheckout, trackPurchase } from "../../lib/analytics";
 import { ApiClientError, formatSupportCode, readApiError } from "../../lib/apiError";
 import { isEnabled as isMercadoPagoEnabled } from "../../lib/mercadopago/config";
 import { usePayment } from "../../hooks/usePayment";
+import { useOrderPaymentStatus } from "../../hooks/useOrderPaymentStatus";
 import { PixPaymentStep, type PixPaymentData } from "../../components/checkout/PixPaymentStep";
 
 interface OrderTotals {
@@ -44,6 +45,13 @@ export default function Checkout() {
   const [confirmedTotals, setConfirmedTotals] = useState<OrderTotals | null>(null);
   const [pixData, setPixData] = useState<PixPaymentData | null>(null);
   const checkoutTotal = confirmedTotals?.total ?? total;
+
+  // Fonte da confirmação automática: assinatura em tempo real do pedido,
+  // ativa somente durante a etapa de pagamento. Encerra sozinha em estado
+  // final e ao sair da etapa (enabled passa a false).
+  const paymentStatusRealtime = useOrderPaymentStatus(createdOrderId, {
+    enabled: step === 2 && mpEnabled,
+  });
 
   const trackedCheckout = useRef(false);
   const trackedPurchase = useRef(false);
@@ -200,6 +208,15 @@ export default function Checkout() {
       description: `Pedido confirmado. ${paymentId ? `ID: ${paymentId}` : ""}`,
     });
   };
+
+  // O QR Code some sozinho quando o webhook confirma o pagamento — a pessoa
+  // não precisa recarregar a página nem clicar em nada.
+  useEffect(() => {
+    if (step === 2 && paymentStatusRealtime.paymentStatus === "APPROVED") {
+      handlePaymentSuccess(pixData?.paymentId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, paymentStatusRealtime.paymentStatus]);
 
   const copyPixCode = () => {
     if (pixData?.pixCode) {
@@ -430,6 +447,8 @@ export default function Checkout() {
                 clearCart();
                 navigate("/meus-pedidos");
               }}
+              remoteStatus={paymentStatusRealtime.paymentStatus}
+              connectionUnstable={paymentStatusRealtime.connectionState === "reconnecting"}
             />
           )}
 

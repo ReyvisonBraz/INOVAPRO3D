@@ -1,6 +1,7 @@
-import { ArrowRight, Copy, QrCode, RefreshCw } from "lucide-react";
+import { ArrowRight, Copy, QrCode, RefreshCw, WifiOff } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { describeDuration, formatClock } from "../../lib/duration";
+import type { PaymentStatus } from "../../types/domain";
 import { Button } from "../ui/Button";
 
 export interface PixPaymentData {
@@ -19,6 +20,10 @@ interface PixPaymentStepProps {
   onGenerate: () => void;
   onCopy: () => void;
   onTrackOrder: () => void;
+  /** Estado financeiro vindo do servidor em tempo real (webhook), não do QR local. */
+  remoteStatus?: PaymentStatus | null;
+  /** `true` quando a confirmação em tempo real está tentando se recuperar. */
+  connectionUnstable?: boolean;
 }
 
 export function PixPaymentStep({
@@ -28,6 +33,8 @@ export function PixPaymentStep({
   onGenerate,
   onCopy,
   onTrackOrder,
+  remoteStatus = null,
+  connectionUnstable = false,
 }: PixPaymentStepProps) {
   if (payment) {
     return (
@@ -37,6 +44,8 @@ export function PixPaymentStep({
         onGenerate={onGenerate}
         onCopy={onCopy}
         onTrackOrder={onTrackOrder}
+        remoteStatus={remoteStatus}
+        connectionUnstable={connectionUnstable}
       />
     );
   }
@@ -82,34 +91,70 @@ export function PixPaymentStep({
  * apenas o apresenta e bloqueia as ações quando o prazo termina, para ninguém
  * pagar um código que o provedor já recusa.
  */
+type BlockedReason = "expired" | "rejected" | "canceled";
+
+const BLOCKED_COPY: Record<BlockedReason, { title: string; description: string }> = {
+  expired: {
+    title: "Este código Pix venceu",
+    description: "Nenhuma cobrança foi feita. Gere um novo código para concluir o pedido.",
+  },
+  rejected: {
+    title: "Este pagamento foi recusado",
+    description: "Nenhum valor foi cobrado. Gere um novo código para tentar novamente.",
+  },
+  canceled: {
+    title: "Este pagamento foi cancelado",
+    description: "Gere um novo código Pix para concluir o pedido.",
+  },
+};
+
+/** Traduz o status confirmado pelo webhook para o mesmo bloqueio visual do vencimento local. */
+function blockedReasonFor(remoteStatus: PaymentStatus | null): BlockedReason | null {
+  switch (remoteStatus) {
+    case "EXPIRED":
+      return "expired";
+    case "REJECTED":
+      return "rejected";
+    case "CANCELED":
+      return "canceled";
+    default:
+      return null;
+  }
+}
+
 function PixPaymentPending({
   payment,
   loading,
   onGenerate,
   onCopy,
   onTrackOrder,
+  remoteStatus,
+  connectionUnstable,
 }: {
   payment: PixPaymentData;
   loading: boolean;
   onGenerate: () => void;
   onCopy: () => void;
   onTrackOrder: () => void;
+  remoteStatus: PaymentStatus | null;
+  connectionUnstable: boolean;
 }) {
   const remainingMs = useTimeRemaining(payment.expiresAt);
-  const expired = remainingMs !== null && remainingMs <= 0;
+  const localExpired = remainingMs !== null && remainingMs <= 0;
+  // O relógio local decide primeiro; se o webhook confirmar antes disso
+  // (relógio do provedor sempre manda), o bloqueio aparece na hora.
+  const blockedReason = localExpired ? "expired" : blockedReasonFor(remoteStatus);
 
   return (
     <section className="space-y-6">
       <SectionTitle label="Pagamento Pix" />
       <div className="space-y-6 rounded-2xl border border-white/5 bg-white/[0.02] p-6">
-        {expired ? (
+        {blockedReason ? (
           <div className="space-y-4 text-center">
             <p className="text-sm font-black uppercase tracking-widest text-white/70">
-              Este código Pix venceu
+              {BLOCKED_COPY[blockedReason].title}
             </p>
-            <p className="text-xs text-white/50">
-              Nenhuma cobrança foi feita. Gere um novo código para concluir o pedido.
-            </p>
+            <p className="text-xs text-white/50">{BLOCKED_COPY[blockedReason].description}</p>
             <Button
               loading={loading}
               className="h-12 w-full gap-2 rounded-xl text-xs font-black uppercase tracking-widest"
@@ -150,12 +195,9 @@ function PixPaymentPending({
             </div>
 
             {remainingMs !== null && <PixCountdown remainingMs={remainingMs} />}
+            <PixWaitingIndicator connectionUnstable={connectionUnstable} />
           </>
         )}
-
-        <p className="border-t border-white/5 pt-4 text-center text-xs text-white/50">
-          Após o pagamento, o status será atualizado automaticamente em Meus Pedidos.
-        </p>
       </div>
       <Button
         className="h-14 w-full rounded-2xl text-sm font-black uppercase tracking-widest"
@@ -164,6 +206,39 @@ function PixPaymentPending({
         Acompanhar pedido
       </Button>
     </section>
+  );
+}
+
+/**
+ * Confirma para a pessoa que a tela está escutando o pagamento, e avisa sem
+ * alarmar quando a confirmação em tempo real está se recuperando — a compra
+ * continua válida, só a atualização automática está momentaneamente lenta.
+ */
+function PixWaitingIndicator({ connectionUnstable }: { connectionUnstable: boolean }) {
+  if (connectionUnstable) {
+    return (
+      <p
+        role="status"
+        aria-live="polite"
+        className="flex items-center justify-center gap-2 border-t border-white/5 pt-4 text-center text-xs text-amber-400/80"
+      >
+        <WifiOff className="h-3.5 w-3.5" /> Reconectando para confirmar o pagamento automaticamente…
+      </p>
+    );
+  }
+
+  return (
+    <p
+      role="status"
+      aria-live="polite"
+      className="flex items-center justify-center gap-2 border-t border-white/5 pt-4 text-center text-xs text-white/50"
+    >
+      <span className="relative flex h-2 w-2">
+        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/60" />
+        <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+      </span>
+      Aguardando confirmação do pagamento…
+    </p>
   );
 }
 

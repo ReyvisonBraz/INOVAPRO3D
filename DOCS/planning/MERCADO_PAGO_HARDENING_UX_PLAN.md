@@ -32,7 +32,7 @@ comece pela leitura do plano, e não por uma investigação do repositório.
 
 | #   | Ponto                          | Estado    | Onde vive no código                                                              |
 | --- | ------------------------------ | --------- | -------------------------------------------------------------------------------- |
-| 1   | Atualização em tempo real      | Pendente  | `useOrderPaymentStatus` ainda não existe                                         |
+| 1   | Atualização em tempo real      | Concluído | `src/hooks/useOrderPaymentStatus.ts` + `PixPaymentStep.tsx`                      |
 | 2   | Expiração explícita do Pix     | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_client.ts`                   |
 | 3   | Nova tentativa após vencimento | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_service.ts`                  |
 | 4   | Máquina de estados financeiros | Concluído | `shared/payments/paymentStateMachine.ts` + `api/mercadopago/_webhookDecision.ts` |
@@ -168,6 +168,16 @@ máquina de estados, não por condições espalhadas.
 - Tela apresenta sucesso, número do pedido e próximo passo.
 - Escutas e temporizadores são encerrados em estados finais e ao desmontar o componente.
 - Perda temporária de conexão exibe estado recuperável e retoma a conferência.
+
+**Executado em 8 de agosto de 2026.** `useOrderPaymentStatus` assina um único documento
+(`orders/{id}`) com `onSnapshot` — uma leitura inicial e novas leituras só quando o documento muda,
+nunca polling. A assinatura é ligada apenas durante a etapa de pagamento (`enabled: step === 2`) e
+se desliga sozinha ao chegar a um estado final ou ao sair da etapa/desmontar. Como reforço, revalida
+pela API `payment-status` ao recuperar foco ou conexão, com um intervalo mínimo entre chamadas.
+
+O checkout reage à aprovação chamando a mesma função de sucesso usada na resposta síncrona da
+criação do Pix. `PixPaymentStep` também passou a tratar `EXPIRED`/`REJECTED`/`CANCELED` vindos do
+webhook como bloqueio imediato, sem depender só do relógio local do navegador.
 
 **Prioridade:** P0. **Dependências:** pontos 3 e 4.
 
