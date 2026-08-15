@@ -35,6 +35,19 @@ service firebase.storage {
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 
+    // Fotos das impressoras cadastradas, exibidas na calculadora e na ficha.
+    match /printers/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // Logo da empresa. Leitura publica porque entra no cabecalho dos
+    // documentos impressos e na previa de impressao.
+    match /company/{allPaths=**} {
+      allow read: if true;
+      allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
+    }
+
     match /{allPaths=**} {
       allow read, write: if false;
     }

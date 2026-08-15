@@ -1,17 +1,15 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { useSearchParams } from "react-router-dom";
 import { PageSEO } from "../../components/seo/PageSEO";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   AlertTriangle,
   Calculator,
-  ChevronDown,
   Coins,
   Cpu,
   Download,
   Factory,
   Gauge,
-  Hash,
-  HelpCircle,
   ImagePlus,
   Layers3,
   Loader2,
@@ -24,421 +22,113 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatBRL, formatHoursToHHMM, HELP } from "../../lib/pricing";
 import { BrandMark } from "../../components/brand/BrandLogo";
 import { Reveal } from "../../components/ui/Reveal";
-import { useCalculatorState, safeNumber } from "./calculator/useCalculatorState";
+import { useCalculatorState } from "./calculator/useCalculatorState";
+import type { CalculatorIntent } from "./calculator/useCalculatorState";
+import type { Quote } from "../../types/domain";
+import { db } from "../../services/firebase";
+import { PrintDocumentHost } from "../../components/print/PrintDocumentHost";
+import { printDocument } from "../../lib/printing";
 import { CalculatorProjectEditor } from "../../components/calculator/CalculatorProjectEditor";
+import { PrinterPicker } from "../../components/calculator/PrinterPicker";
+import { SlicerPasteBox } from "../../components/calculator/SlicerPasteBox";
+import { ScenarioSimulator } from "../../components/calculator/ScenarioSimulator";
+import { CalculatorStickyBar } from "../../components/calculator/CalculatorStickyBar";
+import { CalculatorTemplatePanel } from "../../components/calculator/CalculatorTemplatePanel";
+import {
+  AdvancedPanel,
+  CollapsibleSection,
+  CostBar,
+  HelpTip,
+  MachineStat,
+  NumberField,
+  PriceBox,
+  ProfitLine,
+  SectionCard,
+  Toggle,
+} from "../../components/calculator/primitives";
 
 const decimal = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 3,
   maximumFractionDigits: 3,
 });
 
-function HelpTip({ text }: { text: string }) {
-  return (
-    <span
-      className="group/tip relative inline-flex shrink-0 cursor-pointer rounded-full p-0.5 outline-none focus-visible:ring-2 focus-visible:ring-cyan-400/70"
-      tabIndex={0}
-      aria-label="Mostrar explicação deste campo"
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        event.currentTarget.focus();
-      }}
-    >
-      <HelpCircle className="h-4 w-4 text-cyan-200/70 transition-colors group-hover/tip:text-cyan-100" />
-      <span
-        role="tooltip"
-        className="pointer-events-auto absolute bottom-full left-1/2 z-50 mb-2 hidden w-72 max-w-[calc(100vw-2rem)] -translate-x-1/2 cursor-text select-text rounded-xl border border-cyan-300/25 bg-[#080c15] px-4 py-3 text-[13px] font-medium leading-relaxed text-white/90 shadow-2xl group-hover/tip:block group-focus/tip:block"
-      >
-        {text}
-      </span>
-    </span>
-  );
+interface FilamentCalculatorProps {
+  embedded?: boolean;
+  initialQuote?: Quote | null;
+  intent?: CalculatorIntent;
+  onQuoteSaved?: (result: { id: string; created: boolean }) => void | Promise<void>;
 }
 
-type NumberFieldProps = {
-  label: string;
-  value: number;
-  onChange: (value: number) => void;
-  min?: number;
-  step?: number;
-  prefix?: string;
-  suffix?: string;
-  disabled?: boolean;
-  hint?: string;
-  help?: string;
-};
-
-function NumberField({
-  label,
-  value,
-  onChange,
-  min = 0,
-  step = 1,
-  prefix,
-  suffix,
-  disabled,
-  hint,
-  help,
-}: NumberFieldProps) {
-  const [draft, setDraft] = useState(String(value));
+export default function FilamentCalculator(props: FilamentCalculatorProps) {
+  const [searchParams] = useSearchParams();
+  const requestedId = props.embedded ? null : searchParams.get("orcamento");
+  const requestedIntent: CalculatorIntent =
+    searchParams.get("modo") === "duplicar" ? "DUPLICATE" : "EDIT";
+  const [loadedQuote, setLoadedQuote] = useState<Quote | null>(props.initialQuote ?? null);
+  const [loadingQuote, setLoadingQuote] = useState(Boolean(requestedId && !props.initialQuote));
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
+    if (!requestedId || props.initialQuote) return;
+    let active = true;
+    setLoadingQuote(true);
+    setLoadError(false);
+    getDoc(doc(db, "quotes", requestedId))
+      .then((snapshot) => {
+        if (!active) return;
+        if (!snapshot.exists()) {
+          setLoadError(true);
+          return;
+        }
+        setLoadedQuote({ id: snapshot.id, ...snapshot.data() } as Quote);
+      })
+      .catch(() => {
+        if (active) setLoadError(true);
+      })
+      .finally(() => {
+        if (active) setLoadingQuote(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [props.initialQuote, requestedId]);
 
-  return (
-    <label className={cn("block space-y-2", disabled && "opacity-45")}>
-      <span className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/65">
-        {label}
-        {help && <HelpTip text={help} />}
-      </span>
-      <span className="relative block">
-        {prefix && (
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40">
-            {prefix}
-          </span>
-        )}
-        <input
-          type="number"
-          min={min}
-          step={step}
-          value={draft}
-          disabled={disabled}
-          onFocus={(event) => event.currentTarget.select()}
-          onChange={(e) => {
-            setDraft(e.target.value);
-            const n = Number(e.target.value);
-            if (e.target.value !== "" && Number.isFinite(n)) {
-              onChange(safeNumber(n));
-            }
-          }}
-          onBlur={() => {
-            const n = Number(draft);
-            if (draft === "" || !Number.isFinite(n)) {
-              const fallback = min ?? 0;
-              setDraft(String(fallback));
-              onChange(fallback);
-            }
-          }}
-          className={cn(
-            "h-12 w-full rounded-xl border border-white/15 bg-white/[0.055] px-3 text-base font-bold text-white outline-none transition",
-            "focus:border-white/30 focus:ring-2 focus:ring-white/5",
-            prefix && "pl-9",
-            suffix && "pr-11",
-            disabled && "cursor-not-allowed",
-          )}
-        />
-        {suffix && (
-          <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-white/40">
-            {suffix}
-          </span>
-        )}
-      </span>
-      {hint && <span className="block text-xs leading-relaxed text-white/55">{hint}</span>}
-    </label>
-  );
-}
-
-function SectionCard({
-  icon: Icon,
-  title,
-  subtitle,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="bg-white/[0.03] border border-white/[0.08] rounded-[28px] p-5 shadow-[0_18px_70px_rgba(0,0,0,0.25)]">
-      <div className="mb-5 flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-white/70">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div>
-          <h2 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">{title}</h2>
-          <p className="mt-1 text-xs text-white/40">{subtitle}</p>
-        </div>
+  if (loadingQuote) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center gap-3 bg-[#07080d] text-sm font-bold text-white/60">
+        <Loader2 className="h-5 w-5 animate-spin text-blue-300" />
+        Abrindo orçamento...
       </div>
-      {children}
-    </section>
-  );
-}
+    );
+  }
 
-function CollapsibleSection({
-  icon: Icon,
-  title,
-  summary,
-  open,
-  onToggle,
-  children,
-}: {
-  icon: LucideIcon;
-  title: string;
-  summary?: string;
-  open: boolean;
-  onToggle: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.03] shadow-[0_18px_70px_rgba(0,0,0,0.25)]">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 p-5 text-left transition hover:bg-white/[0.02]"
-      >
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-white/70">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div>
-            <h2 className="text-xs font-black uppercase tracking-[0.22em] text-white/90">
-              {title}
-            </h2>
-            {!open && summary && (
-              <p className="mt-0.5 text-[11px] font-bold text-cyan-300/80">{summary}</p>
-            )}
-          </div>
-        </div>
-        <ChevronDown
-          className={`h-4 w-4 shrink-0 text-white/30 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-        />
-      </button>
-      {open && <div className="px-5 pb-5">{children}</div>}
-    </section>
-  );
-}
-
-function AdvancedPanel({
-  open,
-  onToggle,
-  label,
-  children,
-}: {
-  open: boolean;
-  onToggle: () => void;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="mt-5">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-left transition hover:border-white/20 hover:bg-white/[0.06]"
-      >
-        <span className="flex items-center gap-2 text-xs font-black uppercase tracking-[0.12em] text-white/75">
-          <Settings2 className="h-3.5 w-3.5" />
-          {label}
-        </span>
-        <ChevronDown
-          className={cn(
-            "h-4 w-4 text-white/40 transition-transform duration-300",
-            open && "rotate-180",
-          )}
-        />
-      </button>
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.28, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="pt-4">{children}</div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
-function Toggle({ checked, onChange }: { checked: boolean; onChange: (checked: boolean) => void }) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative h-7 w-12 rounded-full border transition",
-        checked ? "border-white/40 bg-white/25" : "border-white/10 bg-white/[0.04]",
-      )}
-    >
-      <span
-        className={cn(
-          "absolute top-1 h-5 w-5 rounded-full bg-white shadow-[0_0_16px_rgba(255,255,255,0.55)] transition",
-          checked ? "left-6" : "left-1",
-        )}
-      />
-    </button>
-  );
-}
-
-function CostBar({
-  label,
-  value,
-  percent,
-  color,
-  help,
-}: {
-  label: string;
-  value: number;
-  percent: number;
-  color: string;
-  help?: string;
-}) {
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span className={cn("h-2.5 w-2.5 rounded-full", color)} />
-          <span className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.12em] text-white/65">
-            {label}
-            {help && <HelpTip text={help} />}
-          </span>
-        </div>
-        <div className="text-right">
-          <span className="font-mono text-xs font-black text-white/80">{formatBRL(value)}</span>
-          <span className="ml-2 font-mono text-[10px] font-bold text-white/30">
-            {percent.toFixed(1)}%
-          </span>
-        </div>
+  if (loadError) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center bg-[#07080d] p-6 text-center text-sm text-red-200">
+        Não foi possível abrir este orçamento. Confirme o link e sua sessão de administrador.
       </div>
-      <div className="h-2 overflow-hidden rounded-full bg-white/[0.06]">
-        <div
-          className={cn("h-full rounded-full transition-all duration-500", color)}
-          style={{ width: `${Math.min(percent, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
+    );
+  }
 
-function MachineStat({
-  label,
-  value,
-  help,
-  highlight,
-}: {
-  label: string;
-  value: string;
-  help?: string;
-  highlight?: boolean;
-}) {
   return (
-    <div
-      className={cn(
-        "rounded-xl border p-3 text-center",
-        highlight ? "border-cyan-400/30 bg-cyan-400/10" : "border-white/10 bg-white/[0.04]",
-      )}
-    >
-      <p className="flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-[0.12em] text-white/60">
-        {label}
-        {help && <HelpTip text={help} />}
-      </p>
-      <p
-        className={cn(
-          "mt-1 font-mono text-sm font-black",
-          highlight ? "text-cyan-300" : "text-white",
-        )}
-      >
-        {value}
-      </p>
-    </div>
+    <FilamentCalculatorContent
+      {...props}
+      initialQuote={loadedQuote}
+      intent={requestedId ? requestedIntent : props.intent}
+    />
   );
 }
 
-function PriceBox({
-  title,
-  description,
-  total,
-  unit,
-  tone,
-}: {
-  title: string;
-  description: string;
-  total: number;
-  unit: number;
-  tone: "wholesale" | "retail";
-}) {
-  return (
-    <div
-      className={cn(
-        "card-glow rounded-xl border p-4",
-        tone === "retail"
-          ? "border-primary/30 bg-primary/10 shadow-[0_0_18px_rgba(37,99,235,0.15)]"
-          : "border-amber-400/30 bg-amber-400/10 shadow-[0_0_18px_rgba(245,158,11,0.12)]",
-      )}
-    >
-      <p
-        className={cn(
-          "text-[10px] font-black uppercase tracking-[0.2em]",
-          tone === "retail" ? "text-primary" : "text-amber-200",
-        )}
-      >
-        {title}
-      </p>
-      <p className="mt-1 min-h-8 text-xs leading-relaxed text-white/40">{description}</p>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white/55">
-            Total do lote
-          </p>
-          <p className="mt-1 text-lg font-black text-white">{formatBRL(total)}</p>
-        </div>
-        <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.12em] text-white/55">
-            Unitário
-          </p>
-          <p className="mt-1 text-lg font-black text-white">{formatBRL(unit)}</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ProfitLine({
-  profit,
-  marginPct,
-  markupPct,
-}: {
-  profit: number;
-  marginPct: number;
-  markupPct: number;
-}) {
-  return (
-    <div className="mt-2.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 rounded-lg border border-emerald-400/15 bg-emerald-400/[0.06] px-2.5 py-1.5">
-      <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.16em] text-emerald-300/70">
-        Lucro
-        <HelpTip text={HELP.profit} />
-      </span>
-      <span className="text-sm font-black text-emerald-300">{formatBRL(profit)}</span>
-      <span className="ml-auto font-mono text-[10px] font-bold text-white/45">
-        margem {marginPct.toFixed(0)}% · markup {markupPct.toFixed(0)}%
-      </span>
-    </div>
-  );
-}
-
-function ReportLine({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="maker-report-line">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
-
-export default function FilamentCalculator({ embedded = false }: { embedded?: boolean }) {
+function FilamentCalculatorContent({
+  embedded = false,
+  initialQuote = null,
+  intent = "NEW",
+  onQuoteSaved,
+}: FilamentCalculatorProps) {
   const [printMode, setPrintMode] = useState<"CLIENT" | "PRODUCTION">("CLIENT");
   const {
     project,
@@ -458,24 +148,16 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
     failureImpactPct,
     setFailureImpactPct,
     inventoryMaterials,
-    machinePrice,
-    setMachinePrice,
-    lifespanHours,
-    setLifespanHours,
-    nozzlePrice,
-    setNozzlePrice,
-    nozzleLifeHours,
-    setNozzleLifeHours,
-    platePrice,
-    setPlatePrice,
-    plateLifeHours,
-    setPlateLifeHours,
-    beltsPrice,
-    setBeltsPrice,
-    beltsLifeHours,
-    setBeltsLifeHours,
-    maintPerHour,
-    setMaintPerHour,
+    materialSettings,
+    printers,
+    selectedPrinterId,
+    setSelectedPrinterId,
+    selectedPrinter,
+    machine,
+    machineOverrides,
+    overrideCount,
+    setMachineField,
+    resetMachineOverrides,
     kwhCost,
     setKwhCost,
     steadyPower,
@@ -519,6 +201,8 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
     setShowEnergyConfig,
     showLaborConfig,
     setShowLaborConfig,
+    calcMode,
+    setCalcMode,
     savingCalc,
     handleSaveCalc,
     clientName,
@@ -537,17 +221,31 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
     setPriceTier,
     quoteImageUrl,
     setQuoteImageUrl,
+    quoteId,
+    snapshotStale,
+    postSave,
+    showImageOnQuote,
+    setShowImageOnQuote,
+    continueEditingSavedQuote,
+    duplicateSavedQuote,
+    startNewCalculation,
     uploadingImage,
     handleUploadImage,
     draftSavedAt,
     result,
     machineBreak,
     laborTotal,
-    generatedAt,
-  } = useCalculatorState();
+    quoteDocumentData,
+    doubleLotResult,
+    inventoryForecast,
+    calculatorTemplates,
+    templatesLoading,
+    templateSaving,
+    applyProjectTemplate,
+    saveProjectTemplate,
+  } = useCalculatorState({ initialQuote, initialQuoteId: initialQuote?.id, intent, onQuoteSaved });
 
   const quotedTotal = priceTier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
-  const quotedUnit = priceTier === "WHOLESALE" ? result.wholesaleUnit : result.retailUnit;
   const negotiationFloor = Math.max(
     result.minimumSustainablePrice,
     result.weightGrams > 0 || result.hours > 0 ? minPrice : 0,
@@ -561,13 +259,11 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
     priceTier === "WHOLESALE"
       ? result.wholesaleProfitAfterFullReprint
       : result.retailProfitAfterFullReprint;
-  const printReport = (mode: "CLIENT" | "PRODUCTION") => {
-    setPrintMode(mode);
-    window.setTimeout(() => window.print(), 0);
-  };
+  const printReport = (mode: "CLIENT" | "PRODUCTION") => printDocument(() => setPrintMode(mode));
 
   return (
     <>
+      <PrintDocumentHost data={quoteDocumentData} mode={printMode} />
       {!embedded && (
         <PageSEO
           title="Calculadora de Custos 3D"
@@ -576,7 +272,7 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
         />
       )}
       <div
-        className={`maker-screen relative overflow-hidden bg-[#07080d] px-4 text-white sm:px-6 lg:px-8 ${embedded ? "min-h-full py-5 sm:py-6" : "min-h-screen py-8"}`}
+        className={`maker-screen relative overflow-hidden bg-[#07080d] px-4 pb-32 text-white sm:px-6 xl:pb-8 lg:px-8 ${embedded ? "min-h-full pt-5 sm:pt-6" : "min-h-screen pt-8"}`}
       >
         <div className="relative z-10 mx-auto max-w-7xl">
           <header className="mb-8 flex flex-col gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -595,31 +291,94 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
               </p>
             </div>
 
-            <div className="flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/40">
-              {draftSavedAt && (
-                <span
-                  className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-emerald-200"
-                  title={new Date(draftSavedAt).toLocaleString("pt-BR")}
-                >
-                  <Save className="h-3 w-3" />
-                  Rascunho salvo
+            <div className="flex flex-col items-start gap-3 lg:items-end">
+              <div className="flex flex-wrap gap-3 text-[10px] font-black uppercase tracking-[0.24em] text-white/40">
+                {draftSavedAt && (
+                  <span
+                    className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-emerald-200"
+                    title={new Date(draftSavedAt).toLocaleString("pt-BR")}
+                  >
+                    <Save className="h-3 w-3" />
+                    Rascunho salvo
+                  </span>
+                )}
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
+                  <Settings2 className="h-3 w-3" />
+                  MOTOR V6.0
                 </span>
-              )}
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
-                <Settings2 className="h-3 w-3" />
-                MOTOR V6.0
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
-                <Hash className="h-3 w-3" /># MOTOR DE PRECISÃO
-              </span>
-              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-cyan-300">
-                Bambu Lab P2S + AMS
-              </span>
+                <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-cyan-300">
+                  {selectedPrinter?.name ?? "Máquina configurada em Ajustes"}
+                </span>
+                {quoteId && (
+                  <span className="inline-flex items-center gap-2 rounded-full border border-blue-400/25 bg-blue-400/10 px-3 py-2 text-blue-200">
+                    Editando #{quoteId.slice(0, 8)}
+                  </span>
+                )}
+              </div>
+
+              {/* MODO RÁPIDO × COMPLETO — Completo é um superconjunto: nenhum
+                  dado se perde ao trocar, campos só deixam de ser exibidos. */}
+              <div
+                role="tablist"
+                aria-label="Modo de cálculo"
+                className="inline-flex rounded-2xl border border-white/[0.08] bg-white/[0.03] p-1 backdrop-blur"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={calcMode === "QUICK"}
+                  onClick={() => setCalcMode("QUICK")}
+                  className={cn(
+                    "rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] transition",
+                    calcMode === "QUICK"
+                      ? "bg-cyan-500/25 text-cyan-200 shadow-[0_0_0_1px_rgba(103,232,249,0.3)]"
+                      : "text-white/40 hover:text-white/70",
+                  )}
+                >
+                  Rápido
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={calcMode === "FULL"}
+                  onClick={() => setCalcMode("FULL")}
+                  className={cn(
+                    "rounded-xl px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] transition",
+                    calcMode === "FULL"
+                      ? "bg-cyan-500/25 text-cyan-200 shadow-[0_0_0_1px_rgba(103,232,249,0.3)]"
+                      : "text-white/40 hover:text-white/70",
+                  )}
+                >
+                  Completo
+                </button>
+              </div>
             </div>
           </header>
 
+          {snapshotStale && (
+            <div
+              className="mb-6 flex gap-3 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm leading-relaxed text-amber-100"
+              role="status"
+            >
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+              <div>
+                <strong className="block font-black">Confira os valores antes de salvar</strong>
+                Este orçamento foi criado antes da ficha técnica completa ou teve campos alterados
+                diretamente no painel. As bandejas foram recuperadas, mas os parâmetros atuais
+                precisam ser confirmados.
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
             <div className="space-y-4">
+              <CalculatorTemplatePanel
+                templates={calculatorTemplates}
+                loading={templatesLoading}
+                saving={templateSaving}
+                onApply={applyProjectTemplate}
+                onSave={saveProjectTemplate}
+              />
               {/* INÍCIO RÁPIDO — sempre visível */}
               <Reveal delay={0}>
                 <SectionCard
@@ -627,6 +386,25 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                   title="Início Rápido"
                   subtitle="Dados do job atual — copie do Bambu Studio"
                 >
+                  <SlicerPasteBox
+                    materials={inventoryMaterials}
+                    fallbackPricePerKg={{
+                      pla:
+                        (materialSettings.pla.spoolPrice / materialSettings.pla.spoolWeight) * 1000,
+                      petg:
+                        (materialSettings.petg.spoolPrice / materialSettings.petg.spoolWeight) *
+                        1000,
+                    }}
+                    hasExistingPlates={project.plates.some((plate) => plate.filaments.length > 0)}
+                    onApply={(plates, mode) => {
+                      setProject((previous) => ({
+                        ...previous,
+                        plates: mode === "REPLACE" ? plates : [...previous.plates, ...plates],
+                      }));
+                      if (projectIssues.length) setProjectIssues([]);
+                    }}
+                  />
+                  <div className="my-4 border-t border-white/[0.06]" />
                   <CalculatorProjectEditor
                     project={project}
                     onChange={(next) => {
@@ -649,341 +427,404 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                 </SectionCard>
               </Reveal>
 
-              {/* MÁQUINA & DEPRECIAÇÃO — recolhida */}
-              <Reveal delay={0.1}>
-                <CollapsibleSection
-                  icon={Cpu}
-                  title="Máquina & Depreciação"
-                  summary={`Custo: ${formatBRL(machineBreak.total)}/h · Depr. ${formatBRL(machineBreak.depreciation)}/h`}
-                  open={showMachineConfig}
-                  onToggle={() => setShowMachineConfig((v) => !v)}
+              {/* IMPRESSORA — escolha da máquina base do cálculo */}
+              <Reveal delay={0.05}>
+                <SectionCard
+                  icon={Factory}
+                  title="Impressora"
+                  subtitle="Base de cálculo desta proposta — personalize valores só para este orçamento se precisar"
                 >
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    <MachineStat
-                      label="Depreciação"
-                      value={`${formatBRL(machineBreak.depreciation)}/h`}
-                      help={HELP.depreciation}
-                    />
-                    <MachineStat
-                      label="Reposição de peças"
-                      value={`${formatBRL(machineBreak.replacement)}/h`}
-                      help={HELP.replacement}
-                    />
-                    <MachineStat
-                      label="Custo-máquina total"
-                      value={`${formatBRL(machineBreak.total)}/h`}
-                      highlight
-                    />
-                  </div>
-
-                  <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs leading-relaxed text-white/50">
-                    Cada hora de impressão consome{" "}
-                    <span className="font-black text-cyan-300">
-                      {formatBRL(machineBreak.total)}/h
-                    </span>{" "}
-                    da sua máquina —{" "}
-                    <span className="font-black text-white/80">
-                      {formatBRL(machineBreak.depreciation)}
-                    </span>{" "}
-                    de desgaste +{" "}
-                    <span className="font-black text-white/80">
-                      {formatBRL(machineBreak.replacement)}
-                    </span>{" "}
-                    para repor peças.
-                  </div>
-
-                  <AdvancedPanel
-                    open={showAdvancedMachine}
-                    onToggle={() => setShowAdvancedMachine((v) => !v)}
-                    label="Ajustar máquina e depreciação"
-                  >
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <NumberField
-                        label="Preço da máquina (P2S + AMS)"
-                        prefix="R$"
-                        value={machinePrice}
-                        onChange={setMachinePrice}
-                        step={1}
-                        help={HELP.machinePrice}
-                      />
-                      <NumberField
-                        label="Vida útil da máquina"
-                        suffix="h"
-                        value={lifespanHours}
-                        onChange={setLifespanHours}
-                        min={1}
-                        step={100}
-                        help={HELP.lifespan}
-                      />
-                    </div>
-                    <p className="mt-5 mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
-                      <Wrench className="h-3 w-3" /> Fundo de reposição de peças
-                    </p>
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <NumberField
-                        label="Bico — preço"
-                        prefix="R$"
-                        value={nozzlePrice}
-                        onChange={setNozzlePrice}
-                        step={1}
-                        help={HELP.nozzle}
-                      />
-                      <NumberField
-                        label="Bico — vida útil"
-                        suffix="h"
-                        value={nozzleLifeHours}
-                        onChange={setNozzleLifeHours}
-                        min={1}
-                        step={50}
-                        help={HELP.nozzle}
-                      />
-                      <NumberField
-                        label="Placa / PEI — preço"
-                        prefix="R$"
-                        value={platePrice}
-                        onChange={setPlatePrice}
-                        step={1}
-                        help={HELP.plate}
-                      />
-                      <NumberField
-                        label="Placa / PEI — vida útil"
-                        suffix="h"
-                        value={plateLifeHours}
-                        onChange={setPlateLifeHours}
-                        min={1}
-                        step={50}
-                        help={HELP.plate}
-                      />
-                      <NumberField
-                        label="Correias (par) — preço"
-                        prefix="R$"
-                        value={beltsPrice}
-                        onChange={setBeltsPrice}
-                        step={1}
-                        help={HELP.belts}
-                      />
-                      <NumberField
-                        label="Correias — vida útil"
-                        suffix="h"
-                        value={beltsLifeHours}
-                        onChange={setBeltsLifeHours}
-                        min={1}
-                        step={50}
-                        help={HELP.belts}
-                      />
-                    </div>
-                    <div className="mt-4">
-                      <NumberField
-                        label="Manutenção geral"
-                        prefix="R$"
-                        suffix="/h"
-                        value={maintPerHour}
-                        onChange={setMaintPerHour}
-                        step={0.01}
-                        help={HELP.maint}
-                      />
-                    </div>
-                  </AdvancedPanel>
-                </CollapsibleSection>
+                  <PrinterPicker
+                    printers={printers}
+                    selectedPrinterId={selectedPrinterId || (selectedPrinter?.id ?? "")}
+                    onSelect={setSelectedPrinterId}
+                    overrideCount={overrideCount}
+                    onResetOverrides={resetMachineOverrides}
+                  />
+                </SectionCard>
               </Reveal>
 
-              {/* FILAMENTO & CUSTOS — recolhida */}
-              <Reveal delay={0.2}>
-                <CollapsibleSection
-                  icon={Package}
-                  title="Filamento & Custos"
-                  summary={`R$${spoolPrice}/carretel · reserva ${reservePct}% · falha ${failureRatePct}%`}
-                  open={showMaterialConfig}
-                  onToggle={() => setShowMaterialConfig((v) => !v)}
-                >
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <NumberField
-                      label="Preço do carretel"
-                      prefix="R$"
-                      value={spoolPrice}
-                      onChange={setSpoolPrice}
-                      step={0.01}
-                      help={HELP.spoolPrice}
-                    />
-                    <NumberField
-                      label="Peso do carretel"
-                      suffix="g"
-                      value={spoolWeight}
-                      onChange={setSpoolWeight}
-                      min={1}
-                      help={HELP.spoolWeight}
-                    />
+              {/* MODO RÁPIDO — resumo dos padrões em uso, sem abrir nada */}
+              {calcMode === "QUICK" && (
+                <Reveal delay={0.08}>
+                  <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-4 text-xs leading-relaxed text-white/45">
+                    Usando seus padrões:{" "}
+                    <strong className="font-black text-white/75">{formatBRL(kwhCost)}/kWh</strong> ·
+                    falha <strong className="font-black text-white/75">{failureRatePct}%</strong> ·
+                    varejo{" "}
+                    <strong className="font-black text-white/75">
+                      {markupLabel(retailMarkup)}
+                    </strong>{" "}
+                    · mínimo{" "}
+                    <strong className="font-black text-white/75">{formatBRL(minPrice)}</strong>
+                    <button
+                      type="button"
+                      onClick={() => setCalcMode("FULL")}
+                      className="ml-2 font-black text-cyan-300 underline decoration-dotted underline-offset-2 hover:text-cyan-200"
+                    >
+                      Ajustar tudo →
+                    </button>
                   </div>
-                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                    <NumberField
-                      label="Margem técnica de material"
-                      suffix="%"
-                      value={reservePct}
-                      onChange={setReservePct}
-                      step={1}
-                      help={HELP.reserve}
-                    />
-                    <NumberField
-                      label="Taxa de falha"
-                      suffix="%"
-                      value={failureRatePct}
-                      onChange={setFailureRatePct}
-                      step={1}
-                      help={HELP.failureRate}
-                    />
-                    <NumberField
-                      label="Perda média quando falha"
-                      suffix="%"
-                      value={failureImpactPct}
-                      onChange={setFailureImpactPct}
-                      step={5}
-                      help={HELP.failureImpact}
-                    />
-                    <NumberField
-                      label="Meta por hora ocupada"
-                      prefix="R$"
-                      suffix="/h"
-                      value={targetProfitPerMachineHour}
-                      onChange={setTargetProfitPerMachineHour}
-                      step={1}
-                      help={HELP.targetProfitPerMachineHour}
-                    />
-                  </div>
-                  <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/[0.05] p-4 text-xs leading-relaxed text-white/50">
-                    Os filamentos e os pesos reais do Bambu Studio são definidos em cada bandeja no
-                    início do cálculo. Filamentos manuais entram no custo previsto, mas não
-                    movimentam o estoque.
-                  </div>
-                </CollapsibleSection>
-              </Reveal>
+                </Reveal>
+              )}
 
-              {/* ENERGIA — recolhida */}
-              <Reveal delay={0.3}>
-                <CollapsibleSection
-                  icon={Zap}
-                  title="Energia"
-                  summary={`R$${kwhCost}/kWh · ${decimal.format(result.energyKwh)} kWh estimados`}
-                  open={showEnergyConfig}
-                  onToggle={() => setShowEnergyConfig((v) => !v)}
-                >
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <NumberField
-                      label="Custo do kWh"
-                      prefix="R$"
-                      value={kwhCost}
-                      onChange={setKwhCost}
-                      step={0.01}
-                      help={HELP.kwh}
-                    />
-                    <div className="rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
-                      <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
-                        Consumo estimado
-                      </p>
-                      <p className="mt-1 font-mono text-lg font-black text-cyan-300">
-                        {decimal.format(result.energyKwh)} kWh
-                      </p>
-                      <p className="mt-1 text-[10px] text-white/40">
-                        = {formatBRL(result.energyCost)}
-                      </p>
-                    </div>
-                  </div>
-                  <AdvancedPanel
-                    open={showAdvancedEnergy}
-                    onToggle={() => setShowAdvancedEnergy((v) => !v)}
-                    label="Ajustes avançados de energia"
-                  >
-                    <div className="grid gap-4 sm:grid-cols-3">
-                      <NumberField
-                        label="Potência média"
-                        suffix="W"
-                        value={steadyPower}
-                        onChange={setSteadyPower}
-                        help={HELP.steadyPower}
-                      />
-                      <NumberField
-                        label="Pico de aquecimento"
-                        suffix="W"
-                        value={startupPower}
-                        onChange={setStartupPower}
-                        help={HELP.startupPower}
-                      />
-                      <NumberField
-                        label="Duração do pico"
-                        suffix="min"
-                        value={startupMinutes}
-                        onChange={setStartupMinutes}
-                        step={0.5}
-                        help={HELP.startupMinutes}
-                      />
-                    </div>
-                  </AdvancedPanel>
-                  <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-white/40">
-                    A energia soma o{" "}
-                    <span className="font-black text-white/80">pico de aquecimento</span> nos
-                    primeiros minutos com o{" "}
-                    <span className="font-black text-white/80">regime estável</span> pelo resto da
-                    impressão.
-                  </div>
-                </CollapsibleSection>
-              </Reveal>
+              {/* MODO COMPLETO — máquina, filamento, energia e mão de obra
+                  detalhados. O modo Rápido não perde nada: só deixa de mostrar. */}
+              {calcMode === "FULL" && (
+                <>
+                  {/* MÁQUINA & DEPRECIAÇÃO — recolhida */}
+                  <Reveal delay={0.1}>
+                    <CollapsibleSection
+                      icon={Cpu}
+                      title="Máquina & Depreciação"
+                      summary={`Custo: ${formatBRL(machineBreak.total)}/h · Depr. ${formatBRL(machineBreak.depreciation)}/h`}
+                      open={showMachineConfig}
+                      onToggle={() => setShowMachineConfig((v) => !v)}
+                    >
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <MachineStat
+                          label="Depreciação"
+                          value={`${formatBRL(machineBreak.depreciation)}/h`}
+                          help={HELP.depreciation}
+                        />
+                        <MachineStat
+                          label="Reposição de peças"
+                          value={`${formatBRL(machineBreak.replacement)}/h`}
+                          help={HELP.replacement}
+                        />
+                        <MachineStat
+                          label="Custo-máquina total"
+                          value={`${formatBRL(machineBreak.total)}/h`}
+                          highlight
+                        />
+                      </div>
 
-              {/* MÃO DE OBRA & INSUMOS — recolhida */}
-              <Reveal delay={0.4}>
-                <CollapsibleSection
-                  icon={Wrench}
-                  title="Mão de Obra & Insumos"
-                  summary={requiresLabor ? `${formatBRL(laborTotal)} computados` : "Não computada"}
-                  open={showLaborConfig}
-                  onToggle={() => setShowLaborConfig((v) => !v)}
-                >
-                  <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <p className="text-sm font-black text-white/90">
-                        Tem trabalho manual / pós-processamento?
-                      </p>
-                      <p className="mt-1 text-xs text-white/40">
-                        Ative para computar fatiar, tirar suportes, lixar, pintar, montar e embalar.
-                      </p>
-                    </div>
-                    <Toggle checked={requiresLabor} onChange={setRequiresLabor} />
-                  </div>
-                  <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                    <NumberField
-                      label="Horas de trabalho"
-                      suffix="h"
-                      value={laborHours}
-                      onChange={setLaborHours}
-                      step={0.25}
-                      disabled={!requiresLabor}
-                      help={HELP.laborHours}
-                    />
-                    <NumberField
-                      label="Valor da sua hora"
-                      prefix="R$"
-                      value={laborRate}
-                      onChange={setLaborRate}
-                      step={1}
-                      help={HELP.laborRate}
-                    />
-                    <NumberField
-                      label="Insumos extras"
-                      prefix="R$"
-                      value={extraSupplies}
-                      onChange={setExtraSupplies}
-                      step={0.01}
-                      help={HELP.extraSupplies}
-                    />
-                    <NumberField
-                      label="Embalagem"
-                      prefix="R$"
-                      value={packagingCost}
-                      onChange={setPackagingCost}
-                      step={0.5}
-                      help="Caixa ou envelope, proteção, etiqueta, fita e demais itens usados para entregar o pedido."
-                    />
-                  </div>
-                </CollapsibleSection>
-              </Reveal>
+                      <div className="mt-4 rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3 text-xs leading-relaxed text-white/50">
+                        Cada hora de impressão consome{" "}
+                        <span className="font-black text-cyan-300">
+                          {formatBRL(machineBreak.total)}/h
+                        </span>{" "}
+                        da{" "}
+                        <span className="font-black text-white/80">
+                          {selectedPrinter?.name ?? "máquina configurada"}
+                        </span>{" "}
+                        —{" "}
+                        <span className="font-black text-white/80">
+                          {formatBRL(machineBreak.depreciation)}
+                        </span>{" "}
+                        de desgaste +{" "}
+                        <span className="font-black text-white/80">
+                          {formatBRL(machineBreak.replacement)}
+                        </span>{" "}
+                        para repor peças.
+                      </div>
+
+                      <AdvancedPanel
+                        open={showAdvancedMachine}
+                        onToggle={() => setShowAdvancedMachine((v) => !v)}
+                        label="Personalizar só este orçamento"
+                      >
+                        {overrideCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={resetMachineOverrides}
+                            className="mb-4 text-[10px] font-bold text-cyan-300/80 underline decoration-dotted underline-offset-2 hover:text-cyan-200"
+                          >
+                            Restaurar todos os valores da impressora
+                          </button>
+                        )}
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <NumberField
+                            label={`Preço da máquina${machineOverrides?.price !== undefined ? " (personalizado)" : ""}`}
+                            prefix="R$"
+                            value={machine.price}
+                            onChange={(v) => setMachineField("price", v)}
+                            step={1}
+                            help={HELP.machinePrice}
+                          />
+                          <NumberField
+                            label={`Vida útil da máquina${machineOverrides?.lifespanHours !== undefined ? " (personalizado)" : ""}`}
+                            suffix="h"
+                            value={machine.lifespanHours}
+                            onChange={(v) => setMachineField("lifespanHours", v)}
+                            min={1}
+                            step={100}
+                            help={HELP.lifespan}
+                          />
+                        </div>
+                        <p className="mt-5 mb-2 flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.18em] text-white/40">
+                          <Wrench className="h-3 w-3" /> Fundo de reposição de peças
+                        </p>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <NumberField
+                            label="Bico — preço"
+                            prefix="R$"
+                            value={machine.nozzlePrice}
+                            onChange={(v) => setMachineField("nozzlePrice", v)}
+                            step={1}
+                            help={HELP.nozzle}
+                          />
+                          <NumberField
+                            label="Bico — vida útil"
+                            suffix="h"
+                            value={machine.nozzleLifeHours}
+                            onChange={(v) => setMachineField("nozzleLifeHours", v)}
+                            min={1}
+                            step={50}
+                            help={HELP.nozzle}
+                          />
+                          <NumberField
+                            label="Placa / PEI — preço"
+                            prefix="R$"
+                            value={machine.platePrice}
+                            onChange={(v) => setMachineField("platePrice", v)}
+                            step={1}
+                            help={HELP.plate}
+                          />
+                          <NumberField
+                            label="Placa / PEI — vida útil"
+                            suffix="h"
+                            value={machine.plateLifeHours}
+                            onChange={(v) => setMachineField("plateLifeHours", v)}
+                            min={1}
+                            step={50}
+                            help={HELP.plate}
+                          />
+                          <NumberField
+                            label="Correias (par) — preço"
+                            prefix="R$"
+                            value={machine.beltsPrice}
+                            onChange={(v) => setMachineField("beltsPrice", v)}
+                            step={1}
+                            help={HELP.belts}
+                          />
+                          <NumberField
+                            label="Correias — vida útil"
+                            suffix="h"
+                            value={machine.beltsLifeHours}
+                            onChange={(v) => setMachineField("beltsLifeHours", v)}
+                            min={1}
+                            step={50}
+                            help={HELP.belts}
+                          />
+                        </div>
+                        <div className="mt-4">
+                          <NumberField
+                            label="Manutenção geral"
+                            prefix="R$"
+                            suffix="/h"
+                            value={machine.maintPerHour}
+                            onChange={(v) => setMachineField("maintPerHour", v)}
+                            step={0.01}
+                            help={HELP.maint}
+                          />
+                        </div>
+                      </AdvancedPanel>
+                    </CollapsibleSection>
+                  </Reveal>
+
+                  {/* FILAMENTO & CUSTOS — recolhida */}
+                  <Reveal delay={0.2}>
+                    <CollapsibleSection
+                      icon={Package}
+                      title="Filamento & Custos"
+                      summary={`R$${spoolPrice}/carretel · reserva ${reservePct}% · falha ${failureRatePct}%`}
+                      open={showMaterialConfig}
+                      onToggle={() => setShowMaterialConfig((v) => !v)}
+                    >
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <NumberField
+                          label="Preço do carretel"
+                          prefix="R$"
+                          value={spoolPrice}
+                          onChange={setSpoolPrice}
+                          step={0.01}
+                          help={HELP.spoolPrice}
+                        />
+                        <NumberField
+                          label="Peso do carretel"
+                          suffix="g"
+                          value={spoolWeight}
+                          onChange={setSpoolWeight}
+                          min={1}
+                          help={HELP.spoolWeight}
+                        />
+                      </div>
+                      <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                        <NumberField
+                          label="Margem técnica de material"
+                          suffix="%"
+                          value={reservePct}
+                          onChange={setReservePct}
+                          step={1}
+                          help={HELP.reserve}
+                        />
+                        <NumberField
+                          label="Taxa de falha"
+                          suffix="%"
+                          value={failureRatePct}
+                          onChange={setFailureRatePct}
+                          step={1}
+                          help={HELP.failureRate}
+                        />
+                        <NumberField
+                          label="Perda média quando falha"
+                          suffix="%"
+                          value={failureImpactPct}
+                          onChange={setFailureImpactPct}
+                          step={5}
+                          help={HELP.failureImpact}
+                        />
+                        <NumberField
+                          label="Meta por hora ocupada"
+                          prefix="R$"
+                          suffix="/h"
+                          value={targetProfitPerMachineHour}
+                          onChange={setTargetProfitPerMachineHour}
+                          step={1}
+                          help={HELP.targetProfitPerMachineHour}
+                        />
+                      </div>
+                      <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/[0.05] p-4 text-xs leading-relaxed text-white/50">
+                        Os filamentos e os pesos reais do Bambu Studio são definidos em cada bandeja
+                        no início do cálculo. Filamentos manuais entram no custo previsto, mas não
+                        movimentam o estoque.
+                      </div>
+                    </CollapsibleSection>
+                  </Reveal>
+
+                  {/* ENERGIA — recolhida */}
+                  <Reveal delay={0.3}>
+                    <CollapsibleSection
+                      icon={Zap}
+                      title="Energia"
+                      summary={`R$${kwhCost}/kWh · ${decimal.format(result.energyKwh)} kWh estimados`}
+                      open={showEnergyConfig}
+                      onToggle={() => setShowEnergyConfig((v) => !v)}
+                    >
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <NumberField
+                          label="Custo do kWh"
+                          prefix="R$"
+                          value={kwhCost}
+                          onChange={setKwhCost}
+                          step={0.01}
+                          help={HELP.kwh}
+                        />
+                        <div className="rounded-xl border border-cyan-400/15 bg-cyan-400/5 px-4 py-3">
+                          <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/40">
+                            Consumo estimado
+                          </p>
+                          <p className="mt-1 font-mono text-lg font-black text-cyan-300">
+                            {decimal.format(result.energyKwh)} kWh
+                          </p>
+                          <p className="mt-1 text-[10px] text-white/40">
+                            = {formatBRL(result.energyCost)}
+                          </p>
+                        </div>
+                      </div>
+                      <AdvancedPanel
+                        open={showAdvancedEnergy}
+                        onToggle={() => setShowAdvancedEnergy((v) => !v)}
+                        label="Ajustes avançados de energia"
+                      >
+                        <div className="grid gap-4 sm:grid-cols-3">
+                          <NumberField
+                            label="Potência média"
+                            suffix="W"
+                            value={steadyPower}
+                            onChange={setSteadyPower}
+                            help={HELP.steadyPower}
+                          />
+                          <NumberField
+                            label="Pico de aquecimento"
+                            suffix="W"
+                            value={startupPower}
+                            onChange={setStartupPower}
+                            help={HELP.startupPower}
+                          />
+                          <NumberField
+                            label="Duração do pico"
+                            suffix="min"
+                            value={startupMinutes}
+                            onChange={setStartupMinutes}
+                            step={0.5}
+                            help={HELP.startupMinutes}
+                          />
+                        </div>
+                      </AdvancedPanel>
+                      <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-xs leading-relaxed text-white/40">
+                        A energia soma o{" "}
+                        <span className="font-black text-white/80">pico de aquecimento</span> nos
+                        primeiros minutos com o{" "}
+                        <span className="font-black text-white/80">regime estável</span> pelo resto
+                        da impressão.
+                      </div>
+                    </CollapsibleSection>
+                  </Reveal>
+
+                  {/* MÃO DE OBRA & INSUMOS — recolhida */}
+                  <Reveal delay={0.4}>
+                    <CollapsibleSection
+                      icon={Wrench}
+                      title="Mão de Obra & Insumos"
+                      summary={
+                        requiresLabor ? `${formatBRL(laborTotal)} computados` : "Não computada"
+                      }
+                      open={showLaborConfig}
+                      onToggle={() => setShowLaborConfig((v) => !v)}
+                    >
+                      <div className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="text-sm font-black text-white/90">
+                            Tem trabalho manual / pós-processamento?
+                          </p>
+                          <p className="mt-1 text-xs text-white/40">
+                            Ative para computar fatiar, tirar suportes, lixar, pintar, montar e
+                            embalar.
+                          </p>
+                        </div>
+                        <Toggle checked={requiresLabor} onChange={setRequiresLabor} />
+                      </div>
+                      <div className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                        <NumberField
+                          label="Horas de trabalho"
+                          suffix="h"
+                          value={laborHours}
+                          onChange={setLaborHours}
+                          step={0.25}
+                          disabled={!requiresLabor}
+                          help={HELP.laborHours}
+                        />
+                        <NumberField
+                          label="Valor da sua hora"
+                          prefix="R$"
+                          value={laborRate}
+                          onChange={setLaborRate}
+                          step={1}
+                          help={HELP.laborRate}
+                        />
+                        <NumberField
+                          label="Insumos extras"
+                          prefix="R$"
+                          value={extraSupplies}
+                          onChange={setExtraSupplies}
+                          step={0.01}
+                          help={HELP.extraSupplies}
+                        />
+                        <NumberField
+                          label="Embalagem"
+                          prefix="R$"
+                          value={packagingCost}
+                          onChange={setPackagingCost}
+                          step={0.5}
+                          help="Caixa ou envelope, proteção, etiqueta, fita e demais itens usados para entregar o pedido."
+                        />
+                      </div>
+                    </CollapsibleSection>
+                  </Reveal>
+                </>
+              )}
             </div>
 
             <aside className="bg-white/[0.03] border border-white/[0.08] rounded-[28px] p-5 shadow-[0_24px_90px_rgba(0,0,0,0.35)] lg:p-6 xl:sticky xl:top-24">
@@ -1220,7 +1061,10 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                 <Factory className="h-4 w-4" /> Ficha interna de produção
               </button>
 
-              <div className="mt-4 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4">
+              <div
+                id="calculator-save-review"
+                className="mt-4 scroll-mt-24 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-4"
+              >
                 <div className="mb-3 flex items-center gap-2">
                   <Save className="h-4 w-4 text-emerald-300" />
                   <h3 className="flex items-center gap-1.5 text-xs font-black uppercase tracking-[0.2em] text-white/90">
@@ -1386,6 +1230,18 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                   </label>
                 )}
 
+                {quoteImageUrl && (
+                  <label className="mt-2.5 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-bold text-white/65">
+                    <input
+                      type="checkbox"
+                      checked={showImageOnQuote}
+                      onChange={(event) => setShowImageOnQuote(event.target.checked)}
+                      className="h-4 w-4 rounded border-white/20 bg-black/30 text-blue-500 focus:ring-blue-400"
+                    />
+                    Exibir esta imagem na proposta do cliente
+                  </label>
+                )}
+
                 <button
                   type="button"
                   onClick={handleSaveCalc}
@@ -1398,7 +1254,8 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
                     </>
                   ) : (
                     <>
-                      <Save className="h-4 w-4" /> Salvar no sistema
+                      <Save className="h-4 w-4" />
+                      {quoteId ? "Salvar alterações" : "Salvar no sistema"}
                     </>
                   )}
                 </button>
@@ -1435,229 +1292,72 @@ export default function FilamentCalculator({ embedded = false }: { embedded?: bo
               </div>
             </aside>
           </div>
+          {calcMode === "FULL" && (
+            <div className="mt-6">
+              <ScenarioSimulator
+                base={result}
+                doubleLot={doubleLotResult}
+                tier={priceTier}
+                targetProfitPerMachineHour={targetProfitPerMachineHour}
+                inventory={inventoryForecast}
+              />
+            </div>
+          )}
         </div>
       </div>
-      <section
-        className={`maker-print-report ${printMode === "CLIENT" ? "maker-print-report-client" : "maker-print-report-production"}`}
-        aria-label="Relatório Cálculo Maker"
-      >
-        <article className="maker-report-page maker-report-page-client">
-          <header className="maker-report-header">
-            <div>
-              <p className="maker-report-kicker">INOVAPRO3D</p>
-              <h1>Orçamento</h1>
-              <p>
-                {clientName
-                  ? `Cliente: ${[clientName, clientLastName].filter(Boolean).join(" ")}`
-                  : "Proposta para manufatura 3D"}
-              </p>
+      <CalculatorStickyBar
+        result={result}
+        tier={priceTier}
+        onReview={() =>
+          document
+            .getElementById("calculator-save-review")
+            ?.scrollIntoView({ behavior: "smooth", block: "start" })
+        }
+      />
+      {postSave && (
+        <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+          <div
+            className="w-full max-w-lg rounded-3xl border border-emerald-300/20 bg-[#10151f] p-6 shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="calculator-post-save-title"
+          >
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/10 text-emerald-300">
+              <Save className="h-5 w-5" />
             </div>
-            <div className="maker-report-meta">
-              <span>{generatedAt}</span>
-              <span>Validade: 7 dias</span>
-            </div>
-          </header>
-
-          <div className="maker-report-highlight maker-report-highlight-client">
-            <div>
-              <span>Valor total</span>
-              <strong>{formatBRL(quotedTotal)}</strong>
-            </div>
-            <div>
-              <span>Valor por unidade</span>
-              <strong>{formatBRL(quotedUnit)}</strong>
-            </div>
-            <div>
-              <span>Quantidade</span>
-              <strong>{Math.max(1, projectPricing.totalPieces)} un.</strong>
-            </div>
-          </div>
-
-          <div className="maker-report-grid">
-            <section className="maker-report-card">
-              <h2>Seu Projeto</h2>
-              <ReportLine label="Projeto" value={project.name || "Projeto Bambu Studio"} />
-              <ReportLine
-                label="Quantidade"
-                value={`${Math.max(1, projectPricing.totalPieces)} un.`}
-              />
-              <ReportLine
-                label="Acabamento / pós-processamento"
-                value={requiresLabor ? "Incluso" : "Padrão"}
-              />
-            </section>
-
-            <section className="maker-report-card">
-              <h2>Atendimento</h2>
-              {clientName && (
-                <ReportLine
-                  label="Cliente"
-                  value={[clientName, clientLastName].filter(Boolean).join(" ")}
-                />
-              )}
-              {clientPhone && <ReportLine label="Contato" value={clientPhone} />}
-              <ReportLine label="Processo" value="Impressão 3D (FDM)" />
-              <ReportLine
-                label="Condição comercial"
-                value={priceTier === "WHOLESALE" ? "Atacado / lote" : "Varejo"}
-              />
-            </section>
-          </div>
-
-          <footer className="maker-report-footer">
-            Obrigado pela preferência! Este orçamento é válido por 7 dias corridos. Valores sujeitos
-            a confirmação após análise final do modelo 3D. Fale com a <strong>INOVAPRO3D</strong>{" "}
-            para aprovar e iniciar a produção.
-          </footer>
-        </article>
-
-        <article className="maker-report-page maker-report-page-production">
-          <header className="maker-report-header">
-            <div>
-              <p className="maker-report-kicker">INOVAPRO3D</p>
-              <h1>Via da Produção</h1>
-              <p>Ficha técnica interna de custos e execução</p>
-            </div>
-            <div className="maker-report-meta">
-              <span>Bambu Lab P2S + AMS</span>
-              <span>Gerado em {generatedAt}</span>
-            </div>
-          </header>
-
-          <div className="maker-report-highlight">
-            <div>
-              <span>Custo real de produção</span>
-              <strong>{formatBRL(result.totalCost)}</strong>
-            </div>
-            <div>
-              <span>Custo unitário</span>
-              <strong>{formatBRL(result.unitCost)}</strong>
-            </div>
-            <div>
-              <span>Custo por grama</span>
-              <strong>R$ {decimal.format(result.costPerGram)}</strong>
+            <h2 id="calculator-post-save-title" className="mt-4 text-xl font-black text-white">
+              {postSave.created ? "Orçamento criado" : "Alterações salvas"}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/55">
+              O cálculo continua disponível. Escolha como quer seguir sem perder as bandejas e os
+              parâmetros usados nesta proposta.
+            </p>
+            <div className="mt-5 grid gap-2">
+              <button
+                type="button"
+                onClick={continueEditingSavedQuote}
+                className="min-h-12 rounded-xl bg-blue-600 px-4 text-sm font-black text-white hover:bg-blue-500"
+              >
+                Continuar editando este
+              </button>
+              <button
+                type="button"
+                onClick={duplicateSavedQuote}
+                className="min-h-12 rounded-xl border border-white/15 px-4 text-sm font-bold text-white/75 hover:bg-white/[0.06]"
+              >
+                Duplicar como base
+              </button>
+              <button
+                type="button"
+                onClick={startNewCalculation}
+                className="min-h-12 rounded-xl border border-white/10 px-4 text-sm font-bold text-white/50 hover:border-red-300/25 hover:text-red-200"
+              >
+                Limpar e começar outro
+              </button>
             </div>
           </div>
-
-          <div className="maker-report-grid maker-report-compact-grid">
-            <section className="maker-report-card">
-              <h2>Parâmetros do Job</h2>
-              <ReportLine
-                label="Filamento utilizado"
-                value={`${decimal.format(result.weightGrams)}g`}
-              />
-              <ReportLine label="Peso técnico" value={`${decimal.format(result.weightGrams)}g`} />
-              <ReportLine
-                label="Peças no projeto"
-                value={`${Math.max(1, projectPricing.totalPieces)} un.`}
-              />
-              <ReportLine label="Tempo total" value={formatHoursToHHMM(result.hours)} />
-            </section>
-
-            <section className="maker-report-card">
-              <h2>Material e Energia</h2>
-              <ReportLine label="Bandejas" value={`${project.plates.length}`} />
-              <ReportLine label="Carretel" value={formatBRL(spoolPrice)} />
-              <ReportLine label="Peso nominal" value={`${decimal.format(spoolWeight)}g`} />
-              <ReportLine label="Reserva falhas" value={`${reservePct}%`} />
-              <ReportLine label="Taxa de falha" value={`${failureRatePct}%`} />
-              <ReportLine label="Consumo" value={`${decimal.format(result.energyKwh)} kWh`} />
-              <ReportLine label="Tarifa kWh" value={formatBRL(kwhCost)} />
-            </section>
-
-            <section className="maker-report-card">
-              <h2>Máquina e Mão de Obra</h2>
-              <ReportLine label="Potência média" value={`${steadyPower} W`} />
-              <ReportLine
-                label="Pico inicial"
-                value={`${startupPower} W / ${startupMinutes} min`}
-              />
-              <ReportLine
-                label="Custo-máquina/h"
-                value={`${formatBRL(result.machineHourCost)}/h`}
-              />
-              <ReportLine
-                label="Depreciação/h"
-                value={`${formatBRL(machineBreak.depreciation)}/h`}
-              />
-              <ReportLine label="Reposição/h" value={`${formatBRL(machineBreak.replacement)}/h`} />
-              <ReportLine label="Hora de trabalho" value={`${formatBRL(laborRate)}/h`} />
-              <ReportLine
-                label="Mão de obra + insumos"
-                value={requiresLabor ? formatBRL(laborTotal) : "Não aplicado"}
-              />
-            </section>
-
-            <section className="maker-report-card">
-              <h2>Comercial Interno</h2>
-              <ReportLine
-                label={`Atacado ${markupLabel(wholesaleMarkup)} total`}
-                value={formatBRL(result.wholesaleTotal)}
-              />
-              <ReportLine
-                label="Lucro atacado"
-                value={`${formatBRL(result.profitWholesale)} · margem ${result.profitWholesalePct.toFixed(0)}%`}
-              />
-              <ReportLine
-                label={`Varejo ${markupLabel(retailMarkup)} total`}
-                value={formatBRL(result.retailTotal)}
-              />
-              <ReportLine
-                label="Lucro varejo"
-                value={`${formatBRL(result.profitRetail)} · margem ${result.profitRetailPct.toFixed(0)}%`}
-              />
-            </section>
-          </div>
-
-          <section className="maker-report-table">
-            <h2>Distribuição de Custos</h2>
-            <table>
-              <thead>
-                <tr>
-                  <th>Componente</th>
-                  <th>Valor</th>
-                  <th>Impacto</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>Material</td>
-                  <td>{formatBRL(result.materialCost)}</td>
-                  <td>{result.shares.material.toFixed(1)}%</td>
-                </tr>
-                <tr>
-                  <td>Energia</td>
-                  <td>{formatBRL(result.energyCost)}</td>
-                  <td>{result.shares.energy.toFixed(1)}%</td>
-                </tr>
-                <tr>
-                  <td>Máquina (depreciação + reposição)</td>
-                  <td>{formatBRL(result.machineCost)}</td>
-                  <td>{result.shares.machine.toFixed(1)}%</td>
-                </tr>
-                <tr>
-                  <td>Mão de obra + insumos</td>
-                  <td>{formatBRL(laborTotal)}</td>
-                  <td>{result.shares.labor.toFixed(1)}%</td>
-                </tr>
-                {result.failureLoss > 0 && (
-                  <tr>
-                    <td>Falhas (tempo + energia)</td>
-                    <td>{formatBRL(result.failureLoss)}</td>
-                    <td>{result.shares.failure.toFixed(1)}%</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </section>
-
-          <footer className="maker-report-footer">
-            <strong>Nota interna:</strong> cálculo pelo motor unificado INOVAPRO3D — depreciação da
-            máquina diluída na vida útil, fundo de reposição de peças, energia com pico de
-            aquecimento da P2S e mão de obra quando aplicável.
-          </footer>
-        </article>
-      </section>
+        </div>
+      )}
     </>
   );
 }

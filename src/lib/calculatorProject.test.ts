@@ -232,6 +232,81 @@ describe("computeProjectPricing", () => {
     expect(summary.result.hours).toBeCloseTo(3 + 48 / 60 + 1 / 3600, 6);
     expect(summary.result.retailUnit).toBe(summary.result.retailTotal);
   });
+
+  it("aplica a margem técnica somente sobre o custo do filamento", () => {
+    const project: CalculatorProject = {
+      name: "Com reserva",
+      outputQuantity: 1,
+      plates: [
+        {
+          id: "plate",
+          name: "Bandeja",
+          type: "SINGLE_COLOR",
+          totalTime: "2h",
+          pieces: 1,
+          repetitions: 1,
+          filaments: [
+            {
+              id: "pla",
+              materialId: "stock",
+              materialName: "PLA",
+              materialKey: "pla",
+              totalGrams: 100,
+              pricePerGram: 0.1,
+              steadyPowerWatts: 200,
+            },
+          ],
+        },
+      ],
+    };
+
+    const semReserva = computeProjectPricing(
+      project,
+      DEFAULT_MACHINE,
+      DEFAULT_PRICING_SETTINGS,
+      options,
+    );
+    const comReserva = computeProjectPricing(project, DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS, {
+      ...options,
+      reservePct: 20,
+    });
+
+    expect(semReserva.result.materialCost).toBeCloseTo(10, 6);
+    expect(comReserva.result.materialCost).toBeCloseTo(12, 6);
+    // Energia, máquina e peso não podem se mover: a reserva é só do material.
+    expect(comReserva.result.energyCost).toBeCloseTo(semReserva.result.energyCost, 6);
+    expect(comReserva.result.machineCost).toBeCloseTo(semReserva.result.machineCost, 6);
+    expect(comReserva.result.weightGrams).toBe(semReserva.result.weightGrams);
+    expect(comReserva.result.totalCost - semReserva.result.totalCost).toBeGreaterThan(0);
+  });
+
+  it("usa a potência padrão informada quando a bandeja ainda não tem filamento", () => {
+    const project: CalculatorProject = {
+      name: "Bandeja vazia",
+      outputQuantity: 1,
+      plates: [
+        {
+          id: "plate",
+          name: "Bandeja",
+          type: "SINGLE_COLOR",
+          totalTime: "1h",
+          pieces: 1,
+          repetitions: 1,
+          filaments: [],
+        },
+      ],
+    };
+
+    const summary = computeProjectPricing(project, DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS, {
+      ...options,
+      fallbackSteadyPowerWatts: 400,
+    });
+
+    const startupHours = DEFAULT_PRICING_SETTINGS.startupMinutes / 60;
+    const esperado =
+      (startupHours * DEFAULT_PRICING_SETTINGS.startupPowerWatts + (1 - startupHours) * 400) / 1000;
+    expect(summary.result.energyKwh).toBeCloseTo(esperado, 6);
+  });
 });
 
 describe("validateCalculatorProject", () => {

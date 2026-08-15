@@ -24,6 +24,9 @@ import {
   Box,
   User,
   BadgeDollarSign,
+  AlertTriangle,
+  FileText,
+  Factory,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -61,16 +64,19 @@ import type {
 import { useAdminData } from "./hooks/useAdminData";
 import { useAdminActions } from "./hooks/useAdminActions";
 import { useCategoryAdmin } from "./hooks/useCategoryAdmin";
+import { usePrinterAdmin } from "./hooks/usePrinterAdmin";
+import { useCompanyAdmin } from "./hooks/useCompanyAdmin";
 import { useProductAdmin } from "./hooks/useProductAdmin";
 import { useQuoteAdmin } from "./hooks/useQuoteAdmin";
 import { uploadQuoteImage } from "../../lib/quotes";
-import { useQuickCalc } from "./hooks/useQuickCalc";
 import { useCouponAdmin } from "./hooks/useCouponAdmin";
 import AdminOverviewPanel from "./components/AdminOverviewPanel";
 import AdminOrdersPanel from "./components/AdminOrdersPanel";
 import AdminProductsPanel from "./components/AdminProductsPanel";
 import AdminCategoriesPanel from "./components/AdminCategoriesPanel";
 import AdminMaterialsPanel from "./components/AdminMaterialsPanel";
+import AdminPrintersPanel from "./components/AdminPrintersPanel";
+import AdminPrinterFormModal from "./components/AdminPrinterFormModal";
 import AdminQuotesPanel from "./components/AdminQuotesPanel";
 import AdminSupportPanel from "./components/AdminSupportPanel";
 import AdminCRMPanel from "./components/AdminCRMPanel";
@@ -84,15 +90,30 @@ import { AdminCouponsPanel } from "./components/AdminCouponsPanel";
 import { AdminHeader } from "./components/AdminHeader";
 import { AdminManualSaleModal } from "./components/AdminManualSaleModal";
 import { AdminCalculatorWorkspace } from "./components/AdminCalculatorWorkspace";
+import { openAdminCalculator } from "./adminCalculatorEvents";
+import { PrintDocumentHost } from "../../components/print/PrintDocumentHost";
+import { buildQuoteDocumentData, type QuoteDocumentData } from "../../lib/quoteDocument";
+import { printDocument, type PrintDocumentMode } from "../../lib/printing";
+
+function isQuoteRecord(record: Quote | Ticket): record is Quote {
+  return typeof record.fileName === "string" && typeof record.materialId === "string";
+}
 import { adjustMaterialStock } from "../../services/inventory";
 
 export default function AdminDashboard() {
+  const [printTarget, setPrintTarget] = useState<{
+    data: QuoteDocumentData;
+    mode: PrintDocumentMode;
+  } | null>(null);
   // ── Dados de todas as coleções + listener de pedidos novos ──
   const {
     orders,
     setOrders,
     quotes,
     setQuotes,
+    quotesHasMore,
+    quotesLoadingMore,
+    loadMoreQuotes,
     products,
     setProducts,
     showcase,
@@ -104,6 +125,8 @@ export default function AdminDashboard() {
     setCategories,
     coupons,
     logs,
+    printers,
+    printersBlocked,
     loading,
     fetchData,
     handleSyncData,
@@ -145,6 +168,25 @@ export default function AdminDashboard() {
     handleToggleCategoryActive,
     handleReorderCategory,
   } = useCategoryAdmin({ categories, setCategories, fetchData });
+
+  // ── Impressoras ──
+  const printerAdmin = usePrinterAdmin({ printers, printersBlocked, fetchData, machineConfig });
+
+  // ── Empresa (cabeçalho dos documentos impressos) ──
+  const companyAdmin = useCompanyAdmin();
+
+  const handlePrintSavedQuote = useCallback(
+    (quote: Quote, mode: PrintDocumentMode) => {
+      const printerId = quote.printerId || quote.calcSnapshot?.printerId;
+      const printer = printers.find((candidate) => candidate.id === printerId);
+      const data = buildQuoteDocumentData(quote, companyAdmin.companyProfile, {
+        materials,
+        printerPhotoUrl: printer?.photoUrl,
+      });
+      void printDocument(() => setPrintTarget({ data, mode }));
+    },
+    [companyAdmin.companyProfile, materials, printers],
+  );
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -595,7 +637,11 @@ export default function AdminDashboard() {
   // parâmetros das calculadoras completa e rápida.
   const quoteAssistantResult = useMemo(() => {
     const materialText = selectedCustomer?.materialId?.toLowerCase() || "";
-    const material = materialText.includes("petg") ? "petg" : "pla";
+    const snapshotMaterial =
+      selectedCustomer && "calcSnapshot" in selectedCustomer
+        ? selectedCustomer.calcSnapshot?.material.key
+        : undefined;
+    const material = snapshotMaterial ?? (materialText.includes("petg") ? "petg" : "pla");
     const preset = pricingSettings.materials[material];
     return computePricing({
       material,
@@ -621,56 +667,7 @@ export default function AdminDashboard() {
       retailMarkup: pricingSettings.retailMarkup,
       minPrice: pricingSettings.minPrice,
     });
-  }, [
-    editingQuoteTime,
-    editingQuoteWeight,
-    machineConfig,
-    pricingSettings,
-    selectedCustomer?.materialId,
-  ]);
-
-  // ── Calculadora rápida de orçamento ──
-  const {
-    quickProject,
-    setQuickProject,
-    quickProjectIssues,
-    setQuickProjectIssues,
-    quickCalcWeight,
-    setQuickCalcWeight,
-    quickCalcTime,
-    setQuickCalcTime,
-    quickCalcPhone,
-    setQuickCalcPhone,
-    quickCalcCustomerName,
-    setQuickCalcCustomerName,
-    quickCalcPieceName,
-    setQuickCalcPieceName,
-    quickCalcBatchQty,
-    setQuickCalcBatchQty,
-    quickCalcMaterial,
-    selectQuickMaterial,
-    quickMaterialUsages,
-    setQuickMaterialUsages,
-    quickCalcMaterialReserve,
-    setQuickCalcMaterialReserve,
-    quickCalcFailureRate,
-    setQuickCalcFailureRate,
-    quickCalcMinPrice,
-    setQuickCalcMinPrice,
-    quickCalcWholesaleMarkup,
-    setQuickCalcWholesaleMarkup,
-    quickCalcRetailMarkup,
-    setQuickCalcRetailMarkup,
-    quickCalcResult,
-    quickMachineBreak,
-    handleSendQuickWhatsAppQuote,
-    quickCalcImageUrl,
-    setQuickCalcImageUrl,
-    quickCalcUploadingImage,
-    quickCalcSaving,
-    handleUploadQuickImage,
-    handleSaveQuickQuote,
-  } = useQuickCalc(machineConfig, pricingSettings, materials, fetchData);
+  }, [editingQuoteTime, editingQuoteWeight, machineConfig, pricingSettings, selectedCustomer]);
 
   const {
     isAdding: isCouponAdding,
@@ -826,44 +823,9 @@ export default function AdminDashboard() {
           <AnimatePresence mode="wait">
             {activeTab === "overview" && (
               <AdminOverviewPanel
-                quickProject={quickProject}
-                setQuickProject={setQuickProject}
-                quickProjectIssues={quickProjectIssues}
-                setQuickProjectIssues={setQuickProjectIssues}
                 orders={filteredOrders}
                 quotes={filteredQuotes}
                 searchTerm={searchTerm}
-                quickCalcWeight={quickCalcWeight}
-                quickCalcTime={quickCalcTime}
-                quickCalcPhone={quickCalcPhone}
-                quickCalcCustomerName={quickCalcCustomerName}
-                quickCalcPieceName={quickCalcPieceName}
-                quickCalcBatchQty={quickCalcBatchQty}
-                quickCalcMaterial={quickCalcMaterial}
-                inventoryMaterials={materials}
-                quickMaterialUsages={quickMaterialUsages}
-                setQuickMaterialUsages={setQuickMaterialUsages}
-                quickCalcMaterialReserve={quickCalcMaterialReserve}
-                quickCalcFailureRate={quickCalcFailureRate}
-                quickCalcMinPrice={quickCalcMinPrice}
-                quickCalcWholesaleMarkup={quickCalcWholesaleMarkup}
-                quickCalcRetailMarkup={quickCalcRetailMarkup}
-                setQuickCalcWeight={setQuickCalcWeight}
-                setQuickCalcTime={setQuickCalcTime}
-                setQuickCalcPhone={setQuickCalcPhone}
-                setQuickCalcCustomerName={setQuickCalcCustomerName}
-                setQuickCalcPieceName={setQuickCalcPieceName}
-                setQuickCalcBatchQty={setQuickCalcBatchQty}
-                selectQuickMaterial={selectQuickMaterial}
-                pricingSettings={pricingSettings}
-                setQuickCalcMaterialReserve={setQuickCalcMaterialReserve}
-                setQuickCalcFailureRate={setQuickCalcFailureRate}
-                setQuickCalcMinPrice={setQuickCalcMinPrice}
-                setQuickCalcWholesaleMarkup={setQuickCalcWholesaleMarkup}
-                setQuickCalcRetailMarkup={setQuickCalcRetailMarkup}
-                quickCalcResult={quickCalcResult}
-                quickMachineBreak={quickMachineBreak}
-                machineConfig={machineConfig}
                 onSelectOrder={handleSelectOrderAndTab}
                 onCancelOrder={(o) =>
                   triggerConfirm(
@@ -884,13 +846,6 @@ export default function AdminDashboard() {
                   )
                 }
                 onTabChange={handleTabChange}
-                onSendWhatsAppQuote={handleSendQuickWhatsAppQuote}
-                quickCalcImageUrl={quickCalcImageUrl}
-                setQuickCalcImageUrl={setQuickCalcImageUrl}
-                quickCalcUploadingImage={quickCalcUploadingImage}
-                quickCalcSaving={quickCalcSaving}
-                onUploadImage={handleUploadQuickImage}
-                onSaveQuote={handleSaveQuickQuote}
               />
             )}
             {activeTab === "orders" && (
@@ -1067,6 +1022,25 @@ export default function AdminDashboard() {
                 }}
               />
             )}
+            {activeTab === "printers" && (
+              <AdminPrintersPanel
+                printers={printers}
+                blocked={printersBlocked}
+                onAdd={printerAdmin.openNewPrinter}
+                onEdit={printerAdmin.openEditPrinter}
+                onSetDefault={printerAdmin.handleSetDefaultPrinter}
+                onToggleActive={printerAdmin.handleTogglePrinterActive}
+                onDelete={(printer) =>
+                  triggerConfirm(
+                    "Excluir impressora",
+                    `"${printer.name}" sai do cadastro. Orçamentos já salvos mantêm os valores usados no cálculo.`,
+                    () => printerAdmin.handleDeletePrinter(printer.id),
+                    true,
+                    "Sim, Excluir",
+                  )
+                }
+              />
+            )}
             {activeTab === "quotes" && (
               <AdminQuotesPanel
                 quotes={filteredQuotes}
@@ -1086,6 +1060,15 @@ export default function AdminDashboard() {
                 }
                 isApprovingQuote={isApprovingQuote}
                 onCreateManual={() => setManualSaleMode("quote")}
+                onEditInCalculator={(quote) => openAdminCalculator({ mode: "EDIT", quote })}
+                onDuplicateInCalculator={(quote) =>
+                  openAdminCalculator({ mode: "DUPLICATE", quote })
+                }
+                onPrintClient={(quote) => handlePrintSavedQuote(quote, "CLIENT")}
+                onPrintProduction={(quote) => handlePrintSavedQuote(quote, "PRODUCTION")}
+                hasMore={quotesHasMore}
+                loadingMore={quotesLoadingMore}
+                onLoadMore={loadMoreQuotes}
               />
             )}
             {activeTab === "support" && (
@@ -1200,12 +1183,21 @@ export default function AdminDashboard() {
                 globalSettings={globalSettings}
                 machineConfig={machineConfig}
                 pricingSettings={pricingSettings}
+                companyProfile={companyAdmin.companyProfile}
+                isSavingCompany={companyAdmin.isSavingCompany}
+                isUploadingLogo={companyAdmin.isUploadingLogo}
+                printersCount={printers.length}
                 onUpdateGlobalSettings={setGlobalSettings}
                 onUpdateMachineConfig={setMachineConfig}
                 onUpdatePricingSettings={setPricingSettings}
+                onUpdateCompanyField={companyAdmin.updateCompanyField}
+                onUpdateCompanyAddress={companyAdmin.updateCompanyAddress}
                 onSaveGlobalSettings={handleSaveSettings}
                 onSaveMachineConfig={handleSaveMachineConfig}
                 onSavePricingSettings={handleSavePricingSettings}
+                onSaveCompany={companyAdmin.handleSaveCompany}
+                onUploadCompanyLogo={companyAdmin.handleUploadLogo}
+                onOpenPrinters={() => setActiveTab("printers")}
                 onToggleMaintenance={() =>
                   setGlobalSettings({
                     ...globalSettings,
@@ -1631,6 +1623,48 @@ export default function AdminDashboard() {
                     </p>
                   </div>
 
+                  {"calcSnapshot" in selectedCustomer && selectedCustomer.calcSnapshot && (
+                    <div className="mb-6 rounded-2xl border border-amber-300/25 bg-amber-300/[0.07] p-4">
+                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex gap-3">
+                          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
+                          <div>
+                            <p className="text-sm font-black text-amber-100">
+                              Este orçamento possui ficha técnica de cálculo
+                            </p>
+                            <p className="mt-1 text-xs leading-relaxed text-amber-100/65">
+                              Alterar os campos abaixo muda apenas os valores exibidos. Para
+                              recalcular máquina, bandejas e custos mantendo a ficha sincronizada,
+                              abra-o na calculadora.
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              openAdminCalculator({ mode: "EDIT", quote: selectedCustomer });
+                              setSelectedCustomer(null);
+                            }}
+                            className="min-h-10 rounded-xl bg-blue-600 px-3 text-xs font-black text-white hover:bg-blue-500"
+                          >
+                            Editar no cálculo
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              openAdminCalculator({ mode: "DUPLICATE", quote: selectedCustomer });
+                              setSelectedCustomer(null);
+                            }}
+                            className="min-h-10 rounded-xl border border-white/15 px-3 text-xs font-bold text-white/70 hover:bg-white/[0.06]"
+                          >
+                            Duplicar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex flex-col sm:flex-row gap-5 mb-8">
                     <div className="w-full sm:w-44 sm:h-44 shrink-0 rounded-2xl border border-white/10 bg-[#0C0E14] overflow-hidden flex items-center justify-center">
                       {editingQuoteImageUrl ? (
@@ -1968,6 +2002,24 @@ export default function AdminDashboard() {
                       />
                     </section>
                     <div className="flex flex-col lg:flex-row items-stretch gap-3 pt-6 border-t border-white/10">
+                      {isQuoteRecord(selectedCustomer) && (
+                        <>
+                          <Button
+                            variant="outline"
+                            onClick={() => handlePrintSavedQuote(selectedCustomer, "CLIENT")}
+                            className="h-12 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold uppercase border-white/15 hover:bg-white/5 text-white/80"
+                          >
+                            <FileText className="h-4 w-4" /> Proposta
+                          </Button>
+                          <Button
+                            variant="outline"
+                            onClick={() => handlePrintSavedQuote(selectedCustomer, "PRODUCTION")}
+                            className="h-12 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold uppercase border-orange-400/20 text-orange-300 hover:bg-orange-400/10"
+                          >
+                            <Factory className="h-4 w-4" /> Produção
+                          </Button>
+                        </>
+                      )}
                       <Button
                         variant="outline"
                         onClick={() => handleWhatsAppQuote(selectedCustomer, editingQuoteTotal)}
@@ -2029,7 +2081,20 @@ export default function AdminDashboard() {
             onSaved={fetchData}
           />
         )}
-        <AdminCalculatorWorkspace />
+        <AdminCalculatorWorkspace onQuoteSaved={fetchData} />
+        <PrintDocumentHost data={printTarget?.data ?? null} mode={printTarget?.mode ?? "CLIENT"} />
+
+        <AdminPrinterFormModal
+          open={printerAdmin.isPrinterFormOpen}
+          isEditing={Boolean(printerAdmin.editingPrinterId)}
+          form={printerAdmin.printerForm}
+          setForm={printerAdmin.setPrinterForm}
+          saving={printerAdmin.isSavingPrinter}
+          uploadingPhoto={printerAdmin.isUploadingPrinterPhoto}
+          onSubmit={printerAdmin.handlePrinterSubmit}
+          onClose={printerAdmin.closePrinterForm}
+          onUploadPhoto={printerAdmin.handlePrinterPhotoUpload}
+        />
 
         {/* CRM Detail Modal */}
         {selectedCRMUser && (

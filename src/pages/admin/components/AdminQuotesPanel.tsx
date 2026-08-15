@@ -1,6 +1,16 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
-import { Eye, CheckCircle, Trash2, Smartphone, ImageIcon, Calculator } from "lucide-react";
+import {
+  Eye,
+  CheckCircle,
+  Trash2,
+  Smartphone,
+  ImageIcon,
+  Calculator,
+  Copy,
+  FileText,
+  Factory,
+} from "lucide-react";
 import { formatBRL } from "../../../lib/pricing";
 import type { FirestoreDate, Quote, Ticket } from "../../../types/domain";
 import { AdminEmptyState, AdminMetric, AdminSectionHeader } from "./AdminPrimitives";
@@ -13,6 +23,13 @@ interface AdminQuotesPanelProps {
   onWhatsApp?: (q: Quote) => void;
   isApprovingQuote?: boolean;
   onCreateManual: () => void;
+  onEditInCalculator: (q: Quote) => void;
+  onDuplicateInCalculator: (q: Quote) => void;
+  onPrintClient: (q: Quote) => void;
+  onPrintProduction: (q: Quote) => void;
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
 }
 
 const STATUS_STYLES: Record<string, { label: string; className: string }> = {
@@ -66,6 +83,13 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
   onWhatsApp,
   isApprovingQuote = false,
   onCreateManual,
+  onEditInCalculator,
+  onDuplicateInCalculator,
+  onPrintClient,
+  onPrintProduction,
+  hasMore,
+  loadingMore,
+  onLoadMore,
 }: AdminQuotesPanelProps) {
   const pending = quotes.filter(
     (q) => !q.status || q.status === "PENDING" || q.status === "IN_REVIEW",
@@ -193,6 +217,38 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                   {/* AÇÕES */}
                   <td className="text-right">
                     <div className="flex items-center justify-end gap-2">
+                      {(q.calcSnapshot || q.calculationProject || q.source === "calculator") && (
+                        <>
+                          <button
+                            onClick={() => onEditInCalculator(q)}
+                            title="Editar este orçamento na calculadora"
+                            className="grid h-8 w-8 place-items-center rounded-lg bg-blue-500/10 text-blue-300 transition hover:bg-blue-500 hover:text-white"
+                          >
+                            <Calculator className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => onDuplicateInCalculator(q)}
+                            title="Duplicar como base de um novo orçamento"
+                            className="grid h-8 w-8 place-items-center rounded-lg bg-violet-500/10 text-violet-300 transition hover:bg-violet-500 hover:text-white"
+                          >
+                            <Copy className="h-4 w-4" />
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => onPrintClient(q)}
+                        title="Imprimir proposta do cliente"
+                        className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.035] text-white/50 transition hover:bg-white/[0.1] hover:text-white"
+                      >
+                        <FileText className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => onPrintProduction(q)}
+                        title="Imprimir ficha interna de produção"
+                        className="grid h-8 w-8 place-items-center rounded-lg bg-orange-500/10 text-orange-300 transition hover:bg-orange-500 hover:text-white"
+                      >
+                        <Factory className="h-4 w-4" />
+                      </button>
                       {onWhatsApp && phoneClean && (
                         <button
                           onClick={() => onWhatsApp(q)}
@@ -244,6 +300,18 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
           </tbody>
         </table>
       </div>
+      {hasMore && (
+        <div className="flex justify-center pt-1">
+          <button
+            type="button"
+            onClick={onLoadMore}
+            disabled={loadingMore}
+            className="h-10 rounded-xl border border-white/10 bg-white/[0.035] px-5 text-[11px] font-bold text-white/60 transition hover:border-white/20 hover:text-white disabled:cursor-wait disabled:opacity-50"
+          >
+            {loadingMore ? "Carregando..." : "Carregar mais orçamentos"}
+          </button>
+        </div>
+      )}
     </motion.div>
   );
 });

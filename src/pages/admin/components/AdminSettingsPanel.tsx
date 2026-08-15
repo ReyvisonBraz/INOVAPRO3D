@@ -1,11 +1,13 @@
-import { memo, type ReactNode } from "react";
-import { Settings, Calculator, Zap, Coins, Package, Sparkles } from "lucide-react";
+import { memo } from "react";
+import { Settings, Calculator, Zap, Coins, Package, Sparkles, Printer } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "../../../lib/utils";
 import { Button } from "../../../components/ui/Button";
 import { NumInput } from "../../../lib/adminHelpers";
 import { DiagnosticWidget } from "../../../components/layout/DebugMarker";
-import type { GlobalSettings } from "../../../types/domain";
+import AdminCompanyPanel from "./AdminCompanyPanel";
+import { AdminSettingsCard as Card } from "./AdminPrimitives";
+import type { CompanyAddress, CompanyProfile, GlobalSettings } from "../../../types/domain";
 import {
   MATERIAL_PRESETS,
   type MachineConfig,
@@ -13,36 +15,33 @@ import {
   type MaterialSettings,
   type PricingSettings,
 } from "../../../lib/pricing";
+import { PRINTER_COST_FIELDS } from "../../../lib/printers";
 
 export interface AdminSettingsPanelProps {
   globalSettings: GlobalSettings;
   machineConfig: MachineConfig;
   pricingSettings: PricingSettings;
+  companyProfile: CompanyProfile;
+  isSavingCompany: boolean;
+  isUploadingLogo: boolean;
+  /** Quantas impressoras estão cadastradas — decide o aviso do card legado. */
+  printersCount: number;
   onUpdateGlobalSettings: (settings: GlobalSettings) => void;
   onUpdateMachineConfig: (config: MachineConfig) => void;
   onUpdatePricingSettings: (settings: PricingSettings) => void;
+  onUpdateCompanyField: <K extends keyof CompanyProfile>(key: K, value: CompanyProfile[K]) => void;
+  onUpdateCompanyAddress: <K extends keyof CompanyAddress>(
+    key: K,
+    value: CompanyAddress[K],
+  ) => void;
   onSaveGlobalSettings: () => void;
   onSaveMachineConfig: () => void;
   onSavePricingSettings: () => void;
+  onSaveCompany: () => void;
+  onUploadCompanyLogo: (file: File | null) => void;
+  onOpenPrinters: () => void;
   onToggleMaintenance: () => void;
 }
-
-const MACHINE_CONFIG_FIELDS: {
-  label: string;
-  key: keyof MachineConfig;
-  min: number;
-  step?: number;
-}[] = [
-  { label: "Preço da Máquina (R$)", key: "price", min: 0 },
-  { label: "Vida útil (horas)", key: "lifespanHours", min: 1, step: 100 },
-  { label: "Preço do Bico (R$)", key: "nozzlePrice", min: 0 },
-  { label: "Vida do Bico (h)", key: "nozzleLifeHours", min: 1, step: 50 },
-  { label: "Preço da Placa (R$)", key: "platePrice", min: 0 },
-  { label: "Vida da Placa (h)", key: "plateLifeHours", min: 1, step: 50 },
-  { label: "Preço das Correias (R$)", key: "beltsPrice", min: 0 },
-  { label: "Vida das Correias (h)", key: "beltsLifeHours", min: 1, step: 50 },
-  { label: "Manutenção R$/h", key: "maintPerHour", min: 0, step: 0.01 },
-];
 
 const ENERGY_FIELDS: {
   label: string;
@@ -168,47 +167,25 @@ function Field({
   );
 }
 
-function Card({
-  icon: Icon,
-  title,
-  subtitle,
-  className,
-  children,
-}: {
-  icon: typeof Settings;
-  title: string;
-  subtitle?: string;
-  className?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className={cn("glass rounded-[32px] p-7 border border-white/5 space-y-6", className)}>
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-primary">
-          <Icon className="w-5 h-5" />
-        </div>
-        <div>
-          <h3 className="text-sm font-black uppercase tracking-widest italic">{title}</h3>
-          {subtitle && (
-            <p className="mt-1 text-[10px] text-secondary tracking-wide leading-snug">{subtitle}</p>
-          )}
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-}
-
 const AdminSettingsPanel = memo(function AdminSettingsPanel({
   globalSettings,
   machineConfig,
   pricingSettings,
+  companyProfile,
+  isSavingCompany,
+  isUploadingLogo,
+  printersCount,
   onUpdateGlobalSettings,
   onUpdateMachineConfig,
   onUpdatePricingSettings,
+  onUpdateCompanyField,
+  onUpdateCompanyAddress,
   onSaveGlobalSettings,
   onSaveMachineConfig,
   onSavePricingSettings,
+  onSaveCompany,
+  onUploadCompanyLogo,
+  onOpenPrinters,
   onToggleMaintenance,
 }: AdminSettingsPanelProps) {
   const setMaterial = (key: MaterialKey, field: keyof MaterialSettings, v: number) =>
@@ -227,6 +204,17 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
       animate={{ opacity: 1, y: 0 }}
       className="grid grid-cols-1 lg:grid-cols-2 gap-6"
     >
+      {/* Empresa — identidade dos documentos impressos */}
+      <AdminCompanyPanel
+        profile={companyProfile}
+        saving={isSavingCompany}
+        uploadingLogo={isUploadingLogo}
+        onChangeField={onUpdateCompanyField}
+        onChangeAddress={onUpdateCompanyAddress}
+        onSave={onSaveCompany}
+        onUploadLogo={onUploadCompanyLogo}
+      />
+
       {/* Config Gerais */}
       <Card icon={Settings} title="Config Gerais" subtitle="Banner e regras gerais da loja">
         <div className="space-y-5">
@@ -395,31 +383,51 @@ const AdminSettingsPanel = memo(function AdminSettingsPanel({
         </Button>
       </Card>
 
-      {/* Config da Máquina */}
+      {/* Config da Máquina — legado, mantido como espelho das impressoras */}
       <Card
         icon={Calculator}
-        title="Config da Máquina (Bambu Lab P2S)"
-        subtitle="Depreciação e reposição de peças — usado pelas duas calculadoras"
+        title="Config da Máquina (legado)"
+        subtitle="Substituído pelo cadastro de Impressoras — mantido apenas como cópia de segurança"
         className="lg:col-span-2"
       >
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          {MACHINE_CONFIG_FIELDS.map(({ label, key, min, step }) => (
-            <Field
-              key={key}
-              label={label}
-              min={min}
-              step={step}
-              value={machineConfig[key]}
-              onChange={(v) => onUpdateMachineConfig({ ...machineConfig, [key]: v })}
-            />
-          ))}
+        <div className="flex flex-col gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-[11px] leading-relaxed text-secondary">
+            {printersCount > 0
+              ? "Estes valores espelham a impressora padrão. Para editar, use o cadastro de Impressoras — lá cada máquina tem nome, foto e peças próprias."
+              : "Cadastre suas impressoras para calcular com os números reais de cada máquina. Este bloco continua valendo enquanto não houver nenhuma cadastrada."}
+          </p>
+          <Button
+            className="h-10 shrink-0 rounded-xl px-5 text-[10px] font-black uppercase tracking-widest"
+            onClick={onOpenPrinters}
+          >
+            <Printer className="h-3.5 w-3.5" /> Abrir Impressoras
+          </Button>
         </div>
-        <Button
-          className="h-12 rounded-2xl px-8 text-[10px] font-black uppercase tracking-widest"
-          onClick={onSaveMachineConfig}
-        >
-          Salvar Config da Máquina
-        </Button>
+        <details className="group">
+          <summary className="cursor-pointer list-none text-[10px] font-black uppercase tracking-widest text-dim transition hover:text-secondary">
+            Editar valores legados
+          </summary>
+          <div className="mt-5 space-y-5">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              {PRINTER_COST_FIELDS.map(({ label, key, min, step }) => (
+                <Field
+                  key={key}
+                  label={label}
+                  min={min}
+                  step={step}
+                  value={machineConfig[key]}
+                  onChange={(v) => onUpdateMachineConfig({ ...machineConfig, [key]: v })}
+                />
+              ))}
+            </div>
+            <Button
+              className="h-12 rounded-2xl px-8 text-[10px] font-black uppercase tracking-widest"
+              onClick={onSaveMachineConfig}
+            >
+              Salvar Config da Máquina
+            </Button>
+          </div>
+        </details>
       </Card>
     </motion.div>
   );

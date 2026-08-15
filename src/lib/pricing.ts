@@ -531,17 +531,21 @@ export function formatHoursToHHMM(hours: number): string {
   return `${hh}h ${mm}min`;
 }
 
-/** Converte tempos do Bambu ("2h 30m 10s"), decimal ou "2:30" em horas. */
+/** Converte tempos do Bambu ("1d 4h 30m 10s"), decimal ou "2:30" em horas. */
 export function parseTimeToHours(timeStr: string): number {
   if (!timeStr) return 0;
+  // Jobs longos e multi-bandeja aparecem como "1d 4h 12m" no Bambu Studio.
+  // Sem o dia, "1d 4h" virava 4h e subprecificava o trabalho inteiro.
+  const dMatch = timeStr.match(/(\d+)\s*d/i);
   const hMatch = timeStr.match(/(\d+)\s*h/i);
   const mMatch = timeStr.match(/(\d+)\s*m/i);
   const sMatch = timeStr.match(/(\d+)\s*s/i);
+  const d = dMatch ? parseInt(dMatch[1], 10) : 0;
   const h = hMatch ? parseInt(hMatch[1], 10) : 0;
   const m = mMatch ? parseInt(mMatch[1], 10) : 0;
   const s = sMatch ? parseInt(sMatch[1], 10) : 0;
 
-  if (!hMatch && !mMatch && !sMatch) {
+  if (!dMatch && !hMatch && !mMatch && !sMatch) {
     if (timeStr.includes(":")) {
       const [hp, mp] = timeStr.split(":").map((p) => parseFloat(p));
       if (!isNaN(hp) && !isNaN(mp)) return hp + mp / 60;
@@ -549,7 +553,7 @@ export function parseTimeToHours(timeStr: string): number {
     const n = parseFloat(timeStr);
     return isNaN(n) ? 0 : n;
   }
-  return h + m / 60 + s / 3600;
+  return d * 24 + h + m / 60 + s / 3600;
 }
 
 // ----------------------------------------------------------------------------
@@ -565,15 +569,16 @@ export const HELP = {
     "Peso líquido do carretel de referência, sem o peso do plástico vazio. Normalmente é 1000 g. Nas bandejas com preço informado por kg, esse campo não altera o custo.",
   weight:
     "Use a coluna Total do Bambu Studio para cada filamento. Ela reúne modelo, suporte, material purgado/corado e torre; não use apenas o peso do modelo.",
-  time: "Tempo total mostrado pelo Bambu Studio. Aceita 2h30m, 36m57s, 2:30 ou horas decimais. Segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",
+  time: "Tempo total mostrado pelo Bambu Studio. Aceita 1d 4h 12m, 2h30m, 36m57s, 2:30 ou horas decimais. Dias e segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",
   quantity:
     "Quantidade de produtos completos e vendáveis. Um boneco dividido em várias bandejas continua sendo 1 produto; 20 chaveiros completos são 20.",
   reserve:
-    "Margem adicional sobre uma estimativa simples de peso. Quando o novo projeto usa o Total de cada filamento da Bambu, suportes, purga e torre já estão incluídos e o custo exato das bandejas não recebe esta margem novamente.",
+    "Margem de segurança aplicada sobre o custo do filamento das bandejas. Como o Total da Bambu já inclui suporte, purga e torre, deixe em 0% para trabalhar com o consumo exato; use um valor acima de zero para cobrir sobra de rolo, perda de ponta e variação entre lotes.",
   failureRate:
     "Percentual médio de trabalhos que exigem nova tentativa. Zero deixa esse custo desmarcado. Ao informar uma taxa, a calculadora cria uma provisão proporcional para falhas futuras; a baixa real de filamento continua sendo registrada manualmente na produção.",
   kwh: "Preço do kWh na sua conta de luz. Equatorial Pará (CELPA) 2025→2026: R$0,97/kWh na tarifa residencial B1 com ICMS 25% + PIS/COFINS, sem bandeira tarifária.",
-  steadyPower: "Potência média da P2S imprimindo. Medida real: ~200 W em PLA e ~230 W em PETG.",
+  steadyPower:
+    "Potência média em regime estável. Cada filamento das bandejas usa a potência do seu próprio material; este valor entra como padrão quando a bandeja ainda não tem filamento informado. Medida real: ~200 W em PLA e ~230 W em PETG.",
   startupPower:
     "Pico de consumo nos primeiros minutos, quando a câmara e a mesa aquecem. P2S chega a ~1000 W.",
   startupMinutes:

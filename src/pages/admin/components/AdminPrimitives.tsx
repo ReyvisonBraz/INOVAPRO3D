@@ -52,6 +52,38 @@ export function AdminEmptyState({
   );
 }
 
+/** Cartão de configuração usado na aba Ajustes. */
+export function AdminSettingsCard({
+  icon: Icon,
+  title,
+  subtitle,
+  className,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  subtitle?: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={cn("glass rounded-[32px] p-7 border border-white/5 space-y-6", className)}>
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.05] text-primary">
+          <Icon className="w-5 h-5" />
+        </div>
+        <div>
+          <h3 className="text-sm font-black uppercase tracking-widest italic">{title}</h3>
+          {subtitle && (
+            <p className="mt-1 text-[10px] text-secondary tracking-wide leading-snug">{subtitle}</p>
+          )}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function AdminMetric({
   label,
   value,

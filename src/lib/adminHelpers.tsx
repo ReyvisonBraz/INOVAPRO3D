@@ -1,22 +1,11 @@
 /* eslint-disable react-refresh/only-export-components -- módulo de helpers do admin que também exporta um componente (NumInput); separar não traria ganho de runtime. */
-import { memo, useState, useEffect } from "react";
+import { memo } from "react";
 import type { FirebaseStorage } from "firebase/storage";
+import { NumberField } from "../components/ui/NumberField";
 
-export type AdminTabId =
-  | "overview"
-  | "orders"
-  | "quotes"
-  | "products"
-  | "categories"
-  | "materials"
-  | "showcase"
-  | "coupons"
-  | "crm"
-  | "support"
-  | "faqs"
-  | "reviews"
-  | "settings"
-  | "logs";
+// A lista de abas vive em `pages/admin/adminConfig.ts`, junto do menu e dos
+// subtítulos. Aqui só reexportamos para não haver duas verdades.
+export type { AdminTabId } from "../pages/admin/adminConfig";
 
 export const PT_LOWERCASE_WORDS = new Set([
   "de",
@@ -233,31 +222,14 @@ export const NumInput = memo(function NumInput({
   step?: number;
   className?: string;
 }) {
-  const [draft, setDraft] = useState(String(value));
-  useEffect(() => {
-    setDraft(String(value));
-  }, [value]);
   return (
-    <input
-      type="number"
+    <NumberField
       min={min}
       max={max}
       step={step}
-      value={draft}
+      value={value}
       className={className}
-      onChange={(e) => {
-        setDraft(e.target.value);
-        const n = Number(e.target.value);
-        if (e.target.value !== "" && Number.isFinite(n)) onChange(n);
-      }}
-      onBlur={() => {
-        const n = Number(draft);
-        if (draft === "" || !Number.isFinite(n)) {
-          const fallback = min ?? 0;
-          setDraft(String(fallback));
-          onChange(fallback);
-        }
-      }}
+      onChange={onChange}
     />
   );
 });
