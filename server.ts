@@ -429,7 +429,8 @@ async function startServer() {
         qrCodeBase64: result.qrCodeBase64,
         qrCodeUrl: result.qrCodeUrl,
         pixCode: result.pixCode,
-        expirationDate: result.expirationDate,
+        expiresAt: result.expiresAt,
+        attemptNumber: result.attemptNumber,
       });
     } catch (error) {
       console.error("[mercadopago] Erro ao processar pagamento:", error);

@@ -3,6 +3,7 @@ import type {
   PaymentMethod as PaymentMethodContract,
   PaymentStatus as PaymentStatusContract,
 } from "../../shared/payments/contracts";
+import type { MachineConfig } from "../lib/pricing";
 
 export type FirestoreDate = Timestamp | { seconds: number };
 
@@ -60,6 +61,8 @@ export type PaymentMethod = PaymentMethodContract;
 export interface PaymentAttempt {
   id: string;
   orderId: string;
+  /** Tentativas do mesmo pedido são versionadas: v1, v2, v3… */
+  attemptNumber?: number;
   paymentId?: string;
   paymentProvider: "mercadopago" | "manual";
   paymentProviderStatus?: string;
@@ -75,6 +78,9 @@ export interface PaymentAttempt {
   qrCodeBase64?: string;
   qrCodeUrl?: string;
   pixCode?: string;
+  /** Vencimento definido pelo servidor ao criar a cobrança. */
+  expiresAt?: FirestoreDate;
+  /** @deprecated Nome usado antes da política de expiração; só para leitura. */
   expirationDate?: FirestoreDate;
 }
 
@@ -159,6 +165,13 @@ export interface Order {
   idempotencyKey?: string;
   paidAt?: FirestoreDate;
   paymentUpdatedAt?: FirestoreDate;
+  /** Número da tentativa de pagamento vigente. */
+  paymentAttemptNumber?: number;
+  /** Vencimento da cobrança vigente, definido pelo servidor. */
+  paymentExpiresAt?: FirestoreDate;
+  /** Estorno ou chargeback tiram o pedido do fluxo normal até revisão manual. */
+  fulfillmentHold?: boolean;
+  fulfillmentHoldReason?: PaymentStatus;
 }
 
 export interface Quote {
@@ -195,6 +208,27 @@ export interface Quote {
   items?: OrderItem[];
   materialUsages?: MaterialUsage[];
   calculationProject?: import("../lib/calculatorProject").CalculatorProject;
+  /**
+   * Estado completo da calculadora no momento em que o orçamento foi salvo.
+   * É o que permite reabrir a proposta e chegar exatamente no mesmo número:
+   * `calculationProject` sozinho não guarda markups, mão de obra nem máquina.
+   */
+  calcSnapshot?: import("../lib/calculatorSnapshot").QuoteCalcSnapshot;
+  /** Marcado quando os campos avulsos do painel editam um orçamento com ficha. */
+  calcSnapshotStale?: boolean;
+  /** Tabela comercial escolhida na proposta. */
+  priceTier?: "RETAIL" | "WHOLESALE";
+  /** Referências internas gravadas pela calculadora para auditoria do preço. */
+  retailReference?: number;
+  wholesaleReference?: number;
+  sustainableFloor?: number;
+  /** Impressora usada como base de cálculo. */
+  printerId?: string;
+  printerName?: string;
+  /** Exibir a imagem do produto na proposta impressa do cliente. */
+  showImageOnQuote?: boolean;
+  /** Número legível da proposta (ex.: ORC-2026-000123). */
+  documentNumber?: string;
   subtotal?: number;
   discount?: number;
   surcharge?: number;
@@ -280,6 +314,85 @@ export interface Material {
   location?: string;
   notes?: string;
   active?: boolean;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+/**
+ * Impressora cadastrada. Estende `MachineConfig`, então o motor de preços
+ * continua recebendo exatamente os mesmos 9 campos de custo que já recebia do
+ * documento `settings/machine` — nenhuma bifurcação em `lib/pricing.ts`.
+ */
+export interface Printer extends MachineConfig {
+  id: string;
+  /** Nome comercial exibido na calculadora. Ex.: "Bambu Lab P2S + AMS". */
+  name: string;
+  model?: string;
+  photoUrl?: string;
+  /** Potência média desta máquina (W) quando o filamento não informa a sua. */
+  defaultSteadyPowerWatts?: number;
+  /** Pico de aquecimento desta máquina — sobrepõe `settings/pricing`. */
+  startupPowerWatts?: number;
+  startupMinutes?: number;
+  /** Impressora usada por padrão e espelhada em `settings/machine`. */
+  isDefault?: boolean;
+  active?: boolean;
+  order?: number;
+  notes?: string;
+  createdAt?: FirestoreDate;
+  updatedAt?: FirestoreDate;
+}
+
+export interface CompanyAddress {
+  zipCode?: string;
+  street?: string;
+  number?: string;
+  complement?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+}
+
+/**
+ * Identidade da empresa usada no cabeçalho e rodapé dos documentos impressos.
+ * Guardada em `settings/company`.
+ */
+export interface CompanyProfile {
+  /** Nome fantasia — o que aparece grande no cabeçalho. */
+  tradeName: string;
+  legalName?: string;
+  /** CNPJ ou CPF, apenas dígitos ou já formatado. */
+  document?: string;
+  stateRegistration?: string;
+  phone?: string;
+  whatsapp?: string;
+  email?: string;
+  site?: string;
+  instagram?: string;
+  /** Logo para impressão: preferir fundo claro ou transparente. */
+  logoUrl?: string;
+  address?: CompanyAddress;
+  /** Validade padrão da proposta, em dias corridos. */
+  defaultValidityDays: number;
+  paymentTerms?: string;
+  warrantyTerms?: string;
+  /** Ex.: "5 a 7 dias úteis após aprovação". */
+  leadTimeText?: string;
+  quoteFooterNote?: string;
+  updatedAt?: FirestoreDate;
+}
+
+/**
+ * Modelo de projeto salvo para começar um orçamento novo em um clique.
+ * Guarda o mesmo snapshot do orçamento, então hidrata pela mesma função.
+ */
+export interface CalculatorTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  usageCount?: number;
+  snapshot: import("../lib/calculatorSnapshot").QuoteCalcSnapshot;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
 }

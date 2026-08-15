@@ -7,28 +7,61 @@ import {
   getCalculatorDraftSummary,
   type CalculatorDraftSummary,
 } from "../../public/calculator/useCalculatorState";
-import { ADMIN_CALCULATOR_OPEN_EVENT } from "../adminCalculatorEvents";
+import {
+  ADMIN_CALCULATOR_OPEN_EVENT,
+  type AdminCalculatorOpenRequest,
+} from "../adminCalculatorEvents";
 
 const FilamentCalculator = lazy(() => import("../../public/FilamentCalculator"));
 
-export function AdminCalculatorWorkspace() {
+interface AdminCalculatorWorkspaceProps {
+  onQuoteSaved?: (result: { id: string; created: boolean }) => void | Promise<void>;
+}
+
+export function AdminCalculatorWorkspace({ onQuoteSaved }: AdminCalculatorWorkspaceProps) {
   const [initialDraft] = useState(getCalculatorDraftSummary);
   const [open, setOpen] = useState(false);
   const [mounted, setMounted] = useState(Boolean(initialDraft));
   const [draftSummary, setDraftSummary] = useState<CalculatorDraftSummary | null>(initialDraft);
   const [instanceKey, setInstanceKey] = useState(0);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [confirmReplace, setConfirmReplace] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState<AdminCalculatorOpenRequest | null>(null);
+  const [launchRequest, setLaunchRequest] = useState<AdminCalculatorOpenRequest>({ mode: "NEW" });
 
   const openCalculator = () => {
     setMounted(true);
     setOpen(true);
   };
 
+  const applyOpenRequest = (request: AdminCalculatorOpenRequest) => {
+    if (request.quote) clearCalculatorDraftStorage();
+    setLaunchRequest(request);
+    setMounted(true);
+    setOpen(true);
+    setConfirmReplace(false);
+    setPendingRequest(null);
+    setInstanceKey((current) => current + 1);
+  };
+
   useEffect(() => {
-    const handleOpen = () => openCalculator();
+    const handleOpen = (event: Event) => {
+      const request = (event as CustomEvent<AdminCalculatorOpenRequest>).detail;
+      if (!request?.quote) {
+        openCalculator();
+        return;
+      }
+      const isSameQuote = request.mode === "EDIT" && draftSummary?.quoteId === request.quote.id;
+      if (draftSummary && !isSameQuote) {
+        setPendingRequest(request);
+        setConfirmReplace(true);
+        return;
+      }
+      applyOpenRequest(request);
+    };
     window.addEventListener(ADMIN_CALCULATOR_OPEN_EVENT, handleOpen);
     return () => window.removeEventListener(ADMIN_CALCULATOR_OPEN_EVENT, handleOpen);
-  }, []);
+  }, [draftSummary]);
 
   useEffect(() => {
     const handleDraftSaved = (event: Event) => {
@@ -96,7 +129,11 @@ export function AdminCalculatorWorkspace() {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <a
-                    href="/calculadora"
+                    href={
+                      launchRequest.quote
+                        ? `/calculadora?orcamento=${launchRequest.quote.id}&modo=${launchRequest.mode === "DUPLICATE" ? "duplicar" : "editar"}`
+                        : "/calculadora"
+                    }
                     target="_blank"
                     rel="noreferrer"
                     className="hidden min-h-10 items-center justify-center rounded-xl border border-white/15 px-3 text-xs font-bold text-white/65 transition hover:text-white sm:inline-flex"
@@ -132,7 +169,13 @@ export function AdminCalculatorWorkspace() {
                     </div>
                   }
                 >
-                  <FilamentCalculator key={instanceKey} embedded />
+                  <FilamentCalculator
+                    key={instanceKey}
+                    embedded
+                    initialQuote={launchRequest.quote}
+                    intent={launchRequest.mode}
+                    onQuoteSaved={onQuoteSaved}
+                  />
                 </Suspense>
               </div>
               {confirmDiscard && (
@@ -160,6 +203,42 @@ export function AdminCalculatorWorkspace() {
                         className="min-h-11 rounded-xl bg-red-500 px-4 text-sm font-black text-white hover:bg-red-400"
                       >
                         Descartar cálculo
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {confirmReplace && pendingRequest?.quote && (
+                <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-md">
+                  <div className="w-full max-w-md rounded-2xl border border-amber-300/20 bg-[#11151f] p-6 shadow-2xl">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-amber-300/10">
+                      <Calculator className="h-5 w-5 text-amber-200" />
+                    </div>
+                    <h3 className="mt-4 text-lg font-black text-white">
+                      Substituir o cálculo atual?
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/60">
+                      Existe um rascunho protegido de “{draftSummary?.projectName}”. Abrir “
+                      {pendingRequest.quote.fileName}” substituirá esse rascunho local. Orçamentos
+                      já salvos não serão apagados.
+                    </p>
+                    <div className="mt-5 grid gap-2 sm:grid-cols-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setConfirmReplace(false);
+                          setPendingRequest(null);
+                        }}
+                        className="min-h-11 rounded-xl border border-white/15 px-4 text-sm font-bold text-white/75 hover:bg-white/[0.06]"
+                      >
+                        Manter atual
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyOpenRequest(pendingRequest)}
+                        className="min-h-11 rounded-xl bg-amber-500 px-4 text-sm font-black text-black hover:bg-amber-400"
+                      >
+                        Abrir orçamento
                       </button>
                     </div>
                   </div>

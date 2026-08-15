@@ -235,6 +235,7 @@ export function useQuoteAdmin({
           items: orderItems,
           materialUsages: quote.materialUsages || [],
           ...(quote.calculationProject ? { calculationProject: quote.calculationProject } : {}),
+          ...(quote.calcSnapshot ? { calcSnapshot: quote.calcSnapshot } : {}),
           source: "quote",
           total: finalPrice,
           status: "PENDING_PAYMENT",
@@ -316,6 +317,7 @@ export function useQuoteAdmin({
           notes: editingQuoteCustomerNotes,
           phone: phoneClean,
           ...imagePayload,
+          ...(isQuote(quote) && quote.calcSnapshot ? { calcSnapshotStale: true } : {}),
           updatedAt: serverTimestamp(),
         });
         if (editingQuoteImageUrl.trim() === "") {
@@ -374,6 +376,7 @@ export function useQuoteAdmin({
                 imageUrl:
                   editingQuoteImageUrl.trim() || (isQuote(prev) ? prev.imageUrl : undefined),
                 phone: phoneClean,
+                ...(isQuote(prev) && prev.calcSnapshot ? { calcSnapshotStale: true } : {}),
               }
             : null,
         );

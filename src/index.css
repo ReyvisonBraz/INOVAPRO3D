@@ -741,230 +741,386 @@
   }
 }
 
-.maker-print-report {
+.print-document-host {
   display: none;
 }
 
 @media print {
   @page {
     size: A4;
-    margin: 10mm;
+    margin: 12mm 12mm 14mm;
   }
 
-  html,
-  body {
-    background: #ffffff !important;
-    color: #0f172a !important;
-  }
-
-  .maker-screen,
-  .noise,
-  .debug-marker-overlay,
-  body > #root header:not(.maker-report-header),
-  body > #root footer:not(.maker-report-footer),
-  body > #root .fixed {
+  body.printing #root,
+  body.printing > :not(.print-document-host) {
     display: none !important;
   }
 
-  body * {
-    visibility: hidden !important;
+  body.printing .print-document-host {
+    display: block !important;
+    color: #111827;
+    background: #ffffff;
+    font-family: Inter, Arial, sans-serif;
   }
 
-  .maker-print-report {
-    display: block !important;
-    position: static;
-    width: auto;
-    padding: 0;
-    font-family: "Plus Jakarta Sans", Arial, sans-serif;
-    color: #0f172a;
+  body.printing .print-document,
+  body.printing .print-document * {
+    visibility: visible !important;
+    box-sizing: border-box;
+  }
+
+  .print-document {
+    width: 100%;
+    min-height: 260mm;
+    font-size: 9pt;
+    line-height: 1.35;
+    color: #111827;
     background: #ffffff;
   }
 
-  .maker-print-report,
-  .maker-print-report * {
-    visibility: visible !important;
-  }
-
-  .maker-report-page {
-    page-break-after: always;
+  .doc-page {
     break-after: page;
   }
 
-  .maker-report-page:last-child {
-    page-break-after: auto;
+  .doc-page:last-child {
     break-after: auto;
   }
 
-  .maker-print-report-client .maker-report-page-production,
-  .maker-print-report-production .maker-report-page-client {
-    display: none !important;
+  .doc-avoid {
+    break-inside: avoid;
   }
 
-  .maker-report-header {
+  .doc-company-header,
+  .doc-title-row,
+  .doc-info-grid,
+  .doc-items-layout,
+  .doc-metrics,
+  .doc-cost-grid,
+  .doc-acceptance,
+  .doc-footer {
     display: flex;
+  }
+
+  .doc-company-header {
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 18px;
-    padding-bottom: 12px;
-    border-bottom: 2px solid #0f172a;
+    gap: 10mm;
+    padding-bottom: 5mm;
+    border-bottom: 0.6mm solid #111827;
   }
 
-  .maker-report-kicker {
-    margin: 0 0 6px;
-    font-size: 10px;
-    font-weight: 900;
-    letter-spacing: 0.22em;
-    color: #2563eb;
-  }
-
-  .maker-report-header h1 {
-    margin: 0;
-    font-size: 24px;
-    line-height: 1;
-    font-weight: 900;
-    text-transform: uppercase;
-    color: #0f172a;
-  }
-
-  .maker-report-header p {
-    margin: 6px 0 0;
-    font-size: 11px;
-    color: #475569;
-  }
-
-  .maker-report-meta {
+  .doc-brand-block {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 5px;
-    font-size: 9px;
+    align-items: center;
+    gap: 4mm;
+  }
+
+  .doc-logo {
+    max-width: 46mm;
+    max-height: 18mm;
+    object-fit: contain;
+  }
+
+  .doc-brand-fallback {
+    padding: 3mm 4mm;
+    border: 0.4mm solid #111827;
+    font-size: 13pt;
+    font-weight: 900;
+    letter-spacing: 0.04em;
+  }
+
+  .doc-brand-block strong,
+  .doc-brand-block span,
+  .doc-company-meta span,
+  .doc-info-grid span,
+  .doc-printer-identity small,
+  .doc-printer-identity strong {
+    display: block;
+  }
+
+  .doc-brand-block strong {
+    font-size: 12pt;
+  }
+
+  .doc-brand-block span,
+  .doc-company-meta {
+    color: #4b5563;
+  }
+
+  .doc-company-meta {
+    max-width: 92mm;
+    text-align: right;
+    font-size: 8pt;
+  }
+
+  .doc-title-row {
+    align-items: center;
+    justify-content: space-between;
+    gap: 8mm;
+    padding: 6mm 0 4mm;
+  }
+
+  .doc-eyebrow {
+    display: block;
+    margin-bottom: 1mm;
+    font-size: 7.5pt;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #4b5563;
+  }
+
+  .doc-title-row h1 {
+    margin: 0;
+    font-size: 19pt;
+    line-height: 1;
+  }
+
+  .doc-dates {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: 6mm;
+    margin: 0;
+  }
+
+  .doc-dates dt,
+  .doc-printer-identity small {
+    font-size: 7pt;
     font-weight: 800;
     text-transform: uppercase;
-    color: #475569;
+    color: #6b7280;
   }
 
-  .maker-report-highlight {
-    display: grid;
-    grid-template-columns: 1.25fr 1fr 1fr;
-    gap: 10px;
-    margin: 12px 0;
+  .doc-dates dd {
+    margin: 1mm 0 0;
+    font-weight: 800;
   }
 
-  .maker-report-highlight-client {
-    grid-template-columns: 1.35fr 1fr 0.8fr;
+  .doc-info-grid {
+    gap: 4mm;
+    margin-bottom: 6mm;
   }
 
-  .maker-report-highlight div,
-  .maker-report-card,
-  .maker-report-table,
-  .maker-report-footer {
-    border: 1px solid #cbd5e1;
-    border-radius: 10px;
-    background: #f8fafc;
+  .doc-info-grid > div {
+    flex: 1;
+    min-height: 25mm;
+    padding: 4mm;
+    border: 0.3mm solid #9ca3af;
   }
 
-  .maker-report-highlight div {
-    padding: 10px 12px;
-  }
-
-  .maker-report-highlight span,
-  .maker-report-card h2,
-  .maker-report-table h2 {
-    display: block;
-    font-size: 9px;
+  .doc-info-grid h2,
+  .doc-notes h2,
+  .doc-terms h2,
+  .doc-checklist h2,
+  .doc-cost-grid h2,
+  .doc-section-title {
+    margin: 0 0 2mm;
+    font-size: 8pt;
     font-weight: 900;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #64748b;
   }
 
-  .maker-report-highlight strong {
-    display: block;
-    margin-top: 5px;
-    font-size: 20px;
-    line-height: 1;
-    color: #0f172a;
+  .doc-items-layout {
+    align-items: flex-start;
+    gap: 5mm;
   }
 
-  .maker-report-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
+  .doc-items-main {
+    flex: 1;
+    min-width: 0;
   }
 
-  .maker-report-wide-card {
-    grid-column: span 2;
-  }
-
-  .maker-report-card {
-    padding: 10px 12px;
-    break-inside: avoid;
-  }
-
-  .maker-report-card h2,
-  .maker-report-table h2 {
-    margin: 0 0 7px;
-    color: #2563eb;
-  }
-
-  .maker-report-line {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 5px 0;
-    border-top: 1px solid #e2e8f0;
-    font-size: 10px;
-  }
-
-  .maker-report-line:first-of-type {
-    border-top: 0;
-  }
-
-  .maker-report-line span {
-    color: #475569;
-  }
-
-  .maker-report-line strong {
-    color: #0f172a;
-    text-align: right;
-  }
-
-  .maker-report-table {
-    margin-top: 8px;
-    padding: 10px 12px;
-    break-inside: avoid;
-  }
-
-  .maker-report-table table {
+  .doc-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 10px;
+    font-size: 8.3pt;
   }
 
-  .maker-report-table th {
-    padding: 6px;
+  .doc-table thead {
+    display: table-header-group;
+  }
+
+  .doc-table th {
+    padding: 2.5mm 2mm;
+    border-top: 0.5mm solid #111827;
+    border-bottom: 0.3mm solid #111827;
     text-align: left;
-    color: #475569;
-    border-bottom: 1px solid #cbd5e1;
+    font-size: 7pt;
+    text-transform: uppercase;
   }
 
-  .maker-report-table td {
-    padding: 6px;
-    border-bottom: 1px solid #e2e8f0;
+  .doc-table td {
+    padding: 3mm 2mm;
+    border-bottom: 0.2mm solid #d1d5db;
+    vertical-align: top;
   }
 
-  .maker-report-table th:nth-child(2),
-  .maker-report-table th:nth-child(3),
-  .maker-report-table td:nth-child(2),
-  .maker-report-table td:nth-child(3) {
+  .doc-table td small,
+  .doc-totals small {
+    display: block;
+    margin-top: 0.8mm;
+    color: #6b7280;
+  }
+
+  .doc-number {
+    text-align: right !important;
+    white-space: nowrap;
+  }
+
+  .doc-product-image {
+    width: 42mm;
+    margin: 0;
+  }
+
+  .doc-product-image img {
+    width: 42mm;
+    height: 42mm;
+    border: 0.3mm solid #9ca3af;
+    object-fit: contain;
+  }
+
+  .doc-totals {
+    width: 78mm;
+    margin: 4mm 0 0 auto;
+  }
+
+  .doc-totals > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 8mm;
+    padding: 1.2mm 0;
+  }
+
+  .doc-grand-total {
+    margin-top: 1mm;
+    padding-top: 2.2mm !important;
+    border-top: 0.6mm solid #111827;
+    font-size: 14pt;
+    text-transform: uppercase;
+  }
+
+  .doc-notes,
+  .doc-terms,
+  .doc-checklist {
+    margin-top: 6mm;
+    padding: 4mm;
+    border: 0.3mm solid #9ca3af;
+  }
+
+  .doc-notes p,
+  .doc-terms p,
+  .doc-checklist p {
+    margin: 1.5mm 0 0;
+  }
+
+  .doc-acceptance {
+    justify-content: space-between;
+    gap: 10mm;
+    margin-top: 8mm;
+  }
+
+  .doc-footer {
+    justify-content: space-between;
+    gap: 5mm;
+    margin-top: 7mm;
+    padding-top: 3mm;
+    border-top: 0.3mm solid #6b7280;
+    font-size: 7.5pt;
+    color: #4b5563;
+  }
+
+  .doc-printer-identity {
+    display: flex;
+    align-items: center;
+    gap: 3mm;
     text-align: right;
   }
 
-  .maker-report-footer {
-    margin-top: 8px;
-    padding: 9px 12px;
-    font-size: 9.5px;
-    line-height: 1.4;
-    color: #475569;
-    break-inside: avoid;
+  .doc-printer-identity img {
+    width: 15mm;
+    height: 15mm;
+    border: 0.3mm solid #9ca3af;
+    object-fit: contain;
+  }
+
+  .doc-warning {
+    display: flex;
+    flex-direction: column;
+    gap: 1mm;
+    margin: 0 0 5mm;
+    padding: 3mm 4mm;
+    border: 0.5mm solid #111827;
+    font-weight: 700;
+  }
+
+  .doc-plate-table {
+    font-size: 7.7pt;
+  }
+
+  .doc-metrics {
+    gap: 3mm;
+    margin-top: 6mm;
+  }
+
+  .doc-metrics > div {
+    flex: 1;
+    padding: 3mm;
+    border: 0.3mm solid #9ca3af;
+  }
+
+  .doc-metrics span,
+  .doc-metrics strong {
+    display: block;
+  }
+
+  .doc-metrics span {
+    font-size: 7pt;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+
+  .doc-metrics strong {
+    margin-top: 1mm;
+    font-size: 10pt;
+  }
+
+  .doc-cost-grid {
+    gap: 4mm;
+    margin-top: 5mm;
+  }
+
+  .doc-cost-grid > div {
+    flex: 1;
+    padding: 4mm;
+    border: 0.3mm solid #9ca3af;
+  }
+
+  .doc-cost-grid dl {
+    margin: 0;
+  }
+
+  .doc-cost-grid dl div {
+    display: flex;
+    justify-content: space-between;
+    gap: 4mm;
+    padding: 1.2mm 0;
+    border-bottom: 0.2mm solid #e5e7eb;
+  }
+
+  .doc-cost-grid dt,
+  .doc-cost-grid dd {
+    margin: 0;
+  }
+
+  .doc-cost-grid dd {
+    font-weight: 800;
+    text-align: right;
+  }
+
+  .doc-empty {
+    padding: 5mm;
+    border: 0.3mm dashed #9ca3af;
+    color: #4b5563;
   }
 }

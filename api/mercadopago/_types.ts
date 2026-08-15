@@ -8,6 +8,7 @@ export interface MercadoPagoPaymentRequest {
   external_reference: string;
   statement_descriptor?: string;
   notification_url?: string;
+  date_of_expiration?: string;
   payer?: {
     email?: string;
   };
@@ -62,7 +63,7 @@ export interface CreatePaymentResult {
   qrCodeBase64?: string;
   qrCodeUrl?: string;
   pixCode?: string;
-  expirationDate?: string;
+  expiresAt?: string;
 }
 
 export interface PaymentStatusResult {
@@ -75,6 +76,36 @@ export interface PaymentStatusResult {
   dateCreated: string;
   dateApproved?: string;
   externalReference?: string;
+}
+
+/**
+ * O Mercado Pago exige `yyyy-MM-dd'T'HH:mm:ss.SSSZ` com deslocamento explícito.
+ * Emitimos sempre em UTC (`+00:00`) para que o resultado não dependa do fuso
+ * configurado na máquina que executa a função.
+ */
+export function formatMercadoPagoDate(date: Date): string {
+  return `${date.toISOString().replace("Z", "")}+00:00`;
+}
+
+const KNOWN_MERCADO_PAGO_STATUSES = new Set([
+  "approved",
+  "pending",
+  "in_process",
+  "authorized",
+  "rejected",
+  "cancelled",
+  "canceled",
+  "expired",
+  "refunded",
+  "charged_back",
+]);
+
+/**
+ * Um status fora desta lista vira `PROCESSING` e precisa gerar alerta: pode
+ * indicar mudança de contrato do provedor, nunca uma aprovação implícita.
+ */
+export function isKnownMercadoPagoStatus(mpStatus: string): boolean {
+  return KNOWN_MERCADO_PAGO_STATUSES.has(mpStatus.toLowerCase());
 }
 
 // Mapeamento de status

@@ -25,6 +25,26 @@ Pago e marca o pedido como pago. O teste real de R$ 0,95 foi concluído com suce
 O que falta não invalida o núcleo existente. Trata-se da segunda etapa: experiência, ciclo de vida
 completo, resiliência operacional e endurecimento de segurança.
 
+## Estado de execução
+
+Atualizar esta tabela no mesmo commit que muda o código. Ela existe para que qualquer retomada
+comece pela leitura do plano, e não por uma investigação do repositório.
+
+| #   | Ponto                          | Estado    | Onde vive no código                                                              |
+| --- | ------------------------------ | --------- | -------------------------------------------------------------------------------- |
+| 1   | Atualização em tempo real      | Concluído | `src/hooks/useOrderPaymentStatus.ts` + `PixPaymentStep.tsx`                      |
+| 2   | Expiração explícita do Pix     | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_client.ts`                   |
+| 3   | Nova tentativa após vencimento | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_service.ts`                  |
+| 4   | Máquina de estados financeiros | Concluído | `shared/payments/paymentStateMachine.ts` + `api/mercadopago/_webhookDecision.ts` |
+| 5   | Reconciliação automática       | Pendente  | —                                                                                |
+| 6   | Endpoint de status confiável   | Pendente  | `api/mercadopago/payment-status.ts` ainda só lê o Firestore                      |
+| 7   | Rate limiting distribuído      | Pendente  | —                                                                                |
+| 8   | Contratos de erro e observação | Concluído | `shared/errors/catalog.ts`, `api/_observability/`, `src/lib/apiError.ts`         |
+| 9   | CSP bloqueante                 | Pendente  | `vercel.json` mantém `Report-Only`                                               |
+| 10  | IP e dados adicionais corretos | Concluído | IP fictício removido de `api/mercadopago/_client.ts`                             |
+| 11  | Redesign do checkout           | Concluído | `Checkout.tsx` + `PixPaymentStep.tsx` (hierarquia/feedback/acessibilidade)       |
+| 12  | Consolidar a API (Orders)      | Decidido  | decisão registrada; execução após a Fase 1                                       |
+
 ## Decisões fechadas em 5 de agosto de 2026
 
 As fronteiras e responsabilidades da migração estão registradas em
@@ -149,6 +169,16 @@ máquina de estados, não por condições espalhadas.
 - Escutas e temporizadores são encerrados em estados finais e ao desmontar o componente.
 - Perda temporária de conexão exibe estado recuperável e retoma a conferência.
 
+**Executado em 8 de agosto de 2026.** `useOrderPaymentStatus` assina um único documento
+(`orders/{id}`) com `onSnapshot` — uma leitura inicial e novas leituras só quando o documento muda,
+nunca polling. A assinatura é ligada apenas durante a etapa de pagamento (`enabled: step === 2`) e
+se desliga sozinha ao chegar a um estado final ou ao sair da etapa/desmontar. Como reforço, revalida
+pela API `payment-status` ao recuperar foco ou conexão, com um intervalo mínimo entre chamadas.
+
+O checkout reage à aprovação chamando a mesma função de sucesso usada na resposta síncrona da
+criação do Pix. `PixPaymentStep` também passou a tratar `EXPIRED`/`REJECTED`/`CANCELED` vindos do
+webhook como bloqueio imediato, sem depender só do relógio local do navegador.
+
 **Prioridade:** P0. **Dependências:** pontos 3 e 4.
 
 ### 2. Expiração explícita e visível do Pix
@@ -166,7 +196,24 @@ máquina de estados, não por condições espalhadas.
 - Diferença no relógio do dispositivo não altera a decisão financeira.
 - Duração pode ser configurada sem espalhar constantes pelo código.
 
-**Prioridade:** P0. **Dependências:** decisão sobre API no ponto 12.
+**Ajuste de sequência (8 de agosto de 2026):** a expiração deixa de esperar a migração do ponto 12.
+A API `/v1/payments` já aceita `date_of_expiration` na criação, então os 30 minutos serão
+implementados atrás do adaptador atual e sobreviverão à migração para Orders sem mudar a regra de
+negócio. Adiar a expiração até a troca de API manteria o cliente preso a um Pix vencido por semanas
+sem ganho arquitetural.
+
+**Executado em 8 de agosto de 2026.** A duração vive em `shared/payments/pixAttempt.ts`, com
+`PIX_EXPIRATION_MINUTES` configurável por ambiente e travada nos limites do provedor (30 minutos a
+30 dias). O servidor calcula `expiresAt`, envia `date_of_expiration` na criação da cobrança e grava
+o vencimento no pedido (`paymentExpiresAt`) e na tentativa (`expiresAt`). Quando o provedor devolve
+a própria expiração, ela prevalece sobre a calculada.
+
+O contador (`PixCountdown`) é apresentação: lê `expiresAt`, encerra o temporizador no vencimento e
+desmonta com o componente. Ao vencer, o QR Code e o botão de copiar somem e dão lugar à ação de
+gerar um código novo. Nenhuma decisão financeira depende do relógio do dispositivo — quem recusa
+um Pix vencido é o Mercado Pago.
+
+**Prioridade:** P0. **Dependências:** nenhuma.
 
 ### 3. Nova tentativa após vencimento
 
@@ -183,6 +230,19 @@ para impedir concorrência.
 - Um Pix expirado gera uma tentativa nova e auditável.
 - Duas requisições simultâneas resultam em uma única tentativa válida.
 - Tentativas anteriores permanecem imutáveis para auditoria.
+
+**Executado em 8 de agosto de 2026.** `decidePaymentAttempt` decide entre reaproveitar a cobrança
+vigente e abrir a tentativa seguinte; os identificadores passaram a ser
+`order:{orderId}:pix:v{n}` e `{orderId}-pix-v{n}`, com `paymentAttemptNumber` no pedido.
+
+A validação do pedido e a reserva da tentativa acontecem na mesma transação do Firestore, antes da
+chamada ao provedor. A reserva grava a tentativa como `PROCESSING`; se a criação no Mercado Pago
+falhar, a requisição seguinte retoma a mesma chave em vez de abrir uma cobrança paralela — e, como
+a chave é idempotente, uma cobrança que tenha sido criada sem resposta não vira segunda cobrança.
+
+Três caminhos, todos cobertos por teste: `reuse_stored` (devolve o QR Code gravado, sem chamar o
+provedor), `resume_provider` (repete a chamada com a mesma chave) e `create` (nova tentativa após
+vencimento, recusa ou cancelamento).
 
 **Prioridade:** P0. **Dependências:** ponto 2.
 
@@ -201,6 +261,21 @@ e a alteração comercial permitida. O webhook e a reconciliação usarão a mes
 - `REFUNDED` e `CHARGED_BACK` retiram o pedido do fluxo normal e avisam a operação.
 - Uma notificação antiga não regride um estado final mais novo.
 - Pedido e tentativa são atualizados atomicamente.
+
+**Executado em 8 de agosto de 2026.** `decidePaymentWebhook` (`api/mercadopago/_webhookDecision.ts`)
+é a função pura que recebe o pagamento consultado no provedor e o pedido gravado, e devolve o que
+escrever. `processPaymentWebhook` apenas persiste o resultado, dentro de uma única transação do
+Firestore que cobre pedido, tentativa e evento de auditoria.
+
+Comportamentos garantidos por teste:
+
+- Aprovação libera `status=PAID`, mas nunca rebaixa um pedido já em produção.
+- Notificação atrasada que tentaria regredir um estado final é registrada e descartada
+  (`ignored_stale`), sem tocar o pedido.
+- Aprovação tardia após expiração ou recusa continua sendo aceita.
+- Vencimento, recusa e cancelamento mantêm o pedido aguardando pagamento, sem cancelá-lo.
+- Estorno e chargeback marcam `fulfillmentHold` e emitem alerta de operação.
+- Status desconhecido vira `PROCESSING` com alerta, nunca aprovação.
 
 **Prioridade:** P0. **Dependências:** nenhuma.
 
@@ -334,6 +409,30 @@ a identidade da marca sem competir com as informações essenciais.
 - Sem layout quebrado entre 320 px e telas grandes.
 - Feedback de carregamento não permite cliques duplicados.
 - Testes visuais nos estados vazio, criando, pendente, aprovado, expirado e erro.
+
+**Executado em 8 de agosto de 2026, com escopo deliberadamente restrito.** Os itens 1, 2, 4 e 5 da
+estrutura proposta já existiam dos pontos anteriores desta fase (revisão compacta, resumo financeiro,
+QR Code com contador, confirmação automática). O que faltava — e foi fechado agora — foram as lacunas
+concretas contra os critérios de aceite, sem tocar a identidade visual:
+
+- **Estado de erro visível:** `usePayment()` já devolvia `error`, mas `Checkout.tsx` nunca lia o
+  campo — só existia um toast que some sozinho. `PixPaymentStep` ganhou um bloco `role="alert"`
+  persistente, com a mensagem, aviso de que nenhuma cobrança foi feita, e o mesmo botão de ação já
+  existente (sem CTA duplicada). Some sozinho porque `resetPayment()` já limpava o erro a cada nova
+  tentativa.
+- **Indicador de etapas acessível:** virou `<nav aria-label="Etapas do pedido"><ol>` com
+  `aria-current="step"`. O rótulo do passo usava `hidden sm:block`, que remove o texto da árvore de
+  acessibilidade abaixo de 640px, não só da tela — trocado por `sr-only sm:not-sr-only`.
+- **Área de toque dos controles de quantidade/remover:** de 28×28px (`h-7 w-7`) para 36×36px
+  (`h-9 w-9`).
+- **Guarda explícita contra duplo envio:** `if (loading) return;` no topo de `handleCompleteOrder` e
+  `handleProcessPayment`, reforçando o `disabled` do botão.
+
+**Verificado no navegador (Playwright, sessão já autenticada) apenas até a etapa 1** — layout em
+320px sem quebra, árvore de acessibilidade confirmando o rótulo do passo atual. As etapas 2 e 3 (Pix
+gerado e confirmação) e o próprio bloco de erro não foram vistos rodando nesta sessão: validados por
+leitura de código, não por execução. Recomenda-se um teste manual completo do fluxo Pix antes de
+considerar o ponto 11 encerrado de fato.
 
 **Prioridade:** P0. **Dependências:** pontos 1, 2 e 4 para representar estados reais.
 

@@ -21,6 +21,7 @@ import { trackBeginCheckout, trackPurchase } from "../../lib/analytics";
 import { ApiClientError, formatSupportCode, readApiError } from "../../lib/apiError";
 import { isEnabled as isMercadoPagoEnabled } from "../../lib/mercadopago/config";
 import { usePayment } from "../../hooks/usePayment";
+import { useOrderPaymentStatus } from "../../hooks/useOrderPaymentStatus";
 import { PixPaymentStep, type PixPaymentData } from "../../components/checkout/PixPaymentStep";
 
 interface OrderTotals {
@@ -35,7 +36,12 @@ export default function Checkout() {
   const navigate = useNavigate();
 
   const mpEnabled = isMercadoPagoEnabled();
-  const { loading: paymentLoading, processPayment, reset: resetPayment } = usePayment();
+  const {
+    loading: paymentLoading,
+    error: paymentError,
+    processPayment,
+    reset: resetPayment,
+  } = usePayment();
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [loading, setLoading] = useState(false);
@@ -44,6 +50,13 @@ export default function Checkout() {
   const [confirmedTotals, setConfirmedTotals] = useState<OrderTotals | null>(null);
   const [pixData, setPixData] = useState<PixPaymentData | null>(null);
   const checkoutTotal = confirmedTotals?.total ?? total;
+
+  // Fonte da confirmação automática: assinatura em tempo real do pedido,
+  // ativa somente durante a etapa de pagamento. Encerra sozinha em estado
+  // final e ao sair da etapa (enabled passa a false).
+  const paymentStatusRealtime = useOrderPaymentStatus(createdOrderId, {
+    enabled: step === 2 && mpEnabled,
+  });
 
   const trackedCheckout = useRef(false);
   const trackedPurchase = useRef(false);
@@ -79,6 +92,9 @@ export default function Checkout() {
   };
 
   const handleCompleteOrder = async () => {
+    // Reforça o `disabled` do botão: nenhum disparo duplo entra, mesmo por
+    // Enter repetido ou chamada programática, enquanto a anterior está em voo.
+    if (loading) return;
     const checkoutUser = await ensureCheckoutUser();
     if (!checkoutUser) return;
 
@@ -161,7 +177,7 @@ export default function Checkout() {
   };
 
   const handleProcessPayment = async () => {
-    if (!createdOrderId || !user) return;
+    if (!createdOrderId || !user || loading) return;
 
     setLoading(true);
     resetPayment();
@@ -175,7 +191,7 @@ export default function Checkout() {
             pixCode: result.pixCode,
             qrCodeBase64: result.qrCodeBase64,
             qrCodeUrl: result.qrCodeUrl,
-            expirationDate: result.expirationDate,
+            expiresAt: result.expiresAt,
             paymentId: result.paymentId,
           });
         } else if (result.status === "approved") {
@@ -200,6 +216,15 @@ export default function Checkout() {
       description: `Pedido confirmado. ${paymentId ? `ID: ${paymentId}` : ""}`,
     });
   };
+
+  // O QR Code some sozinho quando o webhook confirma o pagamento — a pessoa
+  // não precisa recarregar a página nem clicar em nada.
+  useEffect(() => {
+    if (step === 2 && paymentStatusRealtime.paymentStatus === "APPROVED") {
+      handlePaymentSuccess(pixData?.paymentId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, paymentStatusRealtime.paymentStatus]);
 
   const copyPixCode = () => {
     if (pixData?.pixCode) {
@@ -275,35 +300,51 @@ export default function Checkout() {
                 : "Seu pedido foi registrado com sucesso."}
           </p>
         </div>
-        <div className="flex items-center gap-3 sm:gap-4 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0">
-          {steps.map(({ n: s, label }, idx) => (
-            <Fragment key={s}>
-              <div className="flex flex-col items-center gap-1.5">
-                <div
-                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
-                    step === s
-                      ? "bg-primary text-white scale-110 shadow-xl shadow-primary/20"
-                      : step > s
-                        ? "bg-green-500 text-white"
-                        : "bg-white/5 text-white/20"
-                  }`}
+        <nav
+          aria-label="Etapas do pedido"
+          className="flex items-center gap-3 sm:gap-4 bg-white/[0.03] p-4 sm:p-0 sm:bg-transparent rounded-3xl border border-white/5 sm:border-0"
+        >
+          <ol className="flex items-center gap-3 sm:gap-4">
+            {steps.map(({ n: s, label }, idx) => (
+              <Fragment key={s}>
+                <li
+                  aria-current={step === s ? "step" : undefined}
+                  className="flex flex-col items-center gap-1.5"
                 >
-                  {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
-                </div>
-                <span
-                  className={`text-[9px] font-black uppercase tracking-widest hidden sm:block ${step === s ? "text-primary" : step > s ? "text-green-500" : "text-white/20"}`}
-                >
-                  {label}
-                </span>
-              </div>
-              {idx < steps.length - 1 && (
-                <div
-                  className={`w-6 sm:w-8 h-[2px] rounded-full mb-4 ${step > s ? "bg-green-500" : "bg-white/10"}`}
-                />
-              )}
-            </Fragment>
-          ))}
-        </div>
+                  <div
+                    aria-hidden="true"
+                    className={`w-11 h-11 sm:w-12 sm:h-12 rounded-[14px] flex items-center justify-center text-sm sm:text-base font-black transition-all ${
+                      step === s
+                        ? "bg-primary text-white scale-110 shadow-xl shadow-primary/20"
+                        : step > s
+                          ? "bg-green-500 text-white"
+                          : "bg-white/5 text-white/20"
+                    }`}
+                  >
+                    {step > s ? <CheckCircle2 className="w-5 h-5" /> : `0${s}`}
+                  </div>
+                  {/* `sr-only` mantém o rótulo audível por leitor de tela no celular; `hidden`
+                      o removeria da árvore de acessibilidade, não só da tela. O estado
+                      (concluída/atual) fica sempre só para leitor — visualmente já é a cor. */}
+                  <span
+                    className={`text-[9px] font-black uppercase tracking-widest sr-only sm:not-sr-only ${step === s ? "text-primary" : step > s ? "text-green-500" : "text-white/20"}`}
+                  >
+                    {label}
+                  </span>
+                  <span className="sr-only">
+                    {step > s ? " — concluída" : step === s ? " — etapa atual" : " — pendente"}
+                  </span>
+                </li>
+                {idx < steps.length - 1 && (
+                  <li
+                    aria-hidden="true"
+                    className={`w-6 sm:w-8 h-[2px] rounded-full mb-4 ${step > s ? "bg-green-500" : "bg-white/10"}`}
+                  />
+                )}
+              </Fragment>
+            ))}
+          </ol>
+        </nav>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16 items-start pb-32 lg:pb-0">
@@ -336,7 +377,7 @@ export default function Checkout() {
                             type="button"
                             onClick={() => updateQuantity(item.id, -1)}
                             aria-label="Diminuir quantidade"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white"
                           >
                             <Minus className="h-3 w-3" />
                           </button>
@@ -347,7 +388,7 @@ export default function Checkout() {
                             type="button"
                             onClick={() => updateQuantity(item.id, 1)}
                             aria-label="Aumentar quantidade"
-                            className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white"
+                            className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 text-white/50 hover:text-white"
                           >
                             <Plus className="h-3 w-3" />
                           </button>
@@ -355,7 +396,7 @@ export default function Checkout() {
                             type="button"
                             onClick={() => removeItem(item.id)}
                             aria-label="Remover produto"
-                            className="ml-2 flex h-7 w-7 items-center justify-center rounded-lg text-white/30 hover:bg-red-500/10 hover:text-red-400"
+                            className="ml-2 flex h-9 w-9 items-center justify-center rounded-lg text-white/30 hover:bg-red-500/10 hover:text-red-400"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
@@ -430,6 +471,9 @@ export default function Checkout() {
                 clearCart();
                 navigate("/meus-pedidos");
               }}
+              remoteStatus={paymentStatusRealtime.paymentStatus}
+              connectionUnstable={paymentStatusRealtime.connectionState === "reconnecting"}
+              error={paymentError}
             />
           )}
 

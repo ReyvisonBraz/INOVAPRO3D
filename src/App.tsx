@@ -25,6 +25,7 @@ import { OnboardingProvider, useOnboarding } from "./contexts/OnboardingContext"
 import CookieConsent from "./components/CookieConsent";
 import { trackPageView } from "./lib/analytics";
 import ShapeGrid from "./components/ui/ShapeGrid";
+import GradualBlur from "./components/ui/GradualBlur";
 
 const WELCOME_KEY = "inovapro3d:welcomed";
 
@@ -171,6 +172,27 @@ function RouterContent() {
               shape="hexagon"
               borderColor={gridBorderColor}
               hoverFillColor={gridHoverColor}
+            />
+            {/* GradualBlur nas bordas — desfoca os hexágonos no topo e no
+                rodapé da tela, sumindo com o "degradê em x/y" que aparece
+                no mobile e dando um fade suave ao fundo animado. */}
+            <GradualBlur
+              position="top"
+              target="parent"
+              height="6rem"
+              strength={2}
+              divCount={5}
+              curve="bezier"
+              className="bg-fade-top"
+            />
+            <GradualBlur
+              position="bottom"
+              target="parent"
+              height="6rem"
+              strength={2}
+              divCount={5}
+              curve="bezier"
+              className="bg-fade-bottom"
             />
           </div>
 

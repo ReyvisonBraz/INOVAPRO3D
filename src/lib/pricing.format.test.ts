@@ -23,6 +23,12 @@ describe("parseTimeToHours", () => {
   it("devolve 0 para lixo não numérico", () => {
     expect(parseTimeToHours("abc")).toBe(0);
   });
+  it('interpreta dias: "1d 4h 12m" como 28.2', () => {
+    expect(parseTimeToHours("1d 4h 12m")).toBeCloseTo(28.2, 5);
+  });
+  it('interpreta "2d" como 48', () => {
+    expect(parseTimeToHours("2d")).toBe(48);
+  });
 });
 
 describe("formatHoursToHHMM", () => {

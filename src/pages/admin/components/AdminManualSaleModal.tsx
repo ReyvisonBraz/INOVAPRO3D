@@ -4,6 +4,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { auth, db } from "../../../services/firebase";
 import { Button } from "../../../components/ui/Button";
+import { buildQuotePayload } from "../../../lib/quotes";
 import type { Customer, Material, MaterialUsage, OrderItem, Product } from "../../../types/domain";
 
 interface Props {
@@ -125,14 +126,32 @@ export function AdminManualSaleModal({
         });
       } else {
         const first = items[0];
+        const quotePayload = buildQuotePayload({
+          clientName: customer.name ?? "Cliente",
+          phone: customer.whatsapp || customer.phone || "",
+          customerId: customer.id,
+          pieceName: first.name,
+          materialLabel: first.materialId || "manual",
+          weight: 0,
+          printTime: "",
+          quantity: items.reduce((sum, item) => sum + item.quantity, 0),
+          price: total,
+          unitPrice:
+            total /
+            Math.max(
+              1,
+              items.reduce((sum, item) => sum + item.quantity, 0),
+            ),
+          materialUsages: usages,
+          customerNotes,
+          notes: internalNotes,
+          validUntil: validUntil || undefined,
+        });
         await addDoc(collection(db, "quotes"), {
+          ...quotePayload,
           ...common,
-          status: "PENDING",
-          fileName: first.name,
-          materialId: first.materialId || "manual",
+          source: "manual",
           infill: first.infill ?? 20,
-          estimatedPrice: total,
-          validUntil: validUntil || null,
         });
       }
       toast.success(mode === "order" ? "Pedido manual criado." : "Orcamento manual criado.");

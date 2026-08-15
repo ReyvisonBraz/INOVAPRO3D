@@ -52,6 +52,16 @@ export interface ProjectPricingOptions {
   wholesaleMarkup: number;
   retailMarkup: number;
   minPrice: number;
+  /**
+   * Margem de segurança (%) sobre o custo do filamento das bandejas.
+   * Padrão 0: o Total da Bambu já inclui suporte, purga e torre.
+   */
+  reservePct?: number;
+  /**
+   * Potência média (W) usada quando uma bandeja ainda não tem filamento
+   * informado. Sem ela, o cálculo assumia PLA em silêncio.
+   */
+  fallbackSteadyPowerWatts?: number;
 }
 
 export interface PlatePricingSummary {
@@ -87,6 +97,12 @@ export function computeProjectPricing(
   settings: PricingSettings,
   options: ProjectPricingOptions,
 ): ProjectPricingSummary {
+  const reserveMultiplier = 1 + Math.max(0, Number(options.reservePct) || 0) / 100;
+  const fallbackSteadyPowerWatts = Math.max(
+    0,
+    Number(options.fallbackSteadyPowerWatts ?? settings.materials.pla.steadyPowerWatts) || 0,
+  );
+
   const plateSummaries = project.plates.map((plate) => {
     const repetitions = Math.max(1, Math.floor(Number(plate.repetitions) || 1));
     const hoursPerRun = Math.max(0, parseTimeToHours(plate.totalTime));
@@ -103,7 +119,9 @@ export function computeProjectPricing(
           Math.max(0, Number(filament.totalGrams) || 0) *
             Math.max(0, Number(filament.pricePerGram) || 0),
         0,
-      ) * repetitions;
+      ) *
+      repetitions *
+      reserveMultiplier;
 
     const startupHoursPerRun = Math.min(hoursPerRun, Math.max(0, settings.startupMinutes) / 60);
     const steadyHoursPerRun = Math.max(0, hoursPerRun - startupHoursPerRun);
@@ -120,7 +138,7 @@ export function computeProjectPricing(
                 Math.max(0, Number(filament.steadyPowerWatts) || 0),
             0,
           ) / totalFilamentGrams
-        : settings.materials.pla.steadyPowerWatts;
+        : fallbackSteadyPowerWatts;
     const energyKwh =
       ((startupHoursPerRun * Math.max(0, settings.startupPowerWatts) +
         steadyHoursPerRun * weightedPower) /
@@ -160,6 +178,8 @@ export function computeProjectPricing(
     weightGrams: totals.weightGrams,
     hours: totals.hours,
     quantity: Math.max(1, totalPieces),
+    // A reserva já foi aplicada bandeja a bandeja em `materialCost`; zerar aqui
+    // impede que o motor a aplique uma segunda vez sobre o override.
     reservePct: 0,
     failureRatePct: settings.failureRatePct,
     failureImpactPct: settings.failureImpactPct,

@@ -80,8 +80,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       paymentId,
       action: payload.action,
       type: payload.type,
+      context,
     });
-    logEvent(outcome === "amount_mismatch" ? "error" : "info", context, "Webhook processado", {
+    const level =
+      outcome === "amount_mismatch" ? "error" : outcome === "ignored_stale" ? "warn" : "info";
+    logEvent(level, context, "Webhook processado", {
       paymentId,
       outcome,
     });

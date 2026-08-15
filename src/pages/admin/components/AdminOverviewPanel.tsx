@@ -1,106 +1,45 @@
-import { memo, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { memo, useMemo } from "react";
 import {
-  Truck,
-  CheckCircle2,
-  HelpCircle,
-  ArrowRight,
-  Zap,
-  Smartphone,
   AlertCircle,
-  Layers,
-  Wallet,
+  ArrowRight,
   Calculator,
+  CheckCircle2,
+  ExternalLink,
+  Layers,
   ListTodo,
+  Maximize2,
   Shield,
   Trash2,
-  ImagePlus,
-  Loader2,
-  Save,
-  X,
-  ExternalLink,
-  Maximize2,
+  Truck,
+  Wallet,
+  Zap,
 } from "lucide-react";
 import { motion } from "framer-motion";
-
-import { Button } from "../../../components/ui/Button";
-import { NumInput } from "../../../lib/adminHelpers";
 import {
-  AreaChart,
   Area,
+  AreaChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
 } from "recharts";
-import {
-  MATERIAL_PRESETS,
-  formatBRL,
-  HELP,
-  type MaterialKey,
-  type MachineConfig,
-  type MachineHourBreakdown,
-  type PricingSettings,
-} from "../../../lib/pricing";
-import type { Material, MaterialUsage, Order, OrderItem, Quote } from "../../../types/domain";
+import { Button } from "../../../components/ui/Button";
+import type { Order, OrderItem, Quote } from "../../../types/domain";
+import { openAdminCalculator } from "../adminCalculatorEvents";
 import { AdminOverviewSummary } from "./AdminOverviewSummary";
-import { CalculatorProjectEditor } from "../../../components/calculator/CalculatorProjectEditor";
-import type { CalculatorProject, ProjectValidationIssue } from "../../../lib/calculatorProject";
-import { ADMIN_CALCULATOR_OPEN_EVENT } from "../adminCalculatorEvents";
 
 interface AdminOverviewPanelProps {
-  quickProject: CalculatorProject;
-  setQuickProject: (project: CalculatorProject) => void;
-  quickProjectIssues: ProjectValidationIssue[];
-  setQuickProjectIssues: (issues: ProjectValidationIssue[]) => void;
   orders: Order[];
   quotes: Quote[];
   searchTerm: string;
-  quickCalcWeight: number;
-  quickCalcTime: string;
-  quickCalcPhone: string;
-  quickCalcCustomerName: string;
-  quickCalcPieceName: string;
-  quickCalcBatchQty: number;
-  quickCalcMaterial: MaterialKey;
-  inventoryMaterials: Material[];
-  quickMaterialUsages: MaterialUsage[];
-  setQuickMaterialUsages: Dispatch<SetStateAction<MaterialUsage[]>>;
-  quickCalcMaterialReserve: number;
-  quickCalcFailureRate: number;
-  quickCalcMinPrice: number;
-  quickCalcWholesaleMarkup: number;
-  quickCalcRetailMarkup: number;
-  setQuickCalcWeight: (v: number) => void;
-  setQuickCalcTime: (v: string) => void;
-  setQuickCalcPhone: (v: string) => void;
-  setQuickCalcCustomerName: (v: string) => void;
-  setQuickCalcPieceName: (v: string) => void;
-  setQuickCalcBatchQty: (v: number) => void;
-  selectQuickMaterial: (v: MaterialKey) => void;
-  pricingSettings: PricingSettings;
-  setQuickCalcMaterialReserve: (v: number) => void;
-  setQuickCalcFailureRate: (v: number) => void;
-  setQuickCalcMinPrice: (v: number) => void;
-  setQuickCalcWholesaleMarkup: (v: number) => void;
-  setQuickCalcRetailMarkup: (v: number) => void;
-  quickCalcResult: ReturnType<typeof import("../../../lib/pricing").computePricing>;
-  quickMachineBreak: MachineHourBreakdown;
   onSelectOrder: (order: Order) => void;
   onCancelOrder: (order: Order) => void;
   onDeleteOrder: (order: Order) => void;
   onTabChange: (tab: string) => void;
-  onSendWhatsAppQuote: () => void;
-  machineConfig: MachineConfig;
-  quickCalcImageUrl: string;
-  setQuickCalcImageUrl: (v: string) => void;
-  quickCalcUploadingImage: boolean;
-  quickCalcSaving: boolean;
-  onUploadImage: (file: File) => void;
-  onSaveQuote: () => void;
 }
 
 const KANBAN_STAGES = [
@@ -116,96 +55,33 @@ const KANBAN_STAGES = [
 const CHART_COLORS = ["#2563EB", "#22C55E", "#3B82F6", "#EAB308"];
 
 const AdminOverviewPanel = memo(function AdminOverviewPanel({
-  quickProject,
-  setQuickProject,
-  quickProjectIssues,
-  setQuickProjectIssues,
   orders,
   quotes,
   searchTerm,
-  quickCalcWeight,
-  quickCalcTime,
-  quickCalcPhone,
-  quickCalcCustomerName,
-  quickCalcPieceName,
-  quickCalcBatchQty,
-  quickCalcMaterial,
-  inventoryMaterials,
-  quickMaterialUsages,
-  setQuickMaterialUsages,
-  quickCalcMaterialReserve,
-  quickCalcFailureRate,
-  quickCalcMinPrice,
-  quickCalcWholesaleMarkup,
-  quickCalcRetailMarkup,
-  setQuickCalcWeight,
-  setQuickCalcTime,
-  setQuickCalcPhone,
-  setQuickCalcCustomerName,
-  setQuickCalcPieceName,
-  setQuickCalcBatchQty,
-  selectQuickMaterial,
-  pricingSettings,
-  setQuickCalcMaterialReserve,
-  setQuickCalcFailureRate,
-  setQuickCalcMinPrice,
-  setQuickCalcWholesaleMarkup,
-  setQuickCalcRetailMarkup,
-  quickCalcResult,
-  quickMachineBreak,
   onSelectOrder,
   onCancelOrder,
   onDeleteOrder,
   onTabChange,
-  onSendWhatsAppQuote,
-  quickCalcImageUrl,
-  setQuickCalcImageUrl,
-  quickCalcUploadingImage,
-  quickCalcSaving,
-  onUploadImage,
-  onSaveQuote,
 }: AdminOverviewPanelProps) {
-  const [stockMaterialId, setStockMaterialId] = useState("");
-  const [stockUsageGrams, setStockUsageGrams] = useState(0);
-  const allocatedStockGrams = quickMaterialUsages.reduce(
-    (sum, usage) => sum + Number(usage.estimatedGrams || 0),
-    0,
-  );
-  const addStockUsage = () => {
-    const selected = inventoryMaterials.find((entry) => entry.id === stockMaterialId);
-    if (!selected || stockUsageGrams <= 0) return;
-    setQuickMaterialUsages((current) => [
-      ...current.filter((entry) => entry.materialId !== selected.id),
-      { materialId: selected.id, materialName: selected.name, estimatedGrams: stockUsageGrams },
-    ]);
-    setStockMaterialId("");
-    setStockUsageGrams(0);
-  };
-
-  const openCalculator = () => {
-    window.dispatchEvent(new Event(ADMIN_CALCULATOR_OPEN_EVENT));
-  };
-  const chartData = useMemo(
-    () =>
-      [...orders]
-        .map((o) => ({
-          name: new Date((o.createdAt?.seconds ?? 0) * 1000).toLocaleDateString() || "N/A",
-          total: o.total || 0,
-        }))
-        .reverse(),
-    [orders],
-  );
+  const chartData = useMemo(() => {
+    const totals = new Map<string, number>();
+    for (const order of orders) {
+      const label = new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString("pt-BR");
+      totals.set(label, (totals.get(label) ?? 0) + (order.total || 0));
+    }
+    return [...totals].map(([name, total]) => ({ name, total })).reverse();
+  }, [orders]);
 
   const pieData = useMemo(() => {
-    let pending = 0,
-      paid = 0,
-      production = 0,
-      completed = 0;
-    for (const o of orders) {
-      if (o.status === "PENDING_PAYMENT") pending++;
-      else if (o.status === "PAID") paid++;
-      else if (["QUEUE", "SLICING", "PRINTING", "FINISHING"].includes(o.status)) production++;
-      else if (o.status === "COMPLETED") completed++;
+    let pending = 0;
+    let paid = 0;
+    let production = 0;
+    let completed = 0;
+    for (const order of orders) {
+      if (order.status === "PENDING_PAYMENT") pending++;
+      else if (order.status === "PAID") paid++;
+      else if (["QUEUE", "SLICING", "PRINTING", "FINISHING"].includes(order.status)) production++;
+      else if (order.status === "COMPLETED") completed++;
     }
     return [
       { name: "Pendente", value: pending },
@@ -216,19 +92,19 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
   }, [orders]);
 
   const ordersByStatus = useMemo(() => {
-    const map = new Map<string, Order[]>();
-    for (const o of orders) {
+    const grouped = new Map<string, Order[]>();
+    const search = searchTerm.toLocaleLowerCase("pt-BR");
+    for (const order of orders) {
       if (
-        searchTerm &&
-        !o.userName?.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !o.id.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+        search &&
+        !order.userName?.toLocaleLowerCase("pt-BR").includes(search) &&
+        !order.id.toLocaleLowerCase("pt-BR").includes(search)
+      ) {
         continue;
-      const arr = map.get(o.status) || [];
-      arr.push(o);
-      map.set(o.status, arr);
+      }
+      grouped.set(order.status, [...(grouped.get(order.status) ?? []), order]);
     }
-    return map;
+    return grouped;
   }, [orders, searchTerm]);
 
   return (
@@ -241,19 +117,17 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
       exit={{ opacity: 0, y: -10 }}
       className="space-y-6"
     >
-      {/* TOP STATS + RECENT ACTIVITY */}
       <AdminOverviewSummary orders={orders} quotes={quotes} onSelectTab={onTabChange} />
 
       <section className="overflow-hidden rounded-3xl border border-blue-400/20 bg-[linear-gradient(135deg,rgba(37,99,235,0.14),rgba(6,182,212,0.05)_52%,rgba(255,255,255,0.025))] shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
         <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[1fr_auto] lg:items-center">
           <div className="flex min-w-0 items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-300/25 bg-blue-400/15 shadow-[0_0_30px_rgba(59,130,246,0.18)]">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-300/25 bg-blue-400/15">
               <Calculator className="h-7 w-7 text-blue-200" />
             </div>
             <div className="min-w-0">
               <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-emerald-200">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
-                Motor sincronizado
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" /> Motor sincronizado
               </span>
               <h2 className="mt-3 font-display text-xl font-black tracking-tight text-white sm:text-2xl">
                 Calculadora profissional de orçamento
@@ -267,762 +141,40 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
           <div className="flex flex-col gap-2 sm:flex-row lg:flex-col xl:flex-row">
             <Button
               type="button"
-              onClick={openCalculator}
+              onClick={() => openAdminCalculator({ mode: "NEW" })}
               className="min-h-12 rounded-xl bg-blue-500 px-5 text-sm font-black text-white hover:bg-blue-400"
             >
-              <Maximize2 className="mr-2 h-4 w-4" />
-              Abrir calculadora
+              <Maximize2 className="mr-2 h-4 w-4" /> Abrir calculadora
             </Button>
             <a
               href="/calculadora"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] px-5 text-sm font-bold text-white/75 transition hover:border-white/30 hover:bg-white/[0.09] hover:text-white"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl border border-white/15 bg-white/[0.05] px-5 text-sm font-bold text-white/75"
             >
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Nova tela
+              <ExternalLink className="mr-2 h-4 w-4" /> Nova tela
             </a>
           </div>
         </div>
       </section>
 
-      {/* CENTRAL INTELLIGENT PRICING ASSISTANT & QUICK WHATSAPP SENDER */}
-      <div className="hidden rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6 lg:p-7 space-y-5 sm:space-y-6">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/[0.06] pb-4">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-9 h-9 rounded-xl bg-primary/12 border border-primary/15 flex items-center justify-center shrink-0">
-              <Calculator className="w-4 h-4 text-primary" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-display text-sm font-bold tracking-tight text-white">
-                Cálculo Maker Rápido
-              </h3>
-              <p className="text-[11px] font-medium text-white/35">
-                P2S + AMS · custo real com preço de atacado e varejo
-              </p>
-            </div>
-          </div>
-          <span className="inline-flex w-fit items-center gap-1.5 rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            Sincronizado com Ajustes
-          </span>
-        </div>
-
-        <div className="grid gap-3 sm:grid-cols-2">
+      <section className="space-y-4">
+        <div className="flex flex-col gap-2 rounded-[24px] border border-white/5 bg-white/[0.02] p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
           <div>
-            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">
-              Nome do cliente
-            </label>
-            <input
-              value={quickCalcCustomerName}
-              onChange={(event) => setQuickCalcCustomerName(event.target.value)}
-              placeholder="Ex.: João Silva"
-              className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-[9px] font-black uppercase text-white/40">
-              WhatsApp
-            </label>
-            <input
-              value={quickCalcPhone}
-              onChange={(event) => setQuickCalcPhone(event.target.value)}
-              placeholder="DDD + número"
-              className="w-full rounded-xl border border-white/10 bg-black/30 p-3 text-xs text-white outline-none focus:border-blue-400/60"
-            />
-          </div>
-        </div>
-
-        <CalculatorProjectEditor
-          project={quickProject}
-          onChange={(next) => {
-            setQuickProject(next);
-            if (quickProjectIssues.length) setQuickProjectIssues([]);
-          }}
-          materials={inventoryMaterials}
-          pricingSettings={pricingSettings}
-          issues={quickProjectIssues}
-        />
-
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-            <span className="text-[9px] font-black uppercase text-white/35">Material</span>
-            <strong className="mt-1 block font-mono text-sm text-white">
-              {formatBRL(quickCalcResult.materialCost)}
-            </strong>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-            <span className="text-[9px] font-black uppercase text-white/35">Energia + máquina</span>
-            <strong className="mt-1 block font-mono text-sm text-white">
-              {formatBRL(quickCalcResult.energyCost + quickCalcResult.machineCost)}
-            </strong>
-          </div>
-          <div className="rounded-xl border border-white/10 bg-black/25 p-4">
-            <span className="text-[9px] font-black uppercase text-white/35">Custo previsto</span>
-            <strong className="mt-1 block font-mono text-sm text-white">
-              {formatBRL(quickCalcResult.totalCost)}
-            </strong>
-          </div>
-          <div className="rounded-xl border border-blue-400/25 bg-blue-400/[0.08] p-4">
-            <span className="text-[9px] font-black uppercase text-blue-200">Varejo</span>
-            <strong className="mt-1 block font-mono text-lg text-blue-300">
-              {formatBRL(quickCalcResult.retailTotal)}
-            </strong>
-          </div>
-        </div>
-
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Button
-            type="button"
-            disabled={quickCalcSaving || !quickCalcCustomerName.trim()}
-            onClick={onSaveQuote}
-            className="min-h-11 rounded-2xl bg-emerald-500 text-[10px] font-black uppercase text-black hover:bg-emerald-600 disabled:opacity-50"
-          >
-            {quickCalcSaving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="mr-2 h-4 w-4" />
-            )}
-            {quickCalcSaving ? "Salvando..." : "Salvar orçamento"}
-          </Button>
-          <Button
-            type="button"
-            disabled={!quickCalcPhone.replace(/\D/g, "")}
-            onClick={onSendWhatsAppQuote}
-            className="min-h-11 rounded-2xl bg-[#25D366] text-[10px] font-black uppercase text-black hover:bg-[#20ba5a] disabled:opacity-50"
-          >
-            <Smartphone className="mr-2 h-4 w-4" /> Enviar por WhatsApp
-          </Button>
-        </div>
-
-        <div className="hidden">
-          {/* COLUNA 1: DADOS DO CLIENTE */}
-          <div className="space-y-4">
-            <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">
-              1. Dados do Cliente e Peça
-            </h4>
-            <div>
-              <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                Nome do Cliente
-                <span title="Nome para personalizar a mensagem de orçamento no WhatsApp">
-                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                </span>
-              </label>
-              <input
-                type="text"
-                value={quickCalcCustomerName}
-                onChange={(e) => setQuickCalcCustomerName(e.target.value)}
-                className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-bold"
-                placeholder="Ex: João Silva"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                WhatsApp (DDD + Número)
-                <span title="Número usado para abrir o WhatsApp Web com o orçamento já preenchido">
-                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                </span>
-              </label>
-              <input
-                type="text"
-                value={quickCalcPhone}
-                onChange={(e) => setQuickCalcPhone(e.target.value)}
-                className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
-                placeholder="Ex: 11999998888"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                Nome do Modelo 3D
-                <span title="Nome da peça ou projeto para identificação no orçamento">
-                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                </span>
-              </label>
-              <input
-                type="text"
-                value={quickCalcPieceName}
-                onChange={(e) => setQuickCalcPieceName(e.target.value)}
-                className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-bold"
-                placeholder="Ex: Suporte de Headset"
-              />
-            </div>
-            <div>
-              <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                Imagem do Produto (opcional)
-                <span title="Foto ou render do produto para anexar ao orçamento salvo.">
-                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                </span>
-              </label>
-              {quickCalcImageUrl ? (
-                <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-black p-2">
-                  <img
-                    src={quickCalcImageUrl}
-                    alt="Prévia do produto"
-                    className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/60">
-                    Imagem anexada
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setQuickCalcImageUrl("")}
-                    className="shrink-0 rounded-lg border border-white/10 p-2 text-white/40 transition hover:border-red-400/30 hover:text-red-300"
-                    aria-label="Remover imagem"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-black px-3 text-[11px] font-bold text-white/50 transition hover:border-white/30 hover:text-white/70">
-                  {quickCalcUploadingImage ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <ImagePlus className="w-4 h-4" />
-                  )}
-                  {quickCalcUploadingImage ? "Enviando..." : "Anexar imagem"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    disabled={quickCalcUploadingImage}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) onUploadImage(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-          </div>
-
-          {/* COLUNA 2: ESPECIFICAÇÕES TÉCNICAS */}
-          <div className="space-y-4">
-            <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">
-              2. Especificações da Impressão
-            </h4>
-
-            {/* SELETOR DE MATERIAL */}
-            <div>
-              <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-2">
-                Material
-                <span title={HELP.material}>
-                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                </span>
-              </label>
-              <div className="flex gap-2">
-                {(Object.keys(MATERIAL_PRESETS) as Array<keyof typeof MATERIAL_PRESETS>).map(
-                  (key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => selectQuickMaterial(key)}
-                      className={`flex-1 py-2 px-3 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all ${
-                        quickCalcMaterial === key
-                          ? "bg-white text-[#07080d] border-white"
-                          : "bg-white/[0.03] border-white/10 text-white/40 hover:border-white/20"
-                      }`}
-                    >
-                      {MATERIAL_PRESETS[key].label}
-                      <span className="block text-[11px] font-bold mt-0.5 opacity-70">
-                        R$
-                        {(pricingSettings.materials[key].spoolPrice / 10).toFixed(0)}
-                        /100g
-                      </span>
-                    </button>
-                  ),
-                )}
-              </div>
-            </div>
-
-            <div className="rounded-xl border border-blue-400/15 bg-blue-400/[0.04] p-3 space-y-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-black uppercase text-blue-200">
-                  Filamento do estoque
-                </span>
-                <span
-                  className={`text-[9px] font-bold ${Math.abs(allocatedStockGrams - quickCalcWeight) < 0.01 ? "text-emerald-300" : "text-amber-300"}`}
-                >
-                  {allocatedStockGrams.toFixed(1)}g / {quickCalcWeight.toFixed(1)}g
-                </span>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-[1fr_90px_auto]">
-                <select
-                  value={stockMaterialId}
-                  onChange={(event) => setStockMaterialId(event.target.value)}
-                  className="min-w-0 rounded-lg border border-white/10 bg-black p-2 text-[10px]"
-                >
-                  <option value="">Selecionar estoque...</option>
-                  {inventoryMaterials.map((entry) => (
-                    <option key={entry.id} value={entry.id}>
-                      {entry.name} (
-                      {Math.max(
-                        0,
-                        Number(entry.stockGrams || 0) - Number(entry.reservedGrams || 0),
-                      )}
-                      g livres)
-                    </option>
-                  ))}
-                </select>
-                <NumInput
-                  min={0}
-                  step={0.1}
-                  value={stockUsageGrams}
-                  onChange={setStockUsageGrams}
-                  className="rounded-lg border border-white/10 bg-black p-2 text-[10px]"
-                />
-                <button
-                  type="button"
-                  onClick={addStockUsage}
-                  disabled={!stockMaterialId || stockUsageGrams <= 0}
-                  className="rounded-lg bg-blue-500 px-3 text-[9px] font-black uppercase disabled:opacity-40"
-                >
-                  Adicionar
-                </button>
-              </div>
-              {quickMaterialUsages.map((usage) => (
-                <div
-                  key={usage.materialId}
-                  className="flex items-center justify-between rounded-lg bg-black/30 px-2.5 py-2 text-[10px]"
-                >
-                  <span className="text-white/60">{usage.materialName}</span>
-                  <span className="flex items-center gap-2 font-mono">
-                    <strong>{usage.estimatedGrams}g</strong>
-                    <button
-                      type="button"
-                      aria-label={`Remover ${usage.materialName}`}
-                      onClick={() =>
-                        setQuickMaterialUsages((current) =>
-                          current.filter((entry) => entry.materialId !== usage.materialId),
-                        )
-                      }
-                      className="text-white/30 hover:text-red-300"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </span>
-                </div>
-              ))}
-              <p className="text-[9px] text-white/30">
-                Reserva ao entrar na fila de produção; baixa ao iniciar impressão.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                  Peso Job/Lote (g)
-                  <span title={HELP.weight}>
-                    <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                  </span>
-                </label>
-                <NumInput
-                  min={0}
-                  value={quickCalcWeight}
-                  onChange={setQuickCalcWeight}
-                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
-                />
-              </div>
-              <div>
-                <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                  Peças no Lote
-                  <span title={HELP.quantity}>
-                    <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                  </span>
-                </label>
-                <NumInput
-                  min={1}
-                  value={quickCalcBatchQty}
-                  onChange={setQuickCalcBatchQty}
-                  className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[9px] text-white/40 uppercase font-bold flex items-center gap-1 mb-1">
-                Tempo Total
-                <span title={HELP.time}>
-                  <HelpCircle className="w-3 h-3 text-dim cursor-help" />
-                </span>
-              </label>
-              <input
-                type="text"
-                value={quickCalcTime}
-                onChange={(e) => setQuickCalcTime(e.target.value)}
-                className="w-full bg-black border border-white/10 rounded-xl p-3 text-xs outline-none focus:border-white/30 text-white font-mono font-bold"
-                placeholder="Ex: 2h 30m"
-              />
-            </div>
-
-            {/* PREMISSAS CONFIGURÁVEIS */}
-            <div className="bg-white/[0.02] p-3 rounded-2xl border border-white/5 space-y-3">
-              <p className="text-[11px] uppercase font-black text-white/40 tracking-wider">
-                Premissas P2S — Equatorial Pará
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
-                    Energia P2S
-                    <span title={`${HELP.steadyPower} ${HELP.startupPower}`}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </span>
-                  <strong className="text-[10px] text-white font-mono">
-                    {pricingSettings.materials[quickCalcMaterial].steadyPowerWatts}W + pico{" "}
-                    {(pricingSettings.startupPowerWatts / 1000).toFixed(1)}kW
-                  </strong>
-                </div>
-                <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
-                    Tarifa Pará
-                    <span title={HELP.kwh}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </span>
-                  <strong className="text-[10px] text-white font-mono">
-                    {formatBRL(pricingSettings.kwhCost)}/kWh
-                  </strong>
-                </div>
-                <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
-                    Hora-Máquina
-                    <span title={`${HELP.depreciation} ${HELP.replacement}`}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </span>
-                  <strong className="text-[10px] text-white font-mono">
-                    {formatBRL(quickCalcResult.machineHourCost)}/h
-                  </strong>
-                  <span className="block text-[10px] text-white/40 font-mono leading-tight mt-0.5">
-                    Deprec. {formatBRL(quickMachineBreak.depreciation)}/h · Reposição{" "}
-                    {formatBRL(quickMachineBreak.replacement)}/h
-                  </span>
-                </div>
-                <div className="rounded-xl bg-black/50 border border-white/5 p-2">
-                  <span className="flex items-center gap-1 text-[10px] text-secondary uppercase font-black">
-                    Material
-                    <span
-                      title={`${MATERIAL_PRESETS[quickCalcMaterial].label}: R$${pricingSettings.materials[quickCalcMaterial].spoolPrice}/kg`}
-                    >
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </span>
-                  <strong className="text-[10px] text-white font-mono">
-                    R${pricingSettings.materials[quickCalcMaterial].spoolPrice}/kg
-                  </strong>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 min-[430px]:grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
-                    Reserva Material %
-                    <span title={HELP.reserve}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </label>
-                  <NumInput
-                    min={0}
-                    max={100}
-                    step={5}
-                    value={quickCalcMaterialReserve}
-                    onChange={setQuickCalcMaterialReserve}
-                    className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
-                    Taxa de Falha %
-                    <span title={HELP.failureRate}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </label>
-                  <NumInput
-                    min={0}
-                    max={100}
-                    step={1}
-                    value={quickCalcFailureRate}
-                    onChange={setQuickCalcFailureRate}
-                    className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
-                    Preço Mínimo R$
-                    <span title={HELP.minPrice}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </label>
-                  <NumInput
-                    min={0}
-                    step={5}
-                    value={quickCalcMinPrice}
-                    onChange={setQuickCalcMinPrice}
-                    className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
-                    Atacado ×
-                    <span title={HELP.wholesale}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </label>
-                  <NumInput
-                    min={0}
-                    step={0.1}
-                    value={quickCalcWholesaleMarkup}
-                    onChange={setQuickCalcWholesaleMarkup}
-                    className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-secondary uppercase flex items-center gap-1 font-black">
-                    Varejo ×
-                    <span title={HELP.retail}>
-                      <HelpCircle className="w-2.5 h-2.5 text-dim cursor-help" />
-                    </span>
-                  </label>
-                  <NumInput
-                    min={0}
-                    step={0.1}
-                    value={quickCalcRetailMarkup}
-                    onChange={setQuickCalcRetailMarkup}
-                    className="w-full bg-black/50 border border-white/5 rounded-lg p-1 text-[9px] font-mono text-white text-center mt-1"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* COLUNA 3: RESULTADO */}
-          <div className="space-y-4">
-            <h4 className="text-[10px] uppercase font-black tracking-widest text-white/40 border-b border-white/5 pb-2">
-              3. Custo Real e Lucro
-            </h4>
-
-            <div className="card-glow bg-white/[0.02] border border-white/10 rounded-[24px] p-4 sm:p-5 space-y-3 shadow-[0_0_24px_rgba(37,99,235,0.08)]">
-              {/* CUSTO REAL */}
-              <div className="flex justify-between gap-3 text-xs text-white/70">
-                <span className="min-w-0">
-                  Material ({quickCalcResult.weightGrams.toFixed(1)}g + {quickCalcMaterialReserve}%
-                  reserva):
-                </span>
-                <span className="shrink-0 font-mono text-white">
-                  {formatBRL(quickCalcResult.materialCost)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3 text-xs text-white/70">
-                <span className="min-w-0">
-                  Energia ({quickCalcResult.energyKwh.toFixed(3)} kWh):
-                </span>
-                <span className="shrink-0 font-mono text-white">
-                  {formatBRL(quickCalcResult.energyCost)}
-                </span>
-              </div>
-              <div className="flex justify-between gap-3 text-xs text-white/70">
-                <span className="min-w-0">
-                  Hora-máquina ({quickCalcResult.hours.toFixed(2)}h ×{" "}
-                  {formatBRL(quickCalcResult.machineHourCost)}):
-                </span>
-                <span className="shrink-0 font-mono text-white">
-                  {formatBRL(quickCalcResult.machineCost)}
-                </span>
-              </div>
-              {quickCalcResult.failureLoss > 0 && (
-                <div className="flex justify-between gap-3 text-xs text-white/70">
-                  <span className="min-w-0">Falhas ({quickCalcFailureRate}% de retrabalho):</span>
-                  <span className="shrink-0 font-mono text-white">
-                    {formatBRL(quickCalcResult.failureLoss)}
-                  </span>
-                </div>
-              )}
-              <div className="flex justify-between gap-3 text-xs font-bold text-white/40 border-t border-white/5 pt-2">
-                <span>Custo real do lote:</span>
-                <span className="shrink-0 font-mono text-white/80">
-                  {formatBRL(quickCalcResult.totalCost)}
-                </span>
-              </div>
-
-              {/* BARRA DE DISTRIBUIÇÃO */}
-              <div className="rounded-2xl border border-white/5 bg-white/[0.02] p-3">
-                <div className="flex items-center justify-between text-[9px] uppercase font-black tracking-wider text-white/35">
-                  <span>Custo unitário interno</span>
-                  <span className="font-mono text-white/70">
-                    {formatBRL(quickCalcResult.unitCost)}
-                  </span>
-                </div>
-                <div className="mt-2 flex h-1.5 rounded-full bg-white/5 overflow-hidden">
-                  <div
-                    className="h-full bg-cyan-400"
-                    style={{
-                      width: `${quickCalcResult.shares.material}%`,
-                    }}
-                  />
-                  <div
-                    className="h-full bg-amber-400"
-                    style={{
-                      width: `${quickCalcResult.shares.energy}%`,
-                    }}
-                  />
-                  <div
-                    className="h-full bg-primary"
-                    style={{
-                      width: `${quickCalcResult.shares.machine}%`,
-                    }}
-                  />
-                  <div
-                    className="h-full bg-orange-500"
-                    style={{
-                      width: `${quickCalcResult.shares.failure}%`,
-                    }}
-                  />
-                </div>
-                <div className="mt-2 grid grid-cols-2 min-[430px]:grid-cols-4 gap-1 text-[10px] uppercase font-black text-white/35">
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2 h-1.5 rounded-sm bg-cyan-400" />
-                    Mat. {quickCalcResult.shares.material.toFixed(0)}%
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2 h-1.5 rounded-sm bg-amber-400" />
-                    Ener. {quickCalcResult.shares.energy.toFixed(0)}%
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2 h-1.5 rounded-sm bg-primary" />
-                    Maq. {quickCalcResult.shares.machine.toFixed(0)}%
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="inline-block w-2 h-1.5 rounded-sm bg-orange-500" />
-                    Falha {quickCalcResult.shares.failure.toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-
-              {/* PREÇOS ATACADO / VAREJO */}
-              <div className="grid grid-cols-1 min-[480px]:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-3 border-t border-white/10 pt-3">
-                <div
-                  className={`rounded-2xl border p-3 ${
-                    quickCalcResult.isBelowMinWholesale
-                      ? "border-yellow-500/30 bg-yellow-500/10"
-                      : "border-amber-400/20 bg-amber-400/[0.06]"
-                  }`}
-                >
-                  <span className="flex items-center gap-1 text-[11px] uppercase font-black text-amber-300 tracking-wider">
-                    Atacado ×{quickCalcWholesaleMarkup}
-                    <span title={HELP.wholesaleBox}>
-                      <HelpCircle className="w-2.5 h-2.5 text-amber-300/60 cursor-help" />
-                    </span>
-                    {quickCalcResult.isBelowMinWholesale && (
-                      <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo.">
-                        <AlertCircle className="w-3 h-3 text-yellow-400" />
-                      </span>
-                    )}
-                  </span>
-                  <strong className="block text-sm font-mono text-white mt-1 break-words">
-                    {formatBRL(quickCalcResult.wholesaleTotal)}
-                  </strong>
-                  <span className="block text-[9px] text-white/50 mt-0.5">
-                    {formatBRL(quickCalcResult.wholesaleUnit)} / un.
-                  </span>
-                  <span className="mt-1 flex items-center gap-1 text-[11px] font-black text-emerald-400">
-                    Lucro: {formatBRL(quickCalcResult.profitWholesale)}
-                    <span title={HELP.profit}>
-                      <HelpCircle className="w-2.5 h-2.5 text-emerald-400/60 cursor-help" />
-                    </span>
-                  </span>
-                  <span className="block text-[9px] font-mono text-white/40">
-                    margem {quickCalcResult.profitWholesalePct.toFixed(0)}% · markup{" "}
-                    {quickCalcResult.profitWholesaleMarkupPct.toFixed(0)}%
-                  </span>
-                </div>
-                <div
-                  className={`rounded-2xl border p-3 ${
-                    quickCalcResult.isBelowMinRetail
-                      ? "border-yellow-500/30 bg-yellow-500/10"
-                      : "border-primary/30 bg-primary/10"
-                  }`}
-                >
-                  <span className="flex items-center gap-1 text-[11px] uppercase font-black text-primary tracking-wider">
-                    Varejo ×{quickCalcRetailMarkup}
-                    <span title={HELP.retailBox}>
-                      <HelpCircle className="w-2.5 h-2.5 text-primary/60 cursor-help" />
-                    </span>
-                    {quickCalcResult.isBelowMinRetail && (
-                      <span title="Preço calculado estava abaixo do mínimo. Aplicando preço mínimo.">
-                        <AlertCircle className="w-3 h-3 text-yellow-400" />
-                      </span>
-                    )}
-                  </span>
-                  <strong className="block text-sm font-mono text-white mt-1 break-words">
-                    {formatBRL(quickCalcResult.retailTotal)}
-                  </strong>
-                  <span className="block text-[9px] text-white/50 mt-0.5">
-                    {formatBRL(quickCalcResult.retailUnit)} / un.
-                  </span>
-                  <span className="mt-1 flex items-center gap-1 text-[11px] font-black text-emerald-400">
-                    Lucro: {formatBRL(quickCalcResult.profitRetail)}
-                    <span title={HELP.profit}>
-                      <HelpCircle className="w-2.5 h-2.5 text-emerald-400/60 cursor-help" />
-                    </span>
-                  </span>
-                  <span className="block text-[9px] font-mono text-white/40">
-                    margem {quickCalcResult.profitRetailPct.toFixed(0)}% · markup{" "}
-                    {quickCalcResult.profitRetailMarkupPct.toFixed(0)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <Button
-                type="button"
-                disabled={quickCalcSaving || !quickCalcCustomerName.trim()}
-                onClick={onSaveQuote}
-                title={
-                  !quickCalcCustomerName.trim()
-                    ? "Informe o nome do cliente para salvar"
-                    : "Salvar na aba Orçamentos"
-                }
-                className="w-full min-h-11 h-auto rounded-2xl bg-emerald-500 hover:bg-emerald-600 text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {quickCalcSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {quickCalcSaving ? "Salvando..." : "Salvar Orçamento"}
-              </Button>
-              <Button
-                type="button"
-                disabled={!quickCalcPhone.replace(/\D/g, "")}
-                onClick={onSendWhatsAppQuote}
-                className="w-full min-h-11 h-auto rounded-2xl bg-[#25D366] hover:bg-[#20ba5a] text-[10px] sm:text-xs font-black uppercase tracking-wider text-black flex items-center justify-center gap-2 px-3 py-3 text-center shadow-lg shadow-[#25D366]/10 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Smartphone className="w-4 h-4" /> Enviar por WhatsApp
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ESTEIRA DE PRODUÇÃO (KANBAN) DIRETA NA TELA INICIAL */}
-      <div className="space-y-4">
-        <div className="flex flex-col gap-2 sm:flex-row sm:justify-between sm:items-center bg-white/[0.02] p-4 sm:p-6 rounded-[24px] sm:rounded-[32px] border border-white/5">
-          <div className="min-w-0">
-            <h3 className="text-sm font-black uppercase tracking-widest italic flex items-center gap-2">
-              <Layers className="w-4 h-4 shrink-0 text-primary" /> Esteira de Produção
+            <h3 className="flex items-center gap-2 text-sm font-black uppercase tracking-widest italic">
+              <Layers className="h-4 w-4 text-primary" /> Esteira de Produção
             </h3>
-            <p className="text-[10px] text-dim uppercase font-bold tracking-widest">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-dim">
               Controle logístico e manufatura diretamente no dashboard inicial
             </p>
           </div>
-          <span className="w-fit text-[11px] font-black uppercase tracking-widest text-secondary bg-white/5 border border-white/5 rounded-full px-3 py-1">
+          <span className="w-fit rounded-full border border-white/5 bg-white/5 px-3 py-1 text-[11px] font-black uppercase tracking-widest text-secondary">
             Arraste para ver etapas
           </span>
         </div>
 
         <div
-          className="flex gap-3 sm:gap-5 lg:gap-6 overflow-x-auto pb-4 snap-x no-scrollbar -mx-3 px-3 sm:mx-0 sm:px-0"
+          className="-mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-4 no-scrollbar sm:mx-0 sm:gap-5 sm:px-0 lg:gap-6"
           role="list"
           aria-label="Esteira de produção - Kanban"
         >
@@ -1034,85 +186,77 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 key={stage.id}
                 role="listitem"
                 aria-label={`${stage.label}: ${stageOrders.length} pedidos`}
-                className="min-w-[245px] sm:min-w-[300px] flex-shrink-0 snap-start bg-[#0A0A0F] border border-white/5 rounded-[26px] sm:rounded-[32px] flex flex-col h-[390px] sm:h-[420px]"
+                className="flex h-[390px] min-w-[245px] flex-shrink-0 snap-start flex-col rounded-[26px] border border-white/5 bg-[#0A0A0F] sm:h-[420px] sm:min-w-[300px]"
               >
-                <div className="p-4 border-b border-white/5 bg-white/[0.01]">
+                <div className="border-b border-white/5 bg-white/[0.01] p-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Icon className="w-3.5 h-3.5 shrink-0 text-primary" />
-                      <h4 className="text-[10px] font-black uppercase text-white/70 truncate">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Icon className="h-3.5 w-3.5 shrink-0 text-primary" />
+                      <h4 className="truncate text-[10px] font-black uppercase text-white/70">
                         {stage.label}
                       </h4>
                     </div>
-                    <span className="text-[9px] font-black bg-white/5 px-2 py-0.5 rounded-full text-white/40">
+                    <span className="rounded-full bg-white/5 px-2 py-0.5 text-[9px] font-black text-white/40">
                       {stageOrders.length}
                     </span>
                   </div>
                 </div>
-                <div className="flex-1 p-3 overflow-y-auto no-scrollbar space-y-3">
-                  {stageOrders.map((o) => (
-                    <div
-                      key={o.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Pedido ${o.id.slice(0, 8)} de ${o.userName}, R$ ${(o.total || 0).toFixed(2)}, status ${stage.label}`}
-                      className="bg-surface-card p-3 sm:p-4 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-pointer transition-all group hover:shadow-[0_0_15px_rgba(37,99,235,0.08)] min-h-[44px] relative"
+                <div className="flex-1 space-y-3 overflow-y-auto p-3 no-scrollbar">
+                  {stageOrders.map((order) => (
+                    <article
+                      key={order.id}
+                      className="group relative min-h-[44px] rounded-[20px] border border-white/5 bg-surface-card p-3 sm:p-4"
                     >
-                      {/* Quick actions on hover */}
-                      <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                        {o.status !== "CANCELED" && o.status !== "COMPLETED" && (
+                      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
+                        {order.status !== "CANCELED" && order.status !== "COMPLETED" && (
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCancelOrder(o);
-                            }}
-                            className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                            onClick={() => onCancelOrder(order)}
+                            className="rounded-lg bg-red-500/10 p-1 text-red-400 hover:bg-red-500 hover:text-white"
                             title="Cancelar pedido"
                           >
-                            <AlertCircle className="w-3 h-3" />
+                            <AlertCircle className="h-3 w-3" />
                           </button>
                         )}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDeleteOrder(o);
-                          }}
-                          className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
+                          onClick={() => onDeleteOrder(order)}
+                          className="rounded-lg bg-red-500/10 p-1 text-red-400 hover:bg-red-500 hover:text-white"
                           title="Excluir pedido"
                         >
-                          <Trash2 className="w-3 h-3" />
+                          <Trash2 className="h-3 w-3" />
                         </button>
                       </div>
-                      <div onClick={() => onSelectOrder(o)}>
-                        <div className="flex justify-between items-start mb-2">
-                          <p className="text-[11px] font-mono text-secondary">
-                            #{o.id.slice(0, 8)}
-                          </p>
-                          <p className="text-[9px] font-display font-black text-primary italic bg-primary/10 px-1.5 py-0.5 rounded-md">
-                            R$ {(o.total || 0).toFixed(2)}
-                          </p>
+                      <button className="w-full text-left" onClick={() => onSelectOrder(order)}>
+                        <div className="mb-2 flex items-start justify-between">
+                          <span className="font-mono text-[11px] text-secondary">
+                            #{order.id.slice(0, 8)}
+                          </span>
+                          <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[9px] font-black italic text-primary">
+                            R$ {(order.total || 0).toFixed(2)}
+                          </span>
                         </div>
-                        <h5 className="text-xs font-black uppercase truncate group-hover:text-white text-white/80 transition-colors">
-                          {o.userName}
+                        <h5 className="truncate text-xs font-black uppercase text-white/80">
+                          {order.userName}
                         </h5>
-                        <p className="text-[9px] text-secondary line-clamp-1 mb-3 mt-1 font-bold">
-                          {o.items?.map((i: OrderItem) => i.name || i.fileName).join(" • ")}
+                        <p className="mb-3 mt-1 line-clamp-1 text-[9px] font-bold text-secondary">
+                          {order.items
+                            ?.map((item: OrderItem) => item.name || item.fileName)
+                            .join(" • ")}
                         </p>
                         <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                          <p className="text-[11px] font-mono text-dim">
-                            {new Date((o.createdAt?.seconds ?? 0) * 1000).toLocaleDateString()}
-                          </p>
-                          <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">
-                            <ArrowRight className="w-2.5 h-2.5" />
-                          </div>
+                          <span className="font-mono text-[11px] text-dim">
+                            {new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString(
+                              "pt-BR",
+                            )}
+                          </span>
+                          <ArrowRight className="h-3 w-3 text-dim" />
                         </div>
-                      </div>
-                    </div>
+                      </button>
+                    </article>
                   ))}
-                  {stageOrders.length === 0 && (
+                  {!stageOrders.length && (
                     <div className="py-12 text-center">
-                      <p className="text-[11px] font-black uppercase text-subtle tracking-widest border border-white/5 border-dashed rounded-xl p-3 w-3/4 mx-auto">
-                        Sem Pedidos
+                      <p className="mx-auto w-3/4 rounded-xl border border-dashed border-white/5 p-3 text-[11px] font-black uppercase text-subtle">
+                        Sem pedidos
                       </p>
                     </div>
                   )}
@@ -1121,15 +265,10 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
             );
           })}
         </div>
-      </div>
+      </section>
 
-      {/* CHARTS ROW */}
-      <div className="grid grid-cols-1 xl:grid-cols-4 gap-4 sm:gap-6">
-        <div
-          className="xl:col-span-3 glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 h-[280px] sm:h-[360px] lg:h-[400px]"
-          role="img"
-          aria-label="Gráfico de receita acumulada por data"
-        >
+      <section className="grid grid-cols-1 gap-4 sm:gap-6 xl:grid-cols-4">
+        <div className="glass h-[280px] rounded-[28px] border border-white/5 p-4 sm:h-[360px] sm:p-8 xl:col-span-3">
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData}>
               <defs>
@@ -1141,30 +280,18 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
               <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
               <XAxis dataKey="name" stroke="#ffffff10" fontSize={9} tick={{ fill: "#ffffff20" }} />
               <YAxis stroke="#ffffff10" fontSize={9} tick={{ fill: "#ffffff20" }} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "#0A0A0F",
-                  border: "1px solid rgba(37,99,235,0.1)",
-                  borderRadius: "24px",
-                }}
-              />
+              <Tooltip contentStyle={{ backgroundColor: "#0A0A0F", borderRadius: "16px" }} />
               <Area
                 type="monotone"
                 dataKey="total"
                 stroke="#2563EB"
                 strokeWidth={3}
-                fillOpacity={1}
                 fill="url(#colorTotal)"
               />
             </AreaChart>
           </ResponsiveContainer>
         </div>
-
-        <div
-          className="glass rounded-[28px] sm:rounded-[48px] p-4 sm:p-8 lg:p-10 border border-white/5 flex flex-col items-center justify-center relative min-h-[260px]"
-          role="img"
-          aria-label={`Gráfico de distribuição de pedidos: ${orders.length} no total`}
-        >
+        <div className="glass relative flex min-h-[260px] items-center justify-center rounded-[28px] border border-white/5 p-4">
           <ResponsiveContainer width="100%" height={200}>
             <PieChart>
               <Pie
@@ -1174,18 +301,18 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                 paddingAngle={10}
                 dataKey="value"
               >
-                {pieData.map((_, i) => (
-                  <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
+                {pieData.map((_, index) => (
+                  <Cell key={index} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                 ))}
               </Pie>
             </PieChart>
           </ResponsiveContainer>
-          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none pb-4">
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center pb-4">
             <span className="text-2xl font-black italic">{orders.length}</span>
             <span className="text-[11px] font-black uppercase text-dim">Pedidos</span>
           </div>
         </div>
-      </div>
+      </section>
     </motion.div>
   );
 });

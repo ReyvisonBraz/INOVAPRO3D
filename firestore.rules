@@ -171,6 +171,19 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // IMPRESSORAS — base de calculo das calculadoras. Preco de maquina, vida
+    // util e custo de reposicao sao informacao operacional: somente admin.
+    match /printers/{printerId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // MODELOS DE PROJETO da calculadora. Guardam markups e custos internos.
+    match /calculatorTemplates/{templateId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+
     // CATEGORIES
     match /categories/{categoryId} {
       allow read: if true;
@@ -266,6 +279,8 @@ service cloud.firestore {
     match /settings/{settingId} {
       // Somente o banner/configuração global é público. Custos, margens e
       // depreciação da calculadora são informação operacional do admin.
+      // Docs em uso: global, storefront, machine, pricing e company (a
+      // identidade impressa nos documentos, editada na aba Ajustes).
       allow read: if settingId in ["global", "storefront"] || isAdmin();
       allow write: if isAdmin();
     }

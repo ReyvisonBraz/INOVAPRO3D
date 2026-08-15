@@ -1,16 +1,48 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDoc, collection, doc, getDoc, getDocs, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  orderBy,
+  query,
+  serverTimestamp,
+  startAt,
+  endAt,
+  where,
+} from "firebase/firestore";
 import { toast } from "sonner";
 import { db } from "../../../services/firebase";
-import { saveQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
+import { saveOrUpdateQuoteFromCalc, uploadQuoteImage } from "../../../lib/quotes";
+import {
+  buildCalcSnapshot,
+  mergeCalcSnapshot,
+  type QuoteCalcSnapshot,
+} from "../../../lib/calculatorSnapshot";
+import { buildQuoteDocumentData } from "../../../lib/quoteDocument";
+import { DEFAULT_COMPANY_PROFILE } from "../../../lib/company";
+import { fetchCompanyProfile } from "../../../services/company";
+import { buildInventoryForecast } from "../../../lib/inventoryForecast";
+import {
+  createCalculatorTemplate,
+  fetchCalculatorTemplates,
+  registerTemplateUsage,
+} from "../../../services/calculatorTemplates";
+import { usePrinterOptions } from "../../../hooks/usePrinterOptions";
+import {
+  applyMachineOverrides,
+  countMachineOverrides,
+  machineConfigFromPrinter,
+} from "../../../lib/printers";
 import {
   DEFAULT_ENERGY,
-  DEFAULT_MACHINE,
   DEFAULT_PRICING_SETTINGS,
   machineHourBreakdown,
   MATERIAL_PRESETS,
   mergePricingSettings,
-  parseTimeToHours,
+  type MachineConfig,
   type MaterialKey,
   type MaterialSettings,
 } from "../../../lib/pricing";
@@ -20,7 +52,14 @@ import {
   validateCalculatorProject,
   type CalculatorProject,
 } from "../../../lib/calculatorProject";
-import type { Material, MaterialUsage } from "../../../types/domain";
+import type {
+  CompanyProfile,
+  CalculatorTemplate,
+  Material,
+  MaterialUsage,
+  Quote,
+  QuoteStatus,
+} from "../../../types/domain";
 import {
   customerMatchesSearch,
   normalizeCustomerName,
@@ -38,11 +77,27 @@ type QuoteCustomer = {
   whatsapp?: string;
 };
 
-export const CALCULATOR_DRAFT_STORAGE_KEY = "inovapro3d:calculator-draft:v1";
+export type CalculatorIntent = "NEW" | "EDIT" | "DUPLICATE";
+
+export interface UseCalculatorStateOptions {
+  initialQuote?: Quote | null;
+  initialQuoteId?: string;
+  intent?: CalculatorIntent;
+  onQuoteSaved?: (result: { id: string; created: boolean }) => void | Promise<void>;
+}
+
+export interface CalculatorPostSave {
+  id: string;
+  created: boolean;
+}
+
+export const CALCULATOR_DRAFT_STORAGE_KEY = "inovapro3d:calculator-draft:v2";
+/** Chave anterior, lida uma última vez para migrar rascunhos em andamento. */
+const CALCULATOR_DRAFT_STORAGE_KEY_V1 = "inovapro3d:calculator-draft:v1";
 export const CALCULATOR_DRAFT_EVENT = "inovapro3d:calculator-draft-saved";
 
 type CalculatorDraft = {
-  version: 1;
+  version: 2;
   savedAt: string;
   project: CalculatorProject;
   material: MaterialKey;
@@ -51,15 +106,11 @@ type CalculatorDraft = {
   reservePct: number;
   failureRatePct: number;
   failureImpactPct: number;
-  machinePrice: number;
-  lifespanHours: number;
-  nozzlePrice: number;
-  nozzleLifeHours: number;
-  platePrice: number;
-  plateLifeHours: number;
-  beltsPrice: number;
-  beltsLifeHours: number;
-  maintPerHour: number;
+  /** Impressora escolhida e ajustes feitos só para este orçamento. */
+  selectedPrinterId?: string;
+  /** Máquina efetiva congelada para o rascunho não mudar após um refresh. */
+  machineSnapshot?: MachineConfig;
+  machineOverrides?: Partial<MachineConfig> | null;
   kwhCost: number;
   steadyPower: number;
   startupPower: number;
@@ -80,12 +131,49 @@ type CalculatorDraft = {
   selectedCustomerId?: string;
   priceTier?: "RETAIL" | "WHOLESALE";
   quoteImageUrl: string;
+  quoteId?: string;
+  quoteStatus?: QuoteStatus;
+  calcMode?: "QUICK" | "FULL";
+  showImageOnQuote?: boolean;
 };
 
 export type CalculatorDraftSummary = {
   projectName: string;
   savedAt: string;
+  quoteId?: string;
 };
+
+const MACHINE_KEYS_V1 = [
+  ["machinePrice", "price"],
+  ["lifespanHours", "lifespanHours"],
+  ["nozzlePrice", "nozzlePrice"],
+  ["nozzleLifeHours", "nozzleLifeHours"],
+  ["platePrice", "platePrice"],
+  ["plateLifeHours", "plateLifeHours"],
+  ["beltsPrice", "beltsPrice"],
+  ["beltsLifeHours", "beltsLifeHours"],
+  ["maintPerHour", "maintPerHour"],
+] as const;
+
+/**
+ * O rascunho v1 guardava os 9 campos de máquina soltos. Agora eles viram
+ * ajustes por orçamento sobre a impressora escolhida — o usuário que estava
+ * no meio de um cálculo não pode perder o que digitou.
+ */
+function migrateDraftV1(raw: Record<string, unknown>): CalculatorDraft | null {
+  if (!raw.project || !Array.isArray((raw.project as CalculatorProject).plates)) return null;
+  const machineOverrides: Partial<MachineConfig> = {};
+  for (const [oldKey, newKey] of MACHINE_KEYS_V1) {
+    const value = raw[oldKey];
+    if (typeof value === "number" && Number.isFinite(value)) machineOverrides[newKey] = value;
+  }
+  return {
+    ...(raw as unknown as CalculatorDraft),
+    version: 2,
+    machineOverrides: Object.keys(machineOverrides).length ? machineOverrides : null,
+    selectedPrinterId: undefined,
+  };
+}
 
 function readCalculatorDraft(): CalculatorDraft | null {
   if (typeof window === "undefined") return null;
@@ -93,10 +181,19 @@ function readCalculatorDraft(): CalculatorDraft | null {
     const parsed = JSON.parse(
       window.localStorage.getItem(CALCULATOR_DRAFT_STORAGE_KEY) || "null",
     ) as CalculatorDraft | null;
-    if (parsed?.version !== 1 || !parsed.project || !Array.isArray(parsed.project.plates))
-      return null;
-    return parsed;
+    if (parsed?.version === 2 && parsed.project && Array.isArray(parsed.project.plates)) {
+      return parsed;
+    }
+    const legacy = JSON.parse(
+      window.localStorage.getItem(CALCULATOR_DRAFT_STORAGE_KEY_V1) || "null",
+    ) as Record<string, unknown> | null;
+    if (legacy?.version === 1) {
+      window.localStorage.removeItem(CALCULATOR_DRAFT_STORAGE_KEY_V1);
+      return migrateDraftV1(legacy);
+    }
+    return null;
   } catch {
+    // Rascunho corrompido não pode derrubar a rota: começa do zero.
     return null;
   }
 }
@@ -107,6 +204,7 @@ export function getCalculatorDraftSummary(): CalculatorDraftSummary | null {
   return {
     projectName: draft.project.name.trim() || "Cálculo sem nome",
     savedAt: draft.savedAt,
+    quoteId: draft.quoteId,
   };
 }
 
@@ -120,18 +218,24 @@ function safeNumber(value: number, fallback = 0) {
   return Number.isFinite(value) ? value : fallback;
 }
 
-export function useCalculatorState() {
-  const [initialDraft] = useState(readCalculatorDraft);
-  const skipNextDraftSave = useRef(false);
-  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialDraft?.savedAt || null);
-  const [project, setProject] = useState<CalculatorProject>(
-    () =>
-      initialDraft?.project || {
+export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
+  const { initialQuote = null, initialQuoteId, intent = "NEW", onQuoteSaved } = options;
+  const [initialSnapshot] = useState(() => mergeCalcSnapshot(initialQuote?.calcSnapshot));
+  const [initialDraft] = useState(() => (initialQuote ? null : readCalculatorDraft()));
+  const [initialProject] = useState<CalculatorProject>(() => {
+    const source = initialSnapshot?.project ??
+      initialQuote?.calculationProject ??
+      initialDraft?.project ?? {
         name: "",
         outputQuantity: 1,
         plates: [createEmptyPlate(1)],
-      },
-  );
+      };
+    if (intent !== "DUPLICATE") return source;
+    return { ...source, name: `${source.name || initialQuote?.fileName || "Projeto"} (cópia)` };
+  });
+  const skipNextDraftSave = useRef(false);
+  const [draftSavedAt, setDraftSavedAt] = useState<string | null>(initialDraft?.savedAt || null);
+  const [project, setProject] = useState<CalculatorProject>(initialProject);
   const [projectIssues, setProjectIssues] = useState<ReturnType<typeof validateCalculatorProject>>(
     [],
   );
@@ -142,83 +246,144 @@ export function useCalculatorState() {
   );
 
   // --- Material / job ---
-  const [material, setMaterial] = useState<MaterialKey>(initialDraft?.material ?? "pla");
+  const [material, setMaterial] = useState<MaterialKey>(
+    initialSnapshot?.material.key ?? initialDraft?.material ?? "pla",
+  );
   const [spoolPrice, setSpoolPrice] = useState(
-    initialDraft?.spoolPrice ?? MATERIAL_PRESETS.pla.spoolPrice,
+    initialSnapshot?.material.spoolPrice ??
+      initialDraft?.spoolPrice ??
+      MATERIAL_PRESETS.pla.spoolPrice,
   );
-  const [spoolWeight, setSpoolWeight] = useState(initialDraft?.spoolWeight ?? 1000);
-  const [slicerWeight, setSlicerWeight] = useState(120);
+  const [spoolWeight, setSpoolWeight] = useState(
+    initialSnapshot?.material.spoolWeight ?? initialDraft?.spoolWeight ?? 1000,
+  );
   const [reservePct, setReservePct] = useState(
-    initialDraft?.reservePct ?? MATERIAL_PRESETS.pla.defaultReservePct,
+    initialSnapshot?.material.reservePct ??
+      initialDraft?.reservePct ??
+      MATERIAL_PRESETS.pla.defaultReservePct,
   );
-  const [failureRatePct, setFailureRatePct] = useState(initialDraft?.failureRatePct ?? 0);
+  const [failureRatePct, setFailureRatePct] = useState(
+    initialSnapshot?.failure.failureRatePct ?? initialDraft?.failureRatePct ?? 0,
+  );
   const [failureImpactPct, setFailureImpactPct] = useState(
-    initialDraft?.failureImpactPct ?? DEFAULT_PRICING_SETTINGS.failureImpactPct,
+    initialSnapshot?.failure.failureImpactPct ??
+      initialDraft?.failureImpactPct ??
+      DEFAULT_PRICING_SETTINGS.failureImpactPct,
   );
-  const [batchQuantity, setBatchQuantity] = useState(1);
   const [inventoryMaterials, setInventoryMaterials] = useState<Material[]>([]);
-  const [materialUsages, setMaterialUsages] = useState<MaterialUsage[]>([]);
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile>(DEFAULT_COMPANY_PROFILE);
+  const [calculatorTemplates, setCalculatorTemplates] = useState<CalculatorTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [templateSaving, setTemplateSaving] = useState(false);
 
-  // --- Machine ---
-  const [machinePrice, setMachinePrice] = useState(
-    initialDraft?.machinePrice ?? DEFAULT_MACHINE.price,
+  // --- Impressora ---
+  // Os 9 campos de custo não moram mais em estados soltos: vêm da impressora
+  // escolhida e recebem por cima os ajustes feitos SÓ para este orçamento.
+  // O cadastro em `printers` nunca é alterado a partir daqui.
+  const { printers, defaultPrinter, legacyMachine } = usePrinterOptions();
+  const [selectedPrinterId, setSelectedPrinterIdState] = useState(
+    initialSnapshot?.printerId ?? initialDraft?.selectedPrinterId ?? "",
   );
-  const [lifespanHours, setLifespanHours] = useState(
-    initialDraft?.lifespanHours ?? DEFAULT_MACHINE.lifespanHours,
+  const [snapshotMachineBase, setSnapshotMachineBase] = useState<MachineConfig | null>(
+    initialSnapshot?.machine ?? initialDraft?.machineSnapshot ?? null,
   );
-  const [nozzlePrice, setNozzlePrice] = useState(
-    initialDraft?.nozzlePrice ?? DEFAULT_MACHINE.nozzlePrice,
+  const [machineOverrides, setMachineOverrides] = useState<Partial<MachineConfig> | null>(
+    initialSnapshot?.machineOverrides ?? initialDraft?.machineOverrides ?? null,
   );
-  const [nozzleLifeHours, setNozzleLifeHours] = useState(
-    initialDraft?.nozzleLifeHours ?? DEFAULT_MACHINE.nozzleLifeHours,
+
+  const selectedPrinter = useMemo(
+    () => printers.find((printer) => printer.id === selectedPrinterId) ?? defaultPrinter,
+    [printers, selectedPrinterId, defaultPrinter],
   );
-  const [platePrice, setPlatePrice] = useState(
-    initialDraft?.platePrice ?? DEFAULT_MACHINE.platePrice,
+  const basePrinterMachine = useMemo(
+    () => (selectedPrinter ? machineConfigFromPrinter(selectedPrinter) : legacyMachine),
+    [selectedPrinter, legacyMachine],
   );
-  const [plateLifeHours, setPlateLifeHours] = useState(
-    initialDraft?.plateLifeHours ?? DEFAULT_MACHINE.plateLifeHours,
-  );
-  const [beltsPrice, setBeltsPrice] = useState(
-    initialDraft?.beltsPrice ?? DEFAULT_MACHINE.beltsPrice,
-  );
-  const [beltsLifeHours, setBeltsLifeHours] = useState(
-    initialDraft?.beltsLifeHours ?? DEFAULT_MACHINE.beltsLifeHours,
-  );
-  const [maintPerHour, setMaintPerHour] = useState(
-    initialDraft?.maintPerHour ?? DEFAULT_MACHINE.maintPerHour,
-  );
+  const machine = useMemo(() => {
+    // O snapshot é a fonte de verdade ao reabrir: o cadastro da impressora
+    // pode ter sido reprecificado desde a emissão do orçamento.
+    return applyMachineOverrides(snapshotMachineBase ?? basePrinterMachine, machineOverrides);
+  }, [basePrinterMachine, machineOverrides, snapshotMachineBase]);
+  const overrideCount = countMachineOverrides(machineOverrides);
+
+  const setSelectedPrinterId = (id: string) => {
+    setSelectedPrinterIdState(id);
+    setSnapshotMachineBase(null);
+    setMachineOverrides(null);
+  };
+
+  /** Ajusta um campo só neste orçamento. Limpar volta ao valor do cadastro. */
+  const setMachineField = (key: keyof MachineConfig, value: number) => {
+    setMachineOverrides((previous) => {
+      const next = { ...(previous ?? {}), [key]: safeNumber(value) };
+      // Se o valor voltou a ser exatamente o do cadastro, deixa de ser ajuste.
+      if (next[key] === basePrinterMachine[key]) delete next[key];
+      return Object.keys(next).length ? next : null;
+    });
+  };
+
+  const resetMachineOverrides = () => {
+    setSnapshotMachineBase(null);
+    setMachineOverrides(null);
+  };
 
   // --- Energy ---
-  const [printTimeStr, setPrintTimeStr] = useState("3h 28min");
-  const printTime = parseTimeToHours(printTimeStr);
-  const [kwhCost, setKwhCost] = useState(initialDraft?.kwhCost ?? DEFAULT_ENERGY.kwhCost);
-  const [steadyPower, setSteadyPower] = useState(
-    initialDraft?.steadyPower ?? MATERIAL_PRESETS.pla.steadyPowerWatts,
+  const [kwhCost, setKwhCost] = useState(
+    initialSnapshot?.energy.kwhCost ?? initialDraft?.kwhCost ?? DEFAULT_ENERGY.kwhCost,
   );
-  const [startupPower, setStartupPower] = useState(initialDraft?.startupPower ?? 1000);
-  const [startupMinutes, setStartupMinutes] = useState(initialDraft?.startupMinutes ?? 8);
+  const [steadyPower, setSteadyPower] = useState(
+    initialSnapshot?.material.fallbackSteadyPowerWatts ??
+      initialDraft?.steadyPower ??
+      MATERIAL_PRESETS.pla.steadyPowerWatts,
+  );
+  const [startupPower, setStartupPower] = useState(
+    initialSnapshot?.energy.startupPowerWatts ?? initialDraft?.startupPower ?? 1000,
+  );
+  const [startupMinutes, setStartupMinutes] = useState(
+    initialSnapshot?.energy.startupMinutes ?? initialDraft?.startupMinutes ?? 8,
+  );
 
   // --- Labor ---
-  const [requiresLabor, setRequiresLabor] = useState(initialDraft?.requiresLabor ?? false);
-  const [laborHours, setLaborHours] = useState(initialDraft?.laborHours ?? 0);
-  const [laborRate, setLaborRate] = useState(initialDraft?.laborRate ?? 30);
-  const [extraSupplies, setExtraSupplies] = useState(initialDraft?.extraSupplies ?? 0);
-  const [packagingCost, setPackagingCost] = useState(initialDraft?.packagingCost ?? 0);
+  const [requiresLabor, setRequiresLabor] = useState(
+    initialSnapshot?.labor.requiresLabor ?? initialDraft?.requiresLabor ?? false,
+  );
+  const [laborHours, setLaborHours] = useState(
+    initialSnapshot?.labor.laborHours ?? initialDraft?.laborHours ?? 0,
+  );
+  const [laborRate, setLaborRate] = useState(
+    initialSnapshot?.labor.laborRate ?? initialDraft?.laborRate ?? 30,
+  );
+  const [extraSupplies, setExtraSupplies] = useState(
+    initialSnapshot?.labor.extraSupplies ?? initialDraft?.extraSupplies ?? 0,
+  );
+  const [packagingCost, setPackagingCost] = useState(
+    initialSnapshot?.labor.packagingCost ?? initialDraft?.packagingCost ?? 0,
+  );
   const [targetProfitPerMachineHour, setTargetProfitPerMachineHour] = useState(
-    initialDraft?.targetProfitPerMachineHour ?? DEFAULT_PRICING_SETTINGS.targetProfitPerMachineHour,
+    initialSnapshot?.commercial.targetProfitPerMachineHour ??
+      initialDraft?.targetProfitPerMachineHour ??
+      DEFAULT_PRICING_SETTINGS.targetProfitPerMachineHour,
   );
 
   // --- Pricing / markup ---
   const [wholesaleMarkup, setWholesaleMarkup] = useState(
-    initialDraft?.wholesaleMarkup ?? DEFAULT_PRICING_SETTINGS.wholesaleMarkup,
+    initialSnapshot?.commercial.wholesaleMarkup ??
+      initialDraft?.wholesaleMarkup ??
+      DEFAULT_PRICING_SETTINGS.wholesaleMarkup,
   );
   const [retailMarkup, setRetailMarkup] = useState(
-    initialDraft?.retailMarkup ?? DEFAULT_PRICING_SETTINGS.retailMarkup,
+    initialSnapshot?.commercial.retailMarkup ??
+      initialDraft?.retailMarkup ??
+      DEFAULT_PRICING_SETTINGS.retailMarkup,
   );
   const [minPrice, setMinPrice] = useState(
-    initialDraft?.minPrice ?? DEFAULT_PRICING_SETTINGS.minPrice,
+    initialSnapshot?.commercial.minPrice ??
+      initialDraft?.minPrice ??
+      DEFAULT_PRICING_SETTINGS.minPrice,
   );
-  const [markupMode, setMarkupMode] = useState<"mult" | "pct">(initialDraft?.markupMode ?? "mult");
+  const [markupMode, setMarkupMode] = useState<"mult" | "pct">(
+    initialSnapshot?.commercial.markupMode ?? initialDraft?.markupMode ?? "mult",
+  );
 
   // --- UI toggles ---
   const [showAdvancedMachine, setShowAdvancedMachine] = useState(false);
@@ -227,21 +392,57 @@ export function useCalculatorState() {
   const [showMaterialConfig, setShowMaterialConfig] = useState(false);
   const [showEnergyConfig, setShowEnergyConfig] = useState(false);
   const [showLaborConfig, setShowLaborConfig] = useState(false);
+  // Modo Rápido pede só o essencial; Completo é um superconjunto estrito —
+  // nenhum campo é perdido ao trocar de modo, só deixa de ser exibido.
+  const [calcMode, setCalcMode] = useState<"QUICK" | "FULL">(
+    initialSnapshot?.mode ?? initialDraft?.calcMode ?? "QUICK",
+  );
 
   // --- Save calc / orçamento ---
   const [savingCalc, setSavingCalc] = useState(false);
-  const [clientName, setClientName] = useState(initialDraft?.clientName ?? "");
-  const [clientLastName, setClientLastName] = useState(initialDraft?.clientLastName ?? "");
-  const [clientPhone, setClientPhone] = useState(initialDraft?.clientPhone ?? "");
+  const [quoteId, setQuoteId] = useState(
+    intent === "DUPLICATE"
+      ? ""
+      : (initialQuoteId ?? initialQuote?.id ?? initialDraft?.quoteId ?? ""),
+  );
+  const [quoteStatus, setQuoteStatus] = useState<QuoteStatus>(
+    intent === "DUPLICATE"
+      ? "PENDING"
+      : (initialQuote?.status ?? initialDraft?.quoteStatus ?? "PENDING"),
+  );
+  const [snapshotStale, setSnapshotStale] = useState(
+    Boolean(initialQuote && (!initialSnapshot || initialQuote.calcSnapshotStale)),
+  );
+  const [postSave, setPostSave] = useState<CalculatorPostSave | null>(null);
+  const [showImageOnQuote, setShowImageOnQuote] = useState(
+    initialSnapshot?.showImageOnQuote ?? initialDraft?.showImageOnQuote ?? true,
+  );
+  const [clientName, setClientName] = useState(
+    initialSnapshot?.client.name ?? initialDraft?.clientName ?? initialQuote?.userName ?? "",
+  );
+  const [clientLastName, setClientLastName] = useState(
+    initialSnapshot?.client.lastName ?? initialDraft?.clientLastName ?? "",
+  );
+  const [clientPhone, setClientPhone] = useState(
+    initialSnapshot?.client.phone ?? initialDraft?.clientPhone ?? initialQuote?.phone ?? "",
+  );
   const [selectedCustomerId, setSelectedCustomerId] = useState(
-    initialDraft?.selectedCustomerId ?? "",
+    initialSnapshot?.client.customerId ??
+      initialDraft?.selectedCustomerId ??
+      initialQuote?.customerId ??
+      "",
   );
   const [priceTier, setPriceTier] = useState<"RETAIL" | "WHOLESALE">(
-    initialDraft?.priceTier ?? "RETAIL",
+    initialSnapshot?.commercial.priceTier ??
+      initialDraft?.priceTier ??
+      initialQuote?.priceTier ??
+      "RETAIL",
   );
   const [customerSearch, setCustomerSearch] = useState("");
   const [customers, setCustomers] = useState<QuoteCustomer[]>([]);
-  const [quoteImageUrl, setQuoteImageUrl] = useState(initialDraft?.quoteImageUrl ?? "");
+  const [quoteImageUrl, setQuoteImageUrl] = useState(
+    initialSnapshot?.imageUrl ?? initialDraft?.quoteImageUrl ?? initialQuote?.imageUrl ?? "",
+  );
   const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
@@ -282,34 +483,51 @@ export function useCalculatorState() {
   // --- Load central pricing config from Firestore (admin é a fonte de verdade) ---
   // Sobrescreve os defaults: energia, markups, falha e material.
   useEffect(() => {
-    getDoc(doc(db, "settings", "pricing")).then((snap) => {
-      if (!snap.exists()) return;
-      const cfg = mergePricingSettings(snap.data());
-      setPricingSettings(cfg);
-      setMaterialSettings(cfg.materials);
-      if (!initialDraft) {
-        setKwhCost(cfg.kwhCost);
-        setStartupPower(cfg.startupPowerWatts);
-        setStartupMinutes(cfg.startupMinutes);
-        setFailureImpactPct(cfg.failureImpactPct);
-        setTargetProfitPerMachineHour(cfg.targetProfitPerMachineHour);
-        setWholesaleMarkup(cfg.wholesaleMarkup);
-        setRetailMarkup(cfg.retailMarkup);
-        setMinPrice(cfg.minPrice);
-      }
-      // Aplica o preset do material atualmente selecionado.
-      if (!initialDraft) {
-        setMaterial((cur) => {
-          const mat = cfg.materials[cur];
-          setSpoolPrice(mat.spoolPrice);
-          setSpoolWeight(mat.spoolWeight);
-          setSteadyPower(mat.steadyPowerWatts);
-          setReservePct(mat.defaultReservePct);
-          return cur;
-        });
-      }
-    });
-  }, [initialDraft]);
+    getDoc(doc(db, "settings", "pricing"))
+      .then((snap) => {
+        if (!snap.exists()) return;
+        const cfg = mergePricingSettings(snap.data());
+        setPricingSettings(cfg);
+        setMaterialSettings(cfg.materials);
+        if (!initialDraft && !initialSnapshot) {
+          setKwhCost(cfg.kwhCost);
+          setStartupPower(cfg.startupPowerWatts);
+          setStartupMinutes(cfg.startupMinutes);
+          setFailureImpactPct(cfg.failureImpactPct);
+          setTargetProfitPerMachineHour(cfg.targetProfitPerMachineHour);
+          setWholesaleMarkup(cfg.wholesaleMarkup);
+          setRetailMarkup(cfg.retailMarkup);
+          setMinPrice(cfg.minPrice);
+        }
+        // Aplica o preset do material atualmente selecionado.
+        if (!initialDraft && !initialSnapshot) {
+          setMaterial((cur) => {
+            const mat = cfg.materials[cur];
+            setSpoolPrice(mat.spoolPrice);
+            setSpoolWeight(mat.spoolWeight);
+            setSteadyPower(mat.steadyPowerWatts);
+            setReservePct(mat.defaultReservePct);
+            return cur;
+          });
+        }
+      })
+      .catch((err) => {
+        // Visitante sem sessão de admin: a leitura é negada pelas regras.
+        // A calculadora segue funcionando com os defaults hardcoded.
+        console.error("[calculadora] falha ao carregar settings/pricing:", err);
+      });
+  }, [initialDraft, initialSnapshot]);
+
+  useEffect(() => {
+    fetchCompanyProfile().then(setCompanyProfile);
+  }, []);
+
+  useEffect(() => {
+    fetchCalculatorTemplates()
+      .then(setCalculatorTemplates)
+      .catch(() => setCalculatorTemplates([]))
+      .finally(() => setTemplatesLoading(false));
+  }, []);
 
   useEffect(() => {
     if (skipNextDraftSave.current) {
@@ -319,7 +537,7 @@ export function useCalculatorState() {
     const timer = window.setTimeout(() => {
       const savedAt = new Date().toISOString();
       const draft: CalculatorDraft = {
-        version: 1,
+        version: 2,
         savedAt,
         project,
         material,
@@ -328,15 +546,9 @@ export function useCalculatorState() {
         reservePct,
         failureRatePct,
         failureImpactPct,
-        machinePrice,
-        lifespanHours,
-        nozzlePrice,
-        nozzleLifeHours,
-        platePrice,
-        plateLifeHours,
-        beltsPrice,
-        beltsLifeHours,
-        maintPerHour,
+        selectedPrinterId: selectedPrinterId || undefined,
+        machineSnapshot: machine,
+        machineOverrides,
         kwhCost,
         steadyPower,
         startupPower,
@@ -357,6 +569,10 @@ export function useCalculatorState() {
         selectedCustomerId,
         priceTier,
         quoteImageUrl,
+        quoteId: quoteId || undefined,
+        quoteStatus,
+        calcMode,
+        showImageOnQuote,
       };
       try {
         window.localStorage.setItem(CALCULATOR_DRAFT_STORAGE_KEY, JSON.stringify(draft));
@@ -379,15 +595,9 @@ export function useCalculatorState() {
     reservePct,
     failureRatePct,
     failureImpactPct,
-    machinePrice,
-    lifespanHours,
-    nozzlePrice,
-    nozzleLifeHours,
-    platePrice,
-    plateLifeHours,
-    beltsPrice,
-    beltsLifeHours,
-    maintPerHour,
+    selectedPrinterId,
+    machine,
+    machineOverrides,
     kwhCost,
     steadyPower,
     startupPower,
@@ -408,12 +618,16 @@ export function useCalculatorState() {
     selectedCustomerId,
     priceTier,
     quoteImageUrl,
+    quoteId,
+    quoteStatus,
+    calcMode,
+    showImageOnQuote,
   ]);
 
   // Filamentos reais cadastrados no painel. O orçamento apenas registra a
   // previsão; a reserva/baixa acontece nas transições do pedido.
   useEffect(() => {
-    getDocs(collection(db, "materials"))
+    getDocs(query(collection(db, "materials"), limit(300)))
       .then((snapshot) =>
         setInventoryMaterials(
           snapshot.docs
@@ -425,14 +639,29 @@ export function useCalculatorState() {
   }, []);
 
   useEffect(() => {
-    getDocs(collection(db, "customers"))
-      .then((snapshot) =>
-        setCustomers(
-          snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuoteCustomer),
-        ),
-      )
-      .catch(() => setCustomers([]));
-  }, []);
+    const normalized = normalizeCustomerName(customerSearch);
+    if (normalized.length < 2) {
+      setCustomers([]);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      const customerQuery = query(
+        collection(db, "customers"),
+        orderBy("nameNormalized"),
+        startAt(normalized),
+        endAt(`${normalized}\uf8ff`),
+        limit(8),
+      );
+      getDocs(customerQuery)
+        .then((snapshot) =>
+          setCustomers(
+            snapshot.docs.map((item) => ({ id: item.id, ...item.data() }) as QuoteCustomer),
+          ),
+        )
+        .catch(() => setCustomers([]));
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [customerSearch]);
 
   const customerMatches = useMemo(
     () =>
@@ -464,35 +693,8 @@ export function useCalculatorState() {
     setClientPhone("");
   };
 
-  // --- Load machine config from Firestore (overrides localStorage defaults) ---
-  useEffect(() => {
-    getDoc(doc(db, "settings", "machine")).then((snap) => {
-      if (!snap.exists() || initialDraft) return;
-      const m = snap.data();
-      if (Number.isFinite(m.price)) setMachinePrice(m.price);
-      if (Number.isFinite(m.lifespanHours)) setLifespanHours(m.lifespanHours);
-      if (Number.isFinite(m.nozzlePrice)) setNozzlePrice(m.nozzlePrice);
-      if (Number.isFinite(m.nozzleLifeHours)) setNozzleLifeHours(m.nozzleLifeHours);
-      if (Number.isFinite(m.platePrice)) setPlatePrice(m.platePrice);
-      if (Number.isFinite(m.plateLifeHours)) setPlateLifeHours(m.plateLifeHours);
-      if (Number.isFinite(m.beltsPrice)) setBeltsPrice(m.beltsPrice);
-      if (Number.isFinite(m.beltsLifeHours)) setBeltsLifeHours(m.beltsLifeHours);
-      if (Number.isFinite(m.maintPerHour)) setMaintPerHour(m.maintPerHour);
-    });
-  }, [initialDraft]);
-
   // --- Computed values ---
-  const machineBreak = machineHourBreakdown({
-    price: machinePrice,
-    lifespanHours,
-    nozzlePrice,
-    nozzleLifeHours,
-    platePrice,
-    plateLifeHours,
-    beltsPrice,
-    beltsLifeHours,
-    maintPerHour,
-  });
+  const machineBreak = machineHourBreakdown(machine);
 
   const projectPricingSettings = useMemo(
     () => ({
@@ -516,41 +718,20 @@ export function useCalculatorState() {
   );
   const projectPricing = useMemo(
     () =>
-      computeProjectPricing(
-        project,
-        {
-          price: machinePrice,
-          lifespanHours,
-          nozzlePrice,
-          nozzleLifeHours,
-          platePrice,
-          plateLifeHours,
-          beltsPrice,
-          beltsLifeHours,
-          maintPerHour,
-        },
-        projectPricingSettings,
-        {
-          laborHours: requiresLabor ? laborHours : 0,
-          laborRate,
-          extraSupplies,
-          packagingCost,
-          wholesaleMarkup,
-          retailMarkup,
-          minPrice,
-        },
-      ),
+      computeProjectPricing(project, machine, projectPricingSettings, {
+        laborHours: requiresLabor ? laborHours : 0,
+        laborRate,
+        extraSupplies,
+        packagingCost,
+        wholesaleMarkup,
+        retailMarkup,
+        minPrice,
+        reservePct,
+        fallbackSteadyPowerWatts: steadyPower,
+      }),
     [
       project,
-      machinePrice,
-      lifespanHours,
-      nozzlePrice,
-      nozzleLifeHours,
-      platePrice,
-      plateLifeHours,
-      beltsPrice,
-      beltsLifeHours,
-      maintPerHour,
+      machine,
       projectPricingSettings,
       requiresLabor,
       laborHours,
@@ -560,17 +741,262 @@ export function useCalculatorState() {
       wholesaleMarkup,
       retailMarkup,
       minPrice,
+      reservePct,
+      steadyPower,
     ],
   );
   const result = projectPricing.result;
+  const doubleLotResult = useMemo(() => {
+    const doubleProject: CalculatorProject = {
+      ...project,
+      outputQuantity: Math.max(1, project.outputQuantity) * 2,
+      plates: project.plates.map((plate) => ({
+        ...plate,
+        repetitions: Math.max(1, plate.repetitions) * 2,
+      })),
+    };
+    return computeProjectPricing(doubleProject, machine, projectPricingSettings, {
+      laborHours: requiresLabor ? laborHours * 2 : 0,
+      laborRate,
+      extraSupplies: extraSupplies * 2,
+      packagingCost: packagingCost * 2,
+      wholesaleMarkup,
+      retailMarkup,
+      minPrice,
+      reservePct,
+      fallbackSteadyPowerWatts: steadyPower,
+    }).result;
+  }, [
+    project,
+    machine,
+    projectPricingSettings,
+    requiresLabor,
+    laborHours,
+    laborRate,
+    extraSupplies,
+    packagingCost,
+    wholesaleMarkup,
+    retailMarkup,
+    minPrice,
+    reservePct,
+    steadyPower,
+  ]);
+  const inventoryForecast = useMemo(
+    () => buildInventoryForecast(project, inventoryMaterials),
+    [project, inventoryMaterials],
+  );
 
-  const reserveMultiplier = 1 + Math.max(0, reservePct) / 100;
+  const printableSnapshot = useMemo(
+    () =>
+      buildCalcSnapshot({
+        mode: calcMode,
+        project,
+        printerId: selectedPrinter?.id,
+        printerName: selectedPrinter?.name,
+        machine,
+        machineOverrides: machineOverrides ?? undefined,
+        energy: { kwhCost, startupPowerWatts: startupPower, startupMinutes },
+        failure: { failureRatePct, failureImpactPct },
+        labor: {
+          requiresLabor,
+          laborHours,
+          laborRate,
+          extraSupplies,
+          packagingCost,
+        },
+        commercial: {
+          wholesaleMarkup,
+          retailMarkup,
+          minPrice,
+          targetProfitPerMachineHour,
+          markupMode,
+          priceTier,
+        },
+        material: {
+          key: material,
+          spoolPrice,
+          spoolWeight,
+          reservePct,
+          fallbackSteadyPowerWatts: steadyPower,
+        },
+        client: {
+          name: clientName,
+          lastName: clientLastName,
+          phone: clientPhone || undefined,
+          customerId: selectedCustomerId || undefined,
+        },
+        imageUrl: quoteImageUrl || undefined,
+        showImageOnQuote,
+      }),
+    [
+      calcMode,
+      project,
+      selectedPrinter,
+      machine,
+      machineOverrides,
+      kwhCost,
+      startupPower,
+      startupMinutes,
+      failureRatePct,
+      failureImpactPct,
+      requiresLabor,
+      laborHours,
+      laborRate,
+      extraSupplies,
+      packagingCost,
+      wholesaleMarkup,
+      retailMarkup,
+      minPrice,
+      targetProfitPerMachineHour,
+      markupMode,
+      priceTier,
+      material,
+      spoolPrice,
+      spoolWeight,
+      reservePct,
+      steadyPower,
+      clientName,
+      clientLastName,
+      clientPhone,
+      selectedCustomerId,
+      quoteImageUrl,
+      showImageOnQuote,
+    ],
+  );
+
+  const applySnapshotToCalculator = (snapshot: QuoteCalcSnapshot) => {
+    setProject(snapshot.project);
+    setProjectIssues([]);
+    setCalcMode(snapshot.mode);
+    setSelectedPrinterIdState(snapshot.printerId ?? "");
+    setSnapshotMachineBase(snapshot.machine);
+    setMachineOverrides(snapshot.machineOverrides ?? null);
+    setKwhCost(snapshot.energy.kwhCost);
+    setStartupPower(snapshot.energy.startupPowerWatts);
+    setStartupMinutes(snapshot.energy.startupMinutes);
+    setFailureRatePct(snapshot.failure.failureRatePct);
+    setFailureImpactPct(snapshot.failure.failureImpactPct);
+    setRequiresLabor(snapshot.labor.requiresLabor);
+    setLaborHours(snapshot.labor.laborHours);
+    setLaborRate(snapshot.labor.laborRate);
+    setExtraSupplies(snapshot.labor.extraSupplies);
+    setPackagingCost(snapshot.labor.packagingCost);
+    setWholesaleMarkup(snapshot.commercial.wholesaleMarkup);
+    setRetailMarkup(snapshot.commercial.retailMarkup);
+    setMinPrice(snapshot.commercial.minPrice);
+    setTargetProfitPerMachineHour(snapshot.commercial.targetProfitPerMachineHour);
+    setMarkupMode(snapshot.commercial.markupMode);
+    setPriceTier(snapshot.commercial.priceTier);
+    setMaterial(snapshot.material.key);
+    setSpoolPrice(snapshot.material.spoolPrice);
+    setSpoolWeight(snapshot.material.spoolWeight);
+    setReservePct(snapshot.material.reservePct);
+    setSteadyPower(snapshot.material.fallbackSteadyPowerWatts);
+    setQuoteId("");
+    setQuoteStatus("PENDING");
+    setSnapshotStale(false);
+    setPostSave(null);
+  };
+
+  const applyProjectTemplate = (template: CalculatorTemplate) => {
+    applySnapshotToCalculator(template.snapshot);
+    setCalculatorTemplates((current) =>
+      current
+        .map((item) =>
+          item.id === template.id ? { ...item, usageCount: (item.usageCount ?? 0) + 1 } : item,
+        )
+        .sort((a, b) => (b.usageCount ?? 0) - (a.usageCount ?? 0)),
+    );
+    void registerTemplateUsage(template.id).catch(() => undefined);
+    toast.success(`Modelo “${template.name}” aplicado.`, { position: "bottom-center" });
+  };
+
+  const saveProjectTemplate = async (name: string): Promise<boolean> => {
+    const issues = validateCalculatorProject(project);
+    if (issues.length) {
+      setProjectIssues(issues);
+      toast.error(`Complete o projeto antes de salvar o modelo: ${issues[0].message}`, {
+        position: "bottom-center",
+      });
+      return false;
+    }
+    setTemplateSaving(true);
+    try {
+      const templateSnapshot = buildCalcSnapshot({
+        ...printableSnapshot,
+        client: { name: "" },
+        imageUrl: undefined,
+        showImageOnQuote: true,
+      });
+      const id = await createCalculatorTemplate({
+        name,
+        snapshot: templateSnapshot,
+      });
+      setCalculatorTemplates((current) => [
+        { id, name: name.trim(), usageCount: 0, snapshot: templateSnapshot },
+        ...current,
+      ]);
+      toast.success("Modelo de projeto salvo.", { position: "bottom-center" });
+      return true;
+    } catch {
+      toast.error("Não foi possível salvar o modelo. Confira as regras do Firebase.", {
+        position: "bottom-center",
+      });
+      return false;
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
+  const quoteDocumentData = useMemo(() => {
+    const selectedTotal = priceTier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
+    const selectedUnit = priceTier === "WHOLESALE" ? result.wholesaleUnit : result.retailUnit;
+    const quote: Quote = {
+      id: quoteId || "draft",
+      userId: "calculator",
+      userName: [clientName, clientLastName].filter(Boolean).join(" ") || "Cliente",
+      status: quoteStatus,
+      fileName: project.name || "Peça personalizada",
+      materialId: project.plates.some((plate) => plate.type === "MULTICOLOR")
+        ? "Multicolor"
+        : "Cor única",
+      infill: initialQuote?.infill ?? 0,
+      quantity: project.outputQuantity,
+      total: selectedTotal,
+      unitPrice: selectedUnit,
+      costTotal: result.totalCost,
+      phone: clientPhone,
+      imageUrl: quoteImageUrl || undefined,
+      priceTier,
+      printerId: selectedPrinter?.id,
+      printerName: selectedPrinter?.name,
+      showImageOnQuote,
+      calculationProject: project,
+      calcSnapshot: printableSnapshot,
+    };
+    return buildQuoteDocumentData(quote, companyProfile, {
+      materials: inventoryMaterials,
+      printerPhotoUrl: selectedPrinter?.photoUrl,
+    });
+  }, [
+    priceTier,
+    result,
+    quoteId,
+    clientName,
+    clientLastName,
+    quoteStatus,
+    project,
+    initialQuote?.infill,
+    clientPhone,
+    quoteImageUrl,
+    selectedPrinter,
+    showImageOnQuote,
+    printableSnapshot,
+    companyProfile,
+    inventoryMaterials,
+  ]);
+
   const laborTotal = result.laborCost + result.extraSupplies + result.packagingCost;
-  const generatedAt = new Date().toLocaleString("pt-BR", {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
-
   const discardCalculatorDraft = () => {
     skipNextDraftSave.current = true;
     clearCalculatorDraftStorage();
@@ -589,6 +1015,29 @@ export function useCalculatorState() {
     setCustomerSearch("");
     setPriceTier("RETAIL");
     setQuoteImageUrl("");
+    setMachineOverrides(null);
+    setSnapshotMachineBase(null);
+    setQuoteId("");
+    setQuoteStatus("PENDING");
+    setSnapshotStale(false);
+    setPostSave(null);
+    setShowImageOnQuote(true);
+  };
+
+  const continueEditingSavedQuote = () => setPostSave(null);
+
+  const duplicateSavedQuote = () => {
+    setQuoteId("");
+    setQuoteStatus("PENDING");
+    setSnapshotStale(false);
+    setPostSave(null);
+    setProject((current) => ({
+      ...current,
+      name: `${current.name.replace(/\s+\(cópia\)$/i, "")} (cópia)`,
+    }));
+    toast.info("Cópia criada. O próximo salvamento gerará um novo orçamento.", {
+      position: "bottom-center",
+    });
   };
 
   // --- Upload da imagem opcional do produto ---
@@ -660,11 +1109,16 @@ export function useCalculatorState() {
       const phoneClean = normalizeCustomerPhone(clientPhone);
       let customerId = selectedCustomerId;
       if (!customerId) {
-        const duplicate = customers.find(
-          (customer) =>
-            phoneClean &&
-            normalizeCustomerPhone(customer.phone || customer.whatsapp || "") === phoneClean,
-        );
+        const duplicateSnapshot = phoneClean
+          ? await getDocs(
+              query(
+                collection(db, "customers"),
+                where("phoneNormalized", "==", phoneClean),
+                limit(1),
+              ),
+            )
+          : null;
+        const duplicate = duplicateSnapshot?.docs[0];
         if (duplicate) {
           customerId = duplicate.id;
         } else {
@@ -685,7 +1139,48 @@ export function useCalculatorState() {
       }
       const selectedTotal = priceTier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
       const selectedUnit = priceTier === "WHOLESALE" ? result.wholesaleUnit : result.retailUnit;
-      await saveQuoteFromCalc({
+      const calcSnapshot = buildCalcSnapshot({
+        mode: calcMode,
+        project,
+        printerId: selectedPrinter?.id,
+        printerName: selectedPrinter?.name,
+        machine,
+        machineOverrides: machineOverrides ?? undefined,
+        energy: { kwhCost, startupPowerWatts: startupPower, startupMinutes },
+        failure: { failureRatePct, failureImpactPct },
+        labor: {
+          requiresLabor,
+          laborHours,
+          laborRate,
+          extraSupplies,
+          packagingCost,
+        },
+        commercial: {
+          wholesaleMarkup,
+          retailMarkup,
+          minPrice,
+          targetProfitPerMachineHour,
+          markupMode,
+          priceTier,
+        },
+        material: {
+          key: material,
+          spoolPrice,
+          spoolWeight,
+          reservePct,
+          fallbackSteadyPowerWatts: steadyPower,
+        },
+        client: {
+          name: identity.firstName,
+          lastName: identity.lastName,
+          phone: phoneClean || undefined,
+          customerId,
+        },
+        imageUrl: quoteImageUrl || undefined,
+        showImageOnQuote,
+      });
+      const saved = await saveOrUpdateQuoteFromCalc({
+        quoteId: quoteId || undefined,
         clientName: identity.fullName,
         phone: clientPhone,
         customerId,
@@ -706,13 +1201,20 @@ export function useCalculatorState() {
         imageUrl: quoteImageUrl || undefined,
         materialUsages: predictedUsages,
         calculationProject: project,
+        calcSnapshot,
+        printerId: selectedPrinter?.id,
+        printerName: selectedPrinter?.name,
+        showImageOnQuote,
         notes: `Custo previsto ${result.totalCost.toFixed(2)} · atacado ${result.wholesaleTotal.toFixed(2)} · varejo ${result.retailTotal.toFixed(2)} · ${project.plates.length} bandeja(s) · ${result.weightGrams.toFixed(2)}g · ${result.hours.toFixed(2)}h`,
       });
-      toast.success("Orçamento salvo na aba Orçamentos!", {
+      setQuoteId(saved.id);
+      setSnapshotStale(false);
+      setPostSave(saved);
+      await onQuoteSaved?.(saved);
+      toast.success(saved.created ? "Orçamento criado com sucesso!" : "Alterações salvas!", {
         duration: 2800,
         position: "bottom-center",
       });
-      discardCalculatorDraft();
     } catch {
       toast.error("Erro ao salvar. É preciso estar logado como admin.", {
         position: "bottom-center",
@@ -735,44 +1237,26 @@ export function useCalculatorState() {
     setSpoolPrice,
     spoolWeight,
     setSpoolWeight,
-    slicerWeight,
-    setSlicerWeight,
     reservePct,
     setReservePct,
     failureRatePct,
     setFailureRatePct,
     failureImpactPct,
     setFailureImpactPct,
-    batchQuantity,
-    setBatchQuantity,
     selectMaterial,
     materialSettings,
     inventoryMaterials,
-    materialUsages,
-    setMaterialUsages,
-    // machine
-    machinePrice,
-    setMachinePrice,
-    lifespanHours,
-    setLifespanHours,
-    nozzlePrice,
-    setNozzlePrice,
-    nozzleLifeHours,
-    setNozzleLifeHours,
-    platePrice,
-    setPlatePrice,
-    plateLifeHours,
-    setPlateLifeHours,
-    beltsPrice,
-    setBeltsPrice,
-    beltsLifeHours,
-    setBeltsLifeHours,
-    maintPerHour,
-    setMaintPerHour,
+    // impressora
+    printers,
+    selectedPrinterId,
+    setSelectedPrinterId,
+    selectedPrinter,
+    machine,
+    machineOverrides,
+    overrideCount,
+    setMachineField,
+    resetMachineOverrides,
     // energy
-    printTimeStr,
-    setPrintTimeStr,
-    printTime,
     kwhCost,
     setKwhCost,
     steadyPower,
@@ -819,6 +1303,8 @@ export function useCalculatorState() {
     setShowEnergyConfig,
     showLaborConfig,
     setShowLaborConfig,
+    calcMode,
+    setCalcMode,
     // save
     savingCalc,
     handleSaveCalc,
@@ -837,6 +1323,15 @@ export function useCalculatorState() {
     priceTier,
     setPriceTier,
     quoteImageUrl,
+    quoteId,
+    quoteStatus,
+    snapshotStale,
+    postSave,
+    showImageOnQuote,
+    setShowImageOnQuote,
+    continueEditingSavedQuote,
+    duplicateSavedQuote,
+    startNewCalculation: discardCalculatorDraft,
     setQuoteImageUrl,
     uploadingImage,
     handleUploadImage,
@@ -845,9 +1340,15 @@ export function useCalculatorState() {
     // computed
     result,
     machineBreak,
-    reserveMultiplier,
     laborTotal,
-    generatedAt,
+    quoteDocumentData,
+    doubleLotResult,
+    inventoryForecast,
+    calculatorTemplates,
+    templatesLoading,
+    templateSaving,
+    applyProjectTemplate,
+    saveProjectTemplate,
   };
 }
 

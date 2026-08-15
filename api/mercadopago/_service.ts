@@ -4,6 +4,12 @@
 import { getAdminDb } from "../firebaseAdmin.js";
 import { omitUndefined } from "../_firestoreData.js";
 import type { ErrorCode } from "../../shared/errors/catalog.js";
+import {
+  decidePaymentAttempt,
+  resolvePixExpirationMinutes,
+  type PaymentAttemptDecision,
+  type StoredPaymentAttempt,
+} from "../../shared/payments/pixAttempt.js";
 import type { RequestContext } from "../_observability/context.js";
 import { createPayment, getPaymentStatus, MercadoPagoApiError } from "./_client.js";
 import { mapMercadoPagoStatus, mapMercadoPagoPaymentMethod } from "./_types.js";
@@ -25,10 +31,34 @@ export interface CreatePaymentResult {
   qrCodeBase64?: string;
   qrCodeUrl?: string;
   pixCode?: string;
-  expirationDate?: string;
+  expiresAt?: string;
+  attemptNumber?: number;
   errorCode?: ErrorCode;
   error?: string;
   errorDetails?: Record<string, unknown>;
+}
+
+/** Timestamp do Firestore, Date ou ausente — tudo vira Date ou nada. */
+function toDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  const timestamp = value as { toDate?: () => Date };
+  return typeof timestamp.toDate === "function" ? timestamp.toDate() : null;
+}
+
+type AttemptReservation =
+  | { ok: false; errorCode: ErrorCode; error: string }
+  | { ok: true; action: "reuse_stored"; payment: CreatePaymentResult }
+  | {
+      ok: true;
+      action: "create" | "resume_provider";
+      decision: Extract<PaymentAttemptDecision, { expiresAt: Date }>;
+      amount: number;
+      payerEmail?: string;
+    };
+
+function fail(errorCode: ErrorCode, error: string): AttemptReservation {
+  return { ok: false, errorCode, error };
 }
 
 // Processar pagamento
@@ -45,74 +75,121 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
     };
   }
 
-  // Buscar pedido
-  const orderDoc = await adminDb.collection("orders").doc(orderId).get();
+  const expirationMinutes = resolvePixExpirationMinutes(process.env.PIX_EXPIRATION_MINUTES);
+  const now = new Date();
+  const orderRef = adminDb.collection("orders").doc(orderId);
 
-  if (!orderDoc.exists) {
-    return { success: false, errorCode: "ORDER_NOT_FOUND", error: "Pedido não encontrado" };
-  }
+  // A validação e a reserva da tentativa acontecem na mesma transação: dois
+  // cliques simultâneos são serializados e produzem uma única cobrança.
+  const reservation = await adminDb.runTransaction<AttemptReservation>(async (transaction) => {
+    const orderSnapshot = await transaction.get(orderRef);
+    if (!orderSnapshot.exists) return fail("ORDER_NOT_FOUND", "Pedido não encontrado");
 
-  const order = orderDoc.data()!;
+    const order = orderSnapshot.data()!;
 
-  const amount = Number(order.total);
-  if (!Number.isFinite(amount) || amount <= 0) {
-    return {
-      success: false,
-      errorCode: "INVALID_ORDER_TOTAL",
-      error: "O pedido possui um valor inválido",
-    };
-  }
+    const amount = Number(order.total);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return fail("INVALID_ORDER_TOTAL", "O pedido possui um valor inválido");
+    }
+    if (order.userId !== userId) {
+      return fail("FORBIDDEN", "Usuário não tem permissão para pagar este pedido");
+    }
+    if (order.status === "PAID" || order.paymentStatus === "APPROVED") {
+      return fail("ORDER_ALREADY_PAID", "Pedido já foi pago");
+    }
+    if (order.status === "CANCELED") {
+      return fail("ORDER_CANCELED", "Pedido foi cancelado");
+    }
 
-  // Verificar propriedade do pedido
-  if (order.userId !== userId) {
-    return {
-      success: false,
-      errorCode: "FORBIDDEN",
-      error: "Usuário não tem permissão para pagar este pedido",
-    };
-  }
+    const attemptRef = order.paymentAttemptId
+      ? adminDb.collection("paymentAttempts").doc(order.paymentAttemptId)
+      : null;
+    const attemptSnapshot = attemptRef ? await transaction.get(attemptRef) : null;
+    const stored = attemptSnapshot?.exists ? attemptSnapshot.data()! : null;
 
-  // Verificar se pedido já foi pago
-  if (order.status === "PAID") {
-    return { success: false, errorCode: "ORDER_ALREADY_PAID", error: "Pedido já foi pago" };
-  }
+    const currentAttempt: StoredPaymentAttempt | null = stored
+      ? {
+          attemptNumber: Number(stored.attemptNumber ?? order.paymentAttemptNumber ?? 1),
+          status: stored.status,
+          // `expirationDate` cobre tentativas criadas antes desta política.
+          expiresAt: toDate(stored.expiresAt ?? stored.expirationDate),
+          paymentId: stored.paymentId,
+          pixCode: stored.pixCode,
+        }
+      : null;
 
-  // Verificar se pedido foi cancelado
-  if (order.status === "CANCELED") {
-    return { success: false, errorCode: "ORDER_CANCELED", error: "Pedido foi cancelado" };
-  }
+    const decision = decidePaymentAttempt({ orderId, currentAttempt, now, expirationMinutes });
 
-  // Reutiliza a cobrança pendente. Isso evita criar vários Pix quando a pessoa
-  // clica novamente, atualiza a página ou sofre uma falha temporária de rede.
-  if (
-    order.paymentProvider === "mercadopago" &&
-    order.paymentAttemptId &&
-    (order.paymentStatus === "PENDING" || order.paymentStatus === "PROCESSING")
-  ) {
-    const previousAttempt = await adminDb
-      .collection("paymentAttempts")
-      .doc(order.paymentAttemptId)
-      .get();
-    if (previousAttempt.exists) {
-      const previous = previousAttempt.data()!;
+    // Reutiliza a cobrança vigente. Isso evita criar vários Pix quando a pessoa
+    // clica novamente, atualiza a página ou sofre uma falha temporária de rede.
+    if (decision.action === "reuse_stored") {
+      // `reuse_stored` só é decidido a partir de uma tentativa já gravada.
+      const previous = stored as FirebaseFirestore.DocumentData;
       return {
-        success: true,
-        paymentId: previous.paymentId,
-        status: previous.paymentProviderStatus,
-        statusDetail: previous.paymentStatusDetail,
-        qrCodeBase64: previous.qrCodeBase64,
-        qrCodeUrl: previous.qrCodeUrl,
-        pixCode: previous.pixCode,
-        expirationDate: previous.expirationDate?.toDate?.()?.toISOString(),
+        ok: true,
+        action: "reuse_stored",
+        payment: {
+          success: true,
+          paymentId: previous.paymentId,
+          status: previous.paymentProviderStatus,
+          statusDetail: previous.paymentStatusDetail,
+          qrCodeBase64: previous.qrCodeBase64,
+          qrCodeUrl: previous.qrCodeUrl,
+          pixCode: previous.pixCode,
+          expiresAt: currentAttempt?.expiresAt?.toISOString(),
+          attemptNumber: decision.attemptNumber,
+        },
       };
     }
+
+    if (decision.action === "create") {
+      // A reserva grava a tentativa antes da chamada externa; se a criação
+      // falhar, a próxima requisição retoma esta mesma chave em vez de abrir
+      // uma cobrança paralela.
+      transaction.set(
+        adminDb.collection("paymentAttempts").doc(decision.attemptId),
+        omitUndefined({
+          id: decision.attemptId,
+          orderId,
+          attemptNumber: decision.attemptNumber,
+          paymentProvider: "mercadopago",
+          idempotencyKey: decision.idempotencyKey,
+          status: "PROCESSING",
+          amount,
+          currency: "BRL",
+          expiresAt: decision.expiresAt,
+          createdAt: now,
+          updatedAt: now,
+        }),
+      );
+      transaction.update(orderRef, {
+        paymentProvider: "mercadopago",
+        paymentStatus: "PROCESSING",
+        paymentAttemptId: decision.attemptId,
+        paymentAttemptNumber: decision.attemptNumber,
+        idempotencyKey: decision.idempotencyKey,
+        paymentExpiresAt: decision.expiresAt,
+        paymentUpdatedAt: now,
+      });
+    }
+
+    return {
+      ok: true,
+      action: decision.action,
+      decision,
+      amount,
+      payerEmail: order.userEmail || undefined,
+    };
+  });
+
+  if (!reservation.ok) {
+    return { success: false, errorCode: reservation.errorCode, error: reservation.error };
+  }
+  if (reservation.action === "reuse_stored") {
+    return reservation.payment;
   }
 
-  // Uma chave determinística faz duas requisições simultâneas representarem a
-  // mesma operação no Mercado Pago. A versão permite uma futura política
-  // explícita de nova tentativa após expiração.
-  const idempotencyKey = `order:${orderId}:pix:v1`;
-  const attemptId = `${orderId}-pix-v1`;
+  const { decision, amount, payerEmail } = reservation;
 
   try {
     // Criar pagamento no Mercado Pago
@@ -122,8 +199,9 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
       currency: "BRL",
       description: `Pedido #${orderId.slice(0, 8).toUpperCase()}`,
       paymentMethod,
-      idempotencyKey,
-      email: order.userEmail || undefined,
+      idempotencyKey: decision.idempotencyKey,
+      expiresAt: decision.expiresAt,
+      email: payerEmail,
       context: request.context,
     });
 
@@ -131,45 +209,51 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
     const mappedPaymentMethod = mapMercadoPagoPaymentMethod(
       result.paymentMethodId || paymentMethod,
     );
+    // O provedor confirma o vencimento; se ele omitir, vale o que enviamos.
+    const expiresAt = result.expiresAt ? new Date(result.expiresAt) : decision.expiresAt;
 
-    // Salvar tentativa de pagamento
-    await adminDb
-      .collection("paymentAttempts")
-      .doc(attemptId)
-      .set(
-        omitUndefined({
-          id: attemptId,
-          orderId,
-          paymentId: result.paymentId,
-          paymentProvider: "mercadopago",
-          paymentProviderStatus: result.status,
-          paymentStatusDetail: result.statusDetail,
-          paymentMethod: mappedPaymentMethod,
-          idempotencyKey,
-          status: paymentStatus,
-          amount,
-          currency: "BRL",
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          qrCodeBase64: result.qrCodeBase64,
-          qrCodeUrl: result.qrCodeUrl,
-          pixCode: result.pixCode,
-          expirationDate: result.expirationDate ? new Date(result.expirationDate) : undefined,
-        }),
-      );
-
-    // Atualizar pedido
-    await adminDb.collection("orders").doc(orderId).update({
-      paymentStatus,
-      paymentProvider: "mercadopago",
-      paymentProviderStatus: result.status,
-      paymentProviderStatusDetail: result.statusDetail,
-      paymentId: result.paymentId,
-      paymentMethod: mappedPaymentMethod,
-      paymentAttemptId: attemptId,
-      idempotencyKey,
-      paymentUpdatedAt: new Date(),
-    });
+    const batch = adminDb.batch();
+    batch.set(
+      adminDb.collection("paymentAttempts").doc(decision.attemptId),
+      omitUndefined({
+        id: decision.attemptId,
+        orderId,
+        attemptNumber: decision.attemptNumber,
+        paymentId: result.paymentId,
+        paymentProvider: "mercadopago",
+        paymentProviderStatus: result.status,
+        paymentStatusDetail: result.statusDetail,
+        paymentMethod: mappedPaymentMethod,
+        idempotencyKey: decision.idempotencyKey,
+        status: paymentStatus,
+        amount,
+        currency: "BRL",
+        createdAt: now,
+        updatedAt: now,
+        qrCodeBase64: result.qrCodeBase64,
+        qrCodeUrl: result.qrCodeUrl,
+        pixCode: result.pixCode,
+        expiresAt,
+      }),
+      { merge: true },
+    );
+    batch.update(
+      orderRef,
+      omitUndefined({
+        paymentStatus,
+        paymentProvider: "mercadopago",
+        paymentProviderStatus: result.status,
+        paymentProviderStatusDetail: result.statusDetail,
+        paymentId: result.paymentId,
+        paymentMethod: mappedPaymentMethod,
+        paymentAttemptId: decision.attemptId,
+        paymentAttemptNumber: decision.attemptNumber,
+        idempotencyKey: decision.idempotencyKey,
+        paymentExpiresAt: expiresAt,
+        paymentUpdatedAt: now,
+      }),
+    );
+    await batch.commit();
 
     return {
       success: true,
@@ -179,7 +263,8 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
       qrCodeBase64: result.qrCodeBase64,
       qrCodeUrl: result.qrCodeUrl,
       pixCode: result.pixCode,
-      expirationDate: result.expirationDate,
+      expiresAt: expiresAt.toISOString(),
+      attemptNumber: decision.attemptNumber,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Erro ao processar pagamento";

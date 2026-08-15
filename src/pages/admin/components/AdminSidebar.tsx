@@ -9,38 +9,53 @@ const MENU_GROUPS = [
   {
     label: "Vendas",
     items: [
-      { id: "overview" as AdminTabId, name: "Painel", icon: "TrendingUp" },
-      { id: "orders" as AdminTabId, name: "Pedidos", icon: "Package" },
-      { id: "quotes" as AdminTabId, name: "Orçamentos", icon: "FileText" },
+      { id: "overview", name: "Painel", icon: "TrendingUp" },
+      { id: "orders", name: "Pedidos", icon: "Package" },
+      { id: "quotes", name: "Orçamentos", icon: "FileText" },
     ],
   },
   {
     label: "Catálogo",
     items: [
-      { id: "categories" as AdminTabId, name: "Categorias", icon: "Folder" },
-      { id: "products" as AdminTabId, name: "Catálogo", icon: "Printer" },
-      { id: "materials" as AdminTabId, name: "Materiais", icon: "Box" },
-      { id: "showcase" as AdminTabId, name: "Vitrine", icon: "Sparkles" },
-      { id: "coupons" as AdminTabId, name: "Cupons", icon: "Tag" },
+      { id: "categories", name: "Categorias", icon: "Folder" },
+      { id: "products", name: "Catálogo", icon: "Printer" },
+      { id: "materials", name: "Materiais", icon: "Box" },
+      { id: "printers", name: "Impressoras", icon: "Factory" },
+      { id: "showcase", name: "Vitrine", icon: "Sparkles" },
+      { id: "coupons", name: "Cupons", icon: "Tag" },
     ],
   },
   {
     label: "Relacionamento",
     items: [
-      { id: "crm" as AdminTabId, name: "Clientes", icon: "Users" },
-      { id: "support" as AdminTabId, name: "Suporte", icon: "AlertCircle" },
-      { id: "reviews" as AdminTabId, name: "Avaliações", icon: "Star" },
-      { id: "faqs" as AdminTabId, name: "FAQs", icon: "HelpCircle" },
+      { id: "crm", name: "Clientes", icon: "Users" },
+      { id: "support", name: "Suporte", icon: "AlertCircle" },
+      { id: "reviews", name: "Avaliações", icon: "Star" },
+      { id: "faqs", name: "FAQs", icon: "HelpCircle" },
     ],
   },
   {
     label: "Sistema",
     items: [
-      { id: "settings" as AdminTabId, name: "Ajustes", icon: "Settings" },
-      { id: "logs" as AdminTabId, name: "Auditoria", icon: "History" },
+      { id: "settings", name: "Ajustes", icon: "Settings" },
+      { id: "logs", name: "Auditoria", icon: "History" },
     ],
   },
-] as const;
+] as const satisfies readonly {
+  label: string;
+  items: readonly { id: AdminTabId; name: string; icon: string }[];
+}[];
+
+// O TypeScript já garante que todo item aponta para uma aba existente. Falta a
+// direção contrária: uma aba nova esquecida aqui viraria uma tela inalcançável,
+// porque este menu é a única forma de chegar nela. Isso quebra a compilação.
+type TabInMenu = (typeof MENU_GROUPS)[number]["items"][number]["id"];
+type EveryTabIsReachable =
+  Exclude<AdminTabId, TabInMenu> extends never
+    ? true
+    : ["Aba fora do menu lateral:", Exclude<AdminTabId, TabInMenu>];
+const _everyTabIsReachable: EveryTabIsReachable = true;
+void _everyTabIsReachable;
 
 import {
   TrendingUp,
@@ -48,6 +63,7 @@ import {
   FileText,
   Folder,
   Printer,
+  Factory,
   Box,
   Sparkles,
   Tag,
@@ -65,6 +81,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
   Folder,
   Printer,
+  Factory,
   Box,
   Sparkles,
   Tag,
