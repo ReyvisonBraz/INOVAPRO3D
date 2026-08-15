@@ -37,6 +37,72 @@ export interface ParsedSlicerPaste {
   warnings: string[];
 }
 
+export interface SlicerImageExtraction {
+  plates: Array<{
+    name?: string;
+    timeText?: string;
+    filaments: Array<{ label: string; grams: number }>;
+  }>;
+  warnings: string[];
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+/**
+ * Converte a saída estruturada da leitura de imagem no mesmo texto editável
+ * usado pelo importador tradicional. O usuário sempre pode conferir e
+ * corrigir o OCR antes de aplicar as bandejas.
+ */
+export function slicerImageExtractionToPasteText(raw: unknown): {
+  text: string;
+  warnings: string[];
+} {
+  if (!isRecord(raw)) {
+    return { text: "", warnings: ["A leitura da imagem retornou um formato inválido."] };
+  }
+
+  const sourcePlates = Array.isArray(raw.plates) ? raw.plates.slice(0, 20) : [];
+  const warnings = Array.isArray(raw.warnings)
+    ? raw.warnings
+        .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
+        .slice(0, 10)
+        .map((item) => item.trim().slice(0, 300))
+    : [];
+  const blocks: string[] = [];
+
+  sourcePlates.forEach((source, plateIndex) => {
+    if (!isRecord(source)) return;
+    const name =
+      typeof source.name === "string" && source.name.trim()
+        ? source.name.trim().slice(0, 80)
+        : `Plate ${plateIndex + 1}`;
+    const timeText = typeof source.timeText === "string" ? source.timeText.trim().slice(0, 80) : "";
+    const sourceFilaments = Array.isArray(source.filaments) ? source.filaments.slice(0, 16) : [];
+    const filamentLines = sourceFilaments.flatMap((filament, filamentIndex) => {
+      if (!isRecord(filament)) return [];
+      const grams = Number(filament.grams);
+      if (!Number.isFinite(grams) || grams <= 0 || grams > 100_000) return [];
+      const label =
+        typeof filament.label === "string" && filament.label.trim()
+          ? filament.label.trim().slice(0, 120)
+          : `Filamento ${filamentIndex + 1}`;
+      return [`${label}: ${grams} g`];
+    });
+    if (!timeText && !filamentLines.length) return;
+    blocks.push(
+      [name, ...(timeText ? [`Print time: ${timeText}`] : []), ...filamentLines].join("\n"),
+    );
+  });
+
+  if (!blocks.length) {
+    warnings.unshift(
+      "Não encontrei tempo nem consumo de filamento legíveis. Faça um recorte mais próximo do resumo.",
+    );
+  }
+  return { text: blocks.join("\n\n"), warnings };
+}
+
 // Só reconhece "Plate N" como cabeçalho quando a linha inteira é isso — uma
 // linha de tabela colada com tabs ("Plate 1\tPLA Basic\tBlack\t12.4g") não
 // pode virar um cabeçalho vazio que descarta o resto da linha.

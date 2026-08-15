@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { applyPasteToProject, parseBambuPaste } from "./bambuPaste";
+import {
+  applyPasteToProject,
+  parseBambuPaste,
+  slicerImageExtractionToPasteText,
+} from "./bambuPaste";
 import type { Material } from "../types/domain";
 
 const material = (patch: Partial<Material> & { id: string; name: string }): Material => ({
@@ -166,5 +170,42 @@ describe("applyPasteToProject", () => {
     const applied = applyPasteToProject(parsed, ctx);
     const ids = applied.plates.flatMap((plate) => plate.filaments.map((f) => f.id));
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("slicerImageExtractionToPasteText", () => {
+  it("transforma a leitura estruturada em texto revisável pelo parser existente", () => {
+    const converted = slicerImageExtractionToPasteText({
+      plates: [
+        {
+          name: "Plate 1",
+          timeText: "2h 18m",
+          filaments: [
+            { label: "AMS A1 PLA Basic Black", grams: 42.7 },
+            { label: "AMS A2 PLA Basic White", grams: 8.3 },
+          ],
+        },
+      ],
+      warnings: [],
+    });
+    const parsed = parseBambuPaste(converted.text);
+    expect(parsed.totalHours).toBeCloseTo(2.3, 5);
+    expect(parsed.totalGrams).toBe(51);
+    expect(parsed.plates[0].filaments).toHaveLength(2);
+  });
+
+  it("descarta números inválidos ou absurdos vindos do modelo", () => {
+    const converted = slicerImageExtractionToPasteText({
+      plates: [{ name: "Plate 1", timeText: "1h", filaments: [{ label: "PLA", grams: 999_999 }] }],
+      warnings: [],
+    });
+    expect(converted.text).toContain("Print time: 1h");
+    expect(converted.text).not.toContain("999999");
+  });
+
+  it("falha de forma legível quando a resposta não tem dados aproveitáveis", () => {
+    const converted = slicerImageExtractionToPasteText({ plates: [], warnings: [] });
+    expect(converted.text).toBe("");
+    expect(converted.warnings[0]).toContain("Não encontrei");
   });
 });

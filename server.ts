@@ -22,6 +22,7 @@ import {
   type MaterialRecord,
 } from "./api/_orderPricing.ts";
 import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "./shared/commercePricing.ts";
+import { extractSlicerImageWithGemini } from "./api/_slicerImage.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -211,6 +212,52 @@ async function startServer() {
       res.json({ received: true });
     });
   }
+
+  app.post(
+    "/api/calculator/extract-slicer",
+    rateLimit(12),
+    express.json({ limit: "5mb" }),
+    async (req, res) => {
+      const uid = await verifyToken(req);
+      if (!uid) {
+        res.status(403).json({ error: "Apenas administradores podem ler recortes." });
+        return;
+      }
+      if (uid !== "unchecked") {
+        try {
+          const user = await getAdminDb().collection("users").doc(uid).get();
+          if (user.data()?.role !== "ADMIN") {
+            res.status(403).json({ error: "Apenas administradores podem ler recortes." });
+            return;
+          }
+        } catch {
+          res.status(403).json({ error: "Não foi possível validar sua sessão." });
+          return;
+        }
+      }
+
+      const imageData = typeof req.body?.imageData === "string" ? req.body.imageData : "";
+      const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "";
+      if (
+        !imageData ||
+        imageData.length > 4_000_000 ||
+        !["image/png", "image/jpeg", "image/webp"].includes(mimeType)
+      ) {
+        res.status(400).json({ error: "Imagem inválida ou muito grande." });
+        return;
+      }
+      try {
+        res.json(await extractSlicerImageWithGemini({ imageData, mimeType }));
+      } catch (error) {
+        if (error instanceof Error && error.message === "GEMINI_NOT_CONFIGURED") {
+          res.status(503).json({ error: "Leitura de imagem ainda não configurada no servidor." });
+          return;
+        }
+        console.error("[extract-slicer] falha na leitura:", error);
+        res.status(502).json({ error: "Não foi possível interpretar o recorte. Tente novamente." });
+      }
+    },
+  );
 
   app.use(express.json());
 

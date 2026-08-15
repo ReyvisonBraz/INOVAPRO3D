@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
-import { AlertTriangle, ClipboardPaste, Plus, Replace } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ClipboardPaste, ImagePlus, Loader2, Plus, Replace, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { formatHoursToHHMM } from "../../lib/pricing";
 import { applyPasteToProject, parseBambuPaste, type ApplyPasteContext } from "../../lib/bambuPaste";
 import type { CalculatorPlate } from "../../lib/calculatorProject";
+import { extractSlicerImage } from "../../services/slicerImage";
 
 interface SlicerPasteBoxProps {
   materials: ApplyPasteContext["materials"];
@@ -23,6 +24,56 @@ export function SlicerPasteBox({
   onApply,
 }: SlicerPasteBoxProps) {
   const [text, setText] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
+  const [imageWarnings, setImageWarnings] = useState<string[]>([]);
+  const [imageError, setImageError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(
+    () => () => {
+      if (imageUrl) URL.revokeObjectURL(imageUrl);
+    },
+    [imageUrl],
+  );
+
+  const readImage = async (file: File) => {
+    setExtracting(true);
+    setImageError("");
+    setImageWarnings([]);
+    const nextUrl = URL.createObjectURL(file);
+    setImageUrl(nextUrl);
+    try {
+      const extracted = await extractSlicerImage(file);
+      setText(extracted.text);
+      setImageWarnings(extracted.warnings);
+      if (!extracted.text) setImageError("Não consegui montar uma prévia com este recorte.");
+    } catch (error) {
+      setImageError(error instanceof Error ? error.message : "Não foi possível ler o recorte.");
+    } finally {
+      setExtracting(false);
+    }
+  };
+
+  const readClipboardImage = async () => {
+    if (!navigator.clipboard?.read) {
+      setImageError("Use Ctrl/Cmd+V dentro da caixa ou selecione o arquivo do recorte.");
+      return;
+    }
+    try {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const type = item.types.find((candidate) => candidate.startsWith("image/"));
+        if (!type) continue;
+        const blob = await item.getType(type);
+        await readImage(new File([blob], "recorte-bambu", { type }));
+        return;
+      }
+      setImageError("A área de transferência não contém uma imagem.");
+    } catch {
+      setImageError("O navegador bloqueou a leitura. Clique na caixa e use Ctrl/Cmd+V.");
+    }
+  };
 
   const preview = useMemo(() => {
     if (!text.trim()) return null;
@@ -48,11 +99,97 @@ export function SlicerPasteBox({
         <textarea
           value={text}
           onChange={(event) => setText(event.target.value)}
+          onPaste={(event) => {
+            const image = Array.from(event.clipboardData.files).find((file) =>
+              file.type.startsWith("image/"),
+            );
+            if (!image) return;
+            event.preventDefault();
+            void readImage(image);
+          }}
           rows={3}
           placeholder={"Plate 1\nPrint time: 2h 30m\nPLA Basic (Black): 45.20g"}
           className="w-full resize-y rounded-xl border border-white/15 bg-black/35 px-3 py-3 font-mono text-xs leading-relaxed text-white outline-none placeholder:text-white/25 focus:border-cyan-400/50 focus:ring-2 focus:ring-cyan-400/10"
         />
       </label>
+
+      <div className="grid gap-2 sm:grid-cols-2">
+        <button
+          type="button"
+          onClick={() => void readClipboardImage()}
+          disabled={extracting}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-cyan-300/20 bg-cyan-300/[0.06] px-4 text-xs font-black text-cyan-100 transition hover:border-cyan-300/40 disabled:opacity-50"
+        >
+          {extracting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ClipboardPaste className="h-4 w-4" />
+          )}
+          {extracting ? "Lendo recorte..." : "Colar recorte da tela"}
+        </button>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={extracting}
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-white/12 bg-white/[0.035] px-4 text-xs font-bold text-white/65 transition hover:border-white/25 hover:text-white disabled:opacity-50"
+        >
+          <ImagePlus className="h-4 w-4" /> Selecionar imagem
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) void readImage(file);
+            event.target.value = "";
+          }}
+        />
+      </div>
+
+      <p className="text-[11px] leading-relaxed text-white/35">
+        Recorte somente o painel com tempo e consumo. A leitura preenche o texto acima para você
+        revisar antes de aplicar.
+      </p>
+
+      {imageUrl && (
+        <div className="relative overflow-hidden rounded-xl border border-white/10 bg-black/30 p-2">
+          <img
+            src={imageUrl}
+            alt="Recorte do resumo do Bambu Studio"
+            className="max-h-44 w-full rounded-lg object-contain"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              setImageUrl("");
+              setImageWarnings([]);
+              setImageError("");
+            }}
+            className="absolute right-3 top-3 grid h-8 w-8 place-items-center rounded-lg bg-black/75 text-white/70"
+            aria-label="Remover recorte"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {imageError && (
+        <p className="flex items-start gap-2 rounded-xl border border-red-300/15 bg-red-300/[0.06] p-3 text-xs text-red-200">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" /> {imageError}
+        </p>
+      )}
+
+      {imageWarnings.length > 0 && (
+        <ul className="space-y-1 rounded-xl border border-amber-300/15 bg-amber-300/[0.05] p-3">
+          {imageWarnings.map((warning, index) => (
+            <li key={index} className="flex items-start gap-2 text-[11px] text-amber-100/80">
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {warning}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {preview && (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
