@@ -194,6 +194,25 @@ describe("slicerImageExtractionToPasteText", () => {
     expect(parsed.plates[0].filaments).toHaveLength(2);
   });
 
+  it("preserva tempos por placa e consumo total mostrado pelo resumo do Bambu", () => {
+    const converted = slicerImageExtractionToPasteText({
+      plates: [
+        { name: "Placa 1", timeText: "27m52s" },
+        { name: "Placa 2", timeText: "36m54s" },
+      ],
+      filaments: [
+        { label: "Filamento 1 Branco", grams: 10.94 },
+        { label: "Filamento 2 Vermelho", grams: 7.54 },
+      ],
+      warnings: [],
+    });
+    const parsed = parseBambuPaste(converted.text);
+    expect(parsed.plates).toHaveLength(2);
+    expect(parsed.totalGrams).toBeCloseTo(18.48, 5);
+    expect(parsed.totalHours).toBeCloseTo((27 * 60 + 52 + 36 * 60 + 54) / 3600, 5);
+    expect(converted.warnings[0]).toContain("consumo total");
+  });
+
   it("descarta números inválidos ou absurdos vindos do modelo", () => {
     const converted = slicerImageExtractionToPasteText({
       plates: [{ name: "Plate 1", timeText: "1h", filaments: [{ label: "PLA", grams: 999_999 }] }],

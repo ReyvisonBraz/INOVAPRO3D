@@ -41,8 +41,9 @@ export interface SlicerImageExtraction {
   plates: Array<{
     name?: string;
     timeText?: string;
-    filaments: Array<{ label: string; grams: number }>;
+    filaments?: Array<{ label: string; grams: number }>;
   }>;
+  filaments?: Array<{ label: string; grams: number }>;
   warnings: string[];
 }
 
@@ -63,6 +64,7 @@ export function slicerImageExtractionToPasteText(raw: unknown): {
   }
 
   const sourcePlates = Array.isArray(raw.plates) ? raw.plates.slice(0, 20) : [];
+  const totalFilaments = Array.isArray(raw.filaments) ? raw.filaments.slice(0, 16) : [];
   const warnings = Array.isArray(raw.warnings)
     ? raw.warnings
         .filter((item): item is string => typeof item === "string" && Boolean(item.trim()))
@@ -78,7 +80,11 @@ export function slicerImageExtractionToPasteText(raw: unknown): {
         ? source.name.trim().slice(0, 80)
         : `Plate ${plateIndex + 1}`;
     const timeText = typeof source.timeText === "string" ? source.timeText.trim().slice(0, 80) : "";
-    const sourceFilaments = Array.isArray(source.filaments) ? source.filaments.slice(0, 16) : [];
+    const sourceFilaments = Array.isArray(source.filaments)
+      ? source.filaments.slice(0, 16)
+      : plateIndex === 0
+        ? totalFilaments
+        : [];
     const filamentLines = sourceFilaments.flatMap((filament, filamentIndex) => {
       if (!isRecord(filament)) return [];
       const grams = Number(filament.grams);
@@ -94,6 +100,12 @@ export function slicerImageExtractionToPasteText(raw: unknown): {
       [name, ...(timeText ? [`Print time: ${timeText}`] : []), ...filamentLines].join("\n"),
     );
   });
+
+  if (sourcePlates.length > 1 && totalFilaments.length > 0) {
+    warnings.unshift(
+      "O Bambu informou consumo total, sem separar por placa. O peso foi associado à primeira placa para manter o total correto; redistribua se precisar da ficha por placa.",
+    );
+  }
 
   if (!blocks.length) {
     warnings.unshift(

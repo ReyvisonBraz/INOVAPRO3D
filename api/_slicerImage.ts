@@ -2,36 +2,31 @@ import { GoogleGenAI } from "@google/genai";
 
 const RESPONSE_SCHEMA = {
   type: "object",
-  additionalProperties: false,
-  required: ["plates", "warnings"],
+  required: ["plates", "filaments", "warnings"],
   properties: {
     plates: {
       type: "array",
-      maxItems: 20,
       items: {
         type: "object",
-        additionalProperties: false,
-        required: ["name", "timeText", "filaments"],
+        required: ["name", "timeText"],
         properties: {
           name: { type: "string" },
           timeText: { type: "string" },
-          filaments: {
-            type: "array",
-            maxItems: 16,
-            items: {
-              type: "object",
-              additionalProperties: false,
-              required: ["label", "grams"],
-              properties: {
-                label: { type: "string" },
-                grams: { type: "number", minimum: 0 },
-              },
-            },
-          },
         },
       },
     },
-    warnings: { type: "array", maxItems: 10, items: { type: "string" } },
+    filaments: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["label", "grams"],
+        properties: {
+          label: { type: "string" },
+          grams: { type: "number" },
+        },
+      },
+    },
+    warnings: { type: "array", items: { type: "string" } },
   },
 };
 
@@ -52,8 +47,9 @@ export async function extractSlicerImageWithGemini(input: {
             text: [
               "Leia este recorte do resumo de fatiamento do Bambu Studio.",
               "Extraia apenas valores visíveis; nunca estime nem calcule números ausentes.",
-              "Para cada placa/bandeja, devolva o tempo exatamente como aparece e cada filamento com material, cor/slot quando visível e peso em gramas.",
-              "Se a imagem mostrar somente totais do projeto, devolva uma única placa chamada 'Plate 1'.",
+              "Em plates, devolva cada placa/bandeja e seu tempo exatamente como aparecem na seção de estimativa de tempo.",
+              "Em filaments, devolva cada linha de filamento usando somente o peso em gramas da coluna Total; inclua número, material, cor ou slot no label quando estiverem visíveis.",
+              "Não use a linha geral Total como se fosse outro filamento.",
               "Não confunda metros de filamento, custo ou porcentagem com gramas.",
               "Se algum valor estiver cortado ou ilegível, deixe o campo vazio e explique em warnings.",
             ].join(" "),
