@@ -1,0 +1,59 @@
+/* Contraste de leitura em superfícies escuras.
+   A regra alcança somente elementos textuais: ícones decorativos, bordas,
+   fundos e placeholders preservam a hierarquia visual original. */
+
+.admin-workspace {
+  --admin-muted: rgba(255, 255, 255, 0.86);
+}
+
+.admin-table th,
+.admin-metric > small {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.admin-table td {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:root.dark
+  :is(p, span, label, small, li, dt, dd, th, td, a, button):is(
+    [class~="text-white/20"],
+    [class~="text-white/25"],
+    [class~="text-white/30"],
+    [class~="text-white/35"],
+    [class~="text-white/40"],
+    [class~="text-white/45"],
+    [class~="text-white/50"],
+    [class~="text-white/55"],
+    [class~="text-white/[0.28]"],
+    [class~="text-white/[0.34]"],
+    [class~="text-white/[0.35]"],
+    [class~="text-white/[0.42]"],
+    [class~="text-white/[0.44]"],
+    [class~="text-white/[0.45]"],
+    [class~="text-white/[0.52]"],
+    [class~="text-white/[0.55]"],
+    [class~="text-white/[0.58]"]
+  ) {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.admin-workspace
+  :is(p, span, label, small, li, dt, dd, th, td, a, button):is(.text-dim, .text-subtle) {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.admin-workspace
+  :is(p, span, label, small, li, dt, dd, th, td, a, button):is(
+    [class~="text-white/20"],
+    [class~="text-white/25"],
+    [class~="text-white/30"],
+    [class~="text-white/35"],
+    [class~="text-white/38"],
+    [class~="text-white/40"],
+    [class~="text-white/45"],
+    [class~="text-white/48"],
+    [class~="text-white/50"]
+  ) {
+  color: rgba(255, 255, 255, 0.88);
+}

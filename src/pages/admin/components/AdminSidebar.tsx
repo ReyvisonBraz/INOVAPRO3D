@@ -132,7 +132,7 @@ export function AdminSidebar({
         </Link>
         <button
           onClick={onClose}
-          className="lg:hidden p-1.5 text-dim hover:text-white rounded-lg hover:bg-white/5"
+          className="rounded-lg p-1.5 text-white/75 hover:bg-white/5 hover:text-white lg:hidden"
         >
           <X className="w-4 h-4" />
         </button>
@@ -141,7 +141,7 @@ export function AdminSidebar({
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-4 no-scrollbar">
         {MENU_GROUPS.map((group) => (
           <div key={group.label}>
-            <p className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/25">
+            <p className="mb-1.5 px-3 text-[9px] font-semibold uppercase tracking-[0.14em] text-white/85">
               {group.label}
             </p>
             <div className="space-y-0.5">
@@ -160,7 +160,7 @@ export function AdminSidebar({
                       "group relative flex h-9 w-full items-center gap-2.5 rounded-lg pl-3 pr-2.5 text-[12px] font-medium transition-colors",
                       isActive
                         ? "bg-blue-500/10 text-white ring-1 ring-inset ring-blue-400/10"
-                        : "text-white/48 hover:bg-white/[0.035] hover:text-white",
+                        : "text-white hover:bg-white/[0.055]",
                     )}
                   >
                     <span
@@ -172,7 +172,7 @@ export function AdminSidebar({
                     <Icon
                       className={cn(
                         "h-4 w-4 shrink-0 transition-colors",
-                        isActive ? "text-blue-300" : "text-white/35 group-hover:text-white/65",
+                        isActive ? "text-blue-300" : "text-white/70 group-hover:text-white",
                       )}
                     />
                     <span className="truncate">{item.name}</span>
@@ -180,7 +180,7 @@ export function AdminSidebar({
                       <span
                         className={cn(
                           "ml-auto rounded-full px-1.5 py-0.5 text-[10px] font-bold tabular-nums",
-                          isActive ? "bg-primary/20 text-primary" : "bg-white/[0.06] text-white/50",
+                          isActive ? "bg-primary/20 text-primary" : "bg-white/[0.08] text-white/85",
                         )}
                       >
                         {count}
@@ -203,10 +203,10 @@ export function AdminSidebar({
             <p className="text-[12px] font-semibold text-white truncate">
               {user?.displayName || user?.email?.split("@")[0] || "Admin"}
             </p>
-            <p className="text-[11px] text-white/35 truncate">{user?.email}</p>
+            <p className="truncate text-[11px] text-white/85">{user?.email}</p>
           </div>
           <button
-            className="shrink-0 p-2 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+            className="shrink-0 rounded-lg p-2 text-white/70 transition-colors hover:bg-red-500/10 hover:text-red-300"
             onClick={onLogout}
             title="Sair"
           >

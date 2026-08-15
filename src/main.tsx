@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./styles/readability.css";
 import { testConnection } from "./services/firebase.ts";
 import { seedProducts } from "./services/seed.ts";
 import { installGlobalErrorHandlers } from "./services/errorReporting.ts";
