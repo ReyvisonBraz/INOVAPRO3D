@@ -259,6 +259,7 @@ function FilamentCalculatorContent({
     priceTier === "WHOLESALE"
       ? result.wholesaleProfitAfterFullReprint
       : result.retailProfitAfterFullReprint;
+  const [isPrintingReport, setIsPrintingReport] = useState(false);
   const printReport = (mode: "CLIENT" | "PRODUCTION") => {
     const documentLabel = mode === "CLIENT" ? "Orçamento" : "Ficha de Produção";
     const suggestedTitle =
@@ -266,12 +267,19 @@ function FilamentCalculatorContent({
         /[\\/:*?"<>|]+/g,
         "-",
       );
-    return printDocument(() => setPrintMode(mode), undefined, suggestedTitle);
+    return printDocument(
+      () => {
+        setPrintMode(mode);
+        setIsPrintingReport(true);
+      },
+      () => setIsPrintingReport(false),
+      suggestedTitle,
+    );
   };
 
   return (
     <>
-      <PrintDocumentHost data={quoteDocumentData} mode={printMode} />
+      <PrintDocumentHost data={isPrintingReport ? quoteDocumentData : null} mode={printMode} />
       {!embedded && (
         <PageSEO
           title="Calculadora de Custos 3D"

@@ -226,7 +226,9 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
               <th className="text-right">Preço</th>
               <th className="text-center">Status</th>
               <th className="text-center">Data</th>
-              <th className="text-right">Ações</th>
+              <th className="sticky right-0 z-10 min-w-[210px] bg-[#11141b] text-right shadow-[-12px_0_20px_rgba(0,0,0,0.22)]">
+                Ações
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -302,8 +304,8 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                   </td>
 
                   {/* AÇÕES */}
-                  <td className="text-right">
-                    <div className="flex items-center justify-end gap-2">
+                  <td className="sticky right-0 z-[5] bg-[#11141b] text-right shadow-[-12px_0_20px_rgba(0,0,0,0.22)]">
+                    <div className="ml-auto flex max-w-[210px] flex-wrap items-center justify-end gap-1.5">
                       {(q.calcSnapshot || q.calculationProject || q.source === "calculator") && (
                         <>
                           <button

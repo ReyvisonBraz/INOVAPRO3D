@@ -2255,14 +2255,14 @@ export default function AdminDashboard() {
                         className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white/85 placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 resize-none"
                       />
                     </section>
-                    <div className="quote-editor-actions sticky bottom-0 z-20 flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#0d121c]/95 p-3 shadow-2xl backdrop-blur-xl xl:flex-row xl:items-center">
-                      <div className="flex flex-wrap gap-2">
+                    <div className="quote-editor-actions sticky bottom-0 z-20 grid min-w-0 grid-cols-1 gap-3 rounded-2xl border border-white/10 bg-[#0d121c]/95 p-3 shadow-2xl backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
+                      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
                         {editingQuotePreview && (
                           <>
                             <Button
                               variant="outline"
                               onClick={() => handlePrintSavedQuote(editingQuotePreview, "CLIENT")}
-                              className="h-11 rounded-xl border-blue-400/20 px-3 text-[10px] font-bold uppercase text-blue-300 hover:bg-blue-400/10"
+                              className="h-11 w-full rounded-xl border-blue-400/20 px-3 text-[10px] font-bold uppercase text-blue-300 hover:bg-blue-400/10"
                             >
                               <FileText className="h-4 w-4" /> Visualizar proposta
                             </Button>
@@ -2271,7 +2271,7 @@ export default function AdminDashboard() {
                               onClick={() =>
                                 handlePrintSavedQuote(editingQuotePreview, "PRODUCTION")
                               }
-                              className="h-11 rounded-xl border-orange-400/20 px-3 text-[10px] font-bold uppercase text-orange-300 hover:bg-orange-400/10"
+                              className="h-11 w-full rounded-xl border-orange-400/20 px-3 text-[10px] font-bold uppercase text-orange-300 hover:bg-orange-400/10"
                             >
                               <Factory className="h-4 w-4" /> Ficha de produção
                             </Button>
@@ -2280,16 +2280,16 @@ export default function AdminDashboard() {
                         <Button
                           variant="outline"
                           onClick={() => handleWhatsAppQuote(selectedCustomer, editingQuoteTotal)}
-                          className="h-11 rounded-xl border-green-500/25 px-3 text-[10px] font-bold uppercase text-green-400 hover:bg-green-500/10 hover:text-green-300"
+                          className="h-11 w-full rounded-xl border-green-500/25 px-3 text-[10px] font-bold uppercase text-green-400 hover:bg-green-500/10 hover:text-green-300"
                         >
                           <Smartphone className="h-4 w-4" /> WhatsApp
                         </Button>
                       </div>
-                      <div className="flex flex-1 flex-wrap gap-2 xl:justify-end">
+                      <div className="grid min-w-0 grid-cols-[minmax(90px,1fr)_minmax(150px,1.5fr)_44px] gap-2 lg:grid-cols-[auto_auto_44px]">
                         <Button
                           variant="outline"
                           onClick={() => handleSaveQuoteSpecifications(selectedCustomer)}
-                          className="h-11 flex-1 rounded-xl border-white/15 px-4 text-[10px] font-bold uppercase text-white/85 hover:bg-white/5 hover:text-white sm:flex-none"
+                          className="h-11 w-full rounded-xl border-white/15 px-4 text-[10px] font-bold uppercase text-white/85 hover:bg-white/5 hover:text-white"
                         >
                           <Save className="h-4 w-4" /> Salvar
                         </Button>
@@ -2302,7 +2302,7 @@ export default function AdminDashboard() {
                               () => handleApproveQuote(selectedCustomer),
                             )
                           }
-                          className="h-11 flex-[2] rounded-xl bg-emerald-500 px-5 text-[10px] font-black uppercase text-white shadow-lg shadow-emerald-500/10 hover:bg-emerald-600 sm:flex-none"
+                          className="h-11 w-full rounded-xl bg-emerald-500 px-5 text-[10px] font-black uppercase text-white shadow-lg shadow-emerald-500/10 hover:bg-emerald-600"
                         >
                           <CheckCircle2 className="h-4 w-4" /> Aprovar e faturar
                         </Button>
