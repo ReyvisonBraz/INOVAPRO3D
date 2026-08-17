@@ -1,4 +1,5 @@
 import { formatBRL, formatHoursToHHMM } from "../../lib/pricing";
+import { formatCompanyPhone, formatDocumentLabel } from "../../lib/company";
 import type { QuoteDocumentData } from "../../lib/quoteDocument";
 
 const date = (value: Date) => value.toLocaleDateString("pt-BR");
@@ -6,15 +7,42 @@ const date = (value: Date) => value.toLocaleDateString("pt-BR");
 export function ProductionSheet({ data }: { data: QuoteDocumentData }) {
   const production = data.production;
   const result = production.result;
+  const companyPhone = formatCompanyPhone(data.company.phone || data.company.whatsapp);
 
   return (
     <article className="print-document doc-page doc-production" aria-label="Ficha de produção">
-      <header className="doc-title-row doc-avoid">
+      <div className="doc-accent" />
+      <header className="doc-company-header doc-production-brand doc-avoid">
+        <div className="doc-brand-block">
+          {data.company.logoUrl ? (
+            <img className="doc-logo" src={data.company.logoUrl} alt={data.company.tradeName} />
+          ) : (
+            <div className="doc-brand-fallback">{data.company.tradeName}</div>
+          )}
+          <div>
+            <strong className="doc-brand-name">{data.company.tradeName}</strong>
+            <span>Impressão 3D • Design • Prototipagem</span>
+          </div>
+        </div>
+        <div className="doc-company-meta">
+          {formatDocumentLabel(data.company.document) && (
+            <span>{formatDocumentLabel(data.company.document)}</span>
+          )}
+          {companyPhone && <span>{companyPhone}</span>}
+          {data.company.email && <span>{data.company.email}</span>}
+        </div>
+      </header>
+
+      <section className="doc-title-row doc-avoid">
         <div>
-          <span className="doc-eyebrow">Ficha interna de produção</span>
+          <span className="doc-eyebrow">
+            <i className="doc-brand-dot" /> Ordem de fabricação
+          </span>
           <h1>{data.quoteNumber}</h1>
+          <p className="doc-subtitle">{production.project.name}</p>
         </div>
         <div className="doc-printer-identity">
+          <span className="doc-document-chip">Uso interno</span>
           {production.printerPhotoUrl && (
             <img src={production.printerPhotoUrl} alt="" aria-hidden="true" />
           )}
@@ -23,7 +51,7 @@ export function ProductionSheet({ data }: { data: QuoteDocumentData }) {
             <strong>{production.printerName}</strong>
           </div>
         </div>
-      </header>
+      </section>
 
       {production.degraded && production.note && (
         <div className="doc-warning doc-avoid">{production.note}</div>
@@ -174,11 +202,20 @@ export function ProductionSheet({ data }: { data: QuoteDocumentData }) {
       )}
 
       <section className="doc-checklist doc-avoid">
-        <h2>Controle</h2>
-        <div>
-          Fatiado ☐ &nbsp;&nbsp; Impresso ☐ &nbsp;&nbsp; Pós-processado ☐ &nbsp;&nbsp; Embalado ☐
+        <h2>Controle de qualidade e expedição</h2>
+        <div className="doc-check-grid">
+          <span>☐ Arquivo conferido</span>
+          <span>☐ Fatiamento validado</span>
+          <span>☐ Impressão concluída</span>
+          <span>☐ Acabamento realizado</span>
+          <span>☐ Qualidade aprovada</span>
+          <span>☐ Produto embalado</span>
         </div>
-        <p>____________________________________________________________________________</p>
+        <div className="doc-production-signoff">
+          <span>Responsável: ______________________________</span>
+          <span>Data: ____/____/________</span>
+        </div>
+        <p className="doc-note-line">Ocorrências / observações:</p>
         <p>____________________________________________________________________________</p>
         <p>____________________________________________________________________________</p>
       </section>

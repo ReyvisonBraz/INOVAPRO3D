@@ -1,17 +1,38 @@
-import { formatCompanyAddress, formatCompanyPhone, formatDocumentLabel } from "../../lib/company";
+import {
+  formatCompanyAddress,
+  formatCompanyPhone,
+  formatDocumentLabel,
+  PAYMENT_METHOD_LABELS,
+} from "../../lib/company";
 import { formatBRL } from "../../lib/pricing";
 import type { QuoteDocumentData } from "../../lib/quoteDocument";
 
 const date = (value: Date) => value.toLocaleDateString("pt-BR");
+
+const socialHandle = (value: string) =>
+  value
+    .replace(/^https?:\/\/(www\.)?/i, "")
+    .replace(/\/$/, "")
+    .replace(/^instagram\.com\//i, "@")
+    .replace(/^tiktok\.com\/@?/i, "@");
 
 export function QuoteDocument({ data }: { data: QuoteDocumentData }) {
   const companyAddress = formatCompanyAddress(data.company.address);
   const companyPhone = formatCompanyPhone(data.company.phone || data.company.whatsapp);
   const documentLabel = formatDocumentLabel(data.company.document);
   const customerPhone = formatCompanyPhone(data.customer.phone);
+  const socialLinks = [
+    data.company.instagram,
+    data.company.facebook,
+    data.company.tiktok,
+    data.company.linkedin,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(socialHandle);
 
   return (
     <article className="print-document doc-page" aria-label="Proposta comercial">
+      <div className="doc-accent" />
       <header className="doc-company-header doc-avoid">
         <div className="doc-brand-block">
           {data.company.logoUrl ? (
@@ -20,46 +41,53 @@ export function QuoteDocument({ data }: { data: QuoteDocumentData }) {
             <div className="doc-brand-fallback">{data.company.tradeName}</div>
           )}
           <div>
-            <strong>{data.company.tradeName}</strong>
+            <strong className="doc-brand-name">{data.company.tradeName}</strong>
             {data.company.legalName && <span>{data.company.legalName}</span>}
+            <small className="doc-brand-tagline">Impressão 3D • Design • Prototipagem</small>
           </div>
         </div>
         <div className="doc-company-meta">
           {documentLabel && <span>{documentLabel}</span>}
           {companyAddress && <span>{companyAddress}</span>}
-          {companyPhone && <span>{companyPhone}</span>}
-          <span>{[data.company.email, data.company.site].filter(Boolean).join(" · ")}</span>
+          {companyPhone && <span>WhatsApp {companyPhone}</span>}
+          <span>{[data.company.email, data.company.site].filter(Boolean).join("  •  ")}</span>
+          {socialLinks.length > 0 && <span>{socialLinks.join("  •  ")}</span>}
         </div>
       </header>
 
       <section className="doc-title-row doc-avoid">
         <div>
-          <span className="doc-eyebrow">Proposta comercial</span>
+          <span className="doc-eyebrow">
+            <i className="doc-brand-dot" /> Orçamento personalizado
+          </span>
           <h1>{data.quoteNumber}</h1>
+          <p className="doc-subtitle">Soluções em impressão 3D sob medida</p>
         </div>
-        <dl className="doc-dates">
-          <div>
-            <dt>Emissão</dt>
-            <dd>{date(data.issuedAt)}</dd>
-          </div>
-          <div>
-            <dt>Validade</dt>
-            <dd>{date(data.validUntil)}</dd>
-          </div>
-        </dl>
+        <div className="doc-title-meta">
+          <span className="doc-document-chip">Proposta comercial</span>
+          <dl className="doc-dates">
+            <div>
+              <dt>Emissão</dt>
+              <dd>{date(data.issuedAt)}</dd>
+            </div>
+            <div>
+              <dt>Validade</dt>
+              <dd>{date(data.validUntil)}</dd>
+            </div>
+          </dl>
+        </div>
       </section>
 
       <section className="doc-info-grid doc-avoid">
         <div>
-          <h2>Cliente</h2>
+          <h2>Preparado para</h2>
           <strong>{data.customer.name}</strong>
           {customerPhone && <span>{customerPhone}</span>}
           {data.customer.email && <span>{data.customer.email}</span>}
         </div>
         <div>
-          <h2>Condições</h2>
-          <span>Tabela: {data.priceTier === "WHOLESALE" ? "Atacado" : "Varejo"}</span>
-          {data.paymentTerms && <span>Pagamento: {data.paymentTerms}</span>}
+          <h2>Resumo da proposta</h2>
+          <span>Modalidade: {data.priceTier === "WHOLESALE" ? "Atacado" : "Varejo"}</span>
           {data.leadTimeText && <span>Prazo estimado: {data.leadTimeText}</span>}
         </div>
       </section>
@@ -132,6 +160,22 @@ export function QuoteDocument({ data }: { data: QuoteDocumentData }) {
         )}
       </section>
 
+      {(data.paymentTerms || data.company.acceptedPaymentMethods?.length) && (
+        <section className="doc-payment doc-avoid">
+          <div>
+            <span className="doc-payment-kicker">Pagamento</span>
+            <strong>{data.paymentTerms || "Conforme combinado"}</strong>
+          </div>
+          {Boolean(data.company.acceptedPaymentMethods?.length) && (
+            <div className="doc-payment-methods">
+              {data.company.acceptedPaymentMethods?.map((method) => (
+                <span key={method}>{PAYMENT_METHOD_LABELS[method]}</span>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
       {data.customerNotes && (
         <section className="doc-notes doc-avoid">
           <h2>Observações</h2>
@@ -144,8 +188,8 @@ export function QuoteDocument({ data }: { data: QuoteDocumentData }) {
         {data.company.warrantyTerms && <p>{data.company.warrantyTerms}</p>}
         {data.company.quoteFooterNote && <p>{data.company.quoteFooterNote}</p>}
         <div className="doc-acceptance">
-          <span>De acordo: ____________________________________</span>
-          <span>Data: ____/____/________</span>
+          <span>Assinatura do cliente</span>
+          <span>Data da aprovação</span>
         </div>
       </section>
 

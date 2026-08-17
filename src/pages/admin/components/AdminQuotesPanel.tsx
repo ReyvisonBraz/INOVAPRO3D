@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
 import {
-  Eye,
+  PencilLine,
   CheckCircle,
   Trash2,
   Smartphone,
@@ -260,10 +260,10 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
                       )}
                       <button
                         onClick={() => onSelectQuote(q)}
-                        title="Ver detalhes"
-                        className="grid h-8 w-8 place-items-center rounded-lg bg-white/[0.035] text-white/40 transition hover:bg-white/[0.08] hover:text-white"
+                        title="Visualizar e editar orçamento"
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-primary/12 px-2.5 text-[10px] font-black uppercase tracking-wide text-blue-300 transition hover:bg-primary hover:text-white"
                       >
-                        <Eye className="w-4 h-4" />
+                        <PencilLine className="h-3.5 w-3.5" /> Editar
                       </button>
                       {q.status !== "APPROVED" && q.status !== "CONVERTED_TO_ORDER" && (
                         <button

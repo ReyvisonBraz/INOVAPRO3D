@@ -1,5 +1,5 @@
 import { memo, useRef, type ReactNode } from "react";
-import { Building2, ImageIcon, Loader2, Upload, X } from "lucide-react";
+import { Building2, Check, ImageIcon, Loader2, Upload, X } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { NumberField } from "../../../components/ui/NumberField";
 import { cn } from "../../../lib/utils";
@@ -7,9 +7,10 @@ import {
   formatCompanyAddress,
   formatCompanyPhone,
   formatDocumentLabel,
+  PAYMENT_METHOD_LABELS,
 } from "../../../lib/company";
 import { AdminSettingsCard } from "./AdminPrimitives";
-import type { CompanyAddress, CompanyProfile } from "../../../types/domain";
+import type { CompanyAddress, CompanyPaymentMethod, CompanyProfile } from "../../../types/domain";
 
 interface AdminCompanyPanelProps {
   profile: CompanyProfile;
@@ -23,6 +24,8 @@ interface AdminCompanyPanelProps {
 
 const inputCls =
   "w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs font-semibold outline-none focus:border-primary/50 transition-all";
+
+const paymentMethods = Object.entries(PAYMENT_METHOD_LABELS) as [CompanyPaymentMethod, string][];
 
 function TextField({
   label,
@@ -89,6 +92,18 @@ const AdminCompanyPanel = memo(function AdminCompanyPanel({
   const address = profile.address ?? {};
   const addressLine = formatCompanyAddress(profile.address);
   const documentLine = formatDocumentLabel(profile.document);
+  const socialLine = [profile.instagram, profile.facebook, profile.tiktok, profile.linkedin]
+    .filter(Boolean)
+    .join(" · ");
+  const togglePaymentMethod = (method: CompanyPaymentMethod) => {
+    const current = profile.acceptedPaymentMethods ?? [];
+    onChangeField(
+      "acceptedPaymentMethods",
+      current.includes(method)
+        ? current.filter((candidate) => candidate !== method)
+        : [...current, method],
+    );
+  };
 
   return (
     <AdminSettingsCard
@@ -125,11 +140,11 @@ const AdminCompanyPanel = memo(function AdminCompanyPanel({
             {documentLine && <p>{documentLine}</p>}
             {addressLine && <p>{addressLine}</p>}
             <p>
-              {[formatCompanyPhone(profile.whatsapp || profile.phone), profile.instagram]
+              {[formatCompanyPhone(profile.whatsapp || profile.phone), profile.email]
                 .filter(Boolean)
                 .join(" · ")}
             </p>
-            {profile.email && <p>{profile.email}</p>}
+            {socialLine && <p className="max-w-sm truncate">{socialLine}</p>}
           </div>
         </div>
         <div className="mt-4 border-t-2 border-[#0f172a] pt-2 text-[10px] font-bold uppercase tracking-widest text-[#0f172a]/45">
@@ -251,6 +266,26 @@ const AdminCompanyPanel = memo(function AdminCompanyPanel({
               placeholder="@inovapro3d"
             />
           </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <TextField
+              label="Facebook"
+              value={profile.facebook ?? ""}
+              onChange={(value) => onChangeField("facebook", value || undefined)}
+              placeholder="facebook.com/suaempresa"
+            />
+            <TextField
+              label="TikTok"
+              value={profile.tiktok ?? ""}
+              onChange={(value) => onChangeField("tiktok", value || undefined)}
+              placeholder="@suaempresa"
+            />
+            <TextField
+              label="LinkedIn"
+              value={profile.linkedin ?? ""}
+              onChange={(value) => onChangeField("linkedin", value || undefined)}
+              placeholder="linkedin.com/company/..."
+            />
+          </div>
         </Group>
 
         <Group title="Endereço">
@@ -320,8 +355,42 @@ const AdminCompanyPanel = memo(function AdminCompanyPanel({
               className={inputCls}
             />
           </div>
+          <div className="space-y-2">
+            <label className="block text-[10px] font-black uppercase tracking-widest text-secondary">
+              Meios de pagamento aceitos
+            </label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {paymentMethods.map(([method, label]) => {
+                const selected = profile.acceptedPaymentMethods?.includes(method) ?? false;
+                return (
+                  <button
+                    key={method}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => togglePaymentMethod(method)}
+                    className={cn(
+                      "flex min-h-10 items-center gap-2 rounded-xl border px-3 text-left text-[10px] font-bold transition",
+                      selected
+                        ? "border-primary/50 bg-primary/10 text-white"
+                        : "border-white/10 bg-white/[0.03] text-white/45 hover:border-white/20 hover:text-white/70",
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        "grid h-4 w-4 shrink-0 place-items-center rounded border",
+                        selected ? "border-primary bg-primary text-black" : "border-white/20",
+                      )}
+                    >
+                      {selected && <Check className="h-3 w-3" />}
+                    </span>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <TextField
-            label="Forma de pagamento"
+            label="Condição de pagamento"
             value={profile.paymentTerms ?? ""}
             onChange={(value) => onChangeField("paymentTerms", value || undefined)}
             placeholder="50% na aprovação e 50% na entrega · PIX, cartão ou dinheiro"

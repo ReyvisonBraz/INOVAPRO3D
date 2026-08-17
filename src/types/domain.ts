@@ -353,6 +353,9 @@ export interface CompanyAddress {
   state?: string;
 }
 
+export type CompanyPaymentMethod =
+  "PIX" | "CREDIT_CARD" | "DEBIT_CARD" | "CASH" | "BANK_TRANSFER" | "BOLETO";
+
 /**
  * Identidade da empresa usada no cabeçalho e rodapé dos documentos impressos.
  * Guardada em `settings/company`.
@@ -369,12 +372,17 @@ export interface CompanyProfile {
   email?: string;
   site?: string;
   instagram?: string;
+  facebook?: string;
+  tiktok?: string;
+  linkedin?: string;
   /** Logo para impressão: preferir fundo claro ou transparente. */
   logoUrl?: string;
   address?: CompanyAddress;
   /** Validade padrão da proposta, em dias corridos. */
   defaultValidityDays: number;
   paymentTerms?: string;
+  /** Meios aceitos, exibidos de forma objetiva na proposta. */
+  acceptedPaymentMethods?: CompanyPaymentMethod[];
   warrantyTerms?: string;
   /** Ex.: "5 a 7 dias úteis após aprovação". */
   leadTimeText?: string;

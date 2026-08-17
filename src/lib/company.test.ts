@@ -51,7 +51,14 @@ describe("mergeCompanyProfile", () => {
     const perfil = mergeCompanyProfile({ legalName: "   ", site: "", logoUrl: "  " });
     expect(perfil.legalName).toBeUndefined();
     expect(perfil.site).toBeUndefined();
-    expect(perfil.logoUrl).toBeUndefined();
+    expect(perfil.logoUrl).toBe(DEFAULT_COMPANY_PROFILE.logoUrl);
+  });
+
+  it("mantém somente meios de pagamento reconhecidos e sem duplicidade", () => {
+    const perfil = mergeCompanyProfile({
+      acceptedPaymentMethods: ["PIX", "PIX", "BOLETO", "CRIPTOMOEDA"],
+    });
+    expect(perfil.acceptedPaymentMethods).toEqual(["PIX", "BOLETO"]);
   });
 
   it("ignora endereço completamente vazio", () => {

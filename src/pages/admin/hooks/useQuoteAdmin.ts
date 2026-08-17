@@ -30,6 +30,8 @@ function isQuote(record: Quote | Ticket): record is Quote {
   );
 }
 
+const roundMoney = (value: number): number => Number(Number(value).toFixed(2));
+
 /**
  * Edição de orçamentos: especificações, abertura do motor de precificação,
  * aprovação (vira pedido) e envio da proposta por WhatsApp.
@@ -53,6 +55,11 @@ export function useQuoteAdmin({
   const [editingQuoteUnitPrice, setEditingQuoteUnitPrice] = useState(0);
   const [editingQuoteImageUrl, setEditingQuoteImageUrl] = useState("");
   const [editingQuoteCustomerNotes, setEditingQuoteCustomerNotes] = useState("");
+  const [editingQuoteCustomerName, setEditingQuoteCustomerName] = useState("");
+  const [editingQuoteCustomerEmail, setEditingQuoteCustomerEmail] = useState("");
+  const [editingQuoteValidUntil, setEditingQuoteValidUntil] = useState("");
+  const [editingQuotePaymentTerms, setEditingQuotePaymentTerms] = useState("");
+  const [editingQuoteShowImage, setEditingQuoteShowImage] = useState(true);
   const [isCalcAssistantOpen, setIsCalcAssistantOpen] = useState(false);
   const [isApprovingQuote, setIsApprovingQuote] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<{
@@ -69,7 +76,9 @@ export function useQuoteAdmin({
   useEffect(() => {
     if (selectedCustomer && activeTab === "quotes") {
       const quoteRecord = isQuote(selectedCustomer) ? selectedCustomer : null;
-      setEditingQuoteTotal(selectedCustomer.estimatedPrice || selectedCustomer.total || 45.9);
+      setEditingQuoteTotal(
+        roundMoney(selectedCustomer.estimatedPrice || selectedCustomer.total || 45.9),
+      );
       setEditingQuoteWeight(selectedCustomer.weight || 30);
       setEditingQuoteTime(selectedCustomer.printTime || "2h 30m");
       setEditingQuoteInfill(selectedCustomer.infill || 20);
@@ -80,12 +89,19 @@ export function useQuoteAdmin({
       setEditingQuoteQuantity(quantity);
       const unitPrice = Number(quoteRecord?.unitPrice) || 0;
       setEditingQuoteUnitPrice(
-        unitPrice > 0
-          ? unitPrice
-          : (selectedCustomer.total || selectedCustomer.estimatedPrice || 0) / quantity,
+        roundMoney(
+          unitPrice > 0
+            ? unitPrice
+            : (selectedCustomer.total || selectedCustomer.estimatedPrice || 0) / quantity,
+        ),
       );
       setEditingQuoteImageUrl(quoteRecord?.imageUrl || "");
       setEditingQuoteCustomerNotes(selectedCustomer.notes || "");
+      setEditingQuoteCustomerName(selectedCustomer.userName || "");
+      setEditingQuoteCustomerEmail(selectedCustomer.userEmail || "");
+      setEditingQuoteValidUntil(quoteRecord?.validUntil || "");
+      setEditingQuotePaymentTerms(quoteRecord?.paymentTerms || "");
+      setEditingQuoteShowImage(quoteRecord?.showImageOnQuote !== false);
       const matchedCustomer = customers.find(
         (c) =>
           (c.email &&
@@ -100,8 +116,6 @@ export function useQuoteAdmin({
   useEffect(() => {
     if (!selectedCustomer) setApprovalStatus(null);
   }, [selectedCustomer]);
-
-  const roundMoney = (value: number): number => Number(Number(value).toFixed(2));
 
   const handleQuantityChange = useCallback(
     (quantity: number) => {
@@ -229,8 +243,8 @@ export function useQuoteAdmin({
 
         const orderRef = await addDoc(collection(db, "orders"), {
           userId: quote.userId || "guest",
-          userEmail: quote.userEmail || "",
-          userName: quote.userName || "Visitante",
+          userEmail: editingQuoteCustomerEmail.trim() || quote.userEmail || "",
+          userName: editingQuoteCustomerName.trim() || quote.userName || "Visitante",
           customerId: quote.customerId || matchedCustomer?.id || null,
           items: orderItems,
           materialUsages: quote.materialUsages || [],
@@ -251,6 +265,13 @@ export function useQuoteAdmin({
           weight: finalWeight,
           infill: finalInfill,
           adminNotes: finalNotes,
+          userName: editingQuoteCustomerName.trim() || quote.userName || "Cliente",
+          userEmail: editingQuoteCustomerEmail.trim() || quote.userEmail || "",
+          phone: finalPhone.replace(/\D/g, ""),
+          notes: editingQuoteCustomerNotes,
+          paymentTerms: editingQuotePaymentTerms.trim(),
+          validUntil: editingQuoteValidUntil,
+          showImageOnQuote: editingQuoteShowImage,
           updatedAt: serverTimestamp(),
         });
         await addDoc(collection(db, "logs"), {
@@ -291,6 +312,12 @@ export function useQuoteAdmin({
       editingQuoteMaterial,
       editingQuoteQuantity,
       editingQuoteImageUrl,
+      editingQuoteCustomerName,
+      editingQuoteCustomerEmail,
+      editingQuoteCustomerNotes,
+      editingQuotePaymentTerms,
+      editingQuoteValidUntil,
+      editingQuoteShowImage,
       customers,
       fetchData,
     ],
@@ -315,6 +342,11 @@ export function useQuoteAdmin({
           weight: editingQuoteWeight,
           adminNotes: editingQuoteNotes,
           notes: editingQuoteCustomerNotes,
+          userName: editingQuoteCustomerName.trim() || "Cliente",
+          userEmail: editingQuoteCustomerEmail.trim(),
+          validUntil: editingQuoteValidUntil,
+          paymentTerms: editingQuotePaymentTerms.trim(),
+          showImageOnQuote: editingQuoteShowImage,
           phone: phoneClean,
           ...imagePayload,
           ...(isQuote(quote) && quote.calcSnapshot ? { calcSnapshotStale: true } : {}),
@@ -354,6 +386,9 @@ export function useQuoteAdmin({
             await updateDoc(doc(db, "orders", convertedOrderId), {
               total: editingQuoteTotal,
               items,
+              userName: editingQuoteCustomerName.trim() || "Cliente",
+              userEmail: editingQuoteCustomerEmail.trim(),
+              phone: phoneClean,
               updatedAt: serverTimestamp(),
             });
           }
@@ -373,6 +408,11 @@ export function useQuoteAdmin({
                 weight: editingQuoteWeight,
                 adminNotes: editingQuoteNotes,
                 notes: editingQuoteCustomerNotes,
+                userName: editingQuoteCustomerName.trim() || "Cliente",
+                userEmail: editingQuoteCustomerEmail.trim(),
+                validUntil: editingQuoteValidUntil,
+                paymentTerms: editingQuotePaymentTerms.trim(),
+                showImageOnQuote: editingQuoteShowImage,
                 imageUrl:
                   editingQuoteImageUrl.trim() || (isQuote(prev) ? prev.imageUrl : undefined),
                 phone: phoneClean,
@@ -399,6 +439,11 @@ export function useQuoteAdmin({
       editingQuoteUnitPrice,
       editingQuoteImageUrl,
       editingQuoteCustomerNotes,
+      editingQuoteCustomerName,
+      editingQuoteCustomerEmail,
+      editingQuoteValidUntil,
+      editingQuotePaymentTerms,
+      editingQuoteShowImage,
       setSelectedCustomer,
       fetchData,
     ],
@@ -428,6 +473,16 @@ export function useQuoteAdmin({
     setEditingQuoteImageUrl,
     editingQuoteCustomerNotes,
     setEditingQuoteCustomerNotes,
+    editingQuoteCustomerName,
+    setEditingQuoteCustomerName,
+    editingQuoteCustomerEmail,
+    setEditingQuoteCustomerEmail,
+    editingQuoteValidUntil,
+    setEditingQuoteValidUntil,
+    editingQuotePaymentTerms,
+    setEditingQuotePaymentTerms,
+    editingQuoteShowImage,
+    setEditingQuoteShowImage,
     handleQuantityChange,
     handleUnitPriceChange,
     handleQuoteTotalChange,

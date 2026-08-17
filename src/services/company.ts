@@ -38,5 +38,7 @@ export async function saveCompanyProfile(profile: CompanyProfile): Promise<void>
     }
     data[key] = value;
   }
-  await setDoc(doc(db, ...COMPANY_DOC), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+  // O documento pertence exclusivamente a este formulário. A substituição
+  // também remove campos que o admin apagou, evitando dados antigos no papel.
+  await setDoc(doc(db, ...COMPANY_DOC), { ...data, updatedAt: serverTimestamp() });
 }

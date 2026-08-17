@@ -27,6 +27,10 @@ import {
   AlertTriangle,
   FileText,
   Factory,
+  CalendarDays,
+  Mail,
+  Save,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { NumberField } from "../../components/ui/NumberField";
@@ -586,7 +590,6 @@ export default function AdminDashboard() {
   // ── Orçamentos: edição, aprovação e WhatsApp ──
   const {
     editingQuoteTotal,
-    setEditingQuoteTotal,
     editingQuoteWeight,
     setEditingQuoteWeight,
     editingQuoteTime,
@@ -607,6 +610,16 @@ export default function AdminDashboard() {
     setEditingQuoteImageUrl,
     editingQuoteCustomerNotes,
     setEditingQuoteCustomerNotes,
+    editingQuoteCustomerName,
+    setEditingQuoteCustomerName,
+    editingQuoteCustomerEmail,
+    setEditingQuoteCustomerEmail,
+    editingQuoteValidUntil,
+    setEditingQuoteValidUntil,
+    editingQuotePaymentTerms,
+    setEditingQuotePaymentTerms,
+    editingQuoteShowImage,
+    setEditingQuoteShowImage,
     handleQuantityChange,
     handleUnitPriceChange,
     handleQuoteTotalChange,
@@ -669,6 +682,50 @@ export default function AdminDashboard() {
       minPrice: pricingSettings.minPrice,
     });
   }, [editingQuoteTime, editingQuoteWeight, machineConfig, pricingSettings, selectedCustomer]);
+
+  // A visualização usa o rascunho atual, inclusive antes de salvar.
+  const editingQuotePreview = useMemo<Quote | null>(() => {
+    if (!selectedCustomer || !isQuoteRecord(selectedCustomer)) return null;
+    return {
+      ...selectedCustomer,
+      fileName: editingQuoteFileName.trim() || "Peça personalizada",
+      materialId: editingQuoteMaterial.trim() || "PLA Pro",
+      quantity: Math.max(1, editingQuoteQuantity),
+      unitPrice: editingQuoteUnitPrice,
+      total: editingQuoteTotal,
+      infill: editingQuoteInfill,
+      printTime: editingQuoteTime,
+      weight: editingQuoteWeight,
+      phone: editingQuotePhone,
+      userName: editingQuoteCustomerName.trim() || "Cliente",
+      userEmail: editingQuoteCustomerEmail.trim(),
+      notes: editingQuoteCustomerNotes,
+      adminNotes: editingQuoteNotes,
+      imageUrl: editingQuoteImageUrl.trim() || undefined,
+      validUntil: editingQuoteValidUntil,
+      paymentTerms: editingQuotePaymentTerms.trim(),
+      showImageOnQuote: editingQuoteShowImage,
+    };
+  }, [
+    selectedCustomer,
+    editingQuoteFileName,
+    editingQuoteMaterial,
+    editingQuoteQuantity,
+    editingQuoteUnitPrice,
+    editingQuoteTotal,
+    editingQuoteInfill,
+    editingQuoteTime,
+    editingQuoteWeight,
+    editingQuotePhone,
+    editingQuoteCustomerName,
+    editingQuoteCustomerEmail,
+    editingQuoteCustomerNotes,
+    editingQuoteNotes,
+    editingQuoteImageUrl,
+    editingQuoteValidUntil,
+    editingQuotePaymentTerms,
+    editingQuoteShowImage,
+  ]);
 
   const {
     isAdding: isCouponAdding,
@@ -1462,16 +1519,17 @@ export default function AdminDashboard() {
 
         {/* Quote Detail Modal */}
         {selectedCustomer && activeTab === "quotes" && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto no-scrollbar">
+          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/90 p-2 backdrop-blur-2xl sm:p-6">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-surface border border-white/10 rounded-[32px] sm:rounded-[40px] p-6 sm:p-10 max-w-4xl w-full relative my-auto"
+              className="relative my-auto max-h-[95vh] w-full max-w-6xl overflow-y-auto rounded-[24px] border border-white/10 bg-[#090c13] p-4 shadow-2xl shadow-black/60 sm:rounded-[32px] sm:p-7 lg:p-9"
             >
               <button
                 onClick={() => setSelectedCustomer(null)}
-                className="absolute top-6 right-6 z-10 grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-black/40 text-white/60 hover:text-white hover:border-white/30 transition-all"
+                className="sticky top-0 z-30 float-right grid h-10 w-10 place-items-center rounded-xl border border-white/10 bg-[#111722]/95 text-white/60 shadow-xl backdrop-blur transition-all hover:border-white/30 hover:text-white"
+                aria-label="Fechar editor de orçamento"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1606,17 +1664,35 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <>
-                  <div className="mb-8 pr-16">
-                    <p className="text-xs font-bold uppercase tracking-[0.35em] text-primary mb-2">
-                      Refinamento de Orçamento Personalizado
-                    </p>
-                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                      Revisão do Engenheiro
-                    </h2>
-                    <p className="text-sm text-white/50 mt-2 leading-relaxed max-w-2xl">
-                      Ajuste as especificações técnicas e a proposta comercial antes de enviar ao
-                      cliente ou faturar.
-                    </p>
+                  <div className="mb-6 border-b border-white/8 pb-6 pr-14">
+                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-primary">
+                      <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1">
+                        Editor de orçamento
+                      </span>
+                      <span className="text-white/30">#{selectedCustomer.id.slice(0, 8)}</span>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                      <div>
+                        <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
+                          Refinamento da proposta
+                        </h2>
+                        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/45">
+                          Edite os dados, revise o preço e gere os documentos antes de enviar ao
+                          cliente.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/[0.07] px-4 py-3">
+                        <div>
+                          <p className="text-[9px] font-black uppercase tracking-widest text-white/35">
+                            Total atual
+                          </p>
+                          <p className="font-mono text-xl font-black text-primary">
+                            {formatBRL(editingQuoteTotal)}
+                          </p>
+                        </div>
+                        <Sparkles className="h-5 w-5 text-cyan-300" />
+                      </div>
+                    </div>
                   </div>
 
                   {"calcSnapshot" in selectedCustomer && selectedCustomer.calcSnapshot && (
@@ -1662,7 +1738,7 @@ export default function AdminDashboard() {
                   )}
 
                   <div className="flex flex-col sm:flex-row gap-5 mb-8">
-                    <div className="w-full sm:w-44 sm:h-44 shrink-0 rounded-2xl border border-white/10 bg-[#0C0E14] overflow-hidden flex items-center justify-center">
+                    <div className="h-48 w-full shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0C0E14] flex items-center justify-center sm:h-44 sm:w-44">
                       {editingQuoteImageUrl ? (
                         <img
                           src={editingQuoteImageUrl}
@@ -1684,7 +1760,7 @@ export default function AdminDashboard() {
                           Cliente
                         </p>
                         <p className="text-base font-bold text-white/90">
-                          {selectedCustomer.userName || "—"}
+                          {editingQuoteCustomerName || "—"}
                         </p>
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4">
@@ -1692,9 +1768,7 @@ export default function AdminDashboard() {
                           Preço Estimado
                         </p>
                         <p className="text-base font-black text-primary font-mono">
-                          {formatBRL(
-                            selectedCustomer.estimatedPrice || selectedCustomer.total || 0,
-                          )}
+                          {formatBRL(editingQuoteTotal)}
                         </p>
                       </div>
                       <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 sm:col-span-2">
@@ -1712,8 +1786,8 @@ export default function AdminDashboard() {
                     </div>
                   </div>
 
-                  <div className="space-y-6">
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                  <div className="quote-editor-grid">
+                    <section className="quote-editor-technical rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
                       <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
                         <Box className="w-4 h-4" /> Especificações Técnicas
                       </h3>
@@ -1782,9 +1856,17 @@ export default function AdminDashboard() {
                             <label className="text-xs font-semibold text-white/55">
                               Densidade do Preenchimento (Infill)
                             </label>
-                            <span className="text-sm font-black text-primary font-mono">
-                              {editingQuoteInfill}%
-                            </span>
+                            <div className="flex items-center gap-1.5">
+                              <NumInput
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={editingQuoteInfill}
+                                onChange={setEditingQuoteInfill}
+                                className="h-9 w-20 rounded-lg border border-white/10 bg-[#0C0E14] px-2 text-right font-mono text-sm font-black text-primary outline-none focus:border-primary/60"
+                              />
+                              <span className="text-sm font-black text-primary">%</span>
+                            </div>
                           </div>
                           <input
                             type="range"
@@ -1798,7 +1880,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </section>
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                    <section className="quote-editor-customer rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
                       <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
                         <User className="w-4 h-4" /> Dados do Cliente
                       </h3>
@@ -1807,9 +1889,13 @@ export default function AdminDashboard() {
                           <label className="block text-xs font-semibold text-white/55 mb-1.5">
                             Nome
                           </label>
-                          <div className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white/70">
-                            {selectedCustomer.userName || "—"}
-                          </div>
+                          <input
+                            type="text"
+                            value={editingQuoteCustomerName}
+                            onChange={(e) => setEditingQuoteCustomerName(e.target.value)}
+                            placeholder="Nome completo ou empresa"
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white outline-none transition-all placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                          />
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-white/55 mb-1.5">
@@ -1823,7 +1909,19 @@ export default function AdminDashboard() {
                             className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
                           />
                         </div>
-                        <div className="sm:col-span-2">
+                        <div>
+                          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-white/55">
+                            <Mail className="h-3.5 w-3.5" /> E-mail
+                          </label>
+                          <input
+                            type="email"
+                            value={editingQuoteCustomerEmail}
+                            onChange={(e) => setEditingQuoteCustomerEmail(e.target.value)}
+                            placeholder="cliente@email.com"
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white outline-none transition-all placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                          />
+                        </div>
+                        <div>
                           <label className="block text-xs font-semibold text-white/55 mb-1.5">
                             Observações do Cliente
                           </label>
@@ -1838,7 +1936,7 @@ export default function AdminDashboard() {
                       </div>
                     </section>
 
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                    <section className="quote-editor-image rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
                       <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
                         <ImageIcon className="w-4 h-4" /> Imagem do Produto
                       </h3>
@@ -1883,7 +1981,7 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                     </section>
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                    <section className="quote-editor-assistant rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
                       <button
                         type="button"
                         onClick={() => setIsCalcAssistantOpen(!isCalcAssistantOpen)}
@@ -1941,7 +2039,7 @@ export default function AdminDashboard() {
                             type="button"
                             onClick={() => {
                               const suggestedPrice = quoteAssistantResult.retailTotal;
-                              setEditingQuoteTotal(Number(suggestedPrice.toFixed(2)));
+                              handleQuoteTotalChange(Number(suggestedPrice.toFixed(2)));
                               toast.success(
                                 `${formatBRL(suggestedPrice)} aplicado pelo motor unificado!`,
                               );
@@ -1954,7 +2052,7 @@ export default function AdminDashboard() {
                       )}
                     </section>
 
-                    <section className="rounded-3xl border border-primary/20 bg-primary/[0.03] p-6 sm:p-8">
+                    <section className="quote-editor-commercial rounded-3xl border border-primary/20 bg-primary/[0.04] p-5 sm:p-7">
                       <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
                         <BadgeDollarSign className="w-4 h-4" /> Valor da Proposta
                       </h3>
@@ -1983,9 +2081,43 @@ export default function AdminDashboard() {
                           </p>
                         </div>
                       </div>
+                      <div className="mt-6 grid grid-cols-1 gap-4 border-t border-white/10 pt-5 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-white/55">
+                            <CalendarDays className="h-3.5 w-3.5" /> Validade da proposta
+                          </label>
+                          <input
+                            type="date"
+                            value={editingQuoteValidUntil}
+                            onChange={(e) => setEditingQuoteValidUntil(e.target.value)}
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white [color-scheme:dark] outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                          />
+                        </div>
+                        <div>
+                          <label className="mb-1.5 block text-xs font-semibold text-white/55">
+                            Condição de pagamento
+                          </label>
+                          <input
+                            type="text"
+                            value={editingQuotePaymentTerms}
+                            onChange={(e) => setEditingQuotePaymentTerms(e.target.value)}
+                            placeholder="Ex.: 50% na aprovação e 50% na entrega"
+                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
+                          />
+                        </div>
+                        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-xs font-semibold text-white/70 sm:col-span-2">
+                          <input
+                            type="checkbox"
+                            checked={editingQuoteShowImage}
+                            onChange={(e) => setEditingQuoteShowImage(e.target.checked)}
+                            className="h-4 w-4 accent-primary"
+                          />
+                          Mostrar a imagem do produto na proposta do cliente
+                        </label>
+                      </div>
                     </section>
 
-                    <section className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 sm:p-8">
+                    <section className="quote-editor-notes rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
                       <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
                         <Edit className="w-4 h-4" /> Notas do Técnico
                       </h3>
@@ -1997,68 +2129,77 @@ export default function AdminDashboard() {
                         className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white/85 placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 resize-none"
                       />
                     </section>
-                    <div className="flex flex-col lg:flex-row items-stretch gap-3 pt-6 border-t border-white/10">
-                      {isQuoteRecord(selectedCustomer) && (
-                        <>
-                          <Button
-                            variant="outline"
-                            onClick={() => handlePrintSavedQuote(selectedCustomer, "CLIENT")}
-                            className="h-12 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold uppercase border-white/15 hover:bg-white/5 text-white/80"
-                          >
-                            <FileText className="h-4 w-4" /> Proposta
-                          </Button>
-                          <Button
-                            variant="outline"
-                            onClick={() => handlePrintSavedQuote(selectedCustomer, "PRODUCTION")}
-                            className="h-12 px-4 rounded-xl flex items-center justify-center gap-2 text-xs font-bold uppercase border-orange-400/20 text-orange-300 hover:bg-orange-400/10"
-                          >
-                            <Factory className="h-4 w-4" /> Produção
-                          </Button>
-                        </>
-                      )}
-                      <Button
-                        variant="outline"
-                        onClick={() => handleWhatsAppQuote(selectedCustomer, editingQuoteTotal)}
-                        className="h-12 px-5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold text-green-400 hover:text-green-300 uppercase border-green-500/25 hover:bg-green-500/10 whitespace-nowrap"
-                      >
-                        <Smartphone className="w-4 h-4" /> WhatsApp
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() => handleSaveQuoteSpecifications(selectedCustomer)}
-                        className="h-12 px-5 rounded-xl flex items-center justify-center gap-2 text-sm font-bold uppercase border-white/15 hover:bg-white/5 whitespace-nowrap text-white/85 hover:text-white"
-                      >
-                        <Edit className="w-4 h-4" /> Salvar Alterações
-                      </Button>
-                      <Button
-                        onClick={() =>
-                          triggerConfirm(
-                            "Aprovar Orçamento",
-                            `Aprovar o orçamento de ${selectedCustomer.userName || "Cliente"} e faturar gerando o pedido?`,
-                            () => handleApproveQuote(selectedCustomer),
-                          )
-                        }
-                        className="flex-1 h-12 rounded-xl bg-green-500 hover:bg-green-600 gap-2 text-sm font-black uppercase whitespace-nowrap shadow-lg shadow-green-500/10"
-                      >
-                        <CheckCircle2 className="w-4 h-4" /> Aprovar e Faturar
-                      </Button>
-                      <Button
-                        variant="outline"
-                        onClick={() =>
-                          triggerConfirm(
-                            "Descartar Orçamento",
-                            "Tem certeza que deseja excluir permanentemente este orçamento?",
-                            () => {
-                              deleteItem("quotes", selectedCustomer.id);
-                              setSelectedCustomer(null);
-                            },
-                            true,
-                          )
-                        }
-                        className="h-12 px-5 rounded-xl border-red-500/30 hover:border-red-500 hover:bg-red-500/10 text-red-500 flex items-center justify-center gap-2 text-sm font-black uppercase whitespace-nowrap"
-                      >
-                        <Trash2 className="w-4 h-4" /> Descartar
-                      </Button>
+                    <div className="quote-editor-actions sticky bottom-0 z-20 flex flex-col gap-3 rounded-2xl border border-white/10 bg-[#0d121c]/95 p-3 shadow-2xl backdrop-blur-xl xl:flex-row xl:items-center">
+                      <div className="flex flex-wrap gap-2">
+                        {editingQuotePreview && (
+                          <>
+                            <Button
+                              variant="outline"
+                              onClick={() => handlePrintSavedQuote(editingQuotePreview, "CLIENT")}
+                              className="h-11 rounded-xl border-blue-400/20 px-3 text-[10px] font-bold uppercase text-blue-300 hover:bg-blue-400/10"
+                            >
+                              <FileText className="h-4 w-4" /> Visualizar proposta
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() =>
+                                handlePrintSavedQuote(editingQuotePreview, "PRODUCTION")
+                              }
+                              className="h-11 rounded-xl border-orange-400/20 px-3 text-[10px] font-bold uppercase text-orange-300 hover:bg-orange-400/10"
+                            >
+                              <Factory className="h-4 w-4" /> Ficha de produção
+                            </Button>
+                          </>
+                        )}
+                        <Button
+                          variant="outline"
+                          onClick={() => handleWhatsAppQuote(selectedCustomer, editingQuoteTotal)}
+                          className="h-11 rounded-xl border-green-500/25 px-3 text-[10px] font-bold uppercase text-green-400 hover:bg-green-500/10 hover:text-green-300"
+                        >
+                          <Smartphone className="h-4 w-4" /> WhatsApp
+                        </Button>
+                      </div>
+                      <div className="flex flex-1 flex-wrap gap-2 xl:justify-end">
+                        <Button
+                          variant="outline"
+                          onClick={() => handleSaveQuoteSpecifications(selectedCustomer)}
+                          className="h-11 flex-1 rounded-xl border-white/15 px-4 text-[10px] font-bold uppercase text-white/85 hover:bg-white/5 hover:text-white sm:flex-none"
+                        >
+                          <Save className="h-4 w-4" /> Salvar
+                        </Button>
+                        <Button
+                          disabled={isApprovingQuote}
+                          onClick={() =>
+                            triggerConfirm(
+                              "Aprovar Orçamento",
+                              `Aprovar o orçamento de ${editingQuoteCustomerName || "Cliente"} e faturar gerando o pedido?`,
+                              () => handleApproveQuote(selectedCustomer),
+                            )
+                          }
+                          className="h-11 flex-[2] rounded-xl bg-emerald-500 px-5 text-[10px] font-black uppercase text-white shadow-lg shadow-emerald-500/10 hover:bg-emerald-600 sm:flex-none"
+                        >
+                          <CheckCircle2 className="h-4 w-4" /> Aprovar e faturar
+                        </Button>
+                        <Button
+                          variant="outline"
+                          title="Descartar orçamento"
+                          aria-label="Descartar orçamento"
+                          onClick={() =>
+                            triggerConfirm(
+                              "Descartar Orçamento",
+                              "Tem certeza que deseja excluir permanentemente este orçamento?",
+                              () => {
+                                deleteItem("quotes", selectedCustomer.id);
+                                setSelectedCustomer(null);
+                              },
+                              true,
+                            )
+                          }
+                          className="h-11 w-11 shrink-0 rounded-xl border-red-500/25 p-0 text-red-400 hover:border-red-500/50 hover:bg-red-500/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 </>
