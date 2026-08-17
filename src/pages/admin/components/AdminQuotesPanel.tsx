@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   PencilLine,
@@ -27,6 +27,9 @@ interface AdminQuotesPanelProps {
   onDuplicateInCalculator: (q: Quote) => void;
   onPrintClient: (q: Quote) => void;
   onPrintProduction: (q: Quote) => void;
+  onPrintClientBatch: (quotes: Quote[]) => void;
+  onPrintProductionBatch: (quotes: Quote[]) => void;
+  onDeleteQuotes: (quotes: Quote[]) => void;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -87,10 +90,29 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
   onDuplicateInCalculator,
   onPrintClient,
   onPrintProduction,
+  onPrintClientBatch,
+  onPrintProductionBatch,
+  onDeleteQuotes,
   hasMore,
   loadingMore,
   onLoadMore,
 }: AdminQuotesPanelProps) {
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const selectedQuotes = useMemo(
+    () => quotes.filter((quote) => selectedIds.has(quote.id)),
+    [quotes, selectedIds],
+  );
+  const allSelected = quotes.length > 0 && quotes.every((quote) => selectedIds.has(quote.id));
+
+  const toggleQuote = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const pending = quotes.filter(
     (q) => !q.status || q.status === "PENDING" || q.status === "IN_REVIEW",
   ).length;
@@ -138,10 +160,60 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
         />
       </div>
 
+      {selectedQuotes.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-400/20 bg-blue-500/[0.08] p-3">
+          <span className="mr-auto text-xs font-semibold text-blue-100">
+            {selectedQuotes.length}{" "}
+            {selectedQuotes.length === 1 ? "orçamento marcado" : "orçamentos marcados"}
+          </span>
+          <button
+            type="button"
+            onClick={() => onPrintClientBatch(selectedQuotes)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white/[0.07] px-3 text-[11px] font-semibold text-white transition hover:bg-white/[0.13]"
+          >
+            <FileText className="h-3.5 w-3.5" /> Propostas PDF
+          </button>
+          <button
+            type="button"
+            onClick={() => onPrintProductionBatch(selectedQuotes)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-orange-500/15 px-3 text-[11px] font-semibold text-orange-200 transition hover:bg-orange-500 hover:text-white"
+          >
+            <Factory className="h-3.5 w-3.5" /> Fichas de produção
+          </button>
+          <button
+            type="button"
+            onClick={() => onDeleteQuotes(selectedQuotes)}
+            className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-red-500/15 px-3 text-[11px] font-semibold text-red-200 transition hover:bg-red-500 hover:text-white"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Mover para lixeira
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelectedIds(new Set())}
+            className="h-9 rounded-lg px-2 text-[11px] text-white/50 hover:text-white"
+          >
+            Limpar
+          </button>
+        </div>
+      )}
+
       <div className="admin-table-wrap overflow-x-auto no-scrollbar">
         <table className="admin-table min-w-[880px]">
           <thead>
             <tr>
+              <th className="w-10">
+                <input
+                  type="checkbox"
+                  aria-label="Selecionar todos os orçamentos visíveis"
+                  checked={allSelected}
+                  onChange={() =>
+                    setSelectedIds(
+                      allSelected ? new Set() : new Set(quotes.map((quote) => quote.id)),
+                    )
+                  }
+                  className="h-4 w-4 accent-blue-500"
+                />
+              </th>
               <th>Peça</th>
               <th>Cliente</th>
               <th>Material</th>
@@ -157,6 +229,15 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
               const phoneClean = (q.phone || "").replace(/\D/g, "");
               return (
                 <tr key={q.id}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      aria-label={`Selecionar orçamento ${q.fileName}`}
+                      checked={selectedIds.has(q.id)}
+                      onChange={() => toggleQuote(q.id)}
+                      className="h-4 w-4 accent-blue-500"
+                    />
+                  </td>
                   {/* PEÇA + THUMBNAIL */}
                   <td>
                     <div className="flex items-center gap-3">
@@ -289,7 +370,7 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
             })}
             {quotes.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-0">
+                <td colSpan={8} className="p-0">
                   <AdminEmptyState
                     title="Nenhum orçamento encontrado"
                     description="Novas solicitações e propostas manuais aparecerão aqui."

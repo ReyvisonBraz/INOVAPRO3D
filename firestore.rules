@@ -291,6 +291,11 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // LIXEIRA TEMPORÁRIA — cópia restaurável de registros removidos no admin.
+    match /trash/{trashId} {
+      allow read, write: if isAdmin();
+    }
+
     // ERROR REPORTS — criados só pelo servidor (Admin SDK ignora estas regras),
     // então o cliente nunca cria direto (evita spam). O admin lê e gerencia
     // (marcar como resolvido / excluir) pelo painel.

@@ -26,6 +26,7 @@ import type {
   Quote,
   ShowcaseItem,
   Ticket,
+  TrashEntry,
 } from "../../../types/domain";
 
 const QUOTES_PAGE_SIZE = 100;
@@ -52,6 +53,8 @@ export function useAdminData() {
   const [coupons, setCoupons] = useState<Coupon[]>([]);
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [printers, setPrinters] = useState<Printer[]>([]);
+  const [trashItems, setTrashItems] = useState<TrashEntry[]>([]);
+  const [trashBlocked, setTrashBlocked] = useState(false);
   /** Regras do Firestore ainda não publicadas para a coleção `printers`. */
   const [printersBlocked, setPrintersBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -132,6 +135,20 @@ export function useAdminData() {
         console.error("[admin] falha ao carregar impressoras:", err);
       }
     }
+
+    try {
+      const trashSnap = await getDocs(
+        query(collection(db, "trash"), orderBy("deletedAt", "desc"), limit(200)),
+      );
+      setTrashItems(
+        trashSnap.docs.map((entry) => ({ id: entry.id, ...entry.data() }) as TrashEntry),
+      );
+      setTrashBlocked(false);
+    } catch (err) {
+      setTrashItems([]);
+      setTrashBlocked(isPermissionDenied(err));
+      if (!isPermissionDenied(err)) console.error("[admin] falha ao carregar lixeira:", err);
+    }
   }, []);
 
   const loadMoreQuotes = useCallback(async () => {
@@ -208,6 +225,9 @@ export function useAdminData() {
     logs,
     printers,
     printersBlocked,
+    trashItems,
+    setTrashItems,
+    trashBlocked,
     loading,
     fetchData,
     handleSyncData,

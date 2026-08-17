@@ -96,9 +96,13 @@ import { AdminHeader } from "./components/AdminHeader";
 import { AdminManualSaleModal } from "./components/AdminManualSaleModal";
 import { AdminCalculatorWorkspace } from "./components/AdminCalculatorWorkspace";
 import { openAdminCalculator } from "./adminCalculatorEvents";
-import { PrintDocumentHost } from "../../components/print/PrintDocumentHost";
-import { buildQuoteDocumentData, type QuoteDocumentData } from "../../lib/quoteDocument";
+import {
+  PrintDocumentHost,
+  type PrintDocumentEntry,
+} from "../../components/print/PrintDocumentHost";
+import { buildQuoteDocumentData } from "../../lib/quoteDocument";
 import { printDocument, type PrintDocumentMode } from "../../lib/printing";
+import AdminTrashPanel from "./components/AdminTrashPanel";
 
 function isQuoteRecord(record: Quote | Ticket): record is Quote {
   return typeof record.fileName === "string" && typeof record.materialId === "string";
@@ -106,9 +110,9 @@ function isQuoteRecord(record: Quote | Ticket): record is Quote {
 import { adjustMaterialStock } from "../../services/inventory";
 
 export default function AdminDashboard() {
-  const [printTarget, setPrintTarget] = useState<{
-    data: QuoteDocumentData;
-    mode: PrintDocumentMode;
+  const [printJob, setPrintJob] = useState<{
+    id: string;
+    documents: PrintDocumentEntry[];
   } | null>(null);
   // ── Dados de todas as coleções + listener de pedidos novos ──
   const {
@@ -132,6 +136,9 @@ export default function AdminDashboard() {
     logs,
     printers,
     printersBlocked,
+    trashItems,
+    setTrashItems,
+    trashBlocked,
     loading,
     fetchData,
     handleSyncData,
@@ -180,17 +187,35 @@ export default function AdminDashboard() {
   // ── Empresa (cabeçalho dos documentos impressos) ──
   const companyAdmin = useCompanyAdmin();
 
-  const handlePrintSavedQuote = useCallback(
-    (quote: Quote, mode: PrintDocumentMode) => {
+  const buildPrintEntry = useCallback(
+    (quote: Quote, mode: PrintDocumentMode): PrintDocumentEntry => {
       const printerId = quote.printerId || quote.calcSnapshot?.printerId;
       const printer = printers.find((candidate) => candidate.id === printerId);
       const data = buildQuoteDocumentData(quote, companyAdmin.companyProfile, {
         materials,
         printerPhotoUrl: printer?.photoUrl,
       });
-      void printDocument(() => setPrintTarget({ data, mode }));
+      return { data, mode, key: `${quote.id}-${mode}` };
     },
     [companyAdmin.companyProfile, materials, printers],
+  );
+
+  const handlePrintSavedQuotes = useCallback(
+    (selectedQuotes: Quote[], mode: PrintDocumentMode) => {
+      const documents = selectedQuotes.map((quote) => buildPrintEntry(quote, mode));
+      if (!documents.length) return;
+      const id = `${Date.now()}-${mode}`;
+      void printDocument(
+        () => setPrintJob({ id, documents }),
+        () => setPrintJob(null),
+      );
+    },
+    [buildPrintEntry],
+  );
+
+  const handlePrintSavedQuote = useCallback(
+    (quote: Quote, mode: PrintDocumentMode) => handlePrintSavedQuotes([quote], mode),
+    [handlePrintSavedQuotes],
   );
 
   useEffect(() => {
@@ -256,7 +281,14 @@ export default function AdminDashboard() {
   }, [pricingSettings]);
 
   // ── Ações sobre registros (status, exclusão, rastreio) ──
-  const { updateStatus, deleteItem, handleUpdateTracking } = useAdminActions({
+  const {
+    updateStatus,
+    deleteItem,
+    deleteItems,
+    restoreTrashItem,
+    permanentlyDeleteTrashItem,
+    handleUpdateTracking,
+  } = useAdminActions({
     orders,
     fetchData,
     selectedOrder,
@@ -265,6 +297,7 @@ export default function AdminDashboard() {
     setSelectedCustomer,
     setOrders,
     setQuotes,
+    setTrashItems,
   });
 
   // ── Produtos: formulário, importação por link e imagens ──
@@ -735,7 +768,6 @@ export default function AdminDashboard() {
     openForm: openCouponForm,
     handleCreate: handleCreateCoupon,
     handleToggle: handleToggleCoupon,
-    handleDelete: handleDeleteCoupon,
   } = useCouponAdmin(fetchData);
 
   const handleTabChange = useCallback((tab: string) => setActiveTab(tab as AdminTabId), []);
@@ -818,8 +850,9 @@ export default function AdminDashboard() {
     () => ({
       orders: orders.filter((o) => o.status === "PENDING_PAYMENT").length,
       quotes: quotes.filter((q) => q.status === "PENDING").length,
+      trash: trashItems.length,
     }),
-    [orders, quotes],
+    [orders, quotes, trashItems.length],
   );
 
   const syncAdminData = useCallback(async () => {
@@ -896,11 +929,11 @@ export default function AdminDashboard() {
                 }
                 onDeleteOrder={(o) =>
                   triggerConfirm(
-                    "Excluir Pedido",
-                    `ATENÇÃO: O pedido #${o.id.slice(0, 12)} será removido permanentemente.`,
+                    "Mover pedido para a lixeira",
+                    `O pedido #${o.id.slice(0, 12)} poderá ser restaurado. Pedidos em andamento são protegidos.`,
                     () => deleteItem("orders", o.id),
                     true,
-                    "Sim, Excluir",
+                    "Mover para lixeira",
                   )
                 }
                 onTabChange={handleTabChange}
@@ -924,11 +957,24 @@ export default function AdminDashboard() {
                 }
                 onDeleteOrder={(o) =>
                   triggerConfirm(
-                    "Excluir Pedido",
-                    `ATENÇÃO: O pedido #${o.id.slice(0, 12)} será removido permanentemente.`,
+                    "Mover pedido para a lixeira",
+                    `O pedido #${o.id.slice(0, 12)} poderá ser restaurado. Pedidos em andamento são protegidos.`,
                     () => deleteItem("orders", o.id),
                     true,
-                    "Sim, Excluir",
+                    "Mover para lixeira",
+                  )
+                }
+                onDeleteOrders={(selected) =>
+                  triggerConfirm(
+                    "Mover pedidos para a lixeira",
+                    "Somente pedidos em Aguardando pagamento ou Cancelados serão movidos. Os demais serão preservados.",
+                    () =>
+                      void deleteItems(
+                        "orders",
+                        selected.map((order) => order.id),
+                      ),
+                    true,
+                    "Mover permitidos",
                   )
                 }
               />
@@ -1104,7 +1150,15 @@ export default function AdminDashboard() {
                 quotes={filteredQuotes}
                 onSelectQuote={setSelectedCustomer}
                 onApproveQuote={handleApproveQuote}
-                onDeleteQuote={(type, id) => deleteItem(type, id)}
+                onDeleteQuote={(type, id) =>
+                  triggerConfirm(
+                    "Mover orçamento para a lixeira",
+                    "O orçamento poderá ser restaurado depois. Se houver um pedido em andamento vinculado, a exclusão será bloqueada.",
+                    () => void deleteItem(type, id),
+                    true,
+                    "Mover para lixeira",
+                  )
+                }
                 onWhatsApp={(q) =>
                   handleWhatsAppQuote(
                     q,
@@ -1124,6 +1178,23 @@ export default function AdminDashboard() {
                 }
                 onPrintClient={(quote) => handlePrintSavedQuote(quote, "CLIENT")}
                 onPrintProduction={(quote) => handlePrintSavedQuote(quote, "PRODUCTION")}
+                onPrintClientBatch={(selected) => handlePrintSavedQuotes(selected, "CLIENT")}
+                onPrintProductionBatch={(selected) =>
+                  handlePrintSavedQuotes(selected, "PRODUCTION")
+                }
+                onDeleteQuotes={(selected) =>
+                  triggerConfirm(
+                    "Mover orçamentos para a lixeira",
+                    `${selected.length} orçamento(s) serão movidos. Os vinculados a pedidos em andamento serão preservados.`,
+                    () =>
+                      void deleteItems(
+                        "quotes",
+                        selected.map((quote) => quote.id),
+                      ),
+                    true,
+                    "Mover selecionados",
+                  )
+                }
                 hasMore={quotesHasMore}
                 loadingMore={quotesLoadingMore}
                 onLoadMore={loadMoreQuotes}
@@ -1198,7 +1269,7 @@ export default function AdminDashboard() {
                 onOpen={openCouponForm}
                 onCreate={handleCreateCoupon}
                 onToggle={handleToggleCoupon}
-                onDelete={handleDeleteCoupon}
+                onDelete={(id) => void deleteItem("coupons", id)}
                 onClose={() => setCouponAdding(false)}
               />
             )}
@@ -1235,6 +1306,30 @@ export default function AdminDashboard() {
                   <AdminLogsPanel logs={logs} />
                 )}
               </div>
+            )}
+            {activeTab === "trash" && (
+              <AdminTrashPanel
+                items={trashItems}
+                blocked={trashBlocked}
+                onRestore={(entry) =>
+                  triggerConfirm(
+                    "Restaurar item",
+                    `Deseja restaurar “${entry.label}” ao cadastro original?`,
+                    () => void restoreTrashItem(entry),
+                    false,
+                    "Restaurar",
+                  )
+                }
+                onDeletePermanently={(entry) =>
+                  triggerConfirm(
+                    "Excluir permanentemente",
+                    `“${entry.label}” não poderá mais ser recuperado.`,
+                    () => void permanentlyDeleteTrashItem(entry),
+                    true,
+                    "Excluir definitivamente",
+                  )
+                }
+              />
             )}
             {activeTab === "settings" && (
               <AdminSettingsPanel
@@ -2219,7 +2314,7 @@ export default function AdminDashboard() {
           />
         )}
         <AdminCalculatorWorkspace onQuoteSaved={fetchData} />
-        <PrintDocumentHost data={printTarget?.data ?? null} mode={printTarget?.mode ?? "CLIENT"} />
+        <PrintDocumentHost jobId={printJob?.id} documents={printJob?.documents} />
 
         <AdminPrinterFormModal
           open={printerAdmin.isPrinterFormOpen}

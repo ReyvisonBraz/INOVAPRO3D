@@ -174,6 +174,16 @@ export interface Order {
   fulfillmentHoldReason?: PaymentStatus;
 }
 
+export interface TrashEntry {
+  id: string;
+  sourceCollection: string;
+  originalId: string;
+  label: string;
+  data: Record<string, unknown>;
+  deletedAt?: FirestoreDate;
+  deletedBy?: string | null;
+}
+
 export interface Quote {
   id: string;
   userId: string;

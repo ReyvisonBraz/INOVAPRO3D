@@ -75,6 +75,7 @@ interface AdminOrdersPanelProps {
   onSelectOrder: (order: Order) => void;
   onCancelOrder: (order: Order) => void;
   onDeleteOrder: (order: Order) => void;
+  onDeleteOrders: (orders: Order[]) => void;
   onUpdateStatus: (orderId: string, newStatus: string) => void;
   onCreateManual: () => void;
 }
@@ -86,6 +87,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
     onSelectOrder,
     onCancelOrder,
     onDeleteOrder,
+    onDeleteOrders,
     onUpdateStatus,
     onCreateManual,
   }) => {
@@ -290,6 +292,15 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
                   className="px-4 py-1.5 rounded-xl bg-red-500/20 hover:bg-red-500 text-red-400 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/30"
                 >
                   Cancelar Selecionados
+                </button>
+                <button
+                  onClick={() => {
+                    onDeleteOrders(orders.filter((order) => selectedIds.has(order.id)));
+                    setSelectedIds(new Set());
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/20 px-4 py-1.5 text-[10px] font-black uppercase tracking-widest text-red-300 transition-all hover:bg-red-500 hover:text-white"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Lixeira
                 </button>
               </div>
             </motion.div>

@@ -39,6 +39,7 @@ const MENU_GROUPS = [
     items: [
       { id: "settings", name: "Ajustes", icon: "Settings" },
       { id: "logs", name: "Auditoria", icon: "History" },
+      { id: "trash", name: "Lixeira", icon: "Trash2" },
     ],
   },
 ] as const satisfies readonly {
@@ -73,6 +74,7 @@ import {
   Settings,
   History,
   Star,
+  Trash2,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -91,6 +93,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Settings,
   History,
   Star,
+  Trash2,
 };
 
 interface AdminSidebarProps {

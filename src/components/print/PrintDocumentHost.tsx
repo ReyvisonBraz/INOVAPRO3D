@@ -5,18 +5,39 @@ import { ProductionSheet } from "./ProductionSheet";
 import { QuoteDocument } from "./QuoteDocument";
 
 interface PrintDocumentHostProps {
-  data: QuoteDocumentData | null;
-  mode: PrintDocumentMode;
+  data?: QuoteDocumentData | null;
+  mode?: PrintDocumentMode;
+  documents?: PrintDocumentEntry[];
+  jobId?: string;
 }
 
-export function PrintDocumentHost({ data, mode }: PrintDocumentHostProps) {
-  if (!data || typeof document === "undefined") return null;
+export interface PrintDocumentEntry {
+  data: QuoteDocumentData;
+  mode: PrintDocumentMode;
+  key?: string;
+}
+
+export function PrintDocumentHost({
+  data,
+  mode = "CLIENT",
+  documents,
+  jobId,
+}: PrintDocumentHostProps) {
+  const entries = documents ?? (data ? [{ data, mode }] : []);
+  if (entries.length === 0 || typeof document === "undefined") return null;
   return createPortal(
     <div
+      key={jobId}
       className="print-document-host"
       aria-hidden={!document.body.classList.contains("printing")}
     >
-      {mode === "CLIENT" ? <QuoteDocument data={data} /> : <ProductionSheet data={data} />}
+      {entries.map((entry, index) =>
+        entry.mode === "CLIENT" ? (
+          <QuoteDocument key={entry.key ?? `${jobId}-client-${index}`} data={entry.data} />
+        ) : (
+          <ProductionSheet key={entry.key ?? `${jobId}-production-${index}`} data={entry.data} />
+        ),
+      )}
     </div>,
     document.body,
   );

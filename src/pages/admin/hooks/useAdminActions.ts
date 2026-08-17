@@ -1,15 +1,17 @@
 import { Dispatch, SetStateAction, useCallback } from "react";
 import {
+  collection,
   doc,
+  getDoc,
   updateDoc,
-  deleteDoc,
   serverTimestamp,
+  writeBatch,
   type UpdateData,
   type DocumentData,
 } from "firebase/firestore";
 import { toast } from "sonner";
-import { db, handleFirestoreError, OperationType } from "../../../services/firebase";
-import type { Order, Quote, Ticket } from "../../../types/domain";
+import { auth, db, handleFirestoreError, OperationType } from "../../../services/firebase";
+import type { Order, Quote, Ticket, TrashEntry } from "../../../types/domain";
 import type { OrderStatus } from "../../../types/domain";
 import { InsufficientInventoryError, transitionOrderStatus } from "../../../services/inventory";
 
@@ -22,6 +24,29 @@ interface Deps {
   setSelectedCustomer: Dispatch<SetStateAction<Quote | Ticket | null>>;
   setOrders: Dispatch<SetStateAction<Order[]>>;
   setQuotes: Dispatch<SetStateAction<Quote[]>>;
+  setTrashItems: Dispatch<SetStateAction<TrashEntry[]>>;
+}
+
+const DELETABLE_ORDER_STATUSES = new Set<OrderStatus>(["PENDING_PAYMENT", "CANCELED"]);
+
+function recordLabel(type: string, id: string, data: DocumentData): string {
+  const candidate =
+    data.fileName || data.name || data.title || data.userName || data.email || data.code;
+  const collectionNames: Record<string, string> = {
+    orders: "Pedido",
+    quotes: "Orçamento",
+    products: "Produto",
+    categories: "Categoria",
+    materials: "Material",
+    customers: "Cliente",
+    tickets: "Ticket",
+    faqs: "FAQ",
+    showcase: "Item da vitrine",
+    coupons: "Cupom",
+  };
+  return candidate
+    ? String(candidate)
+    : `${collectionNames[type] || "Registro"} #${id.slice(0, 8)}`;
 }
 
 /**
@@ -37,6 +62,7 @@ export function useAdminActions({
   setSelectedCustomer,
   setOrders,
   setQuotes,
+  setTrashItems,
 }: Deps) {
   const updateStatus = useCallback(
     async (type: string, id: string, newStatus: string | Record<string, unknown>) => {
@@ -98,32 +124,146 @@ export function useAdminActions({
     [fetchData, orders, selectedOrder, setSelectedOrder, selectedCustomer, setSelectedCustomer],
   );
 
-  const deleteItem = useCallback(
-    async (type: string, id: string) => {
+  const moveToTrash = useCallback(
+    async (type: string, id: string, notify = true, refresh = true): Promise<boolean> => {
       try {
+        const sourceRef = doc(db, type, id);
+        const sourceSnap = await getDoc(sourceRef);
+        if (!sourceSnap.exists()) throw new Error("Registro não encontrado.");
+        const sourceData = sourceSnap.data();
+
+        if (type === "orders") {
+          const status = sourceData.status as OrderStatus;
+          if (!DELETABLE_ORDER_STATUSES.has(status)) {
+            if (notify) {
+              toast.error("Este pedido não pode ser excluído nesta etapa", {
+                description:
+                  "Mova-o para Aguardando pagamento ou cancele-o primeiro. Etapas produtivas não retrocedem automaticamente para preservar o estoque.",
+              });
+            }
+            return false;
+          }
+        }
+
+        if (type === "quotes") {
+          const convertedOrderId = sourceData.convertedOrderId as string | undefined;
+          let linkedOrder = convertedOrderId
+            ? orders.find((order) => order.id === convertedOrderId)
+            : undefined;
+          if (convertedOrderId && !linkedOrder) {
+            const linkedSnapshot = await getDoc(doc(db, "orders", convertedOrderId));
+            if (linkedSnapshot.exists()) {
+              linkedOrder = { id: linkedSnapshot.id, ...linkedSnapshot.data() } as Order;
+            }
+          }
+          if (linkedOrder && !DELETABLE_ORDER_STATUSES.has(linkedOrder.status)) {
+            if (notify) {
+              toast.error("Orçamento vinculado a um pedido em andamento", {
+                description:
+                  "Volte ou cancele o pedido vinculado antes de mover este orçamento para a lixeira.",
+              });
+            }
+            return false;
+          }
+        }
+
+        const trashRef = doc(collection(db, "trash"));
+        const batch = writeBatch(db);
+        batch.set(trashRef, {
+          sourceCollection: type,
+          originalId: id,
+          label: recordLabel(type, id, sourceData),
+          data: sourceData,
+          deletedAt: serverTimestamp(),
+          deletedBy: auth.currentUser?.email || auth.currentUser?.uid || null,
+        });
         if (type === "orders" || type === "quotes") {
-          await updateDoc(doc(db, type, id), {
+          batch.update(sourceRef, {
             status: type === "orders" ? "CANCELED" : "DISCARDED",
             _deleted: true,
             deletedAt: serverTimestamp(),
           });
-          if (type === "orders") setOrders((prev) => prev.filter((o) => o.id !== id));
-          if (type === "quotes") setQuotes((prev) => prev.filter((q) => q.id !== id));
         } else {
-          await deleteDoc(doc(db, type, id));
-          await fetchData();
+          batch.delete(sourceRef);
         }
-        toast.success("Item excluído com sucesso!");
+        await batch.commit();
+        if (type === "orders") setOrders((prev) => prev.filter((o) => o.id !== id));
+        else if (type === "quotes") setQuotes((prev) => prev.filter((q) => q.id !== id));
+        if (refresh) await fetchData();
+        if (notify) toast.success("Item movido para a lixeira.");
+        return true;
       } catch (err) {
         const e = err as { code?: string; message?: string };
         const msg =
           e.code === "permission-denied"
             ? "Sem permissão para excluir. Verifique as regras do Firestore."
             : e.message || "Erro ao excluir item.";
-        toast.error(msg);
+        if (notify) toast.error(msg);
+        return false;
       }
     },
-    [fetchData, setOrders, setQuotes],
+    [fetchData, orders, setOrders, setQuotes],
+  );
+
+  const deleteItem = useCallback(
+    (type: string, id: string) => moveToTrash(type, id),
+    [moveToTrash],
+  );
+
+  const deleteItems = useCallback(
+    async (type: string, ids: string[]) => {
+      let moved = 0;
+      for (const id of ids) if (await moveToTrash(type, id, false, false)) moved += 1;
+      if (moved) await fetchData();
+      const blocked = ids.length - moved;
+      if (moved)
+        toast.success(`${moved} ${moved === 1 ? "item movido" : "itens movidos"} para a lixeira.`);
+      if (blocked) {
+        toast.warning(
+          `${blocked} ${blocked === 1 ? "item não pôde" : "itens não puderam"} ser excluído(s).`,
+          {
+            description: "Pedidos em andamento e orçamentos vinculados foram preservados.",
+          },
+        );
+      }
+      return { moved, blocked };
+    },
+    [fetchData, moveToTrash],
+  );
+
+  const restoreTrashItem = useCallback(
+    async (entry: TrashEntry) => {
+      try {
+        const batch = writeBatch(db);
+        batch.set(doc(db, entry.sourceCollection, entry.originalId), entry.data);
+        batch.delete(doc(db, "trash", entry.id));
+        await batch.commit();
+        setTrashItems((current) => current.filter((item) => item.id !== entry.id));
+        await fetchData();
+        toast.success("Item restaurado com sucesso.");
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `trash/${entry.id}`);
+      }
+    },
+    [fetchData, setTrashItems],
+  );
+
+  const permanentlyDeleteTrashItem = useCallback(
+    async (entry: TrashEntry) => {
+      try {
+        const batch = writeBatch(db);
+        if (entry.sourceCollection === "orders" || entry.sourceCollection === "quotes") {
+          batch.delete(doc(db, entry.sourceCollection, entry.originalId));
+        }
+        batch.delete(doc(db, "trash", entry.id));
+        await batch.commit();
+        setTrashItems((current) => current.filter((item) => item.id !== entry.id));
+        toast.success("Item excluído permanentemente.");
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `trash/${entry.id}`);
+      }
+    },
+    [setTrashItems],
   );
 
   const handleUpdateTracking = useCallback(async (id: string, trackingCode: string) => {
@@ -135,5 +275,12 @@ export function useAdminActions({
     }
   }, []);
 
-  return { updateStatus, deleteItem, handleUpdateTracking };
+  return {
+    updateStatus,
+    deleteItem,
+    deleteItems,
+    restoreTrashItem,
+    permanentlyDeleteTrashItem,
+    handleUpdateTracking,
+  };
 }

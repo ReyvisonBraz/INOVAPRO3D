@@ -18,6 +18,7 @@ import {
   Tag,
   TrendingUp,
   Truck,
+  Trash2,
   Users,
   Wallet,
   Zap,
@@ -40,7 +41,8 @@ export type AdminTabId =
   | "faqs"
   | "reviews"
   | "settings"
-  | "logs";
+  | "logs"
+  | "trash";
 
 export interface AdminMenuItem {
   id: AdminTabId;
@@ -70,6 +72,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { id: "reviews", name: "Avaliações", icon: Star },
   { id: "settings", name: "Ajustes", icon: Settings },
   { id: "logs", name: "Registro de Auditoria", icon: History },
+  { id: "trash", name: "Lixeira", icon: Trash2 },
 ];
 
 export const ADMIN_TAB_SUBTITLES: Record<AdminTabId, string> = {
@@ -88,6 +91,7 @@ export const ADMIN_TAB_SUBTITLES: Record<AdminTabId, string> = {
   reviews: "Moderação de avaliações e denúncias",
   settings: "Parâmetros da loja, calculadora e máquina",
   logs: "Histórico de ações administrativas",
+  trash: "Restaure ou remova definitivamente itens excluídos",
 };
 
 export const PRODUCTION_STAGES: ProductionStage[] = [
