@@ -202,12 +202,32 @@ export default function AdminDashboard() {
 
   const handlePrintSavedQuotes = useCallback(
     (selectedQuotes: Quote[], mode: PrintDocumentMode) => {
-      const documents = selectedQuotes.map((quote) => buildPrintEntry(quote, mode));
-      if (!documents.length) return;
+      const preparedDocuments = selectedQuotes.map((quote) => buildPrintEntry(quote, mode));
+      const documents = preparedDocuments.filter(
+        ({ data }) => !(data.total <= 0 && data.customer.name.trim().toLowerCase() === "cliente"),
+      );
+      const skipped = preparedDocuments.length - documents.length;
+      if (!documents.length) {
+        toast.error("Este orçamento ainda está vazio", {
+          description: "Informe o cliente e os valores antes de gerar a proposta.",
+        });
+        return;
+      }
+      if (skipped) {
+        toast.warning(`${skipped} rascunho vazio não foi incluído no PDF.`);
+      }
+
+      const first = documents[0].data;
+      const documentLabel = mode === "CLIENT" ? "Orçamento" : "Ficha de Produção";
+      const suggestedTitle =
+        documents.length === 1
+          ? `INOVA PRO 3D ${documentLabel} - ${first.customer.name} - ${first.customer.phone || "Sem telefone"}`
+          : `INOVA PRO 3D ${documentLabel} - ${documents.length} clientes`;
       const id = `${Date.now()}-${mode}`;
       void printDocument(
         () => setPrintJob({ id, documents }),
         () => setPrintJob(null),
+        suggestedTitle.replace(/[\\/:*?"<>|]+/g, "-"),
       );
     },
     [buildPrintEntry],

@@ -168,14 +168,20 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
           </span>
           <button
             type="button"
-            onClick={() => onPrintClientBatch(selectedQuotes)}
+            onClick={() => {
+              onPrintClientBatch(selectedQuotes);
+              setSelectedIds(new Set());
+            }}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-white/[0.07] px-3 text-[11px] font-semibold text-white transition hover:bg-white/[0.13]"
           >
             <FileText className="h-3.5 w-3.5" /> Propostas PDF
           </button>
           <button
             type="button"
-            onClick={() => onPrintProductionBatch(selectedQuotes)}
+            onClick={() => {
+              onPrintProductionBatch(selectedQuotes);
+              setSelectedIds(new Set());
+            }}
             className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-orange-500/15 px-3 text-[11px] font-semibold text-orange-200 transition hover:bg-orange-500 hover:text-white"
           >
             <Factory className="h-3.5 w-3.5" /> Fichas de produção

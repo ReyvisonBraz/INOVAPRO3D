@@ -259,7 +259,15 @@ function FilamentCalculatorContent({
     priceTier === "WHOLESALE"
       ? result.wholesaleProfitAfterFullReprint
       : result.retailProfitAfterFullReprint;
-  const printReport = (mode: "CLIENT" | "PRODUCTION") => printDocument(() => setPrintMode(mode));
+  const printReport = (mode: "CLIENT" | "PRODUCTION") => {
+    const documentLabel = mode === "CLIENT" ? "Orçamento" : "Ficha de Produção";
+    const suggestedTitle =
+      `INOVA PRO 3D ${documentLabel} - ${quoteDocumentData.customer.name} - ${quoteDocumentData.customer.phone || "Sem telefone"}`.replace(
+        /[\\/:*?"<>|]+/g,
+        "-",
+      );
+    return printDocument(() => setPrintMode(mode), undefined, suggestedTitle);
+  };
 
   return (
     <>

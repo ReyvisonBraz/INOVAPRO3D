@@ -33,13 +33,19 @@ async function waitForPrintImages(): Promise<void> {
   );
 }
 
-export function printDocument(prepare: () => void, cleanup?: () => void): Promise<void> {
+export function printDocument(
+  prepare: () => void,
+  cleanup?: () => void,
+  suggestedTitle?: string,
+): Promise<void> {
   const job = printQueue
     .catch(() => undefined)
     .then(async () => {
       // Garante que o portal já contenha exclusivamente o trabalho atual antes
       // que o navegador calcule as páginas de impressão.
       flushSync(prepare);
+      const previousTitle = document.title;
+      if (suggestedTitle) document.title = suggestedTitle;
       document.body.classList.add("printing");
       try {
         await document.fonts?.ready;
@@ -49,6 +55,7 @@ export function printDocument(prepare: () => void, cleanup?: () => void): Promis
         window.print();
       } finally {
         document.body.classList.remove("printing");
+        document.title = previousTitle;
         if (cleanup) flushSync(cleanup);
       }
     });
