@@ -410,6 +410,10 @@ export interface CalculatorTemplate {
   description?: string;
   imageUrl?: string;
   usageCount?: number;
+  archived?: boolean;
+  archivedAt?: FirestoreDate;
+  deleted?: boolean;
+  deletedAt?: FirestoreDate;
   snapshot: import("../lib/calculatorSnapshot").QuoteCalcSnapshot;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;

@@ -1,4 +1,4 @@
-import type { Quote } from "../../types/domain";
+import type { CalculatorTemplate, Quote } from "../../types/domain";
 import type { CalculatorIntent } from "../public/calculator/useCalculatorState";
 
 export const ADMIN_CALCULATOR_OPEN_EVENT = "inovapro3d:admin-calculator-open";
@@ -6,6 +6,7 @@ export const ADMIN_CALCULATOR_OPEN_EVENT = "inovapro3d:admin-calculator-open";
 export interface AdminCalculatorOpenRequest {
   mode: CalculatorIntent;
   quote?: Quote;
+  template?: CalculatorTemplate;
 }
 
 /** Entrada única para abrir a calculadora embutida, com ou sem orçamento. */

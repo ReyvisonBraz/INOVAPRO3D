@@ -35,7 +35,7 @@ export function AdminCalculatorWorkspace({ onQuoteSaved }: AdminCalculatorWorksp
   };
 
   const applyOpenRequest = (request: AdminCalculatorOpenRequest) => {
-    if (request.quote) clearCalculatorDraftStorage();
+    if (request.quote || request.template) clearCalculatorDraftStorage();
     setLaunchRequest(request);
     setMounted(true);
     setOpen(true);
@@ -47,11 +47,13 @@ export function AdminCalculatorWorkspace({ onQuoteSaved }: AdminCalculatorWorksp
   useEffect(() => {
     const handleOpen = (event: Event) => {
       const request = (event as CustomEvent<AdminCalculatorOpenRequest>).detail;
-      if (!request?.quote) {
+      if (!request?.quote && !request?.template) {
         openCalculator();
         return;
       }
-      const isSameQuote = request.mode === "EDIT" && draftSummary?.quoteId === request.quote.id;
+      const isSameQuote = Boolean(
+        request.quote && request.mode === "EDIT" && draftSummary?.quoteId === request.quote.id,
+      );
       if (draftSummary && !isSameQuote) {
         setPendingRequest(request);
         setConfirmReplace(true);
@@ -173,6 +175,7 @@ export function AdminCalculatorWorkspace({ onQuoteSaved }: AdminCalculatorWorksp
                     key={instanceKey}
                     embedded
                     initialQuote={launchRequest.quote}
+                    initialTemplate={launchRequest.template}
                     intent={launchRequest.mode}
                     onQuoteSaved={onQuoteSaved}
                   />

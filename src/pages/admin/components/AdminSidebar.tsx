@@ -21,6 +21,7 @@ const MENU_GROUPS = [
       { id: "products", name: "Catálogo", icon: "Printer" },
       { id: "materials", name: "Materiais", icon: "Box" },
       { id: "printers", name: "Impressoras", icon: "Factory" },
+      { id: "calculatorTemplates", name: "Modelos Calc.", icon: "LayoutTemplate" },
       { id: "showcase", name: "Vitrine", icon: "Sparkles" },
       { id: "coupons", name: "Cupons", icon: "Tag" },
     ],
@@ -75,6 +76,7 @@ import {
   History,
   Star,
   Trash2,
+  LayoutTemplate,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -94,6 +96,7 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   History,
   Star,
   Trash2,
+  LayoutTemplate,
 };
 
 interface AdminSidebarProps {

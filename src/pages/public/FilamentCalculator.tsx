@@ -5,6 +5,7 @@ import { PageSEO } from "../../components/seo/PageSEO";
 import {
   AlertTriangle,
   Calculator,
+  ChevronDown,
   Coins,
   Cpu,
   Download,
@@ -16,7 +17,6 @@ import {
   Package,
   Save,
   Search,
-  Settings2,
   UserCheck,
   Wrench,
   X,
@@ -28,7 +28,7 @@ import { BrandMark } from "../../components/brand/BrandLogo";
 import { Reveal } from "../../components/ui/Reveal";
 import { useCalculatorState } from "./calculator/useCalculatorState";
 import type { CalculatorIntent } from "./calculator/useCalculatorState";
-import type { Quote } from "../../types/domain";
+import type { CalculatorTemplate, Quote } from "../../types/domain";
 import { db } from "../../services/firebase";
 import { PrintDocumentHost } from "../../components/print/PrintDocumentHost";
 import { printDocument } from "../../lib/printing";
@@ -59,6 +59,7 @@ const decimal = new Intl.NumberFormat("pt-BR", {
 interface FilamentCalculatorProps {
   embedded?: boolean;
   initialQuote?: Quote | null;
+  initialTemplate?: CalculatorTemplate | null;
   intent?: CalculatorIntent;
   onQuoteSaved?: (result: { id: string; created: boolean }) => void | Promise<void>;
 }
@@ -126,6 +127,7 @@ export default function FilamentCalculator(props: FilamentCalculatorProps) {
 function FilamentCalculatorContent({
   embedded = false,
   initialQuote = null,
+  initialTemplate = null,
   intent = "NEW",
   onQuoteSaved,
 }: FilamentCalculatorProps) {
@@ -243,7 +245,18 @@ function FilamentCalculatorContent({
     templateSaving,
     applyProjectTemplate,
     saveProjectTemplate,
-  } = useCalculatorState({ initialQuote, initialQuoteId: initialQuote?.id, intent, onQuoteSaved });
+    updateProjectTemplateMetadata,
+    updateProjectTemplateFromCurrent,
+    cloneProjectTemplate,
+    archiveProjectTemplate,
+    removeProjectTemplate,
+  } = useCalculatorState({
+    initialQuote,
+    initialTemplate,
+    initialQuoteId: initialQuote?.id,
+    intent,
+    onQuoteSaved,
+  });
 
   const quotedTotal = priceTier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
   const negotiationFloor = Math.max(
@@ -260,6 +273,7 @@ function FilamentCalculatorContent({
       ? result.wholesaleProfitAfterFullReprint
       : result.retailProfitAfterFullReprint;
   const [isPrintingReport, setIsPrintingReport] = useState(false);
+  const [imageSectionOpen, setImageSectionOpen] = useState(false);
   const printReport = (mode: "CLIENT" | "PRODUCTION") => {
     const documentLabel = mode === "CLIENT" ? "Orçamento" : "Ficha de Produção";
     const suggestedTitle =
@@ -300,6 +314,9 @@ function FilamentCalculatorContent({
                 </div>
                 <h1 className="text-3xl font-black uppercase tracking-tight sm:text-4xl">
                   CÁLCULO <span className="text-white">MAKER</span>
+                  <span className="ml-2 align-middle text-[10px] font-bold tracking-widest text-white/25">
+                    v6.0
+                  </span>
                 </h1>
               </div>
               <p className="text-sm text-white/40">
@@ -318,10 +335,6 @@ function FilamentCalculatorContent({
                     Rascunho salvo
                   </span>
                 )}
-                <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-2">
-                  <Settings2 className="h-3 w-3" />
-                  MOTOR V6.0
-                </span>
                 <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/10 px-3 py-2 text-cyan-300">
                   {selectedPrinter?.name ?? "Máquina configurada em Ajustes"}
                 </span>
@@ -386,6 +399,27 @@ function FilamentCalculatorContent({
             </div>
           )}
 
+          {initialTemplate && (
+            <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-violet-300/25 bg-violet-300/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <strong className="block text-sm font-black text-violet-100">
+                  Editando o modelo “{initialTemplate.name}”
+                </strong>
+                <p className="mt-1 text-xs leading-relaxed text-white/50">
+                  Ajuste bandejas, custos e parâmetros abaixo. Ao terminar, grave o conteúdo no
+                  mesmo modelo.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void updateProjectTemplateFromCurrent(initialTemplate)}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-xs font-black text-white transition hover:bg-violet-500"
+              >
+                <Save className="h-4 w-4" /> Salvar alterações no modelo
+              </button>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1fr_420px]">
             <div className="space-y-4">
               <CalculatorTemplatePanel
@@ -394,6 +428,11 @@ function FilamentCalculatorContent({
                 saving={templateSaving}
                 onApply={applyProjectTemplate}
                 onSave={saveProjectTemplate}
+                onEdit={updateProjectTemplateMetadata}
+                onUpdateFromCurrent={updateProjectTemplateFromCurrent}
+                onClone={cloneProjectTemplate}
+                onArchive={archiveProjectTemplate}
+                onDelete={removeProjectTemplate}
               />
               {/* INÍCIO RÁPIDO — sempre visível */}
               <Reveal delay={0}>
@@ -1205,58 +1244,82 @@ function FilamentCalculatorContent({
                     />
                   </div>
                 </div>
-                {quoteImageUrl ? (
-                  <div className="mt-2.5 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2">
-                    <img
-                      src={quoteImageUrl}
-                      alt="Prévia do produto"
-                      className="h-12 w-12 shrink-0 rounded-lg object-cover"
-                    />
-                    <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/60">
-                      Imagem anexada
+                <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.025]">
+                  <button
+                    type="button"
+                    onClick={() => setImageSectionOpen((current) => !current)}
+                    className="flex min-h-11 w-full items-center gap-2 px-3 text-left text-[11px] font-bold text-white/55 hover:text-white/80"
+                    aria-expanded={imageSectionOpen}
+                  >
+                    <ImagePlus className="h-4 w-4 text-blue-300" />
+                    <span className="flex-1">
+                      Imagem da proposta
+                      <span className="ml-2 font-medium text-white/30">
+                        {quoteImageUrl ? "anexada" : "opcional"}
+                      </span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => setQuoteImageUrl("")}
-                      className="shrink-0 rounded-lg border border-white/10 p-2 text-white/40 transition hover:border-red-400/30 hover:text-red-300"
-                      aria-label="Remover imagem"
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <label className="mt-2.5 flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 text-[11px] font-bold text-white/50 transition hover:border-white/30 hover:text-white/70">
-                    {uploadingImage ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ImagePlus className="h-4 w-4" />
-                    )}
-                    {uploadingImage ? "Enviando..." : "Anexar imagem do produto (opcional)"}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      disabled={uploadingImage}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) handleUploadImage(file);
-                        e.target.value = "";
-                      }}
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${imageSectionOpen ? "rotate-180" : ""}`}
                     />
-                  </label>
-                )}
+                  </button>
 
-                {quoteImageUrl && (
-                  <label className="mt-2.5 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-bold text-white/65">
-                    <input
-                      type="checkbox"
-                      checked={showImageOnQuote}
-                      onChange={(event) => setShowImageOnQuote(event.target.checked)}
-                      className="h-4 w-4 rounded border-white/20 bg-black/30 text-blue-500 focus:ring-blue-400"
-                    />
-                    Exibir esta imagem na proposta do cliente
-                  </label>
-                )}
+                  {imageSectionOpen && (
+                    <div className="border-t border-white/[0.07] p-2.5">
+                      {quoteImageUrl ? (
+                        <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-2">
+                          <img
+                            src={quoteImageUrl}
+                            alt="Prévia do produto"
+                            className="h-12 w-12 shrink-0 rounded-lg object-cover"
+                          />
+                          <span className="min-w-0 flex-1 truncate text-[11px] font-bold text-white/60">
+                            Imagem anexada
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setQuoteImageUrl("")}
+                            className="shrink-0 rounded-lg border border-white/10 p-2 text-white/40 transition hover:border-red-400/30 hover:text-red-300"
+                            aria-label="Remover imagem"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ) : (
+                        <label className="flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-3 text-[11px] font-bold text-white/50 transition hover:border-white/30 hover:text-white/70">
+                          {uploadingImage ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ImagePlus className="h-4 w-4" />
+                          )}
+                          {uploadingImage ? "Enviando..." : "Anexar imagem do produto (opcional)"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingImage}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUploadImage(file);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      )}
+
+                      {quoteImageUrl && (
+                        <label className="mt-2.5 flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs font-bold text-white/65">
+                          <input
+                            type="checkbox"
+                            checked={showImageOnQuote}
+                            onChange={(event) => setShowImageOnQuote(event.target.checked)}
+                            className="h-4 w-4 rounded border-white/20 bg-black/30 text-blue-500 focus:ring-blue-400"
+                          />
+                          Exibir esta imagem na proposta do cliente
+                        </label>
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="button"

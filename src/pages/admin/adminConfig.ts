@@ -8,6 +8,7 @@ import {
   HelpCircle,
   History,
   Layers,
+  LayoutTemplate,
   ListTodo,
   Package,
   Printer,
@@ -34,6 +35,7 @@ export type AdminTabId =
   | "categories"
   | "materials"
   | "printers"
+  | "calculatorTemplates"
   | "showcase"
   | "coupons"
   | "crm"
@@ -64,6 +66,7 @@ export const ADMIN_MENU_ITEMS: AdminMenuItem[] = [
   { id: "categories", name: "Categorias", icon: Folder },
   { id: "materials", name: "Materiais", icon: Box },
   { id: "printers", name: "Impressoras", icon: Factory },
+  { id: "calculatorTemplates", name: "Modelos da Calculadora", icon: LayoutTemplate },
   { id: "showcase", name: "Vitrine", icon: Sparkles },
   { id: "coupons", name: "Cupons", icon: Tag },
   { id: "crm", name: "Clientes", icon: Users },
@@ -83,6 +86,7 @@ export const ADMIN_TAB_SUBTITLES: Record<AdminTabId, string> = {
   categories: "Organize como os clientes encontram os produtos",
   materials: "Materiais e filamentos disponíveis",
   printers: "Máquinas, peças e custo-hora usados no cálculo",
+  calculatorTemplates: "Gerencie configurações reutilizáveis da calculadora",
   showcase: "Curadoria da vitrine pública",
   coupons: "Cupons e descontos promocionais",
   crm: "Base de clientes e relacionamento",

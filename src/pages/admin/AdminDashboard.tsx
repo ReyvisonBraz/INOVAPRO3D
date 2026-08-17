@@ -103,6 +103,7 @@ import {
 import { buildQuoteDocumentData } from "../../lib/quoteDocument";
 import { printDocument, type PrintDocumentMode } from "../../lib/printing";
 import AdminTrashPanel from "./components/AdminTrashPanel";
+import AdminCalculatorTemplatesPanel from "./components/AdminCalculatorTemplatesPanel";
 
 function isQuoteRecord(record: Quote | Ticket): record is Quote {
   return typeof record.fileName === "string" && typeof record.materialId === "string";
@@ -1174,6 +1175,11 @@ export default function AdminDashboard() {
                     "Sim, Excluir",
                   )
                 }
+              />
+            )}
+            {activeTab === "calculatorTemplates" && (
+              <AdminCalculatorTemplatesPanel
+                onEditInCalculator={(template) => openAdminCalculator({ mode: "NEW", template })}
               />
             )}
             {activeTab === "quotes" && (

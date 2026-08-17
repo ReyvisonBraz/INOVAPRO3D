@@ -27,8 +27,12 @@ import { fetchCompanyProfile } from "../../../services/company";
 import { buildInventoryForecast } from "../../../lib/inventoryForecast";
 import {
   createCalculatorTemplate,
+  cloneCalculatorTemplate,
+  deleteCalculatorTemplate,
   fetchCalculatorTemplates,
   registerTemplateUsage,
+  setCalculatorTemplateArchived,
+  updateCalculatorTemplate,
 } from "../../../services/calculatorTemplates";
 import { usePrinterOptions } from "../../../hooks/usePrinterOptions";
 import {
@@ -81,6 +85,7 @@ export type CalculatorIntent = "NEW" | "EDIT" | "DUPLICATE";
 
 export interface UseCalculatorStateOptions {
   initialQuote?: Quote | null;
+  initialTemplate?: CalculatorTemplate | null;
   initialQuoteId?: string;
   intent?: CalculatorIntent;
   onQuoteSaved?: (result: { id: string; created: boolean }) => void | Promise<void>;
@@ -219,9 +224,19 @@ function safeNumber(value: number, fallback = 0) {
 }
 
 export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
-  const { initialQuote = null, initialQuoteId, intent = "NEW", onQuoteSaved } = options;
-  const [initialSnapshot] = useState(() => mergeCalcSnapshot(initialQuote?.calcSnapshot));
-  const [initialDraft] = useState(() => (initialQuote ? null : readCalculatorDraft()));
+  const {
+    initialQuote = null,
+    initialTemplate = null,
+    initialQuoteId,
+    intent = "NEW",
+    onQuoteSaved,
+  } = options;
+  const [initialSnapshot] = useState(() =>
+    mergeCalcSnapshot(initialQuote?.calcSnapshot ?? initialTemplate?.snapshot),
+  );
+  const [initialDraft] = useState(() =>
+    initialQuote || initialTemplate ? null : readCalculatorDraft(),
+  );
   const [initialProject] = useState<CalculatorProject>(() => {
     const source = initialSnapshot?.project ??
       initialQuote?.calculationProject ??
@@ -441,7 +456,11 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
   const [customerSearch, setCustomerSearch] = useState("");
   const [customers, setCustomers] = useState<QuoteCustomer[]>([]);
   const [quoteImageUrl, setQuoteImageUrl] = useState(
-    initialSnapshot?.imageUrl ?? initialDraft?.quoteImageUrl ?? initialQuote?.imageUrl ?? "",
+    initialTemplate?.imageUrl ??
+      initialSnapshot?.imageUrl ??
+      initialDraft?.quoteImageUrl ??
+      initialQuote?.imageUrl ??
+      "",
   );
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -900,6 +919,7 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
 
   const applyProjectTemplate = (template: CalculatorTemplate) => {
     applySnapshotToCalculator(template.snapshot);
+    setQuoteImageUrl(template.imageUrl ?? "");
     setCalculatorTemplates((current) =>
       current
         .map((item) =>
@@ -910,6 +930,14 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     void registerTemplateUsage(template.id).catch(() => undefined);
     toast.success(`Modelo “${template.name}” aplicado.`, { position: "bottom-center" });
   };
+
+  const currentTemplateSnapshot = () =>
+    buildCalcSnapshot({
+      ...printableSnapshot,
+      client: { name: "" },
+      imageUrl: undefined,
+      showImageOnQuote: true,
+    });
 
   const saveProjectTemplate = async (name: string): Promise<boolean> => {
     const issues = validateCalculatorProject(project);
@@ -922,18 +950,20 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     }
     setTemplateSaving(true);
     try {
-      const templateSnapshot = buildCalcSnapshot({
-        ...printableSnapshot,
-        client: { name: "" },
-        imageUrl: undefined,
-        showImageOnQuote: true,
-      });
+      const templateSnapshot = currentTemplateSnapshot();
       const id = await createCalculatorTemplate({
         name,
+        imageUrl: quoteImageUrl || undefined,
         snapshot: templateSnapshot,
       });
       setCalculatorTemplates((current) => [
-        { id, name: name.trim(), usageCount: 0, snapshot: templateSnapshot },
+        {
+          id,
+          name: name.trim(),
+          imageUrl: quoteImageUrl || undefined,
+          usageCount: 0,
+          snapshot: templateSnapshot,
+        },
         ...current,
       ]);
       toast.success("Modelo de projeto salvo.", { position: "bottom-center" });
@@ -945,6 +975,97 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
       return false;
     } finally {
       setTemplateSaving(false);
+    }
+  };
+
+  const updateProjectTemplateMetadata = async (
+    template: CalculatorTemplate,
+    name: string,
+    description: string,
+  ): Promise<boolean> => {
+    if (!name.trim()) return false;
+    try {
+      await updateCalculatorTemplate(template.id, { name, description });
+      setCalculatorTemplates((current) =>
+        current.map((item) =>
+          item.id === template.id
+            ? { ...item, name: name.trim(), description: description.trim() || undefined }
+            : item,
+        ),
+      );
+      toast.success("Modelo atualizado.", { position: "bottom-center" });
+      return true;
+    } catch {
+      toast.error("Não foi possível editar o modelo.", { position: "bottom-center" });
+      return false;
+    }
+  };
+
+  const updateProjectTemplateFromCurrent = async (
+    template: CalculatorTemplate,
+  ): Promise<boolean> => {
+    const issues = validateCalculatorProject(project);
+    if (issues.length) {
+      toast.error(`Complete o projeto primeiro: ${issues[0].message}`, {
+        position: "bottom-center",
+      });
+      return false;
+    }
+    try {
+      const snapshot = currentTemplateSnapshot();
+      await updateCalculatorTemplate(template.id, {
+        snapshot,
+        imageUrl: quoteImageUrl,
+      });
+      setCalculatorTemplates((current) =>
+        current.map((item) =>
+          item.id === template.id
+            ? { ...item, snapshot, imageUrl: quoteImageUrl || undefined }
+            : item,
+        ),
+      );
+      toast.success("Modelo substituído pelo projeto atual.", { position: "bottom-center" });
+      return true;
+    } catch {
+      toast.error("Não foi possível atualizar o conteúdo do modelo.", {
+        position: "bottom-center",
+      });
+      return false;
+    }
+  };
+
+  const cloneProjectTemplate = async (template: CalculatorTemplate): Promise<void> => {
+    try {
+      const id = await cloneCalculatorTemplate(template);
+      setCalculatorTemplates((current) => [
+        { ...template, id, name: `Cópia de ${template.name}`, usageCount: 0 },
+        ...current,
+      ]);
+      toast.success("Modelo clonado.", { position: "bottom-center" });
+    } catch {
+      toast.error("Não foi possível clonar o modelo.", { position: "bottom-center" });
+    }
+  };
+
+  const archiveProjectTemplate = async (template: CalculatorTemplate): Promise<void> => {
+    try {
+      await setCalculatorTemplateArchived(template.id, true);
+      setCalculatorTemplates((current) => current.filter((item) => item.id !== template.id));
+      toast.success("Modelo arquivado. Ele continua disponível no painel administrativo.", {
+        position: "bottom-center",
+      });
+    } catch {
+      toast.error("Não foi possível arquivar o modelo.", { position: "bottom-center" });
+    }
+  };
+
+  const removeProjectTemplate = async (template: CalculatorTemplate): Promise<void> => {
+    try {
+      await deleteCalculatorTemplate(template.id);
+      setCalculatorTemplates((current) => current.filter((item) => item.id !== template.id));
+      toast.success("Modelo movido para a lixeira do painel.", { position: "bottom-center" });
+    } catch {
+      toast.error("Não foi possível excluir o modelo.", { position: "bottom-center" });
     }
   };
 
@@ -1349,6 +1470,11 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     templateSaving,
     applyProjectTemplate,
     saveProjectTemplate,
+    updateProjectTemplateMetadata,
+    updateProjectTemplateFromCurrent,
+    cloneProjectTemplate,
+    archiveProjectTemplate,
+    removeProjectTemplate,
   };
 }
 
