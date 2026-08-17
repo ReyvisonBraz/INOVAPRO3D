@@ -191,13 +191,24 @@ export default function AdminDashboard() {
     (quote: Quote, mode: PrintDocumentMode): PrintDocumentEntry => {
       const printerId = quote.printerId || quote.calcSnapshot?.printerId;
       const printer = printers.find((candidate) => candidate.id === printerId);
-      const data = buildQuoteDocumentData(quote, companyAdmin.companyProfile, {
+      const quoteEmail = (quote.userEmail || quote.email || "").trim().toLowerCase();
+      const registeredCustomer = customers.find(
+        (customer) =>
+          (quote.customerId && customer.id === quote.customerId) ||
+          (quoteEmail && customer.email?.trim().toLowerCase() === quoteEmail),
+      );
+      const enrichedQuote: Quote = {
+        ...quote,
+        userName: quote.userName || registeredCustomer?.name,
+        phone: quote.phone || registeredCustomer?.whatsapp || registeredCustomer?.phone,
+      };
+      const data = buildQuoteDocumentData(enrichedQuote, companyAdmin.companyProfile, {
         materials,
         printerPhotoUrl: printer?.photoUrl,
       });
       return { data, mode, key: `${quote.id}-${mode}` };
     },
-    [companyAdmin.companyProfile, materials, printers],
+    [companyAdmin.companyProfile, customers, materials, printers],
   );
 
   const handlePrintSavedQuotes = useCallback(
