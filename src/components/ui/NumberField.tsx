@@ -1,4 +1,5 @@
 import { memo, useRef, useState, type FocusEvent } from "react";
+import { isValidNumberDraft, parseNumberDraft } from "../../lib/numberInput";
 
 // ============================================================================
 // CAMPO NUMÉRICO COMPARTILHADO
@@ -20,6 +21,7 @@ interface BaseProps {
   className?: string;
   placeholder?: string;
   id?: string;
+  title?: string;
   disabled?: boolean;
   "aria-label"?: string;
   "aria-describedby"?: string;
@@ -32,6 +34,13 @@ interface InternalProps extends BaseProps {
   onCommit: (value: number | null) => void;
   /** Quando falso, um campo vazio vira `null` em vez de cair no mínimo. */
   required: boolean;
+}
+
+function clamp(value: number, min?: number, max?: number): number {
+  return Math.min(
+    max ?? Number.POSITIVE_INFINITY,
+    Math.max(min ?? Number.NEGATIVE_INFINITY, value),
+  );
 }
 
 const RawNumberField = memo(function RawNumberField({
@@ -68,8 +77,8 @@ const RawNumberField = memo(function RawNumberField({
   };
 
   const handleBlur = () => {
-    const parsed = Number(draft);
-    if (draft.trim() === "" || !Number.isFinite(parsed)) {
+    const parsed = parseNumberDraft(draft);
+    if (parsed === null) {
       if (required) {
         const fallback = min ?? 0;
         setDraft(String(fallback));
@@ -80,17 +89,19 @@ const RawNumberField = memo(function RawNumberField({
       }
       return;
     }
-    // Normaliza a exibição depois de sair do campo: "1." vira "1".
-    setDraft(String(parsed));
-    commit(parsed);
+    // Normaliza e aplica limites somente ao sair. Durante a digitação, valores
+    // intermediários continuam livres para o usuário substituir sem atrito.
+    const bounded = clamp(parsed, min, max);
+    setDraft(String(bounded));
+    commit(bounded);
   };
 
   return (
     <input
       {...aria}
       id={id}
-      type="number"
-      inputMode="decimal"
+      type="text"
+      inputMode={step !== undefined && step >= 1 ? "numeric" : "decimal"}
       min={min}
       max={max}
       step={step}
@@ -105,13 +116,14 @@ const RawNumberField = memo(function RawNumberField({
       }
       onChange={(event) => {
         const text = event.target.value;
+        if (!isValidNumberDraft(text)) return;
         setDraft(text);
         if (text.trim() === "") {
           if (!required) commit(null);
           return;
         }
-        const parsed = Number(text);
-        if (Number.isFinite(parsed)) commit(parsed);
+        const parsed = parseNumberDraft(text);
+        if (parsed !== null) commit(parsed);
       }}
       onBlur={handleBlur}
     />

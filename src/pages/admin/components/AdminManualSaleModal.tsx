@@ -4,6 +4,7 @@ import { Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { auth, db } from "../../../services/firebase";
 import { Button } from "../../../components/ui/Button";
+import { NumberField } from "../../../components/ui/NumberField";
 import { buildQuotePayload } from "../../../lib/quotes";
 import type { Customer, Material, MaterialUsage, OrderItem, Product } from "../../../types/domain";
 
@@ -248,20 +249,18 @@ export function AdminManualSaleModal({
                 placeholder="Item personalizado"
                 className={fieldClass}
               />
-              <input
-                type="number"
-                min="0"
-                step="0.01"
+              <NumberField
+                min={0}
+                step={0.01}
                 value={price}
-                onChange={(e) => setPrice(Number(e.target.value))}
+                onChange={setPrice}
                 placeholder="Valor unitario"
                 className={fieldClass}
               />
-              <input
-                type="number"
-                min="1"
+              <NumberField
+                min={1}
                 value={quantity}
-                onChange={(e) => setQuantity(Number(e.target.value))}
+                onChange={setQuantity}
                 placeholder="Quantidade"
                 className={fieldClass}
               />
@@ -286,11 +285,10 @@ export function AdminManualSaleModal({
                   </option>
                 ))}
               </select>
-              <input
-                type="number"
-                min="0"
+              <NumberField
+                min={0}
                 value={grams}
-                onChange={(e) => setGrams(Number(e.target.value))}
+                onChange={setGrams}
                 placeholder="Consumo total deste item (g)"
                 className={fieldClass}
               />
@@ -348,21 +346,19 @@ export function AdminManualSaleModal({
             />
           </div>
           <div className="mt-5 grid gap-3 sm:grid-cols-3">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
+            <NumberField
+              min={0}
+              step={0.01}
               value={discount}
-              onChange={(e) => setDiscount(Number(e.target.value))}
+              onChange={setDiscount}
               placeholder="Desconto"
               className={fieldClass}
             />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
+            <NumberField
+              min={0}
+              step={0.01}
               value={shippingRate}
-              onChange={(e) => setShippingRate(Number(e.target.value))}
+              onChange={setShippingRate}
               placeholder="Frete"
               className={fieldClass}
             />

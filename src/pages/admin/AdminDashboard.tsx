@@ -29,6 +29,7 @@ import {
   Factory,
 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
+import { NumberField } from "../../components/ui/NumberField";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
@@ -1413,16 +1414,12 @@ export default function AdminDashboard() {
                           {editingItems ? (
                             <div className="flex items-center gap-2 mt-2">
                               <label className="text-[10px] text-dim">Qtd:</label>
-                              <input
-                                type="number"
+                              <NumberField
                                 min={1}
                                 value={editItem.quantity}
-                                onChange={(e) => {
+                                onChange={(quantity) => {
                                   const next = [...editedItems];
-                                  next[idx] = {
-                                    ...next[idx],
-                                    quantity: Number(e.target.value) || 1,
-                                  };
+                                  next[idx] = { ...next[idx], quantity };
                                   setEditedItems(next);
                                 }}
                                 className="w-16 bg-black border border-white/10 rounded-lg p-1.5 text-xs font-bold text-center outline-none focus:border-primary/50"
@@ -1437,14 +1434,13 @@ export default function AdminDashboard() {
                         {editingItems ? (
                           <div className="flex items-center gap-1 shrink-0">
                             <span className="text-[10px] text-dim">R$</span>
-                            <input
-                              type="number"
+                            <NumberField
                               min={0}
                               step={0.01}
                               value={editItem.price}
-                              onChange={(e) => {
+                              onChange={(price) => {
                                 const next = [...editedItems];
-                                next[idx] = { ...next[idx], price: Number(e.target.value) || 0 };
+                                next[idx] = { ...next[idx], price };
                                 setEditedItems(next);
                               }}
                               className="w-24 bg-black border border-white/10 rounded-lg p-1.5 text-xs font-bold text-right outline-none focus:border-primary/50 font-mono"

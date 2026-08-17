@@ -1,5 +1,6 @@
-import { useMemo, useState, type FocusEvent, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Copy, HelpCircle, Pencil, Plus, Trash2, X } from "lucide-react";
+import { NumberField } from "../ui/NumberField";
 import type { Material } from "../../types/domain";
 import {
   createEmptyPlate,
@@ -46,10 +47,6 @@ const emptyDraft = (): FilamentDraft => ({
 
 const fieldClass =
   "w-full rounded-xl border border-white/15 bg-black/35 px-3 py-3 text-sm font-medium text-white outline-none placeholder:text-white/30 focus:border-blue-400/70 focus:ring-2 focus:ring-blue-400/10";
-
-const selectNumericValue = (event: FocusEvent<HTMLInputElement>) => {
-  event.currentTarget.select();
-};
 
 const FIELD_HELP = {
   projectName:
@@ -324,14 +321,10 @@ export function CalculatorProjectEditor({
           />
         </FieldLabel>
         <FieldLabel label="Produtos finais" help={FIELD_HELP.outputQuantity}>
-          <input
-            type="number"
+          <NumberField
             min={1}
-            onFocus={selectNumericValue}
             value={project.outputQuantity}
-            onChange={(event) =>
-              onChange({ ...project, outputQuantity: Number(event.target.value) || 0 })
-            }
+            onChange={(outputQuantity) => onChange({ ...project, outputQuantity })}
             title="Quantidade de produtos completos e vendáveis"
             className={`${fieldClass} ${issuePaths.has("project.outputQuantity") ? "border-red-400/70" : ""}`}
           />
@@ -412,26 +405,18 @@ export function CalculatorProjectEditor({
               </FieldLabel>
               <div className="grid grid-cols-2 gap-2">
                 <FieldLabel label="Itens físicos" help={FIELD_HELP.physicalItems}>
-                  <input
-                    type="number"
+                  <NumberField
                     min={1}
                     value={plate.pieces}
-                    onFocus={selectNumericValue}
-                    onChange={(event) =>
-                      updatePlate(plate.id, { pieces: Number(event.target.value) || 0 })
-                    }
+                    onChange={(pieces) => updatePlate(plate.id, { pieces })}
                     className={fieldClass}
                   />
                 </FieldLabel>
                 <FieldLabel label="Repetições" help={FIELD_HELP.repetitions}>
-                  <input
-                    type="number"
+                  <NumberField
                     min={1}
                     value={plate.repetitions}
-                    onFocus={selectNumericValue}
-                    onChange={(event) =>
-                      updatePlate(plate.id, { repetitions: Number(event.target.value) || 0 })
-                    }
+                    onChange={(repetitions) => updatePlate(plate.id, { repetitions })}
                     className={fieldClass}
                   />
                 </FieldLabel>
@@ -577,15 +562,13 @@ export function CalculatorProjectEditor({
                       </select>
                     </FieldLabel>
                     <FieldLabel label="Preço por kg" help={FIELD_HELP.manualPrice}>
-                      <input
-                        type="number"
+                      <NumberField
                         min={0}
-                        value={draft.pricePerKg || ""}
-                        onFocus={selectNumericValue}
-                        onChange={(event) =>
+                        value={draft.pricePerKg}
+                        onChange={(pricePerKg) =>
                           setDrafts((current) => ({
                             ...current,
-                            [plate.id]: { ...draft, pricePerKg: Number(event.target.value) || 0 },
+                            [plate.id]: { ...draft, pricePerKg },
                           }))
                         }
                         placeholder="Ex.: 120"
@@ -595,16 +578,14 @@ export function CalculatorProjectEditor({
                   </div>
                 )}
                 <FieldLabel label="Total (g)" help={FIELD_HELP.totalGrams}>
-                  <input
-                    type="number"
+                  <NumberField
                     min={0}
-                    step="0.01"
-                    value={draft.grams || ""}
-                    onFocus={selectNumericValue}
-                    onChange={(event) =>
+                    step={0.01}
+                    value={draft.grams}
+                    onChange={(grams) =>
                       setDrafts((current) => ({
                         ...current,
-                        [plate.id]: { ...draft, grams: Number(event.target.value) || 0 },
+                        [plate.id]: { ...draft, grams },
                       }))
                     }
                     placeholder="Ex.: 63,08"
