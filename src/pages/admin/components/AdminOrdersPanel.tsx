@@ -22,8 +22,9 @@ import {
   SlidersHorizontal,
   Plus,
 } from "lucide-react";
-import type { Order, OrderItem, OrderStatus } from "../../../types/domain";
+import type { Order, OrderItem, OrderStatus, TrashEntry } from "../../../types/domain";
 import { AdminSectionHeader } from "./AdminPrimitives";
+import AdminModuleTrash from "./AdminModuleTrash";
 
 const KANBAN_STAGES = [
   {
@@ -78,6 +79,11 @@ interface AdminOrdersPanelProps {
   onDeleteOrders: (orders: Order[]) => void;
   onUpdateStatus: (orderId: string, newStatus: string) => void;
   onCreateManual: () => void;
+  trashItems: TrashEntry[];
+  trashBlocked?: boolean;
+  onRestoreTrash: (entry: TrashEntry) => void;
+  onDeleteTrashPermanently: (entry: TrashEntry) => void;
+  onEmptyTrash: () => void;
 }
 
 const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
@@ -90,6 +96,11 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
     onDeleteOrders,
     onUpdateStatus,
     onCreateManual,
+    trashItems,
+    trashBlocked = false,
+    onRestoreTrash,
+    onDeleteTrashPermanently,
+    onEmptyTrash,
   }) => {
     const [viewMode, setViewMode] = useState<"kanban" | "table">("table");
     const [statusFilter, setStatusFilter] = useState<OrderStatus | "ALL">("ALL");
@@ -98,6 +109,7 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const [localSearch, setLocalSearch] = useState("");
     const [dragOverStage, setDragOverStage] = useState<string | null>(null);
+    const [showTrash, setShowTrash] = useState(false);
 
     const filterStatuses: (OrderStatus | "ALL")[] = [
       "ALL",
@@ -220,6 +232,13 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
                 </button>
               </div>
               <button
+                type="button"
+                onClick={() => setShowTrash((current) => !current)}
+                className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-semibold transition ${showTrash ? "border-red-400/30 bg-red-500/15 text-red-200" : "border-white/10 bg-white/[0.04] text-white/60 hover:text-white"}`}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Lixeira ({trashItems.length})
+              </button>
+              <button
                 onClick={onCreateManual}
                 className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-[11px] font-semibold text-white transition hover:bg-primary-dark"
               >
@@ -228,6 +247,17 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
             </>
           }
         />
+
+        {showTrash && (
+          <AdminModuleTrash
+            items={trashItems}
+            itemLabel="Pedidos"
+            blocked={trashBlocked}
+            onRestore={onRestoreTrash}
+            onDeletePermanently={onDeleteTrashPermanently}
+            onEmpty={onEmptyTrash}
+          />
+        )}
 
         {/* Search + Filters */}
         <div className="admin-toolbar">

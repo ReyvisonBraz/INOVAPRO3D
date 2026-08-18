@@ -266,6 +266,33 @@ export function useAdminActions({
     [setTrashItems],
   );
 
+  const emptyTrashItems = useCallback(
+    async (entries: TrashEntry[]) => {
+      if (!entries.length) return;
+      try {
+        for (let offset = 0; offset < entries.length; offset += 400) {
+          const batch = writeBatch(db);
+          const chunk = entries.slice(offset, offset + 400);
+          for (const entry of chunk) {
+            if (entry.sourceCollection === "orders" || entry.sourceCollection === "quotes") {
+              batch.delete(doc(db, entry.sourceCollection, entry.originalId));
+            }
+            batch.delete(doc(db, "trash", entry.id));
+          }
+          await batch.commit();
+        }
+        const deletedIds = new Set(entries.map((entry) => entry.id));
+        setTrashItems((current) => current.filter((item) => !deletedIds.has(item.id)));
+        toast.success(
+          `${entries.length} ${entries.length === 1 ? "item excluído" : "itens excluídos"} definitivamente.`,
+        );
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, "trash");
+      }
+    },
+    [setTrashItems],
+  );
+
   const handleUpdateTracking = useCallback(async (id: string, trackingCode: string) => {
     try {
       await updateDoc(doc(db, "orders", id), { trackingCode, updatedAt: serverTimestamp() });
@@ -281,6 +308,7 @@ export function useAdminActions({
     deleteItems,
     restoreTrashItem,
     permanentlyDeleteTrashItem,
+    emptyTrashItems,
     handleUpdateTracking,
   };
 }

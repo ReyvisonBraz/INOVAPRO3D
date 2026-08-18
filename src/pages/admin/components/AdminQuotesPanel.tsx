@@ -12,8 +12,9 @@ import {
   Factory,
 } from "lucide-react";
 import { formatBRL } from "../../../lib/pricing";
-import type { FirestoreDate, Quote, Ticket } from "../../../types/domain";
+import type { FirestoreDate, Quote, Ticket, TrashEntry } from "../../../types/domain";
 import { AdminEmptyState, AdminMetric, AdminSectionHeader } from "./AdminPrimitives";
+import AdminModuleTrash from "./AdminModuleTrash";
 
 interface AdminQuotesPanelProps {
   quotes: Quote[];
@@ -30,6 +31,11 @@ interface AdminQuotesPanelProps {
   onPrintClientBatch: (quotes: Quote[]) => void;
   onPrintProductionBatch: (quotes: Quote[]) => void;
   onDeleteQuotes: (quotes: Quote[]) => void;
+  trashItems: TrashEntry[];
+  trashBlocked?: boolean;
+  onRestoreTrash: (entry: TrashEntry) => void;
+  onDeleteTrashPermanently: (entry: TrashEntry) => void;
+  onEmptyTrash: () => void;
   hasMore: boolean;
   loadingMore: boolean;
   onLoadMore: () => void;
@@ -93,11 +99,17 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
   onPrintClientBatch,
   onPrintProductionBatch,
   onDeleteQuotes,
+  trashItems,
+  trashBlocked = false,
+  onRestoreTrash,
+  onDeleteTrashPermanently,
+  onEmptyTrash,
   hasMore,
   loadingMore,
   onLoadMore,
 }: AdminQuotesPanelProps) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showTrash, setShowTrash] = useState(false);
   const selectedQuotes = useMemo(
     () => quotes.filter((quote) => selectedIds.has(quote.id)),
     [quotes, selectedIds],
@@ -130,14 +142,33 @@ const AdminQuotesPanel = memo(function AdminQuotesPanel({
         title="Orçamentos"
         description="Analise solicitações, envie propostas e converta aprovações em pedidos."
         actions={
-          <button
-            onClick={onCreateManual}
-            className="h-9 rounded-lg bg-primary px-3 text-[11px] font-semibold text-white transition hover:bg-primary-dark"
-          >
-            Novo orçamento
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setShowTrash((current) => !current)}
+              className={`inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-[11px] font-semibold transition ${showTrash ? "border-red-400/30 bg-red-500/15 text-red-200" : "border-white/10 bg-white/[0.04] text-white/60 hover:text-white"}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> Lixeira ({trashItems.length})
+            </button>
+            <button
+              onClick={onCreateManual}
+              className="h-9 rounded-lg bg-primary px-3 text-[11px] font-semibold text-white transition hover:bg-primary-dark"
+            >
+              Novo orçamento
+            </button>
+          </div>
         }
       />
+      {showTrash && (
+        <AdminModuleTrash
+          items={trashItems}
+          itemLabel="Orçamentos"
+          blocked={trashBlocked}
+          onRestore={onRestoreTrash}
+          onDeletePermanently={onDeleteTrashPermanently}
+          onEmpty={onEmptyTrash}
+        />
+      )}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <AdminMetric label="Total" value={quotes.length} />
         <AdminMetric

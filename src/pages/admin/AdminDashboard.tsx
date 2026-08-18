@@ -319,6 +319,7 @@ export default function AdminDashboard() {
     deleteItems,
     restoreTrashItem,
     permanentlyDeleteTrashItem,
+    emptyTrashItems,
     handleUpdateTracking,
   } = useAdminActions({
     orders,
@@ -875,6 +876,15 @@ export default function AdminDashboard() {
     [quotes, searchTerm],
   );
 
+  const orderTrashItems = useMemo(
+    () => trashItems.filter((item) => item.sourceCollection === "orders"),
+    [trashItems],
+  );
+  const quoteTrashItems = useMemo(
+    () => trashItems.filter((item) => item.sourceCollection === "quotes"),
+    [trashItems],
+  );
+
   // ── Menu ──
   const activeMenuItem = ADMIN_MENU_ITEMS.find((item) => item.id === activeTab);
 
@@ -1007,6 +1017,35 @@ export default function AdminDashboard() {
                       ),
                     true,
                     "Mover permitidos",
+                  )
+                }
+                trashItems={orderTrashItems}
+                trashBlocked={trashBlocked}
+                onRestoreTrash={(entry) =>
+                  triggerConfirm(
+                    "Restaurar pedido",
+                    `Deseja restaurar “${entry.label}”?`,
+                    () => void restoreTrashItem(entry),
+                    false,
+                    "Restaurar",
+                  )
+                }
+                onDeleteTrashPermanently={(entry) =>
+                  triggerConfirm(
+                    "Excluir pedido definitivamente",
+                    `“${entry.label}” não poderá mais ser recuperado.`,
+                    () => void permanentlyDeleteTrashItem(entry),
+                    true,
+                    "Excluir de vez",
+                  )
+                }
+                onEmptyTrash={() =>
+                  triggerConfirm(
+                    "Esvaziar lixeira de pedidos",
+                    `${orderTrashItems.length} pedido(s) serão excluídos definitivamente e não poderão ser restaurados.`,
+                    () => void emptyTrashItems(orderTrashItems),
+                    true,
+                    "Esvaziar lixeira",
                   )
                 }
               />
@@ -1230,6 +1269,35 @@ export default function AdminDashboard() {
                       ),
                     true,
                     "Mover selecionados",
+                  )
+                }
+                trashItems={quoteTrashItems}
+                trashBlocked={trashBlocked}
+                onRestoreTrash={(entry) =>
+                  triggerConfirm(
+                    "Restaurar orçamento",
+                    `Deseja restaurar “${entry.label}”?`,
+                    () => void restoreTrashItem(entry),
+                    false,
+                    "Restaurar",
+                  )
+                }
+                onDeleteTrashPermanently={(entry) =>
+                  triggerConfirm(
+                    "Excluir orçamento definitivamente",
+                    `“${entry.label}” não poderá mais ser recuperado.`,
+                    () => void permanentlyDeleteTrashItem(entry),
+                    true,
+                    "Excluir de vez",
+                  )
+                }
+                onEmptyTrash={() =>
+                  triggerConfirm(
+                    "Esvaziar lixeira de orçamentos",
+                    `${quoteTrashItems.length} orçamento(s) serão excluídos definitivamente e não poderão ser restaurados.`,
+                    () => void emptyTrashItems(quoteTrashItems),
+                    true,
+                    "Esvaziar lixeira",
                   )
                 }
                 hasMore={quotesHasMore}
