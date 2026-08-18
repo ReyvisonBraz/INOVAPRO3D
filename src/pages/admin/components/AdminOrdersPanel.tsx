@@ -566,31 +566,6 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
                         }}
                         className="bg-surface-card p-3 rounded-[20px] border border-white/5 hover:border-primary/50 cursor-grab active:cursor-grabbing transition-all group relative select-none"
                       >
-                        {/* Quick actions — below price, right side */}
-                        <div className="absolute bottom-3 right-3 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                          {o.status !== "CANCELED" && o.status !== "COMPLETED" && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onCancelOrder(o);
-                              }}
-                              className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
-                              title="Cancelar"
-                            >
-                              <XCircle className="w-3 h-3" />
-                            </button>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onDeleteOrder(o);
-                            }}
-                            className="p-1 rounded-lg bg-red-500/10 hover:bg-red-500 text-red-400 hover:text-white transition-all"
-                            title="Excluir"
-                          >
-                            <Trash2 className="w-3 h-3" />
-                          </button>
-                        </div>
                         <div onClick={() => onSelectOrder(o)} className="cursor-pointer">
                           {/* Product image + header row */}
                           <div className="flex items-start gap-2.5 mb-2">
@@ -618,13 +593,52 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
                           <p className="text-[11px] text-secondary line-clamp-1 mb-2 font-bold">
                             {o.items?.map((i: OrderItem) => i.name || i.fileName).join(" • ")}
                           </p>
-                          <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                            <p className="text-[11px] font-mono text-dim">
-                              {formatDate(o.createdAt)}
-                            </p>
-                            <div className="w-5 h-5 rounded-full bg-white/5 flex items-center justify-center text-dim group-hover:bg-primary group-hover:text-white transition-all">
-                              <ArrowRight className="w-2.5 h-2.5" />
+                        </div>
+                        <div className="flex min-h-8 items-center justify-between gap-2 border-t border-white/5 pt-2">
+                          <p className="text-[11px] font-mono text-dim">
+                            {formatDate(o.createdAt)}
+                          </p>
+                          <div className="flex shrink-0 items-center gap-1">
+                            <div className="flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                              {o.status !== "CANCELED" && o.status !== "COMPLETED" && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onCancelOrder(o);
+                                  }}
+                                  className="grid h-7 w-7 place-items-center rounded-lg bg-red-500/10 text-red-400 transition-all hover:bg-red-500 hover:text-white"
+                                  title="Cancelar pedido"
+                                  aria-label="Cancelar pedido"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onDeleteOrder(o);
+                                }}
+                                className="grid h-7 w-7 place-items-center rounded-lg bg-red-500/10 text-red-400 transition-all hover:bg-red-500 hover:text-white"
+                                title="Excluir pedido"
+                                aria-label="Excluir pedido"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
                             </div>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onSelectOrder(o);
+                              }}
+                              className="grid h-7 w-7 place-items-center rounded-lg bg-white/5 text-dim transition-all hover:bg-primary hover:text-white"
+                              title="Ver pedido"
+                              aria-label="Ver pedido"
+                            >
+                              <ArrowRight className="h-3 w-3" />
+                            </button>
                           </div>
                         </div>
                       </div>

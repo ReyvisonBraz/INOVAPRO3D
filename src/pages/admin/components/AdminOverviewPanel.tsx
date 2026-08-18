@@ -207,24 +207,6 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                       key={order.id}
                       className="group relative min-h-[44px] rounded-[20px] border border-white/5 bg-surface-card p-3 sm:p-4"
                     >
-                      <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100">
-                        {order.status !== "CANCELED" && order.status !== "COMPLETED" && (
-                          <button
-                            onClick={() => onCancelOrder(order)}
-                            className="rounded-lg bg-red-500/10 p-1 text-red-400 hover:bg-red-500 hover:text-white"
-                            title="Cancelar pedido"
-                          >
-                            <AlertCircle className="h-3 w-3" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => onDeleteOrder(order)}
-                          className="rounded-lg bg-red-500/10 p-1 text-red-400 hover:bg-red-500 hover:text-white"
-                          title="Excluir pedido"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </button>
-                      </div>
                       <button className="w-full text-left" onClick={() => onSelectOrder(order)}>
                         <div className="mb-2 flex items-start justify-between">
                           <span className="font-mono text-[11px] text-secondary">
@@ -242,15 +224,47 @@ const AdminOverviewPanel = memo(function AdminOverviewPanel({
                             ?.map((item: OrderItem) => item.name || item.fileName)
                             .join(" • ")}
                         </p>
-                        <div className="flex items-center justify-between border-t border-white/5 pt-2">
-                          <span className="font-mono text-[11px] text-dim">
-                            {new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString(
-                              "pt-BR",
-                            )}
-                          </span>
-                          <ArrowRight className="h-3 w-3 text-dim" />
-                        </div>
                       </button>
+                      <div className="flex min-h-8 items-center justify-between gap-2 border-t border-white/5 pt-2">
+                        <span className="font-mono text-[11px] text-dim">
+                          {new Date((order.createdAt?.seconds ?? 0) * 1000).toLocaleDateString(
+                            "pt-BR",
+                          )}
+                        </span>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <div className="flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100">
+                            {order.status !== "CANCELED" && order.status !== "COMPLETED" && (
+                              <button
+                                type="button"
+                                onClick={() => onCancelOrder(order)}
+                                className="grid h-7 w-7 place-items-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white"
+                                title="Cancelar pedido"
+                                aria-label="Cancelar pedido"
+                              >
+                                <AlertCircle className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => onDeleteOrder(order)}
+                              className="grid h-7 w-7 place-items-center rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white"
+                              title="Excluir pedido"
+                              aria-label="Excluir pedido"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => onSelectOrder(order)}
+                            className="grid h-7 w-7 place-items-center rounded-lg text-dim transition hover:bg-primary/10 hover:text-primary"
+                            title="Ver pedido"
+                            aria-label="Ver pedido"
+                          >
+                            <ArrowRight className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
                     </article>
                   ))}
                   {!stageOrders.length && (
