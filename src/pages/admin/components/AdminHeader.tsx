@@ -60,6 +60,7 @@ export function AdminHeader({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          <div id="admin-calculator-dock" className="flex shrink-0 items-center" />
           <div className="hidden w-64 md:block xl:w-80">{search}</div>
           <Button
             size="sm"
