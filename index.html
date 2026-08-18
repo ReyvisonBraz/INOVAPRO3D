@@ -4,12 +4,75 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 
+    <!-- Recuperação do domínio: remove uma única vez Service Workers e caches
+         deixados por hospedagens antigas. O worker atual do SendPulse é
+         preservado para não cancelar notificações já autorizadas. -->
+    <script>
+      (function () {
+        var recoveryKey = "inovapro3d-origin-recovery-v1";
+        var productionHosts = ["inovapro3d.com.br", "www.inovapro3d.com.br"];
+        if (productionHosts.indexOf(window.location.hostname) === -1) return;
+        try {
+          if (window.localStorage.getItem(recoveryKey) === "done") return;
+        } catch (_) {
+          // A limpeza continua mesmo quando o navegador bloqueia o armazenamento.
+        }
+
+        var removeOldWorkers = Promise.resolve();
+        if ("serviceWorker" in navigator) {
+          removeOldWorkers = navigator.serviceWorker
+            .getRegistrations()
+            .then(function (registrations) {
+              return Promise.all(
+                registrations.map(function (registration) {
+                  var workers = [
+                    registration.installing,
+                    registration.waiting,
+                    registration.active,
+                  ];
+                  var isCurrentPushWorker = workers.some(function (worker) {
+                    if (!worker) return false;
+                    try {
+                      return new URL(worker.scriptURL).pathname === "/sp-push-worker-fb.js";
+                    } catch (_) {
+                      return false;
+                    }
+                  });
+                  return isCurrentPushWorker ? false : registration.unregister();
+                }),
+              );
+            })
+            .catch(function () {});
+        }
+
+        var clearOldCaches = Promise.resolve();
+        if ("caches" in window) {
+          clearOldCaches = caches
+            .keys()
+            .then(function (names) {
+              return Promise.all(
+                names.map(function (name) {
+                  return caches.delete(name);
+                }),
+              );
+            })
+            .catch(function () {});
+        }
+
+        Promise.all([removeOldWorkers, clearOldCaches]).then(function () {
+          try {
+            window.localStorage.setItem(recoveryKey, "done");
+          } catch (_) {}
+        });
+      })();
+    </script>
+
     <!-- Anti-flash: aplica dark antes de qualquer paint -->
     <script>
-      (function(){
-        var t = localStorage.getItem('inovapro3d-theme');
-        document.documentElement.classList.add(t === 'light' ? 'light' : 'dark');
-        document.documentElement.dataset.theme = t === 'light' ? 'light' : 'dark';
+      (function () {
+        var t = localStorage.getItem("inovapro3d-theme");
+        document.documentElement.classList.add(t === "light" ? "light" : "dark");
+        document.documentElement.dataset.theme = t === "light" ? "light" : "dark";
       })();
     </script>
 
@@ -17,12 +80,17 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <!-- Fontes carregadas de forma não-bloqueante com display=optional (sem FOUT) -->
-    <link rel="preload" as="style"
+    <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=optional"
-      onload="this.rel='stylesheet'" />
+      onload="this.rel = 'stylesheet'"
+    />
     <noscript>
-      <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=optional" />
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=optional"
+      />
     </noscript>
 
     <!-- Identidade / PWA -->
@@ -36,13 +104,19 @@
 
     <!-- SEO -->
     <title>INOVA PRO 3D — Tecnologia, Precisão e Inovação em Impressão 3D</title>
-    <meta name="description" content="Impressão 3D profissional no Pará. Catálogo de produtos, orçamentos sob demanda e calculadora de custos com precisão de maker. Tecnologia, precisão e inovação." />
+    <meta
+      name="description"
+      content="Impressão 3D profissional no Pará. Catálogo de produtos, orçamentos sob demanda e calculadora de custos com precisão de maker. Tecnologia, precisão e inovação."
+    />
 
     <!-- Open Graph / compartilhamento -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="INOVA PRO 3D" />
     <meta property="og:title" content="INOVA PRO 3D — Impressão 3D Profissional" />
-    <meta property="og:description" content="Tecnologia, precisão e inovação em impressão 3D. Catálogo, orçamentos e calculadora de custos." />
+    <meta
+      property="og:description"
+      content="Tecnologia, precisão e inovação em impressão 3D. Catálogo, orçamentos e calculadora de custos."
+    />
     <meta property="og:image" content="/og-image.jpg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
@@ -51,14 +125,21 @@
     <meta property="og:locale" content="pt_BR" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="INOVA PRO 3D — Impressão 3D Profissional" />
-    <meta name="twitter:description" content="Tecnologia, precisão e inovação em impressão 3D. Catálogo, orçamentos e calculadora de custos." />
+    <meta
+      name="twitter:description"
+      content="Tecnologia, precisão e inovação em impressão 3D. Catálogo, orçamentos e calculadora de custos."
+    />
     <meta name="twitter:image" content="/og-image.jpg" />
 
     <!-- SendPulse Web Push. Inline (não atrás do consentimento de cookies): o
          verificador do SendPulse lê o HTML cru e não executa JS. O próprio
          navegador pede permissão ("Permitir notificações?") antes de qualquer
          coleta, servindo de consentimento explícito. -->
-    <script charset="UTF-8" src="//web.webpushs.com/js/push/c645b41ef74d093572934565b95d5a28_1.js" async></script>
+    <script
+      charset="UTF-8"
+      src="//web.webpushs.com/js/push/c645b41ef74d093572934565b95d5a28_1.js"
+      async
+    ></script>
   </head>
   <body>
     <div id="root"></div>
