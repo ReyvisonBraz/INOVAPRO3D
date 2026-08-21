@@ -1,7 +1,33 @@
-import { collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { aggregateMaterialUsages, inventoryActionForTransition } from "../lib/inventory";
 import type { InventoryMovementType, MaterialUsage, Order, OrderStatus } from "../types/domain";
+
+export interface MaterialDraft {
+  name: string;
+  type: string;
+  color: string;
+  pricePerKg: number;
+  stockGrams: number;
+  reservedGrams: number;
+  minimumStockGrams: number;
+  brand: string;
+  supplier: string;
+  batch: string;
+  location: string;
+  notes: string;
+  inStock: boolean;
+  active: boolean;
+}
+
+export async function createMaterial(draft: MaterialDraft): Promise<void> {
+  await addDoc(collection(db, "materials"), {
+    ...draft,
+    inStock: draft.stockGrams > 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
 
 export class InsufficientInventoryError extends Error {
   constructor(public readonly shortages: string[]) {

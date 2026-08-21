@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computePricing, DEFAULT_MACHINE, type PricingResult } from "./pricing";
-import { buildScenarioTable } from "./scenarios";
+import { buildPricingGuidance, buildScenarioTable } from "./scenarios";
 
 const result = (patch: Partial<PricingResult> = {}) => {
   const base = computePricing({
@@ -96,5 +96,60 @@ describe("buildScenarioTable", () => {
       true,
     );
     expect(table.maxSafeDiscountPct).toBe(0);
+  });
+});
+
+describe("buildPricingGuidance", () => {
+  it("limita o desconto PIX do varejo ao desconto máximo seguro", () => {
+    const base = result({
+      retailTotal: 100,
+      minimumSustainablePrice: 95,
+    });
+
+    expect(
+      buildPricingGuidance(base, {
+        tier: "RETAIL",
+        minPrice: 35,
+        pixDiscountPct: 10,
+      }),
+    ).toMatchObject({
+      negotiationFloor: 95,
+      maximumSafeDiscountPct: 5,
+      comfortableDiscountPct: 5,
+      comfortableOffer: 95,
+      selectedReprintProfit: base.retailProfitAfterFullReprint,
+    });
+  });
+
+  it("não aplica desconto confortável no atacado", () => {
+    const base = result({ wholesaleTotal: 100, minimumSustainablePrice: 50 });
+    const guidance = buildPricingGuidance(base, {
+      tier: "WHOLESALE",
+      minPrice: 35,
+      pixDiscountPct: 10,
+    });
+
+    expect(guidance.comfortableDiscountPct).toBe(0);
+    expect(guidance.comfortableOffer).toBe(100);
+    expect(guidance.selectedReprintProfit).toBe(base.wholesaleProfitAfterFullReprint);
+  });
+
+  it("mantém os valores finitos quando o orçamento está vazio", () => {
+    const empty = result({
+      retailTotal: 0,
+      minimumSustainablePrice: 0,
+      weightGrams: 0,
+      hours: 0,
+    });
+    const guidance = buildPricingGuidance(empty, {
+      tier: "RETAIL",
+      minPrice: 35,
+      pixDiscountPct: 10,
+    });
+
+    expect(guidance.negotiationFloor).toBe(0);
+    expect(guidance.maximumSafeDiscountPct).toBe(0);
+    expect(guidance.comfortableOffer).toBe(0);
+    expect(Object.values(guidance).every(Number.isFinite)).toBe(true);
   });
 });

@@ -2,6 +2,17 @@ import { flushSync } from "react-dom";
 
 export type PrintDocumentMode = "CLIENT" | "PRODUCTION";
 
+export function buildPrintDocumentTitle(
+  mode: PrintDocumentMode,
+  customer: { name: string; phone?: string },
+): string {
+  const documentLabel = mode === "CLIENT" ? "Orçamento" : "Ficha de Produção";
+  return `INOVA PRO 3D ${documentLabel} - ${customer.name} - ${customer.phone || "Sem telefone"}`.replace(
+    /[\\/:*?"<>|]+/g,
+    "-",
+  );
+}
+
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 let printQueue: Promise<void> = Promise.resolve();
 

@@ -31,10 +31,50 @@ export interface ScenarioOptions {
   doubleLot?: PricingResult;
 }
 
+export interface PricingGuidanceOptions {
+  tier: "RETAIL" | "WHOLESALE";
+  minPrice: number;
+  pixDiscountPct: number;
+}
+
+export interface PricingGuidance {
+  negotiationFloor: number;
+  maximumSafeDiscountPct: number;
+  comfortableDiscountPct: number;
+  comfortableOffer: number;
+  selectedReprintProfit: number;
+}
+
 const nonNegative = (value: unknown): number => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
 };
+
+export function buildPricingGuidance(
+  result: PricingResult,
+  options: PricingGuidanceOptions,
+): PricingGuidance {
+  const quotedTotal = options.tier === "WHOLESALE" ? result.wholesaleTotal : result.retailTotal;
+  const negotiationFloor = Math.max(
+    result.minimumSustainablePrice,
+    result.weightGrams > 0 || result.hours > 0 ? options.minPrice : 0,
+  );
+  const maximumSafeDiscountPct =
+    quotedTotal > 0 ? Math.max(0, ((quotedTotal - negotiationFloor) / quotedTotal) * 100) : 0;
+  const comfortableDiscountPct =
+    options.tier === "RETAIL" ? Math.min(options.pixDiscountPct, maximumSafeDiscountPct) : 0;
+
+  return {
+    negotiationFloor,
+    maximumSafeDiscountPct,
+    comfortableDiscountPct,
+    comfortableOffer: quotedTotal * (1 - comfortableDiscountPct / 100),
+    selectedReprintProfit:
+      options.tier === "WHOLESALE"
+        ? result.wholesaleProfitAfterFullReprint
+        : result.retailProfitAfterFullReprint,
+  };
+}
 
 const row = (
   id: PricingScenario["id"],
