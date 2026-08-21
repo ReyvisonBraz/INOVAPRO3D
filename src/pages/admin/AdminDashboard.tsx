@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { updateDoc, doc, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "../../services/firebase";
+import { auth } from "../../services/firebase";
+import { updateProductCategory, updateProductsCategory } from "../../services/products";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -757,22 +757,14 @@ export default function AdminDashboard() {
                   setIsAddingProduct(true);
                 }}
                 onMoveToCategory={(ids, cat) => {
-                  ids.forEach((id) =>
-                    updateDoc(doc(db, "products", id), {
-                      category: cat,
-                      updatedAt: serverTimestamp(),
-                    }),
-                  );
+                  void updateProductsCategory(ids, cat);
                   setProducts((prev) =>
                     prev.map((p) => (ids.includes(p.id) ? { ...p, category: cat } : p)),
                   );
                   toast.success(`${ids.length} produto(s) movido(s) para ${cat}`);
                 }}
                 onChangeCategory={(id, cat) => {
-                  updateDoc(doc(db, "products", id), {
-                    category: cat,
-                    updatedAt: serverTimestamp(),
-                  });
+                  void updateProductCategory(id, cat);
                   setProducts((prev) =>
                     prev.map((p) => (p.id === id ? { ...p, category: cat } : p)),
                   );
