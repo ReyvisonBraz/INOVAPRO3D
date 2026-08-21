@@ -1,52 +1,12 @@
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  collection,
-  getDoc,
-  setDoc,
-  updateDoc,
-  doc,
-  addDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db, auth, handleFirestoreError, OperationType } from "../../services/firebase";
-import {
-  X,
-  Smartphone,
-  CheckCircle2,
-  ArrowRight,
-  Edit,
-  Trash2,
-  Truck,
-  Calculator,
-  Plus,
-  Upload,
-  ImageIcon,
-  Box,
-  User,
-  BadgeDollarSign,
-  AlertTriangle,
-  FileText,
-  Factory,
-  CalendarDays,
-  Mail,
-  Save,
-  Sparkles,
-} from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import { updateDoc, doc, serverTimestamp } from "firebase/firestore";
+import { db, auth } from "../../services/firebase";
+import { X, Upload } from "lucide-react";
 import { Button } from "../../components/ui/Button";
-import { NumberField } from "../../components/ui/NumberField";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
-import {
-  computePricing,
-  DEFAULT_MACHINE,
-  DEFAULT_PRICING_SETTINGS,
-  formatBRL,
-  mergePricingSettings,
-  parseTimeToHours,
-  type MachineConfig,
-  type PricingSettings,
-} from "../../lib/pricing";
+import { computePricing, parseTimeToHours } from "../../lib/pricing";
 import {
   formatCatalogTitle,
   formatCatalogDescription,
@@ -57,15 +17,7 @@ import {
 import { ADMIN_MENU_ITEMS, ADMIN_TAB_SUBTITLES } from "./adminConfig";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { AdminSidebar } from "./components/AdminSidebar";
-import type {
-  Customer,
-  GlobalSettings,
-  Order,
-  OrderItem,
-  Quote,
-  ShowcaseItem,
-  Ticket,
-} from "../../types/domain";
+import type { Order, Quote, Ticket } from "../../types/domain";
 import { useAdminData } from "./hooks/useAdminData";
 import { useAdminActions } from "./hooks/useAdminActions";
 import { useCategoryAdmin } from "./hooks/useCategoryAdmin";
@@ -75,6 +27,13 @@ import { useProductAdmin } from "./hooks/useProductAdmin";
 import { useQuoteAdmin } from "./hooks/useQuoteAdmin";
 import { uploadQuoteImage } from "../../lib/quotes";
 import { useCouponAdmin } from "./hooks/useCouponAdmin";
+import { useAdminSettings } from "./hooks/useAdminSettings";
+import { useOrderEditing } from "./hooks/useOrderEditing";
+import { useMaterialAdmin } from "./hooks/useMaterialAdmin";
+import { useShowcaseAdmin } from "./hooks/useShowcaseAdmin";
+import { useFAQAdmin } from "./hooks/useFAQAdmin";
+import { useSupportAdmin } from "./hooks/useSupportAdmin";
+import { useCRMAdmin } from "./hooks/useCRMAdmin";
 import AdminOverviewPanel from "./components/AdminOverviewPanel";
 import AdminOrdersPanel from "./components/AdminOrdersPanel";
 import AdminProductsPanel from "./components/AdminProductsPanel";
@@ -104,11 +63,27 @@ import { buildQuoteDocumentData } from "../../lib/quoteDocument";
 import { printDocument, type PrintDocumentMode } from "../../lib/printing";
 import AdminTrashPanel from "./components/AdminTrashPanel";
 import AdminCalculatorTemplatesPanel from "./components/AdminCalculatorTemplatesPanel";
+import { AdminPanelRoute, AdminPanelRouter } from "./components/AdminPanelRouter";
+import { AdminCustomerDetailModal } from "./components/AdminCustomerDetailModal";
+import { AdminCustomerFormModal } from "./components/AdminCustomerFormModal";
+import { AdminMaterialFormModal } from "./components/AdminMaterialFormModal";
+import { AdminShowcaseFormModal } from "./components/AdminShowcaseFormModal";
+import { AdminOrderDetailModal } from "./components/AdminOrderDetailModal";
+import { AdminQuoteApprovalSuccess } from "./components/AdminQuoteApprovalSuccess";
+import { AdminQuoteEditorHeader } from "./components/AdminQuoteEditorHeader";
+import { AdminQuoteCalcSnapshotNotice } from "./components/AdminQuoteCalcSnapshotNotice";
+import { AdminQuoteEditorOverview } from "./components/AdminQuoteEditorOverview";
+import { AdminQuoteTechnicalSection } from "./components/AdminQuoteTechnicalSection";
+import { AdminQuoteCustomerSection } from "./components/AdminQuoteCustomerSection";
+import { AdminQuoteImageSection } from "./components/AdminQuoteImageSection";
+import { AdminQuoteCommercialSection } from "./components/AdminQuoteCommercialSection";
+import { AdminQuoteNotesSection } from "./components/AdminQuoteNotesSection";
+import { AdminQuotePricingAssistant } from "./components/AdminQuotePricingAssistant";
+import { AdminQuoteEditorActions } from "./components/AdminQuoteEditorActions";
 
 function isQuoteRecord(record: Quote | Ticket): record is Quote {
   return typeof record.fileName === "string" && typeof record.materialId === "string";
 }
-import { adjustMaterialStock } from "../../services/inventory";
 
 export default function AdminDashboard() {
   const [printJob, setPrintJob] = useState<{
@@ -152,17 +127,26 @@ export default function AdminDashboard() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [manualSaleMode, setManualSaleMode] = useState<"order" | "quote" | null>(null);
 
-  const [globalSettings, setGlobalSettings] = useState<GlobalSettings>({
-    promoBanner: "Frete Grátis em pedidos acima de R$ 250",
-    minOrderValue: 50,
-    maintenanceMode: false,
-  });
-
-  const [machineConfig, setMachineConfig] = useState<MachineConfig>(DEFAULT_MACHINE);
-  const [pricingSettings, setPricingSettings] = useState<PricingSettings>(DEFAULT_PRICING_SETTINGS);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [editingItems, setEditingItems] = useState(false);
-  const [editedItems, setEditedItems] = useState<OrderItem[]>([]);
+  const {
+    globalSettings,
+    setGlobalSettings,
+    machineConfig,
+    setMachineConfig,
+    pricingSettings,
+    setPricingSettings,
+    handleSaveGlobalSettings,
+    handleSaveMachineConfig,
+    handleSavePricingSettings,
+    toggleMaintenance,
+  } = useAdminSettings();
+  const {
+    selectedOrder,
+    setSelectedOrder,
+    editingItems,
+    editedItems,
+    handleToggleItemEditing,
+    updateEditedItem,
+  } = useOrderEditing();
   const [selectedCustomer, setSelectedCustomer] = useState<Quote | Ticket | null>(null);
 
   // ── Categorias ──
@@ -250,68 +234,6 @@ export default function AdminDashboard() {
     [handlePrintSavedQuotes],
   );
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const [globalSnap, machineSnap, pricingSnap] = await Promise.all([
-          getDoc(doc(db, "settings", "global")),
-          getDoc(doc(db, "settings", "machine")),
-          getDoc(doc(db, "settings", "pricing")),
-        ]);
-        if (globalSnap.exists()) setGlobalSettings(globalSnap.data() as GlobalSettings);
-        if (machineSnap.exists()) setMachineConfig(machineSnap.data() as MachineConfig);
-        if (pricingSnap.exists()) setPricingSettings(mergePricingSettings(pricingSnap.data()));
-      } catch (err) {
-        console.error("Error fetching settings:", err);
-      }
-    };
-    fetchSettings();
-  }, []);
-
-  // ── Handlers ──
-  const handleSaveSettings = useCallback(async () => {
-    try {
-      await setDoc(doc(db, "settings", "global"), {
-        ...globalSettings,
-        updatedAt: serverTimestamp(),
-      });
-      toast.success("Configurações globais atualizadas!");
-    } catch {
-      toast.error("Erro ao salvar configurações.");
-    }
-  }, [globalSettings]);
-
-  const handleSaveMachineConfig = useCallback(async () => {
-    try {
-      await setDoc(doc(db, "settings", "machine"), {
-        ...machineConfig,
-        updatedAt: serverTimestamp(),
-      });
-      toast.success("Config da máquina salva!");
-    } catch {
-      toast.error("Erro ao salvar config da máquina.");
-    }
-  }, [machineConfig]);
-
-  const handleSavePricingSettings = useCallback(async () => {
-    try {
-      const updatedAt = serverTimestamp();
-      await Promise.all([
-        setDoc(doc(db, "settings", "pricing"), { ...pricingSettings, updatedAt }),
-        setDoc(doc(db, "settings", "storefront"), {
-          pixDiscountPct: pricingSettings.pixDiscountPct,
-          maxInstallments: pricingSettings.maxInstallments,
-          updatedAt,
-        }),
-      ]);
-      toast.success(
-        "Parâmetros da calculadora salvos! As duas calculadoras já usam estes valores.",
-      );
-    } catch {
-      toast.error("Erro ao salvar parâmetros da calculadora.");
-    }
-  }, [pricingSettings]);
-
   // ── Ações sobre registros (status, exclusão, rastreio) ──
   const {
     updateStatus,
@@ -363,295 +285,51 @@ export default function AdminDashboard() {
     handleUpdateStock,
   } = useProductAdmin({ categories, fetchData });
 
-  // ── Materials ──
-  const [isAddingMaterial, setIsAddingMaterial] = useState(false);
-  const [isSubmittingMaterial, setIsSubmittingMaterial] = useState(false);
-  const emptyMaterial = useMemo(
-    () => ({
-      name: "",
-      type: "PLA",
-      color: "#2563EB",
-      pricePerKg: 120,
-      stockGrams: 0,
-      reservedGrams: 0,
-      minimumStockGrams: 200,
-      brand: "",
-      supplier: "",
-      batch: "",
-      location: "",
-      notes: "",
-      inStock: false,
-      active: true,
-    }),
-    [],
-  );
-  const [newMaterial, setNewMaterial] = useState(emptyMaterial);
+  const {
+    isAddingMaterial,
+    newMaterial,
+    setNewMaterial,
+    openMaterialForm,
+    closeMaterialForm,
+    handleMaterialSubmit,
+    handleAdjustMaterialStock,
+  } = useMaterialAdmin({ fetchData });
 
-  const handleMaterialSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (isSubmittingMaterial) return;
-      setIsSubmittingMaterial(true);
-      try {
-        await addDoc(collection(db, "materials"), {
-          ...newMaterial,
-          inStock: newMaterial.stockGrams > 0,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        toast.success("Material adicionado!");
-        setIsAddingMaterial(false);
-        fetchData();
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, "materials");
-      } finally {
-        setIsSubmittingMaterial(false);
-      }
-    },
-    [isSubmittingMaterial, newMaterial, fetchData],
-  );
+  const {
+    isAddingShowcase,
+    isEditingShowcase,
+    newShowcase,
+    setNewShowcase,
+    openNewShowcase,
+    openShowcaseEditor,
+    closeShowcaseForm,
+    handleShowcaseSubmit,
+  } = useShowcaseAdmin({ fetchData });
 
-  // ── Showcase ──
-  const [isAddingShowcase, setIsAddingShowcase] = useState(false);
-  const [isEditingShowcase, setIsEditingShowcase] = useState(false);
-  const [isSubmittingShowcase, setIsSubmittingShowcase] = useState(false);
-  const [selectedShowcase, setSelectedShowcase] = useState<ShowcaseItem | null>(null);
-  const [newShowcase, setNewShowcase] = useState({
-    title: "",
-    subtitle: "",
-    image: "",
-    link: "",
-    active: true,
-  });
-
-  const handleShowcaseSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (isSubmittingShowcase) return;
-      setIsSubmittingShowcase(true);
-      try {
-        if (isEditingShowcase && selectedShowcase) {
-          await updateDoc(doc(db, "showcase", selectedShowcase.id), newShowcase);
-          toast.success("Item da vitrine atualizado!");
-        } else {
-          await addDoc(collection(db, "showcase"), {
-            ...newShowcase,
-            createdAt: serverTimestamp(),
-          });
-          toast.success("Item adicionado à vitrine!");
-        }
-        setIsAddingShowcase(false);
-        setIsEditingShowcase(false);
-        fetchData();
-      } catch (err) {
-        handleFirestoreError(err, OperationType.CREATE, "showcase");
-      } finally {
-        setIsSubmittingShowcase(false);
-      }
-    },
-    [isSubmittingShowcase, isEditingShowcase, selectedShowcase, newShowcase, fetchData],
-  );
-
-  // ── CRM ──
-  const [selectedCRMUser, setSelectedCRMUser] = useState<Customer | null>(null);
-  const [isAddingCustomer, setIsAddingCustomer] = useState(false);
-  const [isEditingCustomer, setIsEditingCustomer] = useState(false);
-  const [isSubmittingCustomer, setIsSubmittingCustomer] = useState(false);
-  const emptyCustomer = useMemo(
-    () => ({
-      name: "",
-      email: "",
-      phone: "",
-      secondaryPhone: "",
-      whatsapp: "",
-      tags: [] as string[],
-      address: "",
-      street: "",
-      number: "",
-      complement: "",
-      neighborhood: "",
-      customerType: "PERSON" as "PERSON" | "COMPANY",
-      document: "",
-      zipCode: "",
-      city: "",
-      state: "",
-      source: "",
-      preferredContact: "WHATSAPP" as "WHATSAPP" | "PHONE" | "EMAIL",
-      birthday: "",
-      notes: "",
-      internalNotes: "",
-    }),
-    [],
-  );
-  const [newCustomer, setNewCustomer] = useState(emptyCustomer);
-
-  const openCustomerEditor = useCallback(
-    (customer: Customer) => {
-      setSelectedCRMUser(customer);
-      setNewCustomer({
-        ...emptyCustomer,
-        name: customer.name ?? "",
-        email: customer.email ?? "",
-        phone: customer.phone ?? "",
-        secondaryPhone: customer.secondaryPhone ?? "",
-        whatsapp: customer.whatsapp ?? "",
-        tags: customer.tags ?? [],
-        customerType: customer.customerType ?? "PERSON",
-        document: customer.document ?? "",
-        zipCode: customer.zipCode ?? "",
-        address: customer.address ?? "",
-        street: customer.street ?? "",
-        number: customer.number ?? "",
-        complement: customer.complement ?? "",
-        neighborhood: customer.neighborhood ?? "",
-        city: customer.city ?? "",
-        state: customer.state ?? "",
-        source: customer.source ?? "",
-        preferredContact: customer.preferredContact ?? "WHATSAPP",
-        birthday: customer.birthday ?? "",
-        notes: customer.notes ?? "",
-        internalNotes: customer.internalNotes ?? "",
-      });
-      setIsAddingCustomer(false);
-      setIsEditingCustomer(true);
-    },
-    [emptyCustomer],
-  );
-
-  const handleCustomerSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (isSubmittingCustomer) return;
-      if (!newCustomer.name.trim()) return toast.error("Informe o nome do cliente.");
-      if (
-        ![newCustomer.email, newCustomer.phone, newCustomer.whatsapp].some((value) => value.trim())
-      ) {
-        return toast.error("Informe pelo menos um contato: email, telefone ou WhatsApp.");
-      }
-      setIsSubmittingCustomer(true);
-      try {
-        if (isEditingCustomer && selectedCRMUser) {
-          await updateDoc(doc(db, "customers", selectedCRMUser.id), {
-            ...newCustomer,
-            updatedAt: serverTimestamp(),
-          });
-          toast.success("Dados do cliente atualizados!");
-        } else {
-          await addDoc(collection(db, "customers"), {
-            ...newCustomer,
-            createdAt: serverTimestamp(),
-          });
-          toast.success("Cliente cadastrado manualmente!");
-        }
-        setIsAddingCustomer(false);
-        setIsEditingCustomer(false);
-        setSelectedCRMUser(null);
-        setNewCustomer(emptyCustomer);
-        fetchData();
-      } catch {
-        toast.error("Erro ao processar operação de cliente.");
-      } finally {
-        setIsSubmittingCustomer(false);
-      }
-    },
-    [
-      isSubmittingCustomer,
-      isEditingCustomer,
-      selectedCRMUser,
-      newCustomer,
-      fetchData,
-      emptyCustomer,
-    ],
-  );
-
-  const exportCustomersToCSV = useCallback(() => {
-    try {
-      const headers = ["Nome", "Email", "Telefone", "Tags", "Data de Cadastro"];
-      const escapeCSV = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-      const rows = customers.map((c) => [
-        escapeCSV(c.name),
-        escapeCSV(c.email),
-        escapeCSV(c.phone),
-        escapeCSV((c.tags || []).join("; ")),
-        escapeCSV(c.createdAt ? new Date(c.createdAt.seconds * 1000).toLocaleDateString() : "N/A"),
-      ]);
-      const csvContent =
-        "data:text/csv;charset=utf-8," +
-        headers.map(escapeCSV).join(",") +
-        "\n" +
-        rows.map((e) => e.join(",")).join("\n");
-      const link = document.createElement("a");
-      link.setAttribute("href", encodeURI(csvContent));
-      link.setAttribute("download", `clientes_INOVAPRO_${new Date().toLocaleDateString()}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      toast.success("Exportação de CRM concluída!");
-    } catch {
-      toast.error("Falha ao gerar arquivo CSV.");
-    }
-  }, [customers]);
+  const {
+    selectedCRMUser,
+    setSelectedCRMUser,
+    isAddingCustomer,
+    isEditingCustomer,
+    isSubmittingCustomer,
+    newCustomer,
+    setNewCustomer,
+    openNewCustomer,
+    openCustomerEditor,
+    closeCustomerForm,
+    handleCustomerSubmit,
+    exportCustomersToCSV,
+  } = useCRMAdmin({ customers, fetchData });
 
   // ── Support ──
-  const [replyText, setReplyText] = useState("");
+  const { replyText, setReplyText, handleSendReply, handleUpdateTicket } = useSupportAdmin({
+    selectedTicket: selectedCustomer as Ticket | null,
+    fetchData,
+  });
 
-  const handleSendReply = useCallback(async () => {
-    if (!selectedCustomer || !replyText.trim()) return;
-    try {
-      await addDoc(collection(db, "logs"), {
-        action: "REPLY_SUPPORT",
-        ticketId: selectedCustomer.id,
-        userEmail: selectedCustomer.email,
-        reply: replyText,
-        adminId: auth.currentUser?.uid,
-        createdAt: serverTimestamp(),
-      });
-      await updateDoc(doc(db, "tickets", selectedCustomer.id), { status: "RESPONDIDO" });
-      setReplyText("");
-      toast.success("Resposta enviada e log registrada!");
-      fetchData();
-    } catch {
-      toast.error("Erro ao enviar resposta.");
-    }
-  }, [selectedCustomer, replyText, fetchData]);
-
-  const handleUpdateTicket = useCallback(
-    async (id: string, status: string) => {
-      try {
-        await updateDoc(doc(db, "tickets", id), { status, updatedAt: serverTimestamp() });
-        toast.success(`Ticket ${status.toLowerCase()}!`);
-        fetchData();
-      } catch {
-        toast.error("Erro ao atualizar ticket.");
-      }
-    },
-    [fetchData],
-  );
-
-  // ── FAQs ──
-  const [isAddingFAQ, setIsAddingFAQ] = useState(false);
-  const [isSubmittingFAQ, setIsSubmittingFAQ] = useState(false);
-  const [newFAQ, setNewFAQ] = useState({ question: "", answer: "" });
-
-  const handleFAQSubmit = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault();
-      if (isSubmittingFAQ) return;
-      setIsSubmittingFAQ(true);
-      try {
-        await addDoc(collection(db, "faqs"), { ...newFAQ, createdAt: serverTimestamp() });
-        toast.success("FAQ adicionado!");
-        setIsAddingFAQ(false);
-        setNewFAQ({ question: "", answer: "" });
-        fetchData();
-      } catch {
-        toast.error("Erro ao adicionar FAQ.");
-      } finally {
-        setIsSubmittingFAQ(false);
-      }
-    },
-    [isSubmittingFAQ, newFAQ, fetchData],
-  );
+  const { isAddingFAQ, setIsAddingFAQ, newFAQ, setNewFAQ, handleFAQSubmit } = useFAQAdmin({
+    fetchData,
+  });
 
   // ── Orçamentos: edição, aprovação e WhatsApp ──
   const {
@@ -699,7 +377,6 @@ export default function AdminDashboard() {
     handleSaveQuoteSpecifications,
   } = useQuoteAdmin({ customers, selectedCustomer, setSelectedCustomer, activeTab, fetchData });
 
-  const quoteImageInputRef = useRef<HTMLInputElement>(null);
   const handleQuoteImageUpload = useCallback(
     async (file: File) => {
       try {
@@ -804,10 +481,13 @@ export default function AdminDashboard() {
   } = useCouponAdmin(fetchData);
 
   const handleTabChange = useCallback((tab: string) => setActiveTab(tab as AdminTabId), []);
-  const handleSelectOrderAndTab = useCallback((o: Order) => {
-    setActiveTab("orders");
-    setSelectedOrder(o);
-  }, []);
+  const handleSelectOrderAndTab = useCallback(
+    (o: Order) => {
+      setActiveTab("orders");
+      setSelectedOrder(o);
+    },
+    [setSelectedOrder],
+  );
 
   // ── Confirm dialog ──
   const [confirmState, setConfirmState] = useState<{
@@ -953,8 +633,8 @@ export default function AdminDashboard() {
 
         {/* TAB CONTENT */}
         <div className="admin-content overflow-x-hidden">
-          <AnimatePresence mode="wait">
-            {activeTab === "overview" && (
+          <AdminPanelRouter activeTab={activeTab}>
+            <AdminPanelRoute tab="overview">
               <AdminOverviewPanel
                 orders={filteredOrders}
                 quotes={filteredQuotes}
@@ -980,8 +660,8 @@ export default function AdminDashboard() {
                 }
                 onTabChange={handleTabChange}
               />
-            )}
-            {activeTab === "orders" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="orders">
               <AdminOrdersPanel
                 orders={filteredOrders}
                 searchTerm={searchTerm}
@@ -1049,8 +729,8 @@ export default function AdminDashboard() {
                   )
                 }
               />
-            )}
-            {activeTab === "products" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="products">
               <AdminProductsPanel
                 products={products}
                 categories={categories.filter((c) => c.active !== false).map((c) => c.name)}
@@ -1103,8 +783,8 @@ export default function AdminDashboard() {
                   );
                 }}
               />
-            )}
-            {activeTab === "categories" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="categories">
               <AdminCategoriesPanel
                 categories={categories}
                 productsCount={products.reduce(
@@ -1161,43 +841,19 @@ export default function AdminDashboard() {
                   setIsAddingCategory(true);
                 }}
               />
-            )}
-            {activeTab === "materials" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="materials">
               <AdminMaterialsPanel
                 materials={materials}
                 onDeleteMaterial={(id) => deleteItem("materials", id)}
-                onAddMaterial={() => {
-                  setNewMaterial(emptyMaterial);
-                  setIsAddingMaterial(true);
-                }}
+                onAddMaterial={openMaterialForm}
                 onToggleStock={(id, current) =>
                   updateStatus("materials", id, { inStock: !current })
                 }
-                onAdjustStock={async (material) => {
-                  const raw = window.prompt(
-                    `Ajuste de ${material.name} em gramas. Use negativo para saida:`,
-                    "1000",
-                  );
-                  if (raw === null) return;
-                  const amount = Number(raw.replace(",", "."));
-                  const reason =
-                    window.prompt(
-                      "Motivo da movimentacao:",
-                      amount > 0 ? "Entrada de filamento" : "Ajuste de inventario",
-                    ) ?? "Ajuste manual";
-                  try {
-                    await adjustMaterialStock(material.id, amount, reason);
-                    toast.success("Estoque atualizado com historico.");
-                    fetchData();
-                  } catch (error) {
-                    toast.error(
-                      error instanceof Error ? error.message : "Falha ao ajustar estoque.",
-                    );
-                  }
-                }}
+                onAdjustStock={handleAdjustMaterialStock}
               />
-            )}
-            {activeTab === "printers" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="printers">
               <AdminPrintersPanel
                 printers={printers}
                 blocked={printersBlocked}
@@ -1215,13 +871,13 @@ export default function AdminDashboard() {
                   )
                 }
               />
-            )}
-            {activeTab === "calculatorTemplates" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="calculatorTemplates">
               <AdminCalculatorTemplatesPanel
                 onEditInCalculator={(template) => openAdminCalculator({ mode: "NEW", template })}
               />
-            )}
-            {activeTab === "quotes" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="quotes">
               <AdminQuotesPanel
                 quotes={filteredQuotes}
                 onSelectQuote={setSelectedCustomer}
@@ -1304,8 +960,8 @@ export default function AdminDashboard() {
                 loadingMore={quotesLoadingMore}
                 onLoadMore={loadMoreQuotes}
               />
-            )}
-            {activeTab === "support" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="support">
               <AdminSupportPanel
                 tickets={tickets}
                 selectedTicket={selectedCustomer as Ticket | null}
@@ -1316,23 +972,19 @@ export default function AdminDashboard() {
                 onMarkResolved={(id) => handleUpdateTicket(id, "RESOLVIDO")}
                 onDeleteTicket={(id) => deleteItem("tickets", id)}
               />
-            )}
-            {activeTab === "crm" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="crm">
               <AdminCRMPanel
                 customers={filteredCustomers}
                 orders={orders}
                 searchTerm={searchTerm}
                 onSelectCRMUser={setSelectedCRMUser}
                 onEditCustomer={openCustomerEditor}
-                onAddCustomer={() => {
-                  setIsAddingCustomer(true);
-                  setIsEditingCustomer(false);
-                  setNewCustomer(emptyCustomer);
-                }}
+                onAddCustomer={openNewCustomer}
                 onExportCSV={exportCustomersToCSV}
               />
-            )}
-            {activeTab === "faqs" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="faqs">
               <AdminFAQPanel
                 faqs={faqs}
                 onDeleteFAQ={(id) => deleteItem("faqs", id)}
@@ -1343,29 +995,16 @@ export default function AdminDashboard() {
                 onFAQSubmit={handleFAQSubmit}
                 setIsAddingFAQ={setIsAddingFAQ}
               />
-            )}
-            {activeTab === "showcase" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="showcase">
               <AdminShowcasePanel
                 showcase={showcase}
                 onDeleteShowcase={(id) => deleteItem("showcase", id)}
-                onAddShowcase={() => {
-                  setNewShowcase({ title: "", subtitle: "", image: "", link: "", active: true });
-                  setIsAddingShowcase(true);
-                }}
-                onEditShowcase={(item) => {
-                  setSelectedShowcase(item);
-                  setNewShowcase({
-                    title: item.title || "",
-                    subtitle: item.subtitle || "",
-                    image: item.image || "",
-                    link: item.link || "",
-                    active: item.active !== undefined ? item.active : true,
-                  });
-                  setIsEditingShowcase(true);
-                }}
+                onAddShowcase={openNewShowcase}
+                onEditShowcase={openShowcaseEditor}
               />
-            )}
-            {activeTab === "coupons" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="coupons">
               <AdminCouponsPanel
                 coupons={coupons}
                 isAdding={isCouponAdding}
@@ -1377,9 +1016,11 @@ export default function AdminDashboard() {
                 onDelete={(id) => void deleteItem("coupons", id)}
                 onClose={() => setCouponAdding(false)}
               />
-            )}
-            {activeTab === "reviews" && <AdminReviewsPanel />}
-            {activeTab === "logs" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="reviews">
+              <AdminReviewsPanel />
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="logs">
               <div className="space-y-5">
                 <div className="inline-flex gap-1 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-1">
                   <button
@@ -1411,8 +1052,8 @@ export default function AdminDashboard() {
                   <AdminLogsPanel logs={logs} />
                 )}
               </div>
-            )}
-            {activeTab === "trash" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="trash">
               <AdminTrashPanel
                 items={trashItems}
                 blocked={trashBlocked}
@@ -1435,8 +1076,8 @@ export default function AdminDashboard() {
                   )
                 }
               />
-            )}
-            {activeTab === "settings" && (
+            </AdminPanelRoute>
+            <AdminPanelRoute tab="settings">
               <AdminSettingsPanel
                 globalSettings={globalSettings}
                 machineConfig={machineConfig}
@@ -1450,21 +1091,16 @@ export default function AdminDashboard() {
                 onUpdatePricingSettings={setPricingSettings}
                 onUpdateCompanyField={companyAdmin.updateCompanyField}
                 onUpdateCompanyAddress={companyAdmin.updateCompanyAddress}
-                onSaveGlobalSettings={handleSaveSettings}
+                onSaveGlobalSettings={handleSaveGlobalSettings}
                 onSaveMachineConfig={handleSaveMachineConfig}
                 onSavePricingSettings={handleSavePricingSettings}
                 onSaveCompany={companyAdmin.handleSaveCompany}
                 onUploadCompanyLogo={companyAdmin.handleUploadLogo}
                 onOpenPrinters={() => setActiveTab("printers")}
-                onToggleMaintenance={() =>
-                  setGlobalSettings({
-                    ...globalSettings,
-                    maintenanceMode: !globalSettings.maintenanceMode,
-                  })
-                }
+                onToggleMaintenance={toggleMaintenance}
               />
-            )}
-          </AnimatePresence>
+            </AdminPanelRoute>
+          </AdminPanelRouter>
         </div>
       </main>
 
@@ -1473,248 +1109,42 @@ export default function AdminDashboard() {
       {/* Order Detail Modal */}
       <AnimatePresence>
         {selectedOrder && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-surface border border-white/10 rounded-[32px] sm:rounded-[56px] w-full max-w-5xl relative my-auto overflow-hidden flex flex-col lg:flex-row max-h-[90vh]"
-            >
-              {/* Left: Core data */}
-              <div className="lg:w-1/3 bg-white/[0.02] border-b lg:border-b-0 lg:border-r border-white/5 p-6 sm:p-12 flex flex-col">
-                <button
-                  onClick={() => setSelectedOrder(null)}
-                  className="mb-6 lg:mb-12 self-start p-3 hover:bg-white/5 rounded-2xl transition-all group"
-                >
-                  <Plus className="w-6 h-6 rotate-45 text-dim group-hover:text-red-500" />
-                </button>
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary mb-2 italic">
-                  Protocol Ledger
-                </p>
-                <h2 className="text-4xl font-display font-black italic tracking-tighter mb-8 leading-none">
-                  #{selectedOrder.id.slice(0, 12)}
-                </h2>
-                <div className="space-y-8">
-                  <div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-dim mb-4 italic">
-                      Status de Operação
-                    </p>
-                    <select
-                      value={selectedOrder.status}
-                      onChange={(e) => updateStatus("orders", selectedOrder.id, e.target.value)}
-                      className="w-full bg-black border border-white/10 rounded-[20px] p-4 text-xs font-black uppercase tracking-widest text-primary outline-none focus:border-primary transition-all appearance-none"
-                    >
-                      <option value="PENDING_PAYMENT">AGUARDANDO PAGAMENTO</option>
-                      <option value="PAID">PAGAMENTO APROVADO</option>
-                      <option value="QUEUE">FILA DE PRODUÇÃO</option>
-                      <option value="PRINTING">EM IMPRESSÃO 3D</option>
-                      <option value="FINISHING">ACABAMENTO POST-OP</option>
-                      <option value="SHIPPED">ENVIADO / LOGÍSTICA</option>
-                      <option value="COMPLETED">ENTREGA FINALIZADA</option>
-                      <option value="CANCELED">CANCELADO</option>
-                    </select>
-                    <div className="flex gap-3 mt-3">
-                      <Button
-                        variant="outline"
-                        className="flex-1 rounded-2xl h-10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
-                        onClick={() =>
-                          triggerConfirm(
-                            "Cancelar Pedido",
-                            `Deseja realmente cancelar o pedido #${selectedOrder.id.slice(0, 12)}? O status será alterado para CANCELADO.`,
-                            () => {
-                              updateStatus("orders", selectedOrder.id, "CANCELED");
-                              setSelectedOrder(null);
-                            },
-                            true,
-                            "Sim, Cancelar Pedido",
-                          )
-                        }
-                      >
-                        Cancelar Pedido
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="flex-1 rounded-2xl h-10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black uppercase tracking-widest"
-                        onClick={() =>
-                          triggerConfirm(
-                            "Excluir Pedido",
-                            `ATENÇÃO: O pedido #${selectedOrder.id.slice(0, 12)} será permanentemente removido do banco de dados. Esta ação não pode ser desfeita.`,
-                            () => {
-                              deleteItem("orders", selectedOrder.id);
-                              setSelectedOrder(null);
-                            },
-                            true,
-                            "Sim, Excluir Permanentemente",
-                          )
-                        }
-                      >
-                        <Trash2 className="w-3.5 h-3.5" /> Excluir Pedido
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="p-6 bg-white/5 rounded-[28px] border border-white/5">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-dim mb-3 italic">
-                      Identidade do Cliente
-                    </p>
-                    <p className="text-sm font-bold uppercase mb-1">{selectedOrder.userName}</p>
-                    <p className="text-xs text-white/40">{selectedOrder.userEmail}</p>
-                  </div>
-                  <div className="space-y-4">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-dim italic">
-                      Rastreamento de Logística
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        placeholder="Código de Rastreio"
-                        defaultValue={selectedOrder.trackingCode}
-                        onBlur={(e) => handleUpdateTracking(selectedOrder.id, e.target.value)}
-                        className="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-[10px] font-bold outline-none focus:border-primary/50"
-                      />
-                      <Button size="sm" variant="outline" className="rounded-xl h-10 w-10 p-0">
-                        <Truck className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-8 lg:mt-auto pt-10">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-subtle mb-2">
-                    Total Transacionado
-                  </p>
-                  <p className="text-3xl lg:text-4xl font-display font-black text-primary italic">
-                    R$ {(selectedOrder.total || 0).toFixed(2)}
-                  </p>
-                </div>
-              </div>
-              {/* Right: Items */}
-              <div className="flex-1 p-6 sm:p-12 overflow-y-auto no-scrollbar bg-[#050508]/40">
-                <div className="flex items-center justify-between mb-8 border-b border-white/5 pb-4">
-                  <h3 className="text-sm font-black uppercase tracking-widest italic">
-                    Manifesto de Produção
-                  </h3>
-                  <button
-                    onClick={() => {
-                      if (editingItems) {
-                        const newTotal = editedItems.reduce(
-                          (acc, it) => acc + (it.price || 0) * (it.quantity || 1),
-                          0,
-                        );
-                        updateDoc(doc(db, "orders", selectedOrder.id), {
-                          items: editedItems,
-                          total: newTotal,
-                          updatedAt: serverTimestamp(),
-                        })
-                          .then(() => {
-                            setSelectedOrder((prev) =>
-                              prev ? { ...prev, items: editedItems, total: newTotal } : null,
-                            );
-                            toast.success("Itens atualizados!");
-                          })
-                          .catch((err) =>
-                            handleFirestoreError(
-                              err,
-                              OperationType.UPDATE,
-                              `orders/${selectedOrder.id}`,
-                            ),
-                          );
-                        setEditingItems(false);
-                      } else {
-                        setEditedItems(JSON.parse(JSON.stringify(selectedOrder.items || [])));
-                        setEditingItems(true);
-                      }
-                    }}
-                    className={`text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-xl transition-all ${
-                      editingItems
-                        ? "bg-primary text-white"
-                        : "text-primary hover:bg-primary/10 border border-primary/20"
-                    }`}
-                  >
-                    {editingItems ? "Salvar Alterações" : "Editar Itens"}
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {selectedOrder.items?.map((item: OrderItem, idx: number) => {
-                    const editItem = editingItems ? editedItems[idx] : item;
-                    return (
-                      <div
-                        key={idx}
-                        className="bg-surface-card p-6 rounded-[32px] border border-white/5 flex items-center gap-5"
-                      >
-                        <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0">
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          {editingItems ? (
-                            <input
-                              value={editItem.name}
-                              onChange={(e) => {
-                                const next = [...editedItems];
-                                next[idx] = { ...next[idx], name: e.target.value };
-                                setEditedItems(next);
-                              }}
-                              className="w-full bg-black border border-white/10 rounded-xl p-2 text-xs font-black uppercase outline-none focus:border-primary/50 mb-2"
-                            />
-                          ) : (
-                            <p className="text-xs font-black uppercase">{item.name}</p>
-                          )}
-                          <p className="text-[11px] text-white/40">
-                            {item.options?.material} / Infill {item.options?.infill}%
-                          </p>
-                          {item.options?.adminNotes && (
-                            <p className="text-[11px] text-primary/70 italic mt-1">
-                              {item.options.adminNotes}
-                            </p>
-                          )}
-                          {editingItems ? (
-                            <div className="flex items-center gap-2 mt-2">
-                              <label className="text-[10px] text-dim">Qtd:</label>
-                              <NumberField
-                                min={1}
-                                value={editItem.quantity}
-                                onChange={(quantity) => {
-                                  const next = [...editedItems];
-                                  next[idx] = { ...next[idx], quantity };
-                                  setEditedItems(next);
-                                }}
-                                className="w-16 bg-black border border-white/10 rounded-lg p-1.5 text-xs font-bold text-center outline-none focus:border-primary/50"
-                              />
-                            </div>
-                          ) : (
-                            <p className="text-[11px] text-secondary mt-0.5">
-                              Qtd: {item.quantity}
-                            </p>
-                          )}
-                        </div>
-                        {editingItems ? (
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[10px] text-dim">R$</span>
-                            <NumberField
-                              min={0}
-                              step={0.01}
-                              value={editItem.price}
-                              onChange={(price) => {
-                                const next = [...editedItems];
-                                next[idx] = { ...next[idx], price };
-                                setEditedItems(next);
-                              }}
-                              className="w-24 bg-black border border-white/10 rounded-lg p-1.5 text-xs font-bold text-right outline-none focus:border-primary/50 font-mono"
-                            />
-                          </div>
-                        ) : (
-                          <p className="text-sm font-display font-black text-primary shrink-0">
-                            R$ {(item.price || 0).toFixed(2)}
-                          </p>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </motion.div>
-          </div>
+          <AdminOrderDetailModal
+            order={selectedOrder}
+            editingItems={editingItems}
+            editedItems={editedItems}
+            onClose={() => setSelectedOrder(null)}
+            onChangeStatus={(status) => updateStatus("orders", selectedOrder.id, status)}
+            onCancelOrder={() =>
+              triggerConfirm(
+                "Cancelar Pedido",
+                `Deseja realmente cancelar o pedido #${selectedOrder.id.slice(0, 12)}? O status será alterado para CANCELADO.`,
+                () => {
+                  updateStatus("orders", selectedOrder.id, "CANCELED");
+                  setSelectedOrder(null);
+                },
+                true,
+                "Sim, Cancelar Pedido",
+              )
+            }
+            onDeleteOrder={() =>
+              triggerConfirm(
+                "Excluir Pedido",
+                `ATENÇÃO: O pedido #${selectedOrder.id.slice(0, 12)} será permanentemente removido do banco de dados. Esta ação não pode ser desfeita.`,
+                () => {
+                  deleteItem("orders", selectedOrder.id);
+                  setSelectedOrder(null);
+                },
+                true,
+                "Sim, Excluir Permanentemente",
+              )
+            }
+            onUpdateTracking={(trackingCode) =>
+              handleUpdateTracking(selectedOrder.id, trackingCode)
+            }
+            onToggleItemEditing={handleToggleItemEditing}
+            onUpdateEditedItem={updateEditedItem}
+          />
         )}
 
         {/* Quote Detail Modal */}
@@ -1734,673 +1164,141 @@ export default function AdminDashboard() {
                 <X className="w-5 h-5" />
               </button>
               {approvalStatus?.success ? (
-                <div className="text-center py-6 space-y-8">
-                  <div className="relative mb-6 flex justify-center">
-                    <div className="absolute inset-0 bg-green-500/10 blur-3xl rounded-full" />
-                    <div className="w-24 h-24 rounded-[32px] bg-green-500/10 text-green-500 flex items-center justify-center relative border-2 border-green-500/20 shadow-2xl">
-                      <CheckCircle2 className="w-12 h-12 animate-pulse" />
-                    </div>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.3em] text-green-500 italic block mb-1">
-                      Faturamento Concluído
-                    </span>
-                    <h3 className="text-4xl font-black italic tracking-tighter text-white">
-                      PEDIDO EMITIDO!
-                    </h3>
-                    <p className="text-xs text-white/40 mt-1 font-medium">
-                      Ordem de faturamento:{" "}
-                      <strong className="text-primary font-mono text-sm">
-                        #{approvalStatus.orderId?.slice(0, 10).toUpperCase()}
-                      </strong>
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-xl mx-auto text-left">
-                    <div className="p-6 bg-white/[0.02] border border-white/5 rounded-3xl space-y-4">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-secondary">
-                        Resumo da Ordem
-                      </h4>
-                      <div className="space-y-2 text-xs">
-                        <div className="flex justify-between">
-                          <span className="text-white/40">Geometria:</span>{" "}
-                          <span
-                            className="text-white/80 font-bold truncate max-w-[120px]"
-                            title={selectedCustomer.fileName}
-                          >
-                            {selectedCustomer.fileName}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/40">Infill:</span>{" "}
-                          <span className="text-white/80 font-bold">
-                            {approvalStatus.finalInfill}%
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/40">Tempo Impressão:</span>{" "}
-                          <span className="text-white/80 font-bold">
-                            {approvalStatus.finalTime}
-                          </span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-white/40">Peso Estimado:</span>{" "}
-                          <span className="text-white/80 font-bold">
-                            {approvalStatus.finalWeight}g
-                          </span>
-                        </div>
-                        <div className="pt-2 border-t border-white/5 flex justify-between items-baseline">
-                          <span className="text-white/40 text-[10px] uppercase font-black">
-                            Investimento:
-                          </span>{" "}
-                          <span className="text-lg font-mono font-black text-primary">
-                            R$ {approvalStatus.finalPrice?.toFixed(2).replace(".", ",")}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="p-6 bg-primary/[0.01] border border-primary/10 rounded-3xl space-y-4 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center p-1.5 shrink-0 shadow-md">
-                            <img
-                              src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png"
-                              className="w-full object-contain"
-                              alt="Pix"
-                            />
-                          </div>
-                          <h4 className="text-[10px] font-black uppercase tracking-widest text-[#2563EB]">
-                            Pix Copia e Cola
-                          </h4>
-                        </div>
-                        <p className="text-[10px] text-white/40 leading-relaxed font-medium italic">
-                          Copie este código para o aplicativo de pagamento do cliente.
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          const code =
-                            "00020101021226830014br.gov.bcb.pix2561api.INOVAPRO3D.com.br/pix/qr/v2/cob/order_" +
-                            approvalStatus.orderId +
-                            "_" +
-                            (approvalStatus.finalPrice || 45.9).toFixed(0);
-                          navigator.clipboard.writeText(code);
-                          toast.success("Código Pix Copiado com sucesso!");
-                        }}
-                        className="w-full py-2.5 bg-primary/10 hover:bg-primary/20 hover:text-white text-primary text-[10px] font-black uppercase tracking-wider rounded-xl transition-all border border-primary/20"
-                      >
-                        Copiar Chave Pix
-                      </button>
-                    </div>
-                  </div>
-                  <div className="pt-6 border-t border-white/5 flex flex-wrap justify-center gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => {
-                        handleWhatsAppQuote(
-                          selectedCustomer,
-                          approvalStatus.finalPrice || 45.9,
-                          approvalStatus.orderId,
-                          approvalStatus.finalPhone,
-                          approvalStatus.finalInfill,
-                          approvalStatus.finalTime,
-                          approvalStatus.finalWeight,
-                        );
-                      }}
-                      className="h-12 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest border-green-500/20 text-green-400 hover:bg-green-500/10 flex items-center gap-2"
-                    >
-                      <Smartphone className="w-4 h-4" /> Enviar por WhatsApp
-                    </Button>
-                    <button
-                      onClick={() => {
-                        setSelectedCustomer(null);
-                        setApprovalStatus(null);
-                        setActiveTab("orders");
-                      }}
-                      className="h-12 px-8 rounded-xl bg-primary hover:bg-primary/95 text-white text-[10px] font-black uppercase tracking-widest gap-2 flex items-center justify-center transition-all shadow-lg shadow-primary/20"
-                    >
-                      Ir para os Pedidos <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+                <AdminQuoteApprovalSuccess
+                  quote={selectedCustomer}
+                  approvalStatus={approvalStatus}
+                  onSendWhatsApp={() =>
+                    handleWhatsAppQuote(
+                      selectedCustomer,
+                      approvalStatus.finalPrice || 45.9,
+                      approvalStatus.orderId,
+                      approvalStatus.finalPhone,
+                      approvalStatus.finalInfill,
+                      approvalStatus.finalTime,
+                      approvalStatus.finalWeight,
+                    )
+                  }
+                  onGoToOrders={() => {
+                    setSelectedCustomer(null);
+                    setApprovalStatus(null);
+                    setActiveTab("orders");
+                  }}
+                />
               ) : (
                 <>
-                  <div className="mb-6 border-b border-white/8 pb-6 pr-14">
-                    <div className="flex flex-wrap items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-primary">
-                      <span className="rounded-full border border-primary/25 bg-primary/10 px-2.5 py-1">
-                        Editor de orçamento
-                      </span>
-                      <span className="text-white/30">#{selectedCustomer.id.slice(0, 8)}</span>
-                    </div>
-                    <div className="mt-3 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                      <div>
-                        <h2 className="text-2xl font-black tracking-tight text-white sm:text-3xl">
-                          Refinamento da proposta
-                        </h2>
-                        <p className="mt-1 max-w-2xl text-sm leading-relaxed text-white/45">
-                          Edite os dados, revise o preço e gere os documentos antes de enviar ao
-                          cliente.
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-3 rounded-2xl border border-primary/20 bg-primary/[0.07] px-4 py-3">
-                        <div>
-                          <p className="text-[9px] font-black uppercase tracking-widest text-white/35">
-                            Total atual
-                          </p>
-                          <p className="font-mono text-xl font-black text-primary">
-                            {formatBRL(editingQuoteTotal)}
-                          </p>
-                        </div>
-                        <Sparkles className="h-5 w-5 text-cyan-300" />
-                      </div>
-                    </div>
-                  </div>
+                  <AdminQuoteEditorHeader quoteId={selectedCustomer.id} total={editingQuoteTotal} />
 
                   {"calcSnapshot" in selectedCustomer && selectedCustomer.calcSnapshot && (
-                    <div className="mb-6 rounded-2xl border border-amber-300/25 bg-amber-300/[0.07] p-4">
-                      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex gap-3">
-                          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-300" />
-                          <div>
-                            <p className="text-sm font-black text-amber-100">
-                              Este orçamento possui ficha técnica de cálculo
-                            </p>
-                            <p className="mt-1 text-xs leading-relaxed text-amber-100/65">
-                              Alterar os campos abaixo muda apenas os valores exibidos. Para
-                              recalcular máquina, bandejas e custos mantendo a ficha sincronizada,
-                              abra-o na calculadora.
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 gap-2">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              openAdminCalculator({ mode: "EDIT", quote: selectedCustomer });
-                              setSelectedCustomer(null);
-                            }}
-                            className="min-h-10 rounded-xl bg-blue-600 px-3 text-xs font-black text-white hover:bg-blue-500"
-                          >
-                            Editar no cálculo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              openAdminCalculator({ mode: "DUPLICATE", quote: selectedCustomer });
-                              setSelectedCustomer(null);
-                            }}
-                            className="min-h-10 rounded-xl border border-white/15 px-3 text-xs font-bold text-white/70 hover:bg-white/[0.06]"
-                          >
-                            Duplicar
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <AdminQuoteCalcSnapshotNotice
+                      onEditInCalculator={() => {
+                        openAdminCalculator({ mode: "EDIT", quote: selectedCustomer });
+                        setSelectedCustomer(null);
+                      }}
+                      onDuplicate={() => {
+                        openAdminCalculator({ mode: "DUPLICATE", quote: selectedCustomer });
+                        setSelectedCustomer(null);
+                      }}
+                    />
                   )}
 
-                  <div className="flex flex-col sm:flex-row gap-5 mb-8">
-                    <div className="h-48 w-full shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-[#0C0E14] flex items-center justify-center sm:h-44 sm:w-44">
-                      {editingQuoteImageUrl ? (
-                        <img
-                          src={editingQuoteImageUrl}
-                          alt="Peça"
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex flex-col items-center gap-2 text-white/25">
-                          <ImageIcon className="w-8 h-8" />
-                          <span className="text-[11px] font-semibold uppercase tracking-wider">
-                            Sem imagem
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1.5">
-                          Cliente
-                        </p>
-                        <p className="text-base font-bold text-white/90">
-                          {editingQuoteCustomerName || "—"}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1.5">
-                          Preço Estimado
-                        </p>
-                        <p className="text-base font-black text-primary font-mono">
-                          {formatBRL(editingQuoteTotal)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-white/10 bg-white/[0.02] px-5 py-4 sm:col-span-2">
-                        <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1.5">
-                          Peça / Arquivo
-                        </p>
-                        <input
-                          type="text"
-                          value={editingQuoteFileName}
-                          onChange={(e) => setEditingQuoteFileName(e.target.value)}
-                          placeholder="Ex: Suporte de celular v3"
-                          className="w-full bg-transparent text-base font-semibold text-white outline-none placeholder:text-white/25"
-                        />
-                      </div>
-                    </div>
-                  </div>
+                  <AdminQuoteEditorOverview
+                    imageUrl={editingQuoteImageUrl}
+                    customerName={editingQuoteCustomerName}
+                    total={editingQuoteTotal}
+                    fileName={editingQuoteFileName}
+                    onChangeFileName={setEditingQuoteFileName}
+                  />
 
                   <div className="quote-editor-grid">
-                    <section className="quote-editor-technical rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
-                        <Box className="w-4 h-4" /> Especificações Técnicas
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                        <div className="sm:col-span-2 lg:col-span-3">
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Material
-                          </label>
-                          <input
-                            type="text"
-                            value={editingQuoteMaterial}
-                            onChange={(e) => setEditingQuoteMaterial(e.target.value)}
-                            placeholder="Ex: PLA Pro"
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Quantidade de Peças
-                          </label>
-                          <NumInput
-                            min={1}
-                            step={1}
-                            value={editingQuoteQuantity}
-                            onChange={handleQuantityChange}
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-bold text-white outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Preço Unitário (R$)
-                          </label>
-                          <NumInput
-                            min={0}
-                            step={0.01}
-                            value={editingQuoteUnitPrice}
-                            onChange={handleUnitPriceChange}
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-bold text-white outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Tempo de Impressão
-                          </label>
-                          <input
-                            type="text"
-                            value={editingQuoteTime}
-                            onChange={(e) => setEditingQuoteTime(e.target.value)}
-                            placeholder="Ex: 2h 30m"
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Peso Estimado (g)
-                          </label>
-                          <NumInput
-                            min={0}
-                            value={editingQuoteWeight}
-                            onChange={setEditingQuoteWeight}
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-bold text-white outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
-                          />
-                        </div>
-                        <div className="sm:col-span-2 lg:col-span-3">
-                          <div className="flex items-center justify-between mb-2">
-                            <label className="text-xs font-semibold text-white/55">
-                              Densidade do Preenchimento (Infill)
-                            </label>
-                            <div className="flex items-center gap-1.5">
-                              <NumInput
-                                min={0}
-                                max={100}
-                                step={1}
-                                value={editingQuoteInfill}
-                                onChange={setEditingQuoteInfill}
-                                className="h-9 w-20 rounded-lg border border-white/10 bg-[#0C0E14] px-2 text-right font-mono text-sm font-black text-primary outline-none focus:border-primary/60"
-                              />
-                              <span className="text-sm font-black text-primary">%</span>
-                            </div>
-                          </div>
-                          <input
-                            type="range"
-                            min="10"
-                            max="100"
-                            step="5"
-                            value={editingQuoteInfill}
-                            onChange={(e) => setEditingQuoteInfill(Number(e.target.value))}
-                            className="w-full h-2 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary"
-                          />
-                        </div>
-                      </div>
-                    </section>
-                    <section className="quote-editor-customer rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
-                        <User className="w-4 h-4" /> Dados do Cliente
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-                        <div>
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Nome
-                          </label>
-                          <input
-                            type="text"
-                            value={editingQuoteCustomerName}
-                            onChange={(e) => setEditingQuoteCustomerName(e.target.value)}
-                            placeholder="Nome completo ou empresa"
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white outline-none transition-all placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            WhatsApp (apenas números)
-                          </label>
-                          <input
-                            type="text"
-                            value={editingQuotePhone}
-                            onChange={(e) => setEditingQuotePhone(e.target.value)}
-                            placeholder="Ex: 11999998888"
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-white/55">
-                            <Mail className="h-3.5 w-3.5" /> E-mail
-                          </label>
-                          <input
-                            type="email"
-                            value={editingQuoteCustomerEmail}
-                            onChange={(e) => setEditingQuoteCustomerEmail(e.target.value)}
-                            placeholder="cliente@email.com"
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white outline-none transition-all placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Observações do Cliente
-                          </label>
-                          <textarea
-                            rows={3}
-                            value={editingQuoteCustomerNotes}
-                            onChange={(e) => setEditingQuoteCustomerNotes(e.target.value)}
-                            placeholder="Anotações feitas pelo cliente na solicitação..."
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white/85 placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 resize-none"
-                          />
-                        </div>
-                      </div>
-                    </section>
+                    <AdminQuoteTechnicalSection
+                      material={editingQuoteMaterial}
+                      quantity={editingQuoteQuantity}
+                      unitPrice={editingQuoteUnitPrice}
+                      printTime={editingQuoteTime}
+                      weight={editingQuoteWeight}
+                      infill={editingQuoteInfill}
+                      onChangeMaterial={setEditingQuoteMaterial}
+                      onChangeQuantity={handleQuantityChange}
+                      onChangeUnitPrice={handleUnitPriceChange}
+                      onChangePrintTime={setEditingQuoteTime}
+                      onChangeWeight={setEditingQuoteWeight}
+                      onChangeInfill={setEditingQuoteInfill}
+                    />
+                    <AdminQuoteCustomerSection
+                      name={editingQuoteCustomerName}
+                      phone={editingQuotePhone}
+                      email={editingQuoteCustomerEmail}
+                      notes={editingQuoteCustomerNotes}
+                      onChangeName={setEditingQuoteCustomerName}
+                      onChangePhone={setEditingQuotePhone}
+                      onChangeEmail={setEditingQuoteCustomerEmail}
+                      onChangeNotes={setEditingQuoteCustomerNotes}
+                    />
 
-                    <section className="quote-editor-image rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
-                        <ImageIcon className="w-4 h-4" /> Imagem do Produto
-                      </h3>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5">
-                        <div className="w-full sm:w-32 h-32 shrink-0 rounded-2xl border border-white/10 bg-[#0C0E14] overflow-hidden flex items-center justify-center">
-                          {editingQuoteImageUrl ? (
-                            <img
-                              src={editingQuoteImageUrl}
-                              alt="Peça"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <ImageIcon className="w-7 h-7 text-white/20" />
-                          )}
-                        </div>
-                        <div className="flex-1 space-y-3">
-                          <input
-                            type="text"
-                            value={editingQuoteImageUrl}
-                            onChange={(e) => setEditingQuoteImageUrl(e.target.value)}
-                            placeholder="Cole a URL da imagem aqui..."
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
-                          />
-                          <input
-                            ref={quoteImageInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) handleQuoteImageUpload(file);
-                              e.target.value = "";
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => quoteImageInputRef.current?.click()}
-                            className="inline-flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/10 px-4 py-2.5 text-xs font-bold uppercase tracking-wider text-primary hover:bg-primary/20 hover:text-white transition-all"
-                          >
-                            <Upload className="w-4 h-4" /> Enviar imagem
-                          </button>
-                        </div>
-                      </div>
-                    </section>
-                    <section className="quote-editor-assistant rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-                      <button
-                        type="button"
-                        onClick={() => setIsCalcAssistantOpen(!isCalcAssistantOpen)}
-                        className="w-full flex items-center justify-between gap-4 text-left"
-                      >
-                        <span className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary">
-                          <Calculator className="w-4 h-4" /> Assistente de Precificação
-                        </span>
-                        <span className="text-[11px] text-white/35 font-mono whitespace-nowrap">
-                          {isCalcAssistantOpen ? "Fechar ▲" : "Abrir ▼"}
-                        </span>
-                      </button>
-                      {isCalcAssistantOpen && (
-                        <div className="mt-5 border-t border-white/10 pt-5 space-y-4">
-                          <p className="text-sm text-white/50 leading-relaxed">
-                            Preço calculado com os mesmos parâmetros centrais de material, energia,
-                            máquina, falhas, embalagem, contribuição por hora e piso mínimo.
-                          </p>
-                          <div className="rounded-2xl border border-white/10 bg-[#0C0E14] p-5 space-y-2.5">
-                            <h4 className="text-xs font-bold uppercase tracking-widest text-white/60 mb-2 flex justify-between items-center">
-                              <span>Demonstrativo do Cálculo</span>
-                              <span className="text-primary font-mono">
-                                {quoteAssistantResult.hours.toFixed(2)}h
-                              </span>
-                            </h4>
-                            {(
-                              [
-                                ["Material", quoteAssistantResult.materialCost],
-                                ["Energia", quoteAssistantResult.energyCost],
-                                ["Máquina", quoteAssistantResult.machineCost],
-                                [
-                                  "Falhas + embalagem",
-                                  quoteAssistantResult.failureLoss +
-                                    quoteAssistantResult.packagingCost,
-                                ],
-                                ["Custo real", quoteAssistantResult.totalCost],
-                              ] as const
-                            ).map(([label, value]) => (
-                              <div
-                                key={label}
-                                className="flex justify-between text-sm text-white/70"
-                              >
-                                <span>{label}</span>
-                                <span className="font-mono">{formatBRL(value)}</span>
-                              </div>
-                            ))}
-                            <div className="flex justify-between text-sm font-black uppercase text-white border-t border-white/10 pt-2.5">
-                              <span>Preço sugerido (varejo)</span>
-                              <span className="text-primary font-mono select-all">
-                                {formatBRL(quoteAssistantResult.retailTotal)}
-                              </span>
-                            </div>
-                          </div>
-                          <Button
-                            type="button"
-                            onClick={() => {
-                              const suggestedPrice = quoteAssistantResult.retailTotal;
-                              handleQuoteTotalChange(Number(suggestedPrice.toFixed(2)));
-                              toast.success(
-                                `${formatBRL(suggestedPrice)} aplicado pelo motor unificado!`,
-                              );
-                            }}
-                            className="w-full h-11 rounded-xl bg-primary text-sm font-bold uppercase tracking-wider text-white"
-                          >
-                            Aplicar Preço Sugerido
-                          </Button>
-                        </div>
-                      )}
-                    </section>
+                    <AdminQuoteImageSection
+                      imageUrl={editingQuoteImageUrl}
+                      onChangeImageUrl={setEditingQuoteImageUrl}
+                      onUploadImage={handleQuoteImageUpload}
+                    />
+                    <AdminQuotePricingAssistant
+                      isOpen={isCalcAssistantOpen}
+                      result={quoteAssistantResult}
+                      onToggle={() => setIsCalcAssistantOpen(!isCalcAssistantOpen)}
+                      onApplySuggestedPrice={handleQuoteTotalChange}
+                    />
 
-                    <section className="quote-editor-commercial rounded-3xl border border-primary/20 bg-primary/[0.04] p-5 sm:p-7">
-                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
-                        <BadgeDollarSign className="w-4 h-4" /> Valor da Proposta
-                      </h3>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-5">
-                        <div className="flex-1">
-                          <label className="block text-xs font-semibold text-white/55 mb-1.5">
-                            Valor Final Aprovado (R$)
-                          </label>
-                          <NumInput
-                            min={0}
-                            step={0.01}
-                            value={editingQuoteTotal}
-                            onChange={handleQuoteTotalChange}
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-lg font-black text-primary outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 font-mono"
-                          />
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-[#0C0E14] px-6 py-4 text-center shrink-0">
-                          <p className="text-[11px] font-bold uppercase tracking-widest text-white/40 mb-1">
-                            Total do Lote
-                          </p>
-                          <p className="text-2xl font-black text-primary font-mono">
-                            {formatBRL(editingQuoteTotal)}
-                          </p>
-                          <p className="text-xs text-white/40 font-mono mt-1">
-                            {editingQuoteQuantity}x {formatBRL(editingQuoteUnitPrice)}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="mt-6 grid grid-cols-1 gap-4 border-t border-white/10 pt-5 sm:grid-cols-2">
-                        <div>
-                          <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-white/55">
-                            <CalendarDays className="h-3.5 w-3.5" /> Validade da proposta
-                          </label>
-                          <input
-                            type="date"
-                            value={editingQuoteValidUntil}
-                            onChange={(e) => setEditingQuoteValidUntil(e.target.value)}
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white [color-scheme:dark] outline-none focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-                        <div>
-                          <label className="mb-1.5 block text-xs font-semibold text-white/55">
-                            Condição de pagamento
-                          </label>
-                          <input
-                            type="text"
-                            value={editingQuotePaymentTerms}
-                            onChange={(e) => setEditingQuotePaymentTerms(e.target.value)}
-                            placeholder="Ex.: 50% na aprovação e 50% na entrega"
-                            className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm font-semibold text-white outline-none placeholder:text-white/25 focus:border-primary/60 focus:ring-2 focus:ring-primary/20"
-                          />
-                        </div>
-                        <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-xs font-semibold text-white/70 sm:col-span-2">
-                          <input
-                            type="checkbox"
-                            checked={editingQuoteShowImage}
-                            onChange={(e) => setEditingQuoteShowImage(e.target.checked)}
-                            className="h-4 w-4 accent-primary"
-                          />
-                          Mostrar a imagem do produto na proposta do cliente
-                        </label>
-                      </div>
-                    </section>
+                    <AdminQuoteCommercialSection
+                      total={editingQuoteTotal}
+                      quantity={editingQuoteQuantity}
+                      unitPrice={editingQuoteUnitPrice}
+                      validUntil={editingQuoteValidUntil}
+                      paymentTerms={editingQuotePaymentTerms}
+                      showImage={editingQuoteShowImage}
+                      onChangeTotal={handleQuoteTotalChange}
+                      onChangeValidUntil={setEditingQuoteValidUntil}
+                      onChangePaymentTerms={setEditingQuotePaymentTerms}
+                      onChangeShowImage={setEditingQuoteShowImage}
+                    />
 
-                    <section className="quote-editor-notes rounded-3xl border border-white/10 bg-white/[0.02] p-5 sm:p-7">
-                      <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
-                        <Edit className="w-4 h-4" /> Notas do Técnico
-                      </h3>
-                      <textarea
-                        rows={3}
-                        value={editingQuoteNotes}
-                        onChange={(e) => setEditingQuoteNotes(e.target.value)}
-                        placeholder="Insira notas de qualidade, instruções de acabamento ou controle interno..."
-                        className="w-full rounded-xl border border-white/10 bg-[#0C0E14] px-4 py-3 text-sm text-white/85 placeholder:text-white/25 outline-none transition-all focus:border-primary/60 focus:ring-2 focus:ring-primary/20 resize-none"
-                      />
-                    </section>
-                    <div className="quote-editor-actions sticky bottom-0 z-20 grid min-w-0 grid-cols-1 gap-3 rounded-2xl border border-white/10 bg-[#0d121c]/95 p-3 shadow-2xl backdrop-blur-xl lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
-                      <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-3">
-                        {editingQuotePreview && (
-                          <>
-                            <Button
-                              variant="outline"
-                              onClick={() => handlePrintSavedQuote(editingQuotePreview, "CLIENT")}
-                              className="h-11 w-full rounded-xl border-blue-400/20 px-3 text-[10px] font-bold uppercase text-blue-300 hover:bg-blue-400/10"
-                            >
-                              <FileText className="h-4 w-4" /> Visualizar proposta
-                            </Button>
-                            <Button
-                              variant="outline"
-                              onClick={() =>
-                                handlePrintSavedQuote(editingQuotePreview, "PRODUCTION")
-                              }
-                              className="h-11 w-full rounded-xl border-orange-400/20 px-3 text-[10px] font-bold uppercase text-orange-300 hover:bg-orange-400/10"
-                            >
-                              <Factory className="h-4 w-4" /> Ficha de produção
-                            </Button>
-                          </>
-                        )}
-                        <Button
-                          variant="outline"
-                          onClick={() => handleWhatsAppQuote(selectedCustomer, editingQuoteTotal)}
-                          className="h-11 w-full rounded-xl border-green-500/25 px-3 text-[10px] font-bold uppercase text-green-400 hover:bg-green-500/10 hover:text-green-300"
-                        >
-                          <Smartphone className="h-4 w-4" /> WhatsApp
-                        </Button>
-                      </div>
-                      <div className="grid min-w-0 grid-cols-[minmax(90px,1fr)_minmax(150px,1.5fr)_44px] gap-2 lg:grid-cols-[auto_auto_44px]">
-                        <Button
-                          variant="outline"
-                          onClick={() => handleSaveQuoteSpecifications(selectedCustomer)}
-                          className="h-11 w-full rounded-xl border-white/15 px-4 text-[10px] font-bold uppercase text-white/85 hover:bg-white/5 hover:text-white"
-                        >
-                          <Save className="h-4 w-4" /> Salvar
-                        </Button>
-                        <Button
-                          disabled={isApprovingQuote}
-                          onClick={() =>
-                            triggerConfirm(
-                              "Aprovar Orçamento",
-                              `Aprovar o orçamento de ${editingQuoteCustomerName || "Cliente"} e faturar gerando o pedido?`,
-                              () => handleApproveQuote(selectedCustomer),
-                            )
-                          }
-                          className="h-11 w-full rounded-xl bg-emerald-500 px-5 text-[10px] font-black uppercase text-white shadow-lg shadow-emerald-500/10 hover:bg-emerald-600"
-                        >
-                          <CheckCircle2 className="h-4 w-4" /> Aprovar e faturar
-                        </Button>
-                        <Button
-                          variant="outline"
-                          title="Descartar orçamento"
-                          aria-label="Descartar orçamento"
-                          onClick={() =>
-                            triggerConfirm(
-                              "Descartar Orçamento",
-                              "Tem certeza que deseja excluir permanentemente este orçamento?",
-                              () => {
-                                deleteItem("quotes", selectedCustomer.id);
-                                setSelectedCustomer(null);
-                              },
-                              true,
-                            )
-                          }
-                          className="h-11 w-11 shrink-0 rounded-xl border-red-500/25 p-0 text-red-400 hover:border-red-500/50 hover:bg-red-500/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
+                    <AdminQuoteNotesSection
+                      notes={editingQuoteNotes}
+                      onChangeNotes={setEditingQuoteNotes}
+                    />
+                    <AdminQuoteEditorActions
+                      documentActions={
+                        editingQuotePreview
+                          ? {
+                              onPrintClientQuote: () =>
+                                handlePrintSavedQuote(editingQuotePreview, "CLIENT"),
+                              onPrintProductionSheet: () =>
+                                handlePrintSavedQuote(editingQuotePreview, "PRODUCTION"),
+                            }
+                          : null
+                      }
+                      isApproving={isApprovingQuote}
+                      onSendWhatsApp={() =>
+                        handleWhatsAppQuote(selectedCustomer, editingQuoteTotal)
+                      }
+                      onSave={() => handleSaveQuoteSpecifications(selectedCustomer)}
+                      onApprove={() =>
+                        triggerConfirm(
+                          "Aprovar Orçamento",
+                          `Aprovar o orçamento de ${editingQuoteCustomerName || "Cliente"} e faturar gerando o pedido?`,
+                          () => handleApproveQuote(selectedCustomer),
+                        )
+                      }
+                      onDiscard={() =>
+                        triggerConfirm(
+                          "Descartar Orçamento",
+                          "Tem certeza que deseja excluir permanentemente este orçamento?",
+                          () => {
+                            deleteItem("quotes", selectedCustomer.id);
+                            setSelectedCustomer(null);
+                          },
+                          true,
+                        )
+                      }
+                    />
                   </div>
                 </>
               )}
@@ -2433,515 +1331,49 @@ export default function AdminDashboard() {
           onUploadPhoto={printerAdmin.handlePrinterPhotoUpload}
         />
 
-        {/* CRM Detail Modal */}
         {selectedCRMUser && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-surface border border-white/10 rounded-[48px] w-full max-w-4xl relative my-auto overflow-hidden flex flex-col max-h-[85vh]"
-            >
-              <div className="p-12 border-b border-white/5 bg-white/[0.02] flex justify-between items-center">
-                <div className="flex items-center gap-6">
-                  <div className="w-20 h-20 rounded-3xl bg-primary/20 flex items-center justify-center font-black text-2xl text-primary uppercase">
-                    {selectedCRMUser.photoURL ? (
-                      <img
-                        src={selectedCRMUser.photoURL}
-                        className="w-full h-full rounded-3xl object-cover"
-                      />
-                    ) : (
-                      selectedCRMUser.name?.[0]
-                    )}
-                  </div>
-                  <div>
-                    <h2 className="text-3xl font-black italic tracking-tighter">
-                      {selectedCRMUser.name}
-                    </h2>
-                    <p className="text-xs text-white/40 font-bold uppercase tracking-widest">
-                      {selectedCRMUser.email}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedCRMUser(null)}
-                  className="p-4 hover:bg-white/5 rounded-2xl transition-all text-dim hover:text-white"
-                >
-                  <Plus className="w-8 h-8 rotate-45" />
-                </button>
-              </div>
-              <div className="flex-1 p-12 overflow-y-auto no-scrollbar space-y-10">
-                <div>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-dim mb-6 italic">
-                    Fluxo de Protocolos (Pedidos)
-                  </h3>
-                  <div className="space-y-4">
-                    {orders
-                      .filter((o) => o.userEmail === selectedCRMUser.email)
-                      .map((order) => (
-                        <div
-                          key={order.id}
-                          className="glass p-6 rounded-[32px] border border-white/5 flex items-center justify-between hover:bg-white/5 transition-all"
-                        >
-                          <div>
-                            <p className="text-[10px] font-mono text-dim mb-1">
-                              #{order.id.slice(0, 12)}
-                            </p>
-                            <p className="text-xs font-bold uppercase">
-                              {new Date(
-                                (order.createdAt?.seconds ?? 0) * 1000,
-                              ).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-[11px] font-black uppercase text-dim mb-1">Status</p>
-                            <span className="text-[9px] font-black uppercase px-3 py-1 bg-white/5 rounded-full border border-white/5">
-                              {order.status}
-                            </span>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-display font-black text-primary">
-                              R$ {(order.total || 0).toFixed(2)}
-                            </p>
-                            <button
-                              onClick={() => {
-                                setSelectedOrder(order);
-                                setSelectedCRMUser(null);
-                              }}
-                              className="text-[11px] font-black uppercase text-dim hover:text-white mt-1 underline"
-                            >
-                              Ver Detalhes
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    {orders.filter((o) => o.userEmail === selectedCRMUser.email).length === 0 && (
-                      <div className="py-20 text-center opacity-10 italic">
-                        Nenhum protocolo interceptado para este usuário.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-              <div className="p-8 bg-black/40 border-t border-white/5 flex flex-wrap gap-4">
-                <Button
-                  onClick={() => openCustomerEditor(selectedCRMUser)}
-                  className="rounded-2xl h-14 px-8 text-xs font-black uppercase tracking-widest"
-                >
-                  <Edit className="w-4 h-4" /> Editar cliente
-                </Button>
-                <Button
-                  onClick={() => window.open(`mailto:${selectedCRMUser.email}`)}
-                  className="flex-1 rounded-2xl h-14 bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-black uppercase italic tracking-widest text-white"
-                >
-                  Enviar Notificação
-                </Button>
-                <Button
-                  onClick={() => deleteItem("customers", selectedCRMUser.id)}
-                  className="rounded-2xl h-14 px-8 border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all text-xs font-black uppercase italic tracking-widest"
-                  variant="outline"
-                >
-                  Banir / Excluir
-                </Button>
-              </div>
-            </motion.div>
-          </div>
+          <AdminCustomerDetailModal
+            customer={selectedCRMUser}
+            orders={orders}
+            onClose={() => setSelectedCRMUser(null)}
+            onEdit={openCustomerEditor}
+            onSelectOrder={(order) => {
+              setSelectedOrder(order);
+              setSelectedCRMUser(null);
+            }}
+            onEmail={(email) => window.open(`mailto:${email}`)}
+            onDelete={(id) => deleteItem("customers", id)}
+          />
         )}
 
-        {/* Customer Form Modal */}
         {(isAddingCustomer || isEditingCustomer) && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.97 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.97 }}
-              className="bg-surface border border-white/10 rounded-2xl p-6 sm:p-8 max-w-2xl w-full relative my-auto max-h-[92vh] overflow-y-auto"
-            >
-              <button
-                aria-label="Fechar editor de cliente"
-                onClick={() => {
-                  setIsAddingCustomer(false);
-                  setIsEditingCustomer(false);
-                }}
-                className="absolute top-8 right-8 text-dim hover:text-white"
-              >
-                <Plus className="w-8 h-8 rotate-45" />
-              </button>
-              <h2 className="text-3xl font-black italic tracking-tighter mb-8 leading-none">
-                {isEditingCustomer ? "Editar Cliente" : "Novo Cliente"}
-                <br />
-                <span className="text-primary text-sm uppercase tracking-widest mt-2 block">
-                  {isEditingCustomer ? "Refinar Cadastro" : "Cadastro Manual (CRM)"}
-                </span>
-              </h2>
-              <form onSubmit={handleCustomerSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-dim italic">
-                      Nome Completo
-                    </label>
-                    <input
-                      required
-                      value={newCustomer.name}
-                      onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-dim italic">
-                      Telefone / WhatsApp
-                    </label>
-                    <input
-                      value={newCustomer.phone}
-                      onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
-                      placeholder="(00) 00000-0000"
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-dim italic">
-                    Email de Contato
-                  </label>
-                  <input
-                    type="email"
-                    value={newCustomer.email}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, email: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <input
-                    value={newCustomer.secondaryPhone}
-                    onChange={(e) =>
-                      setNewCustomer({ ...newCustomer, secondaryPhone: e.target.value })
-                    }
-                    placeholder="Telefone alternativo"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                  <select
-                    value={newCustomer.preferredContact}
-                    onChange={(e) =>
-                      setNewCustomer({
-                        ...newCustomer,
-                        preferredContact: e.target.value as "WHATSAPP" | "PHONE" | "EMAIL",
-                      })
-                    }
-                    className="bg-black border border-white/10 rounded-2xl p-4 text-sm"
-                  >
-                    <option value="WHATSAPP">Prefere WhatsApp</option>
-                    <option value="PHONE">Prefere telefone</option>
-                    <option value="EMAIL">Prefere email</option>
-                  </select>
-                  <input
-                    type="date"
-                    value={newCustomer.birthday}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, birthday: e.target.value })}
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                    title="Nascimento / aniversário"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <select
-                    value={newCustomer.customerType}
-                    onChange={(e) =>
-                      setNewCustomer({
-                        ...newCustomer,
-                        customerType: e.target.value as "PERSON" | "COMPANY",
-                      })
-                    }
-                    className="bg-black border border-white/10 rounded-2xl p-4 text-sm"
-                  >
-                    <option value="PERSON">Pessoa fisica</option>
-                    <option value="COMPANY">Empresa</option>
-                  </select>
-                  <input
-                    value={newCustomer.document}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, document: e.target.value })}
-                    placeholder="CPF / CNPJ"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input
-                    value={newCustomer.zipCode}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, zipCode: e.target.value })}
-                    placeholder="CEP"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                  <input
-                    value={newCustomer.city}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, city: e.target.value })}
-                    placeholder="Cidade"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                  <input
-                    value={newCustomer.state}
-                    onChange={(e) =>
-                      setNewCustomer({
-                        ...newCustomer,
-                        state: e.target.value.toUpperCase().slice(0, 2),
-                      })
-                    }
-                    placeholder="UF"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                </div>
-                <input
-                  value={newCustomer.address}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
-                  placeholder="Endereco completo"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                />
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    value={newCustomer.source}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, source: e.target.value })}
-                    placeholder="Origem do cliente"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                  <input
-                    value={newCustomer.whatsapp}
-                    onChange={(e) => setNewCustomer({ ...newCustomer, whatsapp: e.target.value })}
-                    placeholder="WhatsApp"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-dim italic">
-                    Segmentação (Tags separadas por vírgula)
-                  </label>
-                  <input
-                    value={newCustomer.tags.join(", ")}
-                    onChange={(e) =>
-                      setNewCustomer({
-                        ...newCustomer,
-                        tags: e.target.value
-                          .split(",")
-                          .map((t) => t.trim())
-                          .filter((t) => t !== ""),
-                      })
-                    }
-                    placeholder="Ex: VIP, B2B, Atacado"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all"
-                  />
-                </div>
-                <textarea
-                  value={newCustomer.notes}
-                  onChange={(e) => setNewCustomer({ ...newCustomer, notes: e.target.value })}
-                  placeholder="Observacoes gerais"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm min-h-20"
-                />
-                <textarea
-                  value={newCustomer.internalNotes}
-                  onChange={(e) =>
-                    setNewCustomer({ ...newCustomer, internalNotes: e.target.value })
-                  }
-                  placeholder="Observacoes internas (nao exibidas ao cliente)"
-                  className="w-full bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4 text-sm min-h-20"
-                />
-                <Button
-                  type="submit"
-                  disabled={isSubmittingCustomer}
-                  className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest bg-primary shadow-xl shadow-primary/20"
-                >
-                  {isSubmittingCustomer
-                    ? "Salvando..."
-                    : isEditingCustomer
-                      ? "Salvar alterações"
-                      : "Cadastrar cliente"}
-                </Button>
-              </form>
-            </motion.div>
-          </div>
+          <AdminCustomerFormModal
+            isEditing={isEditingCustomer}
+            isSubmitting={isSubmittingCustomer}
+            customer={newCustomer}
+            setCustomer={setNewCustomer}
+            onSubmit={handleCustomerSubmit}
+            onClose={closeCustomerForm}
+          />
         )}
 
-        {/* Material Form Modal */}
         {isAddingMaterial && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-surface border border-white/10 rounded-[48px] p-12 max-w-md w-full relative"
-            >
-              <button
-                onClick={() => setIsAddingMaterial(false)}
-                className="absolute top-8 right-8 text-dim hover:text-white"
-              >
-                <Plus className="w-8 h-8 rotate-45" />
-              </button>
-              <h2 className="text-3xl font-black italic tracking-tighter mb-8">Novo Material</h2>
-              <form onSubmit={handleMaterialSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-dim">Identificação</label>
-                  <input
-                    required
-                    value={newMaterial.name}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, name: e.target.value })}
-                    placeholder="Ex: PLA Silk Gold"
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-dim">Tipo</label>
-                    <input
-                      value={newMaterial.type}
-                      onChange={(e) => setNewMaterial({ ...newMaterial, type: e.target.value })}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-dim">Custo p/ Kg</label>
-                    <NumInput
-                      min={0}
-                      step={0.01}
-                      value={newMaterial.pricePerKg}
-                      onChange={(v) => setNewMaterial({ ...newMaterial, pricePerKg: v })}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-dim">
-                    Cor do Display
-                  </label>
-                  <input
-                    type="color"
-                    value={newMaterial.color}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, color: e.target.value })}
-                    className="w-full h-14 bg-white/5 border border-white/10 rounded-2xl overflow-hidden cursor-pointer"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-dim">
-                      Saldo inicial (g)
-                    </label>
-                    <NumInput
-                      min={0}
-                      value={newMaterial.stockGrams}
-                      onChange={(v) => setNewMaterial({ ...newMaterial, stockGrams: v })}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black uppercase text-dim">
-                      Estoque minimo (g)
-                    </label>
-                    <NumInput
-                      min={0}
-                      value={newMaterial.minimumStockGrams}
-                      onChange={(v) => setNewMaterial({ ...newMaterial, minimumStockGrams: v })}
-                      className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <input
-                    value={newMaterial.brand}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, brand: e.target.value })}
-                    placeholder="Marca"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                  <input
-                    value={newMaterial.supplier}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, supplier: e.target.value })}
-                    placeholder="Fornecedor"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                  <input
-                    value={newMaterial.batch}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, batch: e.target.value })}
-                    placeholder="Lote"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                  <input
-                    value={newMaterial.location}
-                    onChange={(e) => setNewMaterial({ ...newMaterial, location: e.target.value })}
-                    placeholder="Localizacao"
-                    className="bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                  />
-                </div>
-                <textarea
-                  value={newMaterial.notes}
-                  onChange={(e) => setNewMaterial({ ...newMaterial, notes: e.target.value })}
-                  placeholder="Observacoes do filamento"
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-                />
-                <Button
-                  type="submit"
-                  className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest"
-                >
-                  Registrar Material
-                </Button>
-              </form>
-            </motion.div>
-          </div>
+          <AdminMaterialFormModal
+            material={newMaterial}
+            setMaterial={setNewMaterial}
+            onSubmit={handleMaterialSubmit}
+            onClose={closeMaterialForm}
+          />
         )}
 
-        {/* Showcase Form Modal */}
         {(isAddingShowcase || isEditingShowcase) && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl overflow-y-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 30 }}
-              className="bg-surface border border-white/10 rounded-[48px] p-12 max-w-lg w-full relative my-auto"
-            >
-              <button
-                onClick={() => {
-                  setIsAddingShowcase(false);
-                  setIsEditingShowcase(false);
-                }}
-                className="absolute top-8 right-8 text-dim hover:text-white"
-              >
-                <Plus className="w-8 h-8 rotate-45" />
-              </button>
-              <h2 className="text-3xl font-black italic tracking-tighter mb-8">
-                {isEditingShowcase ? "Edição Vitrine" : "Novo Destaque"}
-              </h2>
-              <form onSubmit={handleShowcaseSubmit} className="space-y-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-dim">
-                    Título do Banner
-                  </label>
-                  <input
-                    required
-                    value={newShowcase.title}
-                    onChange={(e) => setNewShowcase({ ...newShowcase, title: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-dim">
-                    Subtítulo / Tagline
-                  </label>
-                  <input
-                    value={newShowcase.subtitle}
-                    onChange={(e) => setNewShowcase({ ...newShowcase, subtitle: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase text-dim">Wallpaper URL</label>
-                  <input
-                    required
-                    value={newShowcase.image}
-                    onChange={(e) => setNewShowcase({ ...newShowcase, image: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none"
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic"
-                >
-                  Publicar Ativo
-                </Button>
-              </form>
-            </motion.div>
-          </div>
+          <AdminShowcaseFormModal
+            isEditing={isEditingShowcase}
+            showcase={newShowcase}
+            setShowcase={setNewShowcase}
+            onSubmit={handleShowcaseSubmit}
+            onClose={closeShowcaseForm}
+          />
         )}
 
         {/* Product Form Modal */}

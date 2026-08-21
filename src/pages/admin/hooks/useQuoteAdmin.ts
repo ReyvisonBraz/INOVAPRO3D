@@ -22,6 +22,17 @@ interface Deps {
   fetchData: () => Promise<void>;
 }
 
+export interface QuoteApprovalStatus {
+  success: boolean;
+  orderId?: string;
+  finalPrice?: number;
+  finalInfill?: number;
+  finalTime?: string;
+  finalWeight?: number;
+  finalPhone?: string;
+  finalNotes?: string;
+}
+
 function isQuote(record: Quote | Ticket): record is Quote {
   return (
     typeof record.fileName === "string" &&
@@ -62,16 +73,7 @@ export function useQuoteAdmin({
   const [editingQuoteShowImage, setEditingQuoteShowImage] = useState(true);
   const [isCalcAssistantOpen, setIsCalcAssistantOpen] = useState(false);
   const [isApprovingQuote, setIsApprovingQuote] = useState(false);
-  const [approvalStatus, setApprovalStatus] = useState<{
-    success: boolean;
-    orderId?: string;
-    finalPrice?: number;
-    finalInfill?: number;
-    finalTime?: string;
-    finalWeight?: number;
-    finalPhone?: string;
-    finalNotes?: string;
-  } | null>(null);
+  const [approvalStatus, setApprovalStatus] = useState<QuoteApprovalStatus | null>(null);
 
   useEffect(() => {
     if (selectedCustomer && activeTab === "quotes") {
