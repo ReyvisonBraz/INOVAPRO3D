@@ -10,3 +10,4 @@ firebase-applet-config*
 .claude/
 .vercel
 .env.local
+.playwright-mcp/
