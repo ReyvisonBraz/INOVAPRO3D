@@ -53,6 +53,8 @@ const defaultProduct = {
   productionMaterial: "PLA" as ProductionMaterial,
 };
 
+export type ProductDraft = typeof defaultProduct;
+
 interface Deps {
   categories: Category[];
   fetchData: () => Promise<void>;

@@ -14,6 +14,14 @@ import { auth, db, getStorageInstance } from "../../../services/firebase";
 import { generateSlug } from "../../../lib/categoryTree";
 import type { Category } from "../../../types/domain";
 
+export interface CategoryDraft {
+  name: string;
+  description: string;
+  image: string;
+  active: boolean;
+  parentId: string;
+}
+
 interface Deps {
   categories: Category[];
   setCategories: Dispatch<SetStateAction<Category[]>>;
@@ -25,7 +33,7 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
   const [isAddingCategory, setIsAddingCategory] = useState(false);
   const [isEditingCategory, setIsEditingCategory] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [newCategory, setNewCategory] = useState({
+  const [newCategory, setNewCategory] = useState<CategoryDraft>({
     name: "",
     description: "",
     image: "",
