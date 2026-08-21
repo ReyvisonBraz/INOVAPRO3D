@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { auth } from "../../services/firebase";
-import { updateProductCategory, updateProductsCategory } from "../../services/products";
+import { updateProductsCategory } from "../../services/products";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -385,6 +385,37 @@ export default function AdminDashboard() {
     [setEditingQuoteImageUrl],
   );
 
+  /**
+   * Move produtos de categoria com atualização otimista. Se a escrita falhar,
+   * desfaz a mudança na lista e avisa o usuário.
+   */
+  const moveProductsToCategory = useCallback(
+    async (ids: string[], category: string, options?: { successMessage?: string }) => {
+      const previousCategories = new Map(
+        products.filter((p) => ids.includes(p.id)).map((p) => [p.id, p.category]),
+      );
+
+      setProducts((prev) =>
+        prev.map((p) => (previousCategories.has(p.id) ? { ...p, category } : p)),
+      );
+      if (options?.successMessage) toast.success(options.successMessage);
+
+      try {
+        await updateProductsCategory(ids, category);
+      } catch (error) {
+        setProducts((prev) =>
+          prev.map((p) => {
+            const previous = previousCategories.get(p.id);
+            return previous === undefined ? p : { ...p, category: previous };
+          }),
+        );
+        console.error("Falha ao mover produtos de categoria:", error);
+        toast.error("Não foi possível mover. A lista voltou ao estado anterior.");
+      }
+    },
+    [products, setProducts],
+  );
+
   // O modal de homologação usa exatamente o mesmo motor e os mesmos
   // parâmetros das calculadoras completa e rápida.
   const quoteAssistantResult = useMemo(() => {
@@ -757,17 +788,12 @@ export default function AdminDashboard() {
                   setIsAddingProduct(true);
                 }}
                 onMoveToCategory={(ids, cat) => {
-                  void updateProductsCategory(ids, cat);
-                  setProducts((prev) =>
-                    prev.map((p) => (ids.includes(p.id) ? { ...p, category: cat } : p)),
-                  );
-                  toast.success(`${ids.length} produto(s) movido(s) para ${cat}`);
+                  void moveProductsToCategory(ids, cat, {
+                    successMessage: `${ids.length} produto(s) movido(s) para ${cat}`,
+                  });
                 }}
                 onChangeCategory={(id, cat) => {
-                  void updateProductCategory(id, cat);
-                  setProducts((prev) =>
-                    prev.map((p) => (p.id === id ? { ...p, category: cat } : p)),
-                  );
+                  void moveProductsToCategory([id], cat);
                 }}
               />
             </AdminPanelRoute>
