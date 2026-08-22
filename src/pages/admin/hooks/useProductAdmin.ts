@@ -15,6 +15,7 @@ import {
   DEFAULT_ENERGY,
   DEFAULT_FAILURE_RATE,
   computePricing,
+  parseTimeToHours,
 } from "../../../lib/pricing";
 import {
   formatCatalogTitle,
@@ -220,9 +221,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
 
       const importedTech = { ...(data.technical || {}) };
       const weightG = Number(importedTech.weight) || 0;
-      const hMatch = String(importedTech.printTime || "").match(/(\d+)\s*h/i);
-      const mMatch = String(importedTech.printTime || "").match(/(\d+)\s*m/i);
-      const printTimeH = (hMatch ? Number(hMatch[1]) : 0) + (mMatch ? Number(mMatch[1]) / 60 : 0);
+      const printTimeH = parseTimeToHours(String(importedTech.printTime || ""));
       if (weightG > 0 && printTimeH > 0) {
         try {
           const suggested = computePricing({

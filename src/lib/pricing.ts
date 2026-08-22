@@ -531,19 +531,27 @@ export function formatHoursToHHMM(hours: number): string {
   return `${hh}h ${mm}min`;
 }
 
+/** Lê o número de uma unidade ("7.50h", "7,5h", "12m") aceitando decimais. */
+function matchUnit(timeStr: string, unit: string): number {
+  const match = timeStr.match(new RegExp(String.raw`(\d+(?:[.,]\d+)?)\s*${unit}`, "i"));
+  return match ? parseFloat(match[1].replace(",", ".")) : 0;
+}
+
 /** Converte tempos do Bambu ("1d 4h 30m 10s"), decimal ou "2:30" em horas. */
 export function parseTimeToHours(timeStr: string): number {
   if (!timeStr) return 0;
   // Jobs longos e multi-bandeja aparecem como "1d 4h 12m" no Bambu Studio.
   // Sem o dia, "1d 4h" virava 4h e subprecificava o trabalho inteiro.
-  const dMatch = timeStr.match(/(\d+)\s*d/i);
-  const hMatch = timeStr.match(/(\d+)\s*h/i);
-  const mMatch = timeStr.match(/(\d+)\s*m/i);
-  const sMatch = timeStr.match(/(\d+)\s*s/i);
-  const d = dMatch ? parseInt(dMatch[1], 10) : 0;
-  const h = hMatch ? parseInt(hMatch[1], 10) : 0;
-  const m = mMatch ? parseInt(mMatch[1], 10) : 0;
-  const s = sMatch ? parseInt(sMatch[1], 10) : 0;
+  // A parte decimal também é obrigatória: a calculadora grava "7.50h" e, sem
+  // ela, o regex casava com "50h" e multiplicava o orçamento por quase 7.
+  const dMatch = timeStr.match(/\d\s*d/i);
+  const hMatch = timeStr.match(/\d\s*h/i);
+  const mMatch = timeStr.match(/\d\s*m/i);
+  const sMatch = timeStr.match(/\d\s*s/i);
+  const d = matchUnit(timeStr, "d");
+  const h = matchUnit(timeStr, "h");
+  const m = matchUnit(timeStr, "m");
+  const s = matchUnit(timeStr, "s");
 
   if (!dMatch && !hMatch && !mMatch && !sMatch) {
     if (timeStr.includes(":")) {
@@ -569,7 +577,7 @@ export const HELP = {
     "Peso líquido do carretel de referência, sem o peso do plástico vazio. Normalmente é 1000 g. Nas bandejas com preço informado por kg, esse campo não altera o custo.",
   weight:
     "Use a coluna Total do Bambu Studio para cada filamento. Ela reúne modelo, suporte, material purgado/corado e torre; não use apenas o peso do modelo.",
-  time: "Tempo total mostrado pelo Bambu Studio. Aceita 1d 4h 12m, 2h30m, 36m57s, 2:30 ou horas decimais. Dias e segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",
+  time: "Tempo total mostrado pelo Bambu Studio. Aceita 1d 4h 12m, 2h30m, 36m57s, 2:30, 7.50h ou horas decimais. Dias e segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",
   quantity:
     "Quantidade de produtos completos e vendáveis. Um boneco dividido em várias bandejas continua sendo 1 produto; 20 chaveiros completos são 20.",
   reserve:

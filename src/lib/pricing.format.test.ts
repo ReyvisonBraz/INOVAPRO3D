@@ -29,6 +29,18 @@ describe("parseTimeToHours", () => {
   it('interpreta "2d" como 48', () => {
     expect(parseTimeToHours("2d")).toBe(48);
   });
+  it('interpreta horas decimais "7.50h" como 7.5, não como 50', () => {
+    expect(parseTimeToHours("7.50h")).toBeCloseTo(7.5, 5);
+  });
+  it('aceita vírgula decimal: "7,5h" como 7.5', () => {
+    expect(parseTimeToHours("7,5h")).toBeCloseTo(7.5, 5);
+  });
+  it('interpreta dias decimais "1.5d" como 36', () => {
+    expect(parseTimeToHours("1.5d")).toBeCloseTo(36, 5);
+  });
+  it('soma unidades decimais: "2.5h 30m" como 3', () => {
+    expect(parseTimeToHours("2.5h 30m")).toBeCloseTo(3, 5);
+  });
 });
 
 describe("formatHoursToHHMM", () => {

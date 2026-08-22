@@ -43,6 +43,7 @@ import {
 import {
   DEFAULT_ENERGY,
   DEFAULT_PRICING_SETTINGS,
+  formatHoursToHHMM,
   machineHourBreakdown,
   MATERIAL_PRESETS,
   mergePricingSettings,
@@ -1311,7 +1312,7 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
           ? "Multicolor"
           : "Cor única",
         weight: result.weightGrams,
-        printTime: `${result.hours.toFixed(2)}h`,
+        printTime: formatHoursToHHMM(result.hours),
         quantity: projectPricing.totalPieces,
         price: selectedTotal,
         unitPrice: selectedUnit,
