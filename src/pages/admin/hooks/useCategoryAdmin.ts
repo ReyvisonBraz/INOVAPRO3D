@@ -11,7 +11,7 @@ import {
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import { auth, db, getStorageInstance } from "../../../services/firebase";
-import { generateSlug } from "../../../lib/categoryTree";
+import { findCategoryNameConflict, generateSlug } from "../../../lib/categoryTree";
 import type { Category } from "../../../types/domain";
 
 export interface CategoryDraft {
@@ -62,6 +62,20 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
           parentId = byId.get(parentId)?.parentId;
         }
       }
+      const nameConflict = findCategoryNameConflict(
+        categories,
+        newCategory.name,
+        newCategory.parentId,
+        editingCategoryId,
+      );
+      if (nameConflict) {
+        toast.error(
+          newCategory.parentId
+            ? `Esta categoria já tem uma subcategoria chamada "${nameConflict.name}".`
+            : `Já existe uma categoria principal chamada "${nameConflict.name}".`,
+        );
+        return;
+      }
       try {
         const name = newCategory.name.trim().toUpperCase();
         const slug = generateSlug(name);
@@ -106,6 +120,63 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
       }
     },
     [newCategory, isEditingCategory, editingCategoryId, categories, fetchData],
+  );
+
+  /**
+   * Cria uma categoria minima e devolve o documento — usada pelo atalho
+   * "+ Nova categoria" do formulario de produto.
+   *
+   * Antes esse atalho so guardava a string no produto, sem criar documento
+   * nenhum: era a fabrica de produto orfao. Agora passa pelo mesmo guarda de
+   * nome repetido entre irmaos e devolve o id para o produto gravar.
+   */
+  const createCategory = useCallback(
+    async (rawName: string, parentId?: string | null): Promise<Category | null> => {
+      const name = rawName.trim().toUpperCase();
+      if (!name) return null;
+
+      const conflict = findCategoryNameConflict(categories, name, parentId);
+      if (conflict) {
+        toast.error(
+          parentId
+            ? `Esta categoria já tem uma subcategoria chamada "${conflict.name}".`
+            : `Já existe uma categoria principal chamada "${conflict.name}".`,
+        );
+        return null;
+      }
+
+      try {
+        const data = {
+          name,
+          description: "",
+          slug: generateSlug(name),
+          active: true,
+          parentId: parentId || null,
+          order: categories.filter((c) => (c.parentId || null) === (parentId || null)).length,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        const ref = await addDoc(collection(db, "categories"), data);
+        const created: Category = {
+          id: ref.id,
+          name,
+          slug: data.slug,
+          parentId: data.parentId,
+          active: true,
+          order: data.order,
+        };
+        // Entra na lista local na hora para o select ja poder selecioná-la,
+        // sem esperar o fetchData.
+        setCategories((prev) => [...prev, created]);
+        toast.success(`Categoria "${name}" criada!`);
+        return created;
+      } catch (err) {
+        console.error("[categoria] falha ao criar categoria rápida:", err);
+        toast.error("Não foi possível criar a categoria.");
+        return null;
+      }
+    },
+    [categories, setCategories],
   );
 
   const handleCategoryImageUpload = useCallback(async (file: File | null) => {
@@ -199,6 +270,7 @@ export function useCategoryAdmin({ categories, setCategories, fetchData }: Deps)
     setNewCategory,
     isUploadingCategoryImage,
     handleCategorySubmit,
+    createCategory,
     handleCategoryImageUpload,
     handleToggleCategoryActive,
     handleReorderCategory,

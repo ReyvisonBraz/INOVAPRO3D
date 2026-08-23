@@ -26,22 +26,14 @@ import {
 } from "../../../lib/adminHelpers";
 import type { Category, Product, ProductionMaterial } from "../../../types/domain";
 
-const STATIC_CATEGORIES = [
-  "DECORAÇÃO",
-  "UTILITÁRIOS",
-  "ACTION FIGURES",
-  "ORGANIZADORES",
-  "MODA",
-  "GAMES",
-  "PERSONALIZADO",
-  "OUTROS",
-];
-
 const defaultProduct = {
   name: "",
   description: "",
   basePrice: 0,
-  category: "DECORAÇÃO",
+  // Produto nasce sem categoria de proposito: um padrao fixo jogava produto
+  // numa categoria que ninguem escolheu. O formulario exige a escolha.
+  category: "",
+  categoryId: "",
   images: [""],
   active: true,
   stock: 0,
@@ -70,7 +62,6 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
   const [isImportingProduct, setIsImportingProduct] = useState(false);
   const [isUploadingProductImage, setIsUploadingProductImage] = useState(false);
   const [translatingField, setTranslatingField] = useState<"name" | "description" | null>(null);
-  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [newProduct, setNewProduct] = useState(defaultProduct);
   const [newImageUrl, setNewImageUrl] = useState("");
   const [importingImage, setImportingImage] = useState(false);
@@ -83,6 +74,13 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
   const handleProductSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
+      // O vinculo e o id; o nome so acompanha para exibicao. Derivar o nome do
+      // doc impede que o produto guarde um nome que nao existe mais.
+      const category = categories.find((c) => c.id === newProduct.categoryId);
+      if (!category) {
+        toast.error("Escolha a categoria do produto.");
+        return;
+      }
       try {
         // Varredura final: qualquer imagem externa que escapou da conversão
         // (CORS na importação, URL colada sem converter) ganha uma última
@@ -117,7 +115,12 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
             );
           }
         }
-        const payload = { ...newProduct, images };
+        const payload = {
+          ...newProduct,
+          images,
+          categoryId: category.id,
+          category: category.name,
+        };
         if (isEditingProduct && selectedProduct) {
           await updateDoc(doc(db, "products", selectedProduct.id), {
             ...payload,
@@ -137,7 +140,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
         handleFirestoreError(err, OperationType.CREATE, "products");
       }
     },
-    [isEditingProduct, selectedProduct, newProduct, fetchData],
+    [isEditingProduct, selectedProduct, newProduct, categories, fetchData],
   );
 
   const handleImportProductMetadata = useCallback(async () => {
@@ -336,6 +339,7 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
     setNewProduct({
       ...rest,
       name: `${rest.name} (Cópia)`,
+      categoryId: rest.categoryId || "",
       sourceUrl: rest.sourceUrl || "",
       modelUrl: rest.modelUrl || "",
       active: rest.active !== undefined ? rest.active : true,
@@ -364,7 +368,10 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
       name: product.name || "",
       description: product.description || "",
       basePrice: product.basePrice || 0,
-      category: product.category || "DECORAÇÃO",
+      // Sem reescrever categoria de produto orfao: ele vai para a fila de
+      // decisao, nao para DECORACAO por acidente de formulario.
+      category: product.category || "",
+      categoryId: product.categoryId || "",
       images: product.images || [""],
       active: product.active !== undefined ? product.active : true,
       stock: product.stock || 0,
@@ -397,14 +404,22 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
     [fetchData],
   );
 
-  const allCategories = useMemo(() => {
-    const fromCollection = categories
-      .filter((c) => c.active !== false)
-      .sort((a, b) => (a.order ?? 999) - (b.order ?? 999))
-      .map((c) => c.name);
-    const base = fromCollection.length > 0 ? fromCollection : STATIC_CATEGORIES;
-    return Array.from(new Set([...base, ...customCategories])).sort();
-  }, [customCategories, categories]);
+  /**
+   * Categorias oferecidas no formulario, ja em ordem de exibicao.
+   *
+   * Sao os documentos, nao nomes soltos: o produto grava o id, e id de
+   * categoria que nao existe nao tem como ser inventado. A lista fixa de nomes
+   * que existia aqui produzia exatamente esse produto orfao.
+   */
+  const allCategories = useMemo(
+    () =>
+      categories
+        .filter((c) => c.active !== false)
+        .sort(
+          (a, b) => (a.order ?? 999) - (b.order ?? 999) || a.name.localeCompare(b.name, "pt-BR"),
+        ),
+    [categories],
+  );
 
   return {
     selectedProduct,
@@ -419,8 +434,6 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
     isUploadingProductImage,
     translatingField,
     setTranslatingField,
-    customCategories,
-    setCustomCategories,
     newProduct,
     setNewProduct,
     newImageUrl,

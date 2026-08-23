@@ -1,12 +1,17 @@
 import { useCallback, useMemo, useState } from "react";
 import { auth } from "../../services/firebase";
-import { updateProductsCategory } from "../../services/products";
+import { backfillProductCategoryIds, updateProductsCategory } from "../../services/products";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { computePricing, parseTimeToHours } from "../../lib/pricing";
 import { type AdminTabId } from "../../lib/adminHelpers";
+import {
+  countProductsByCategoryId,
+  isProductCategoryPending,
+  planCategoryBackfill,
+} from "../../lib/productCategory";
 import { ADMIN_MENU_ITEMS, ADMIN_TAB_SUBTITLES } from "./adminConfig";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { AdminSidebar } from "./components/AdminSidebar";
@@ -156,6 +161,7 @@ export default function AdminDashboard() {
     setNewCategory,
     isUploadingCategoryImage,
     handleCategorySubmit,
+    createCategory,
     handleCategoryImageUpload,
     handleToggleCategoryActive,
     handleReorderCategory,
@@ -263,7 +269,6 @@ export default function AdminDashboard() {
     isUploadingProductImage,
     translatingField,
     setTranslatingField,
-    setCustomCategories,
     newProduct,
     setNewProduct,
     newImageUrl,
@@ -390,31 +395,64 @@ export default function AdminDashboard() {
    * desfaz a mudança na lista e avisa o usuário.
    */
   const moveProductsToCategory = useCallback(
-    async (ids: string[], category: string, options?: { successMessage?: string }) => {
-      const previousCategories = new Map(
-        products.filter((p) => ids.includes(p.id)).map((p) => [p.id, p.category]),
+    async (ids: string[], categoryId: string, options?: { successMessage?: string }) => {
+      const target = categories.find((c) => c.id === categoryId);
+      if (!target) {
+        toast.error("Categoria não encontrada.");
+        return;
+      }
+
+      // Guarda o par inteiro: desfazer só o nome deixaria o id novo gravado.
+      const previous = new Map(
+        products
+          .filter((p) => ids.includes(p.id))
+          .map((p) => [p.id, { category: p.category, categoryId: p.categoryId }]),
       );
 
       setProducts((prev) =>
-        prev.map((p) => (previousCategories.has(p.id) ? { ...p, category } : p)),
+        prev.map((p) =>
+          previous.has(p.id) ? { ...p, categoryId: target.id, category: target.name } : p,
+        ),
       );
       if (options?.successMessage) toast.success(options.successMessage);
 
       try {
-        await updateProductsCategory(ids, category);
+        await updateProductsCategory(ids, target.id, target.name);
       } catch (error) {
         setProducts((prev) =>
           prev.map((p) => {
-            const previous = previousCategories.get(p.id);
-            return previous === undefined ? p : { ...p, category: previous };
+            const before = previous.get(p.id);
+            return before ? { ...p, ...before } : p;
           }),
         );
         console.error("Falha ao mover produtos de categoria:", error);
         toast.error("Não foi possível mover. A lista voltou ao estado anterior.");
       }
     },
-    [products, setProducts],
+    [categories, products, setProducts],
   );
+
+  /**
+   * Grava o `categoryId` dos produtos que hoje so tem o nome, e so dos que
+   * resolvem sem ambiguidade. Os demais ficam no chip "Precisa de categoria".
+   */
+  const runCategoryBackfill = useCallback(async () => {
+    const { resolved } = planCategoryBackfill(categories, products);
+    if (resolved.length === 0) return;
+    const byProduct = new Map(resolved.map((link) => [link.productId, link.categoryId]));
+
+    try {
+      await backfillProductCategoryIds(resolved);
+      // So depois do commit: aqui nao ha o que desfazer se a escrita falhar.
+      setProducts((prev) =>
+        prev.map((p) => (byProduct.has(p.id) ? { ...p, categoryId: byProduct.get(p.id) } : p)),
+      );
+      toast.success(`${resolved.length} produto(s) vinculado(s) por id.`);
+    } catch (error) {
+      console.error("Falha ao vincular produtos às categorias:", error);
+      toast.error("Não foi possível vincular. Nada foi alterado.");
+    }
+  }, [categories, products, setProducts]);
 
   // O modal de homologação usa exatamente o mesmo motor e os mesmos
   // parâmetros das calculadoras completa e rápida.
@@ -759,7 +797,7 @@ export default function AdminDashboard() {
             <AdminPanelRoute tab="products">
               <AdminProductsPanel
                 products={products}
-                categories={categories.filter((c) => c.active !== false).map((c) => c.name)}
+                categories={categories}
                 onDuplicate={handleDuplicateProduct}
                 onEdit={handleEditProduct}
                 onDelete={(id) =>
@@ -787,26 +825,26 @@ export default function AdminDashboard() {
                   setIsEditingProduct(false);
                   setIsAddingProduct(true);
                 }}
-                onMoveToCategory={(ids, cat) => {
-                  void moveProductsToCategory(ids, cat, {
-                    successMessage: `${ids.length} produto(s) movido(s) para ${cat}`,
+                onMoveToCategory={(ids, categoryId) => {
+                  const name = categories.find((c) => c.id === categoryId)?.name ?? "";
+                  void moveProductsToCategory(ids, categoryId, {
+                    successMessage: `${ids.length} produto(s) movido(s) para ${name}`,
                   });
                 }}
-                onChangeCategory={(id, cat) => {
-                  void moveProductsToCategory([id], cat);
+                onChangeCategory={(id, categoryId) => {
+                  void moveProductsToCategory([id], categoryId);
                 }}
               />
             </AdminPanelRoute>
             <AdminPanelRoute tab="categories">
               <AdminCategoriesPanel
                 categories={categories}
-                productsCount={products.reduce(
-                  (acc, p) => {
-                    acc[p.category] = (acc[p.category] || 0) + 1;
-                    return acc;
-                  },
-                  {} as Record<string, number>,
-                )}
+                productsCount={countProductsByCategoryId(categories, products)}
+                assignedProducts={
+                  products.filter((p) => !isProductCategoryPending(categories, p)).length
+                }
+                backfillPlan={planCategoryBackfill(categories, products)}
+                onRunBackfill={runCategoryBackfill}
                 onAdd={(parentId) => {
                   setNewCategory({
                     name: "",
@@ -1123,6 +1161,7 @@ export default function AdminDashboard() {
       <AnimatePresence>
         {selectedOrder && (
           <AdminOrderDetailModal
+            key="order-detail"
             order={selectedOrder}
             editingItems={editingItems}
             editedItems={editedItems}
@@ -1162,7 +1201,10 @@ export default function AdminDashboard() {
 
         {/* Quote Detail Modal */}
         {selectedCustomer && activeTab === "quotes" && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/90 p-2 backdrop-blur-2xl sm:p-6">
+          <div
+            key="quote-detail"
+            className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-black/90 p-2 backdrop-blur-2xl sm:p-6"
+          >
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -1321,6 +1363,7 @@ export default function AdminDashboard() {
 
         {manualSaleMode && (
           <AdminManualSaleModal
+            key="manual-sale"
             initialMode={manualSaleMode}
             customers={customers}
             products={products}
@@ -1329,10 +1372,11 @@ export default function AdminDashboard() {
             onSaved={fetchData}
           />
         )}
-        <AdminCalculatorWorkspace onQuoteSaved={fetchData} />
-        <PrintDocumentHost jobId={printJob?.id} documents={printJob?.documents} />
+        <AdminCalculatorWorkspace key="calculator-workspace" onQuoteSaved={fetchData} />
+        <PrintDocumentHost key="print-host" jobId={printJob?.id} documents={printJob?.documents} />
 
         <AdminPrinterFormModal
+          key="printer-form"
           open={printerAdmin.isPrinterFormOpen}
           isEditing={Boolean(printerAdmin.editingPrinterId)}
           form={printerAdmin.printerForm}
@@ -1346,6 +1390,7 @@ export default function AdminDashboard() {
 
         {selectedCRMUser && (
           <AdminCustomerDetailModal
+            key="customer-detail"
             customer={selectedCRMUser}
             orders={orders}
             onClose={() => setSelectedCRMUser(null)}
@@ -1361,6 +1406,7 @@ export default function AdminDashboard() {
 
         {(isAddingCustomer || isEditingCustomer) && (
           <AdminCustomerFormModal
+            key="customer-form"
             isEditing={isEditingCustomer}
             isSubmitting={isSubmittingCustomer}
             customer={newCustomer}
@@ -1372,6 +1418,7 @@ export default function AdminDashboard() {
 
         {isAddingMaterial && (
           <AdminMaterialFormModal
+            key="material-form"
             material={newMaterial}
             setMaterial={setNewMaterial}
             onSubmit={handleMaterialSubmit}
@@ -1381,6 +1428,7 @@ export default function AdminDashboard() {
 
         {(isAddingShowcase || isEditingShowcase) && (
           <AdminShowcaseFormModal
+            key="showcase-form"
             isEditing={isEditingShowcase}
             showcase={newShowcase}
             setShowcase={setNewShowcase}
@@ -1392,11 +1440,12 @@ export default function AdminDashboard() {
         {/* Product Form Modal */}
         {(isAddingProduct || isEditingProduct) && (
           <AdminProductFormModal
+            key="product-form"
             isEditing={isEditingProduct}
             product={newProduct}
             setProduct={setNewProduct}
             allCategories={allCategories}
-            onAddCustomCategory={setCustomCategories}
+            onCreateCategory={createCategory}
             importUrl={productImportUrl}
             setImportUrl={setProductImportUrl}
             isImportingMetadata={isImportingProduct}
@@ -1420,6 +1469,7 @@ export default function AdminDashboard() {
         {/* Category Form Modal */}
         {isAddingCategory && (
           <AdminCategoryFormModal
+            key="category-form"
             isEditing={isEditingCategory}
             category={newCategory}
             setCategory={setNewCategory}
@@ -1437,7 +1487,11 @@ export default function AdminDashboard() {
         )}
 
         {/* Confirm Dialog */}
-        <ConfirmDialog state={confirmState} onCancel={() => setConfirmState(null)} />
+        <ConfirmDialog
+          key="confirm-dialog"
+          state={confirmState}
+          onCancel={() => setConfirmState(null)}
+        />
       </AnimatePresence>
     </div>
   );

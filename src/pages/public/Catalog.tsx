@@ -8,7 +8,13 @@ import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import { Reveal } from "../../components/ui/Reveal";
 import { ProductCard } from "../../components/ui/ProductCard";
-import { getCategoryPath, categoryNameToSlug } from "../../lib/categoryTree";
+import {
+  getCategoryPath,
+  getAllDescendantIds,
+  categorySlug,
+  findCategoryBySlug,
+} from "../../lib/categoryTree";
+import { filterProductsByCategory } from "../../lib/productCategory";
 import type { Product, ShowcaseItem, Category } from "../../types/domain";
 
 // ── Main Catalog ──────────────────────────────────────────────────────────────
@@ -43,84 +49,64 @@ export default function Catalog() {
     return () => clearInterval(timer);
   }, [showcase.length]);
 
-  const catByName = useMemo(() => {
-    const map = new Map<string, Category>();
-    categoriesData.forEach((c) => map.set(c.name, c));
+  const byOrder = (a: Category, b: Category) => (a.order ?? 999) - (b.order ?? 999);
+
+  const rootCategories = useMemo(
+    () => categoriesData.filter((c) => !c.parentId).sort(byOrder),
+    [categoriesData],
+  );
+
+  const childrenOf = useMemo(() => {
+    const map = new Map<string, Category[]>();
+    for (const cat of categoriesData) {
+      if (!cat.parentId) continue;
+      const list = map.get(cat.parentId);
+      if (list) list.push(cat);
+      else map.set(cat.parentId, [cat]);
+    }
+    for (const list of map.values()) list.sort(byOrder);
     return map;
   }, [categoriesData]);
 
-  const catBySlug = useMemo(() => {
-    const map = new Map<string, Category>();
-    categoriesData.forEach((c) => {
-      const slug = c.slug || categoryNameToSlug(c.name);
-      map.set(slug, c);
-    });
-    return map;
-  }, [categoriesData]);
-
-  const childNamesByParent = useMemo(() => {
-    const map = new Map<string, string[]>();
-    categoriesData.forEach((c) => {
-      if (c.parentId) {
-        const parent = categoriesData.find((p) => p.id === c.parentId);
-        if (parent) {
-          if (!map.has(parent.name)) map.set(parent.name, []);
-          map.get(parent.name)!.push(c.name);
-        }
-      }
-    });
-    return map;
-  }, [categoriesData]);
-
-  const descendantNames = useMemo(() => {
-    const map = new Map<string, string[]>();
-    const collect = (parentName: string): string[] => {
-      const children = childNamesByParent.get(parentName) || [];
-      const all: string[] = [...children];
-      children.forEach((c) => all.push(...collect(c)));
-      return all;
-    };
-    catByName.forEach((_, name) => {
-      map.set(name, collect(name));
-    });
-    return map;
-  }, [childNamesByParent, catByName]);
-
-  const categories = useMemo(() => {
-    const orderMap = new Map(categoriesData.map((c) => [c.name, c.order ?? 999]));
-    const fromCollection = categoriesData.map((c) => c.name);
-    const fromProducts = products.map((p) => p.category).filter((c): c is string => !!c);
-    return Array.from(new Set([...fromCollection, ...fromProducts])).sort(
-      (a, b) => (orderMap.get(a) ?? 999) - (orderMap.get(b) ?? 999),
-    );
+  /**
+   * Nomes gravados em produtos que nao existem na colecao de categorias.
+   *
+   * Nao viram aba (aba sem id nao filtra nada), mas os produtos continuam
+   * aparecendo na vitrine: produto escondido nao vende.
+   */
+  const orphanNames = useMemo(() => {
+    const known = new Set(categoriesData.map((c) => c.name.trim().toUpperCase()));
+    const seen = new Set<string>();
+    const names: string[] = [];
+    for (const product of products) {
+      const name = product.category?.trim().toUpperCase();
+      if (!name || product.categoryId || known.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      names.push(product.category);
+    }
+    return names;
   }, [products, categoriesData]);
 
-  const breadcrumb = useMemo(() => {
-    if (selectedCategory === "TODOS") return [];
-    const cat = catByName.get(selectedCategory);
-    if (!cat) return [selectedCategory];
-    const path = getCategoryPath(categoriesData, cat.id);
-    return path.map((c) => c.name);
-  }, [selectedCategory, catByName, categoriesData]);
+  const categoryCount = categoriesData.length + orphanNames.length;
+
+  const breadcrumb = useMemo(
+    () => (selectedCategory === "TODOS" ? [] : getCategoryPath(categoriesData, selectedCategory)),
+    [selectedCategory, categoriesData],
+  );
 
   useEffect(() => {
-    if (urlCategory && catBySlug.has(urlCategory)) {
-      const cat = catBySlug.get(urlCategory)!;
-      setSelectedCategory(cat.name);
-    } else if (urlCategory === "") {
+    if (!urlCategory) {
       setSelectedCategory("TODOS");
+      return;
     }
-  }, [urlCategory, catBySlug]);
+    const cat = findCategoryBySlug(categoriesData, urlCategory);
+    if (cat) setSelectedCategory(cat.id);
+  }, [urlCategory, categoriesData]);
 
-  const handleCategorySelect = (catName: string) => {
-    setSelectedCategory(catName);
-    if (catName === "TODOS") {
-      setSearchParams({});
-    } else {
-      const cat = catByName.get(catName);
-      const slug = cat?.slug || categoryNameToSlug(catName);
-      setSearchParams({ categoria: slug });
-    }
+  const handleCategorySelect = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    if (categoryId === "TODOS") setSearchParams({});
+    else setSearchParams({ categoria: categorySlug(categoriesData, categoryId) });
   };
 
   const handleAddToCart = useCallback(
@@ -150,64 +136,76 @@ export default function Catalog() {
     };
 
     const term = searchTerm.toLowerCase();
+    const matchesTerm = (p: Product) =>
+      !term || p.name.toLowerCase().includes(term) || p.description?.toLowerCase().includes(term);
+
+    /** Produtos vinculados diretamente a categoria, sem descer na arvore. */
+    const directOf = (categoryId: string) =>
+      sortProducts(
+        filterProductsByCategory(categoriesData, products, categoryId, {
+          includeDescendants: false,
+        }).filter(matchesTerm),
+      );
+
+    const groupsList: { category: string; products: Product[] }[] = [];
 
     if (selectedCategory === "TODOS") {
-      const groupsList: { category: string; products: Product[]; isSub: boolean }[] = [];
-      for (const cat of categories) {
-        const catProducts = sortProducts(
-          products.filter(
-            (p) =>
-              p.category === cat &&
-              (!term ||
-                p.name.toLowerCase().includes(term) ||
-                p.description?.toLowerCase().includes(term)),
+      for (const cat of rootCategories) {
+        groupsList.push({ category: cat.name, products: directOf(cat.id) });
+      }
+      for (const name of orphanNames) {
+        const normalized = name.trim().toUpperCase();
+        groupsList.push({
+          category: name,
+          products: sortProducts(
+            products.filter(
+              (p) =>
+                !p.categoryId &&
+                (p.category?.trim().toUpperCase() ?? "") === normalized &&
+                matchesTerm(p),
+            ),
           ),
-        );
-        const collectionCat = catByName.get(cat);
-        if (collectionCat && collectionCat.parentId) continue;
-        groupsList.push({ category: cat, products: catProducts, isSub: false });
+        });
       }
       return groupsList;
     }
 
-    const selectedCat = catByName.get(selectedCategory);
-    if (!selectedCat) return [];
-
-    const descendants = descendantNames.get(selectedCategory) || [];
-    const allNames = [selectedCategory, ...descendants];
-
-    const groupsList: { category: string; products: Product[]; isSub: boolean }[] = [];
-
-    for (const name of allNames) {
-      const catProducts = sortProducts(
-        products.filter(
-          (p) =>
-            p.category === name &&
-            (!term ||
-              p.name.toLowerCase().includes(term) ||
-              p.description?.toLowerCase().includes(term)),
-        ),
-      );
-      if (catProducts.length > 0) {
-        groupsList.push({
-          category: name,
-          products: catProducts,
-          isSub: name !== selectedCategory,
-        });
-      }
+    for (const id of getAllDescendantIds(categoriesData, selectedCategory)) {
+      const catProducts = directOf(id);
+      if (catProducts.length === 0) continue;
+      groupsList.push({
+        category: categoriesData.find((c) => c.id === id)?.name ?? "",
+        products: catProducts,
+      });
     }
-
     return groupsList;
-  }, [products, categories, selectedCategory, searchTerm, sortBy, catByName, descendantNames]);
+  }, [products, categoriesData, rootCategories, orphanNames, selectedCategory, searchTerm, sortBy]);
 
-  const totalVisible = groups.reduce((s, g) => s + g.products.length, 0);
-  const visibleProducts = useMemo(() => groups.flatMap((group) => group.products), [groups]);
+  /**
+   * Produtos da vitrine, na ordem dos grupos.
+   *
+   * Deduplicado por id: um produto legado, de nome que existe em mais de um
+   * ramo, cai em cada grupo homonimo e apareceria repetido na grade.
+   */
+  const visibleProducts = useMemo(() => {
+    const seen = new Set<string>();
+    return groups
+      .flatMap((group) => group.products)
+      .filter((product) => !seen.has(product.id) && seen.add(product.id));
+  }, [groups]);
+
+  const totalVisible = visibleProducts.length;
 
   const tabCategories = useMemo(() => {
-    if (selectedCategory === "TODOS") return new Set(categories);
-    const childNames = childNamesByParent.get(selectedCategory) || [];
-    return [selectedCategory, ...childNames];
-  }, [selectedCategory, categories, childNamesByParent]);
+    const selected =
+      selectedCategory === "TODOS"
+        ? undefined
+        : categoriesData.find((c) => c.id === selectedCategory);
+    // Sem categoria escolhida a barra lista tudo, como sempre listou; dentro de
+    // uma categoria ela vira "a atual + as filhas".
+    if (!selected) return [...categoriesData].sort(byOrder);
+    return [selected, ...(childrenOf.get(selected.id) ?? [])];
+  }, [selectedCategory, categoriesData, childrenOf]);
 
   return (
     <div className="min-h-screen">
@@ -241,7 +239,7 @@ export default function Catalog() {
             <div className="mt-4 flex items-center gap-4 text-xs font-black uppercase tracking-widest text-dim">
               <span>{products.length} modelos</span>
               <span className="w-1 h-1 rounded-full bg-white/15" />
-              <span>{categories.length} categorias</span>
+              <span>{categoryCount} categorias</span>
             </div>
           </Reveal>
         </div>
@@ -355,17 +353,17 @@ export default function Catalog() {
                 >
                   Catálogo
                 </button>
-                {breadcrumb.map((name, idx) => (
-                  <span key={name} className="flex items-center gap-1.5">
+                {breadcrumb.map((cat, idx) => (
+                  <span key={cat.id} className="flex items-center gap-1.5">
                     <ChevronRight className="h-3 w-3 text-white/20" />
                     {idx === breadcrumb.length - 1 ? (
-                      <span className="text-primary">{name}</span>
+                      <span className="text-primary">{cat.name}</span>
                     ) : (
                       <button
-                        onClick={() => handleCategorySelect(name)}
+                        onClick={() => handleCategorySelect(cat.id)}
                         className="text-white/50 hover:text-white transition-colors"
                       >
-                        {name}
+                        {cat.name}
                       </button>
                     )}
                   </span>
@@ -387,17 +385,17 @@ export default function Catalog() {
               >
                 Todos
               </button>
-              {Array.from(tabCategories).map((cat) => (
+              {tabCategories.map((cat) => (
                 <button
-                  key={cat}
-                  onClick={() => handleCategorySelect(cat)}
+                  key={cat.id}
+                  onClick={() => handleCategorySelect(cat.id)}
                   className={`px-3 py-2.5 rounded-lg text-[11px] sm:text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap border ${
-                    selectedCategory === cat
+                    selectedCategory === cat.id
                       ? "bg-primary border-primary text-white shadow-md shadow-primary/20"
                       : "bg-white/5 border-white/[0.08] text-white/40 hover:bg-white/[0.08] hover:text-white/70"
                   }`}
                 >
-                  {cat}
+                  {cat.name}
                 </button>
               ))}
             </nav>
@@ -456,7 +454,7 @@ export default function Catalog() {
           </div>
         )}
 
-        {!loading && !fetchError && groups.length === 0 && (
+        {!loading && !fetchError && visibleProducts.length === 0 && (
           <Reveal direction="up" delay={0.1}>
             <div className="flex flex-col items-center justify-center py-16 sm:py-24 text-center">
               <div className="relative mb-4">

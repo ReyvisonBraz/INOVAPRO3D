@@ -2,6 +2,7 @@ import { useEffect, useState, useRef, lazy, Suspense } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { useNavigate, useParams, useLocation, Link } from "react-router-dom";
 import { doc, getDoc, collection, getDocs, query, where, limit } from "firebase/firestore";
+import { categoryNameToSlug } from "../../lib/categoryTree";
 import {
   ArrowRight,
   ChevronLeft,
@@ -170,10 +171,14 @@ export default function ProductDetail() {
         if (prodSnap.exists()) {
           const prod = { id: prodSnap.id, ...prodSnap.data() } as Product;
           setProduct(prod);
-          // Fetch related products in same category
-          if (prod.category) {
+          // Relacionados da mesma categoria. Com `categoryId` a busca e pelo
+          // vinculo real; sem ele, cai no nome como sempre foi.
+          if (prod.categoryId || prod.category) {
+            const sameCategory = prod.categoryId
+              ? where("categoryId", "==", prod.categoryId)
+              : where("category", "==", prod.category);
             const relSnap = await getDocs(
-              query(collection(db, "products"), where("category", "==", prod.category), limit(7)),
+              query(collection(db, "products"), sameCategory, limit(7)),
             );
             setRelatedProducts(
               relSnap.docs
@@ -749,7 +754,7 @@ export default function ProductDetail() {
               </h2>
             </div>
             <Link
-              to={`/catalogo?categoria=${encodeURIComponent(product.category)}`}
+              to={`/catalogo?categoria=${categoryNameToSlug(product.category)}`}
               className="text-xs font-black uppercase tracking-widest text-white/30 hover:text-primary transition-colors flex items-center gap-1"
             >
               Ver todos <ChevronRight className="w-3 h-3" />

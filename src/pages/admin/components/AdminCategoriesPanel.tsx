@@ -16,17 +16,26 @@ import {
   Trash2,
 } from "lucide-react";
 import { cn } from "../../../lib/utils";
+import type { CategoryBackfillPlan } from "../../../lib/productCategory";
 import type { Category } from "../../../types/domain";
 
 interface AdminCategoriesPanelProps {
   categories: Category[];
-  productsCount: Record<string, number>;
+  /** Id da categoria -> produtos vinculados diretamente a ela. */
+  productsCount: Map<string, number>;
+  /** Produtos com categoria resolvida. Nao e a soma de productsCount: um
+   *  produto legado de nome ambiguo aparece em cada homonima. */
+  assignedProducts: number;
   onAdd: (parentId?: string) => void;
   onEdit: (cat: Category) => void;
   onDelete: (id: string) => void;
   onToggleActive: (id: string, current: boolean) => void;
   onReorder: (id: string, direction: "up" | "down") => void;
   onSetCover: (cat: Category) => void;
+  /** Previa do backfill: o que da para vincular sozinho e o que sobra. */
+  backfillPlan: CategoryBackfillPlan;
+  /** Grava os `categoryId` da previa. So e chamado apos confirmacao. */
+  onRunBackfill: () => Promise<void>;
 }
 
 const byOrder = (a: Category, b: Category) => (a.order ?? 999) - (b.order ?? 999);
@@ -35,13 +44,29 @@ const AdminCategoriesPanel: FC<AdminCategoriesPanelProps> = memo(
   ({
     categories,
     productsCount,
+    assignedProducts,
     onAdd,
     onEdit,
     onDelete,
     onToggleActive,
     onReorder,
     onSetCover,
+    backfillPlan,
+    onRunBackfill,
   }) => {
+    const [backfillConfirming, setBackfillConfirming] = useState(false);
+    const [backfillRunning, setBackfillRunning] = useState(false);
+    /** Nomes distintos da fila, para o admin saber o que vai decidir depois. */
+    const pendingNames = useMemo(
+      () =>
+        Array.from(
+          new Set(
+            backfillPlan.pending.map((product) => product.category?.trim() || "(sem categoria)"),
+          ),
+        ),
+      [backfillPlan],
+    );
+
     const roots = useMemo(
       () => categories.filter((category) => !category.parentId).sort(byOrder),
       [categories],
@@ -60,10 +85,9 @@ const AdminCategoriesPanel: FC<AdminCategoriesPanelProps> = memo(
     );
 
     const activeCount = categories.filter((category) => category.active !== false).length;
-    const assignedProducts = Object.values(productsCount).reduce((sum, count) => sum + count, 0);
-    const ownProductCount = selected ? productsCount[selected.name] || 0 : 0;
+    const ownProductCount = selected ? (productsCount.get(selected.id) ?? 0) : 0;
     const childrenProductCount = children.reduce(
-      (sum, category) => sum + (productsCount[category.name] || 0),
+      (sum, category) => sum + (productsCount.get(category.id) ?? 0),
       0,
     );
 
@@ -116,6 +140,61 @@ const AdminCategoriesPanel: FC<AdminCategoriesPanelProps> = memo(
             <p className="mt-1 text-[10px] text-dim">organizados no catálogo</p>
           </div>
         </div>
+
+        {(backfillPlan.resolved.length > 0 || backfillPlan.pending.length > 0) && (
+          <div className="rounded-[24px] border border-amber-400/20 bg-amber-400/[0.04] p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-widest text-amber-300">
+                  Vincular produtos às categorias
+                </p>
+                <p className="mt-1 text-[11px] text-dim">
+                  <strong className="text-white">{backfillPlan.resolved.length}</strong>{" "}
+                  {backfillPlan.resolved.length === 1 ? "produto" : "produtos"} de nome único
+                  {backfillPlan.resolved.length === 1 ? " pode" : " podem"} ser vinculado
+                  {backfillPlan.resolved.length === 1 ? "" : "s"} automaticamente ·{" "}
+                  <strong className="text-white">{backfillPlan.pending.length}</strong>{" "}
+                  {backfillPlan.pending.length === 1 ? "precisa" : "precisam"} de decisão sua na aba
+                  Produtos
+                </p>
+                {pendingNames.length > 0 && (
+                  <p className="mt-1 text-[10px] text-subtle">Na fila: {pendingNames.join(", ")}</p>
+                )}
+              </div>
+              {backfillPlan.resolved.length > 0 && (
+                <button
+                  type="button"
+                  disabled={backfillRunning}
+                  onClick={async () => {
+                    if (!backfillConfirming) {
+                      setBackfillConfirming(true);
+                      return;
+                    }
+                    setBackfillRunning(true);
+                    try {
+                      await onRunBackfill();
+                    } finally {
+                      setBackfillRunning(false);
+                      setBackfillConfirming(false);
+                    }
+                  }}
+                  className={cn(
+                    "shrink-0 rounded-xl px-4 py-2.5 text-[10px] font-black uppercase tracking-widest text-white transition-all disabled:opacity-50",
+                    backfillConfirming
+                      ? "bg-amber-500 hover:bg-amber-600"
+                      : "bg-white/10 hover:bg-white/20",
+                  )}
+                >
+                  {backfillRunning
+                    ? "Vinculando…"
+                    : backfillConfirming
+                      ? `Confirmar ${backfillPlan.resolved.length}`
+                      : "Revisar e vincular"}
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {roots.length > 0 ? (
           <div className="grid min-h-[520px] overflow-hidden rounded-[26px] border border-white/[0.07] bg-white/[0.015] lg:grid-cols-[320px_minmax(0,1fr)]">
@@ -285,7 +364,7 @@ const AdminCategoriesPanel: FC<AdminCategoriesPanelProps> = memo(
                   {children.length > 0 ? (
                     <div className="overflow-hidden rounded-2xl border border-white/[0.07]">
                       {children.map((category) => {
-                        const count = productsCount[category.name] || 0;
+                        const count = productsCount.get(category.id) ?? 0;
                         const active = category.active !== false;
                         return (
                           <div

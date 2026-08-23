@@ -14,19 +14,36 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../../components/ui/Button";
 import { cn } from "../../../lib/utils";
-import type { Product } from "../../../types/domain";
+import { categoryPathLabel } from "../../../lib/categoryTree";
+import {
+  filterProductsByCategory,
+  isProductCategoryPending,
+  resolveProductCategory,
+} from "../../../lib/productCategory";
+import type { Category, Product } from "../../../types/domain";
+
+/** Chip da fila de decisão: produto sem categoria ou com nome ambíguo. */
+const PENDING = "_pending";
 
 export interface AdminProductsPanelProps {
   products: Product[];
-  categories: string[];
+  /**
+   * Todas as categorias, inclusive as ocultas da vitrine.
+   *
+   * Oculto e vinculado sao coisas diferentes: uma categoria fora da vitrine
+   * ainda e um vinculo valido para o produto que ja aponta pra ela. Passar so
+   * as visiveis aqui fazia produto com categoria real (so que oculta) cair na
+   * fila de pendencia, com um numero diferente do que o backfill calculava.
+   */
+  categories: Category[];
   onDuplicate: (product: Product) => void;
   onEdit: (product: Product) => void;
   onDelete: (id: string) => void;
   onBatchDelete: (ids: string[]) => void;
   onUpdateStock: (id: string, currentStock: number, delta: number) => void;
   onAddProduct: () => void;
-  onMoveToCategory: (productIds: string[], category: string) => void;
-  onChangeCategory: (productId: string, newCategory: string) => void;
+  onMoveToCategory: (productIds: string[], categoryId: string) => void;
+  onChangeCategory: (productId: string, categoryId: string) => void;
 }
 
 const AdminProductsPanel = memo(function AdminProductsPanel({
@@ -45,18 +62,16 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  const allCategories = ["ALL", ...categories];
-
+  // O filtro por categoria inclui as subcategorias — clicar em QUADROS mostra
+  // tambem o que esta em QUADROS › ABSTRATOS.
   const filtered =
     filterCategory === "ALL"
       ? products
-      : filterCategory === "_orphan"
-        ? products.filter((p) => !p.category || !categories.includes(p.category))
-        : products.filter((p) => p.category === filterCategory);
+      : filterCategory === PENDING
+        ? products.filter((p) => isProductCategoryPending(categories, p))
+        : filterProductsByCategory(categories, products, filterCategory);
 
-  const orphanCount = products.filter(
-    (p) => !p.category || !categories.includes(p.category),
-  ).length;
+  const pendingCount = products.filter((p) => isProductCategoryPending(categories, p)).length;
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds((prev) => {
@@ -166,11 +181,11 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
                 <div className="absolute top-full left-0 mt-1 w-48 bg-[#0A0A0F] border border-white/10 rounded-xl p-1.5 shadow-2xl opacity-0 invisible group-hover/move:opacity-100 group-hover/move:visible transition-all z-50 max-h-64 overflow-y-auto no-scrollbar">
                   {categories.map((cat) => (
                     <button
-                      key={cat}
-                      onClick={() => handleBatchMove(cat)}
+                      key={cat.id}
+                      onClick={() => handleBatchMove(cat.id)}
                       className="w-full text-left px-3 py-2 rounded-lg text-[11px] font-bold text-dim hover:text-white hover:bg-white/5 uppercase transition-colors"
                     >
-                      {cat}
+                      {categoryPathLabel(categories, cat.id)}
                     </button>
                   ))}
                 </div>
@@ -195,33 +210,34 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
       {/* Category filter chips */}
       <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
         <SlidersHorizontal className="w-3 h-3 text-dim shrink-0" />
-        {allCategories.map((cat) => (
+        {[{ id: "ALL", name: "Todos" }, ...categories].map((cat) => (
           <button
-            key={cat}
-            onClick={() => setFilterCategory(cat)}
+            key={cat.id}
+            onClick={() => setFilterCategory(cat.id)}
             className={cn(
               "shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all",
-              filterCategory === cat
+              filterCategory === cat.id
                 ? "bg-primary/20 border-primary/50 text-primary"
                 : "bg-white/[0.03] border-white/[0.06] text-dim hover:border-white/10 hover:text-white",
             )}
           >
-            {cat === "ALL" ? "Todos" : cat}
+            {cat.id === "ALL" ? "Todos" : categoryPathLabel(categories, cat.id)}
           </button>
         ))}
-        {orphanCount > 0 && (
+        {pendingCount > 0 && (
           <button
-            onClick={() => setFilterCategory("_orphan")}
+            onClick={() => setFilterCategory(PENDING)}
             className={cn(
               "shrink-0 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-1.5",
-              filterCategory === "_orphan"
+              filterCategory === PENDING
                 ? "bg-amber-500/20 border-amber-500/50 text-amber-400"
                 : "bg-white/[0.03] border-white/[0.06] text-dim hover:border-white/10 hover:text-white",
             )}
+            title="Produtos sem categoria ou com nome de categoria que existe em mais de um lugar"
           >
-            Sem categoria
+            Precisa de categoria
             <span className="text-[9px] bg-amber-500/20 px-1.5 py-0.5 rounded-full">
-              {orphanCount}
+              {pendingCount}
             </span>
           </button>
         )}
@@ -295,26 +311,38 @@ const AdminProductsPanel = memo(function AdminProductsPanel({
 
                 {/* Category badge with quick-change dropdown */}
                 <div className="absolute bottom-3 left-3 group">
-                  <div className="flex items-center gap-1 px-3 py-1 bg-primary/90 text-white text-[10px] font-black uppercase rounded-full tracking-widest italic cursor-pointer">
-                    {p.category || "Sem cat."}
+                  <div
+                    className={cn(
+                      "flex items-center gap-1 px-3 py-1 text-white text-[10px] font-black uppercase rounded-full tracking-widest italic cursor-pointer",
+                      // Ambar avisa que este produto ainda espera uma decisão:
+                      // ou nao tem categoria, ou o nome existe em mais de um ramo.
+                      isProductCategoryPending(categories, p) ? "bg-amber-500/90" : "bg-primary/90",
+                    )}
+                    title={
+                      isProductCategoryPending(categories, p)
+                        ? "Escolha a categoria: o nome gravado não identifica um ramo só"
+                        : undefined
+                    }
+                  >
+                    {resolveProductCategory(categories, p)?.name || p.category || "Sem cat."}
                     <ChevronDown className="w-3 h-3 opacity-60 group-hover:opacity-100" />
                   </div>
-                  <div className="absolute bottom-full left-0 mb-1 w-44 bg-[#0A0A0F] border border-white/10 rounded-xl p-1.5 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 max-h-56 overflow-y-auto no-scrollbar">
+                  <div className="absolute bottom-full left-0 mb-1 w-56 bg-[#0A0A0F] border border-white/10 rounded-xl p-1.5 shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 max-h-56 overflow-y-auto no-scrollbar">
                     {categories.map((cat) => (
                       <button
-                        key={cat}
+                        key={cat.id}
                         onClick={(e) => {
                           e.stopPropagation();
-                          onChangeCategory(p.id, cat);
+                          onChangeCategory(p.id, cat.id);
                         }}
                         className={cn(
                           "w-full text-left px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition-colors",
-                          p.category === cat
+                          resolveProductCategory(categories, p)?.id === cat.id
                             ? "text-primary bg-primary/10"
                             : "text-dim hover:text-white hover:bg-white/5",
                         )}
                       >
-                        {cat}
+                        {categoryPathLabel(categories, cat.id)}
                       </button>
                     ))}
                   </div>

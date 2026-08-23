@@ -10,14 +10,18 @@ import {
   NumInput,
   translateToBR,
 } from "../../../lib/adminHelpers";
+import { categoryPathLabel } from "../../../lib/categoryTree";
+import type { Category } from "../../../types/domain";
 import type { ProductDraft } from "../hooks/useProductAdmin";
 
 interface AdminProductFormModalProps {
   isEditing: boolean;
   product: ProductDraft;
   setProduct: Dispatch<SetStateAction<ProductDraft>>;
-  allCategories: string[];
-  onAddCustomCategory: Dispatch<SetStateAction<string[]>>;
+  /** Documentos de categoria, em ordem de exibicao. O produto grava o id. */
+  allCategories: Category[];
+  /** Cria a categoria e devolve o doc, ou null se o nome ja existir. */
+  onCreateCategory: (name: string) => Promise<Category | null>;
   importUrl: string;
   setImportUrl: (url: string) => void;
   isImportingMetadata: boolean;
@@ -39,7 +43,7 @@ export function AdminProductFormModal({
   product,
   setProduct,
   allCategories,
-  onAddCustomCategory,
+  onCreateCategory,
   importUrl,
   setImportUrl,
   isImportingMetadata,
@@ -183,31 +187,38 @@ export function AdminProductFormModal({
                 Setor / Categoria
               </label>
               <select
-                value={product.category}
-                onChange={(e) => setProduct({ ...product, category: e.target.value })}
+                value={product.categoryId}
+                required
+                onChange={(e) => {
+                  const chosen = allCategories.find((c) => c.id === e.target.value);
+                  setProduct({
+                    ...product,
+                    categoryId: chosen?.id ?? "",
+                    category: chosen?.name ?? "",
+                  });
+                }}
                 className="w-full bg-[#050508] border border-white/10 rounded-2xl p-4 text-sm font-bold outline-none focus:border-primary/50 transition-all font-display text-[11px]"
               >
+                <option value="">— selecione a categoria —</option>
                 {allCategories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                  <option key={cat.id} value={cat.id}>
+                    {categoryPathLabel(allCategories, cat.id)}
                   </option>
                 ))}
               </select>
               <div className="mt-2">
                 <input
                   type="text"
-                  placeholder="+ Nova categoria (Enter para adicionar)"
+                  placeholder="+ Nova categoria principal (Enter para criar)"
                   className="w-full bg-white/[0.03] border border-white/10 rounded-xl px-3 py-2 text-[10px] font-bold outline-none focus:border-primary/50 transition-all text-white placeholder:text-dim"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const val = (e.target as HTMLInputElement).value.trim().toUpperCase();
-                      if (val && !allCategories.includes(val)) {
-                        onAddCustomCategory((prev) => [...prev, val]);
-                        setProduct((p) => ({ ...p, category: val }));
-                        (e.target as HTMLInputElement).value = "";
-                      }
-                    }
+                  onKeyDown={async (e) => {
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    const input = e.target as HTMLInputElement;
+                    const created = await onCreateCategory(input.value);
+                    if (!created) return;
+                    setProduct((p) => ({ ...p, categoryId: created.id, category: created.name }));
+                    input.value = "";
                   }}
                 />
               </div>

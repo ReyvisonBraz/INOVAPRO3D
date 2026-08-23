@@ -1,4 +1,4 @@
-import { Children, isValidElement, type ReactElement, type ReactNode } from "react";
+import { Children, Fragment, isValidElement, type ReactElement, type ReactNode } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { AdminTabId } from "../adminConfig";
 
@@ -22,5 +22,12 @@ export function AdminPanelRouter({ activeTab, children }: AdminPanelRouterProps)
       isValidElement<AdminPanelRouteProps>(child) && child.props.tab === activeTab,
   );
 
-  return <AnimatePresence mode="wait">{selectedRoute?.props.children ?? null}</AnimatePresence>;
+  // O painel precisa de key propria: sem ela o AnimatePresence ve todos os
+  // filhos como key "" e acusa chave duplicada a cada troca de aba. A key e a
+  // aba, que e o que de fato muda entre um painel e outro.
+  return (
+    <AnimatePresence mode="wait">
+      {selectedRoute ? <Fragment key={activeTab}>{selectedRoute.props.children}</Fragment> : null}
+    </AnimatePresence>
+  );
 }

@@ -273,7 +273,14 @@ export interface Product {
   description: string;
   basePrice: number;
   images: string[];
+  /**
+   * Nome da categoria no momento da gravacao. Espelho de exibicao e fallback
+   * dos produtos ainda nao migrados. Nao use para decidir pertencimento: o
+   * mesmo nome existe sob pais diferentes (GAMES em CHAVEIROS e em QUADROS).
+   */
   category: string;
+  /** Id do doc em `categories`. Fonte da verdade do vinculo. */
+  categoryId?: string;
   active?: boolean;
   sourceUrl?: string;
   modelUrl?: string;
