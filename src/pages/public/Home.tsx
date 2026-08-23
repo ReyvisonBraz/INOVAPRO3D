@@ -20,6 +20,7 @@ import { orderBy } from "firebase/firestore";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/Button";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
+import { HeroVideoBackground } from "../../components/ui/HeroVideoBackground";
 import { ProductCard } from "../../components/ui/ProductCard";
 import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
 import { useCart } from "../../contexts/CartContext";
@@ -29,32 +30,32 @@ import type { Product, ShowcaseItem } from "../../types/domain";
 const heroCopyOptions = [
   {
     lines: [
-      { text: "Feito com precisão.", accent: false },
-      { text: "Entregue com", accent: true },
-      { text: "capricho.", accent: true },
+      { text: "Impressão 3D", accent: false },
+      { text: "que você segura", accent: true },
+      { text: "na mão.", accent: true },
     ],
-    body: "Impressão 3D profissional com acabamento que você não vai querer esconder. Catálogo visual, compra em minutos, entrega nacional.",
+    body: "Peças reais, impressas camada por camada e prontas para usar. Catálogo visual, compra em minutos, entrega nacional.",
   },
   {
     lines: [
-      { text: "Do digital", accent: false },
-      { text: "ao concreto.", accent: true },
+      { text: "Do arquivo STL", accent: false },
+      { text: "ao objeto pronto.", accent: true },
     ],
-    body: "Escolha no catálogo ou envie seu arquivo STL. Produzimos com Bambu Lab P2S calibrada — 0.2mm de precisão, nenhum detalhe perdido.",
+    body: "Escolha no catálogo ou envie seu modelo. Produzimos com Bambu Lab P2S calibrada — 0.2mm de precisão, nenhum detalhe perdido.",
   },
   {
     lines: [
       { text: "Não é protótipo.", accent: false },
-      { text: "É produto final.", accent: true },
+      { text: "É peça final.", accent: true },
     ],
-    body: "Cada peça sai calibrada, limpa e pronta para usar, expor ou presentear. Porque capricho não é opcional aqui.",
+    body: "Cada impressão sai calibrada, limpa e pronta para usar, expor ou presentear. Porque capricho não é opcional aqui.",
   },
   {
     lines: [
       { text: "Sua ideia", accent: false },
-      { text: "ganha forma agora.", accent: true },
+      { text: "vira peça impressa.", accent: true },
     ],
-    body: "Do modelo ao objeto em mãos. Orçamento em minutos, produção em 48h, resultado que impressiona quem vê.",
+    body: "Do modelo 3D ao objeto em mãos. Orçamento em minutos, produção em 48h, resultado que impressiona quem vê de perto.",
   },
 ];
 
@@ -150,8 +151,7 @@ export default function Home() {
         path="/"
       />
       <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:px-8">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,179,237,0.08),transparent_60%),linear-gradient(180deg,transparent,#020617_90%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-surface to-transparent" />
+        <HeroVideoBackground src="/hero-loop.mp4" poster={showcase[0]?.image} />
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
@@ -195,68 +195,6 @@ export default function Home() {
         </motion.div>
       </section>
 
-      <section className="relative border-y border-white/[0.06] bg-white/[0.025] py-4">
-        <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
-          {Array.from({ length: 2 }).map((_, index) => (
-            <div key={index} className="flex min-w-full items-center justify-around gap-8">
-              <span>precisão ±0.2mm</span>
-              <span>acabamento profissional</span>
-              <span>Bambu Lab P2S calibrada</span>
-              <span>entrega nacional</span>
-              <span>filamento premium</span>
-              <span>peças únicas</span>
-              <span>qualidade garantida</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="catalogo-preview" className="scroll-mt-28 py-14 sm:py-20">
-        <div className="container-section">
-          <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <Reveal direction="up">
-                <p className="section-label-accent mb-4">Catálogo</p>
-              </Reveal>
-              <RevealText
-                text="Objetos prontos. Sem esperar."
-                highlightFrom={2}
-                as="h2"
-                className="heading-lg justify-start text-white"
-              />
-            </div>
-            <Reveal direction="up" delay={0.16}>
-              <Link
-                to="/catalogo"
-                className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.55] transition-all hover:border-white/20 hover:bg-white hover:text-slate-950"
-              >
-                Ver catálogo completo
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </Reveal>
-          </div>
-
-          {loading ? (
-            <ProductSkeletonGrid />
-          ) : featuredProducts.length > 0 ? (
-            <RevealGroup className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {featuredProducts.map((product) => (
-                <RevealItem key={product.id}>
-                  <ProductCard product={product} onAdd={handleAdd} />
-                </RevealItem>
-              ))}
-            </RevealGroup>
-          ) : (
-            <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
-              <Box className="mx-auto mb-4 h-9 w-9 text-dim" />
-              <p className="text-sm font-medium text-white/[0.35]">
-                Nenhum produto disponivel no momento.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
       <section className="py-14 sm:py-20">
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
@@ -266,7 +204,7 @@ export default function Home() {
                 <span className="section-label-accent">Galeria real</span>
               </div>
               <RevealText
-                text="Prints reais. Da máquina às suas mãos."
+                text="O que já saiu da impressora."
                 highlightFrom={2}
                 as="h2"
                 className="heading-lg justify-start text-white"
@@ -350,6 +288,68 @@ export default function Home() {
             <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
               <p className="text-sm font-medium text-white/[0.35]">
                 Nenhuma peça encontrada nesta categoria.
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <section className="relative border-y border-white/[0.06] bg-white/[0.025] py-4">
+        <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={index} className="flex min-w-full items-center justify-around gap-8">
+              <span>precisão ±0.2mm</span>
+              <span>acabamento profissional</span>
+              <span>Bambu Lab P2S calibrada</span>
+              <span>entrega nacional</span>
+              <span>filamento premium</span>
+              <span>peças únicas</span>
+              <span>qualidade garantida</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="catalogo-preview" className="scroll-mt-28 py-14 sm:py-20">
+        <div className="container-section">
+          <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <Reveal direction="up">
+                <p className="section-label-accent mb-4">Catálogo</p>
+              </Reveal>
+              <RevealText
+                text="Objetos prontos. Sem esperar."
+                highlightFrom={2}
+                as="h2"
+                className="heading-lg justify-start text-white"
+              />
+            </div>
+            <Reveal direction="up" delay={0.16}>
+              <Link
+                to="/catalogo"
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.55] transition-all hover:border-white/20 hover:bg-white hover:text-slate-950"
+              >
+                Ver catálogo completo
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Reveal>
+          </div>
+
+          {loading ? (
+            <ProductSkeletonGrid />
+          ) : featuredProducts.length > 0 ? (
+            <RevealGroup className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {featuredProducts.map((product) => (
+                <RevealItem key={product.id}>
+                  <ProductCard product={product} onAdd={handleAdd} />
+                </RevealItem>
+              ))}
+            </RevealGroup>
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+              <Box className="mx-auto mb-4 h-9 w-9 text-dim" />
+              <p className="text-sm font-medium text-white/[0.35]">
+                Nenhum produto disponivel no momento.
               </p>
             </div>
           )}
