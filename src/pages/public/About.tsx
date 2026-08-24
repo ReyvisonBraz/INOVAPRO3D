@@ -130,7 +130,7 @@ export default function About() {
               <Sparkles className="h-3 w-3" /> Quem somos
             </span>
 
-            <h1 className="mt-4 text-3xl sm:text-5xl font-black uppercase tracking-tight leading-[1.05]">
+            <h1 className="mt-4 text-[clamp(1.875rem,1.35rem+2.4vw,3rem)] font-black uppercase tracking-tight leading-[1.05]">
               Do digital ao <span className="brand-gradient-text">objeto real</span>
             </h1>
             <p className="mx-auto mt-5 max-w-2xl text-sm sm:text-base leading-relaxed text-white/50">

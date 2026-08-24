@@ -19,6 +19,9 @@ import type { Product, ShowcaseItem, Category } from "../../types/domain";
 
 // ── Main Catalog ──────────────────────────────────────────────────────────────
 
+/** Produtos exibidos por categoria na visão "TODOS" antes do "ver todos". */
+const GROUP_PREVIEW_LIMIT = 6;
+
 export default function Catalog() {
   const { addItem } = useCart();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -147,11 +150,19 @@ export default function Catalog() {
         }).filter(matchesTerm),
       );
 
-    const groupsList: { category: string; products: Product[] }[] = [];
+    const groupsList: { category: string; categoryId?: string; products: Product[] }[] = [];
 
     if (selectedCategory === "TODOS") {
       for (const cat of rootCategories) {
-        groupsList.push({ category: cat.name, products: directOf(cat.id) });
+        groupsList.push({
+          category: cat.name,
+          categoryId: cat.id,
+          products: sortProducts(
+            filterProductsByCategory(categoriesData, products, cat.id, {
+              includeDescendants: true,
+            }).filter(matchesTerm),
+          ),
+        });
       }
       for (const name of orphanNames) {
         const normalized = name.trim().toUpperCase();
@@ -195,6 +206,8 @@ export default function Catalog() {
   }, [groups]);
 
   const totalVisible = visibleProducts.length;
+  const showGrouped = selectedCategory === "TODOS";
+  const nonEmptyGroups = useMemo(() => groups.filter((g) => g.products.length > 0), [groups]);
 
   const tabCategories = useMemo(() => {
     const selected =
@@ -226,7 +239,7 @@ export default function Catalog() {
             </div>
           </Reveal>
           <Reveal direction="up" delay={0.1}>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black font-display uppercase tracking-tight text-white mb-2 leading-none">
+            <h1 className="text-[clamp(1.875rem,1.5rem+1.6vw,3rem)] font-black font-display uppercase tracking-tight text-white mb-2 leading-none">
               Encontre sua próxima peça
             </h1>
           </Reveal>
@@ -425,7 +438,45 @@ export default function Catalog() {
           </div>
         )}
 
-        {!loading && visibleProducts.length > 0 && (
+        {!loading && visibleProducts.length > 0 && showGrouped && (
+          <motion.div
+            key={`grouped-${searchTerm}-${sortBy}`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25 }}
+            className="space-y-10 sm:space-y-14"
+          >
+            {nonEmptyGroups.map((group) => (
+              <section key={group.categoryId ?? group.category}>
+                <div className="mb-4 flex items-end justify-between gap-3 sm:mb-5">
+                  <h2 className="font-display text-lg font-black uppercase tracking-tight text-white sm:text-xl">
+                    {group.category}
+                    <span className="ml-2 text-xs font-black uppercase tracking-widest text-dim">
+                      {group.products.length}
+                    </span>
+                  </h2>
+                  {group.categoryId && group.products.length > GROUP_PREVIEW_LIMIT && (
+                    <button
+                      type="button"
+                      onClick={() => handleCategorySelect(group.categoryId!)}
+                      className="flex shrink-0 items-center gap-1 text-[11px] font-black uppercase tracking-widest text-primary hover:text-white transition-colors"
+                    >
+                      Ver todos
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
+                  {group.products.slice(0, GROUP_PREVIEW_LIMIT).map((product) => (
+                    <ProductCard key={product.id} product={product} onAdd={handleAddToCart} />
+                  ))}
+                </div>
+              </section>
+            ))}
+          </motion.div>
+        )}
+
+        {!loading && visibleProducts.length > 0 && !showGrouped && (
           <motion.section
             key={`${selectedCategory}-${searchTerm}-${sortBy}`}
             initial={{ opacity: 0, y: 10 }}

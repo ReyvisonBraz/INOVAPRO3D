@@ -49,8 +49,24 @@ export function Navbar() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", handleScroll);
+    // rAF-throttled + histerese (liga em 28px, desliga em 12px) pra não ficar
+    // trocando a classe (e repintando o backdrop-blur) a cada pixel perto do
+    // limiar, que é o que causava o "piscar" da navbar ao rolar.
+    let ticking = false;
+    const evaluate = () => {
+      ticking = false;
+      setScrolled((prev) => {
+        const y = window.scrollY;
+        if (prev) return y > 12;
+        return y > 28;
+      });
+    };
+    const handleScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(evaluate);
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
     handleScroll();
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);

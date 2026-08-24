@@ -1,6 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { auth } from "../../services/firebase";
-import { backfillProductCategoryIds, updateProductsCategory } from "../../services/products";
+import {
+  backfillProductCategoryIds,
+  clearProductsCategory,
+  updateProductsCategory,
+} from "../../services/products";
 import { X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -246,6 +250,7 @@ export default function AdminDashboard() {
     handleUpdateTracking,
   } = useAdminActions({
     orders,
+    products,
     fetchData,
     selectedOrder,
     setSelectedOrder,
@@ -453,6 +458,39 @@ export default function AdminDashboard() {
       toast.error("Não foi possível vincular. Nada foi alterado.");
     }
   }, [categories, products, setProducts]);
+
+  /**
+   * Auto-cura de categorias orfas: exclusoes de categoria feitas antes desta
+   * correcao (ou fora do fluxo do painel) deixaram `categoryId`/`category`
+   * gravados em produtos cuja categoria ja nao existe mais. Ao carregar o
+   * painel com os dados completos, varre e limpa esses vinculos uma unica
+   * vez por sessao — sem isso o nome "fantasma" continua aparecendo no
+   * hover do card e na vitrine.
+   */
+  const orphanCleanupRanRef = useRef(false);
+  useEffect(() => {
+    if (loading || orphanCleanupRanRef.current) return;
+    orphanCleanupRanRef.current = true;
+    const categoryIds = new Set(categories.map((c) => c.id));
+    const orphanIds = products
+      .filter((p) => p.categoryId && !categoryIds.has(p.categoryId))
+      .map((p) => p.id);
+    if (!orphanIds.length) return;
+    clearProductsCategory(orphanIds)
+      .then(() => {
+        setProducts((prev) =>
+          prev.map((p) =>
+            orphanIds.includes(p.id) ? { ...p, category: "", categoryId: undefined } : p,
+          ),
+        );
+        toast.success(
+          `${orphanIds.length} produto(s) com categoria excluida foram limpos automaticamente.`,
+        );
+      })
+      .catch((error) => {
+        console.error("Falha ao limpar categorias orfas:", error);
+      });
+  }, [loading, categories, products, setProducts]);
 
   // O modal de homologação usa exatamente o mesmo motor e os mesmos
   // parâmetros das calculadoras completa e rápida.

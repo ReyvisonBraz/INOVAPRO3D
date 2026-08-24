@@ -490,7 +490,7 @@ export default function ProductDetail() {
                 </span>
               ) : null}
             </div>
-            <h1 className="text-2xl sm:text-3xl font-black uppercase leading-tight tracking-tight mb-2 break-words">
+            <h1 className="text-[clamp(1.5rem,1.3rem+1vw,1.875rem)] font-black uppercase leading-tight tracking-tight mb-2 break-words">
               {product.name}
             </h1>
             <p className="text-sm text-white/45 leading-relaxed max-w-md">{product.description}</p>

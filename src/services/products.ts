@@ -1,4 +1,4 @@
-import { doc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
+import { deleteField, doc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 
 /** Teto de operacoes por batch no Firestore. */
@@ -40,6 +40,27 @@ export async function updateProductsCategory(
       batch.update(doc(db, "products", id), {
         categoryId,
         category: categoryName,
+        updatedAt: serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
+}
+
+/**
+ * Remove o vinculo de categoria (id e nome) de varios produtos de uma vez.
+ *
+ * Usado quando uma categoria e excluida: sem isso, `category` fica gravado
+ * no produto como um nome "fantasma" que nunca mais existe na colecao
+ * `categories`, mas continua aparecendo na vitrine e no hover do card.
+ */
+export async function clearProductsCategory(productIds: string[]): Promise<void> {
+  for (let start = 0; start < productIds.length; start += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const id of productIds.slice(start, start + BATCH_LIMIT)) {
+      batch.update(doc(db, "products", id), {
+        categoryId: deleteField(),
+        category: deleteField(),
         updatedAt: serverTimestamp(),
       });
     }

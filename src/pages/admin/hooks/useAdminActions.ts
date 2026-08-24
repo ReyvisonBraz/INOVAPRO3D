@@ -14,9 +14,12 @@ import { auth, db, handleFirestoreError, OperationType } from "../../../services
 import type { Order, Quote, Ticket, TrashEntry } from "../../../types/domain";
 import type { OrderStatus } from "../../../types/domain";
 import { InsufficientInventoryError, transitionOrderStatus } from "../../../services/inventory";
+import { clearProductsCategory } from "../../../services/products";
+import type { Product } from "../../../types/domain";
 
 interface Deps {
   orders: Order[];
+  products: Product[];
   fetchData: () => Promise<void>;
   selectedOrder: Order | null;
   setSelectedOrder: Dispatch<SetStateAction<Order | null>>;
@@ -55,6 +58,7 @@ function recordLabel(type: string, id: string, data: DocumentData): string {
  */
 export function useAdminActions({
   orders,
+  products,
   fetchData,
   selectedOrder,
   setSelectedOrder,
@@ -189,6 +193,10 @@ export function useAdminActions({
         await batch.commit();
         if (type === "orders") setOrders((prev) => prev.filter((o) => o.id !== id));
         else if (type === "quotes") setQuotes((prev) => prev.filter((q) => q.id !== id));
+        if (type === "categories") {
+          const linkedProductIds = products.filter((p) => p.categoryId === id).map((p) => p.id);
+          if (linkedProductIds.length) await clearProductsCategory(linkedProductIds);
+        }
         if (refresh) await fetchData();
         if (notify) toast.success("Item movido para a lixeira.");
         return true;
@@ -202,7 +210,7 @@ export function useAdminActions({
         return false;
       }
     },
-    [fetchData, orders, setOrders, setQuotes],
+    [fetchData, orders, products, setOrders, setQuotes],
   );
 
   const deleteItem = useCallback(

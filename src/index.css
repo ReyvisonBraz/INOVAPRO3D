@@ -121,16 +121,24 @@
     @apply max-w-7xl mx-auto px-6 lg:px-8;
   }
 
+  /*
+   * Tamanhos fluidos via clamp() em vez de saltos discretos por breakpoint —
+   * o texto escala suavemente com a viewport, sem "pulo" perceptível ao
+   * redimensionar/rolar perto de um breakpoint.
+   */
   .heading-xl {
-    @apply text-4xl sm:text-5xl lg:text-7xl font-black uppercase tracking-tight leading-[0.9];
+    font-size: clamp(2.25rem, 1.35rem + 4.2vw, 4.5rem);
+    @apply font-black uppercase tracking-tight leading-[0.9];
   }
 
   .heading-lg {
-    @apply text-3xl sm:text-4xl lg:text-6xl font-black uppercase tracking-tight leading-[1];
+    font-size: clamp(1.875rem, 1.25rem + 2.9vw, 3.75rem);
+    @apply font-black uppercase tracking-tight leading-[1];
   }
 
   .heading-md {
-    @apply text-2xl sm:text-3xl font-black uppercase tracking-tight;
+    font-size: clamp(1.5rem, 1.2rem + 1.4vw, 1.875rem);
+    @apply font-black uppercase tracking-tight;
   }
 }
 
@@ -628,15 +636,36 @@
   );
   transform: translateX(-60%) rotate(8deg);
   transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: catalog-cta-idle-shimmer 4.5s ease-in-out infinite;
 }
 
 .catalog-cta:hover::before {
+  animation-play-state: paused;
   transform: translateX(58%) rotate(8deg);
 }
 
 .catalog-cta > * {
   position: relative;
   z-index: 1;
+}
+
+@keyframes catalog-cta-idle-shimmer {
+  0%,
+  55% {
+    transform: translateX(-60%) rotate(8deg);
+  }
+  85%,
+  100% {
+    transform: translateX(58%) rotate(8deg);
+  }
+}
+
+.catalog-cta-badge {
+  position: absolute;
+  top: -0.65rem;
+  right: -0.65rem;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .spotlight-card {
