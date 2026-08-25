@@ -20,7 +20,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { orderBy } from "firebase/firestore";
 import { Button } from "../../components/ui/Button";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
-import { PrintTypesShowcase } from "../../components/ui/PrintTypesShowcase";
+import { CategoryExplorer } from "../../components/ui/CategoryExplorer";
 import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
 import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import { categorySlug } from "../../lib/categoryTree";
@@ -212,7 +212,7 @@ export default function Home() {
         </motion.div>
       </section>
 
-      <PrintTypesShowcase />
+      <CategoryExplorer />
 
       <section className="relative border-y border-white/[0.06] bg-white/[0.025] py-4">
         <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">

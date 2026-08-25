@@ -39,7 +39,9 @@ export default function Catalog() {
     silent: true,
   });
   const loading = productsLoading;
-  const [searchTerm, setSearchTerm] = useState("");
+  // Inicializa a busca a partir de ?q= — usado por links externos (ex.: vitrines
+  // da home) que querem cair direto no catálogo já filtrado por um termo.
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get("q") || "");
   const [selectedCategory, setSelectedCategory] = useState("TODOS");
   const [sortBy, setSortBy] = useState<"name" | "price-asc" | "price-desc" | "newest">("name");
   const [activeSlide, setActiveSlide] = useState(0);
