@@ -8,6 +8,7 @@ import {
   ChevronRight,
   Clock3,
   Layers3,
+  MapPin,
   PackageCheck,
   Plus,
   Ruler,
@@ -15,47 +16,45 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { orderBy } from "firebase/firestore";
-import { toast } from "sonner";
 import { Button } from "../../components/ui/Button";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
-import { HeroVideoBackground } from "../../components/ui/HeroVideoBackground";
-import { ProductCard } from "../../components/ui/ProductCard";
+import { PrintTypesShowcase } from "../../components/ui/PrintTypesShowcase";
 import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
-import { useCart } from "../../contexts/CartContext";
 import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
-import type { Product, ShowcaseItem } from "../../types/domain";
+import { categorySlug } from "../../lib/categoryTree";
+import { filterProductsByCategory } from "../../lib/productCategory";
+import type { Category, Product, ShowcaseItem } from "../../types/domain";
 
 const heroCopyOptions = [
   {
     lines: [
-      { text: "Impressão 3D", accent: false },
-      { text: "que você segura", accent: true },
-      { text: "na mão.", accent: true },
+      { text: "Você imagina.", accent: false },
+      { text: "A gente imprime.", accent: true },
     ],
-    body: "Peças reais, impressas camada por camada e prontas para usar. Catálogo visual, compra em minutos, entrega nacional.",
+    body: "Da ideia à peça na sua mesa. Escolha no catálogo ou envie seu projeto — a gente cuida do resto.",
   },
   {
     lines: [
-      { text: "Do arquivo STL", accent: false },
-      { text: "ao objeto pronto.", accent: true },
+      { text: "Não é só um modelo.", accent: false },
+      { text: "É peça de verdade.", accent: true },
     ],
-    body: "Escolha no catálogo ou envie seu modelo. Produzimos com Bambu Lab P2S calibrada — 0.2mm de precisão, nenhum detalhe perdido.",
+    body: "Sai da impressora calibrada, embalada e pronta pra usar. Sem 'quase perfeito' — perfeito.",
   },
   {
     lines: [
-      { text: "Não é protótipo.", accent: false },
-      { text: "É peça final.", accent: true },
+      { text: "Do Pará", accent: false },
+      { text: "pro Brasil inteiro.", accent: true },
     ],
-    body: "Cada impressão sai calibrada, limpa e pronta para usar, expor ou presentear. Porque capricho não é opcional aqui.",
+    body: "Impressa em Santa Maria do Pará, embalada com capricho e enviada pra qualquer canto do país.",
   },
   {
     lines: [
       { text: "Sua ideia", accent: false },
-      { text: "vira peça impressa.", accent: true },
+      { text: "vira objeto real.", accent: true },
     ],
-    body: "Do modelo 3D ao objeto em mãos. Orçamento em minutos, produção em 48h, resultado que impressiona quem vê de perto.",
+    body: "De arquivo digital a peça física em 48h. Escolha, pague, receba — sem enrolação.",
   },
 ];
 
@@ -72,14 +71,40 @@ export default function Home() {
         .filter((product) => product.active !== false)
         .sort((a, b) => a.name.localeCompare(b.name, "pt-BR")),
   });
+  const { data: categoriesData, loading: categoriesLoading } = useFirestoreCollection<Category>(
+    "categories",
+    {
+      transform: (items) => items.filter((c) => c.active !== false),
+      silent: true,
+    },
+  );
   const loading = showcaseLoading || productsLoading;
   const categories = useMemo(
     () => Array.from(new Set(showcase.map((item) => item.category).filter(Boolean))) as string[],
     [showcase],
   );
+
+  const rootCategoryCards = useMemo(() => {
+    const byOrder = (a: Category, b: Category) => (a.order ?? 999) - (b.order ?? 999);
+    return categoriesData
+      .filter((c) => !c.parentId)
+      .sort(byOrder)
+      .map((category) => {
+        const categoryProducts = filterProductsByCategory(categoriesData, products, category.id, {
+          includeDescendants: true,
+        });
+        const cover = category.image || categoryProducts[0]?.images?.[0];
+        return {
+          category,
+          cover,
+          count: categoryProducts.length,
+          href: `/catalogo?categoria=${categorySlug(categoriesData, category.id)}`,
+        };
+      });
+  }, [categoriesData, products]);
+  const categoriesReady = !categoriesLoading && !productsLoading;
   const [filter, setFilter] = useState("ALL");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
-  const { addItem } = useCart();
 
   // Trap browser-back while lightbox is open
   const lightboxOpen = selectedIndex !== null;
@@ -101,36 +126,19 @@ export default function Home() {
       setSelectedIndex(null);
     }
   };
-  const { scrollYProgress } = useScroll();
-  const heroY = useTransform(scrollYProgress, [0, 0.22], [0, -90]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.18], [1, 0.2]);
+  // Escopado à seção do hero (em vez do documento inteiro) — evita recalcular
+  // esse scroll-tracking pela página toda enquanto o usuário rola qualquer
+  // outra seção, que era uma das causas do "piscar" ao rolar.
+  const heroRef = useRef<HTMLElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: heroRef,
+    offset: ["start start", "end start"],
+  });
+  const heroY = useTransform(scrollYProgress, [0, 1], [0, -90]);
+  const heroOpacity = useTransform(scrollYProgress, [0, 0.85], [1, 0.2]);
 
-  const featuredProducts = products.slice(0, 8);
   const filteredItems =
     filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
-
-  const proofStats = useMemo(
-    () => [
-      { value: "±0.2mm", label: "precisão de impressão" },
-      { value: "48h", label: "produção média" },
-      { value: "PLA Pro", label: "filamento premium" },
-      { value: "BR", label: "envio nacional" },
-    ],
-    [],
-  );
-
-  const handleAdd = (product: Product) => {
-    addItem({
-      id: product.id,
-      name: product.name,
-      price: product.basePrice,
-      quantity: 1,
-      image: product.images?.[0],
-      type: "PRODUCT",
-      productId: product.id,
-    });
-    toast.success(`${product.name} adicionado ao carrinho`);
-  };
 
   const navigateLightbox = (direction: number) => {
     if (selectedIndex === null || filteredItems.length === 0) return;
@@ -147,11 +155,18 @@ export default function Home() {
     <div className="relative overflow-hidden">
       <PageSEO
         title="INOVAPRO3D"
-        description="Impressão 3D com precisão ±0,2mm e filamentos premium. Catálogo com centenas de peças prontas, produção em 48h e entrega em todo o Brasil."
+        description="Impressão 3D com acabamento profissional. Catálogo com centenas de peças prontas, produção em 48h e entrega para todo o Brasil."
         path="/"
       />
-      <section className="relative overflow-hidden px-4 pb-16 pt-14 sm:px-6 sm:pb-20 sm:pt-20 lg:px-8">
-        <HeroVideoBackground src="/hero-loop.mp4" poster={showcase[0]?.image} />
+      <section
+        ref={heroRef}
+        className="relative overflow-hidden px-4 pb-8 pt-14 sm:px-6 sm:pb-10 sm:pt-20 lg:px-8"
+      >
+        {/* Brilho sutil único — o body já é escuro (#020617), então aqui só um
+            glow leve no topo, sem empilhar outra camada escura por cima
+            (era isso que deixava o topo pesado/turvo). */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,179,237,0.10),transparent_55%)]" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface to-transparent" />
 
         <motion.div
           style={{ y: heroY, opacity: heroOpacity }}
@@ -163,7 +178,12 @@ export default function Home() {
 
           <Reveal direction="up" delay={0.42}>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
-              <Link to="/catalogo" className="w-full sm:w-auto">
+              <Link to="/catalogo" className="relative w-full sm:w-auto">
+                {products.length > 0 && (
+                  <span className="catalog-cta-badge inline-flex items-center rounded-full bg-primary px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_6px_18px_-4px_rgba(37,99,235,0.65)]">
+                    +{products.length} modelos
+                  </span>
+                )}
                 <button className="catalog-cta group relative flex h-[3.75rem] w-full items-center justify-center gap-3 overflow-hidden rounded-2xl bg-white px-8 text-sm font-black uppercase tracking-[0.12em] text-slate-950 shadow-[0_24px_80px_-18px_rgba(255,255,255,0.55)] transition-transform duration-300 hover:-translate-y-1 active:translate-y-0 sm:w-auto">
                   Ver o catálogo
                   <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -180,19 +200,106 @@ export default function Home() {
             </div>
           </Reveal>
 
-          <RevealGroup className="mt-10 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
-            {proofStats.map((stat) => (
-              <RevealItem key={stat.label}>
-                <div className="rounded-2xl border border-white/[0.08] bg-white/[0.035] p-4 backdrop-blur-xl">
-                  <p className="font-display text-xl font-black text-white">{stat.value}</p>
-                  <p className="mt-1 text-xs font-black uppercase leading-snug tracking-[0.14em] text-white/[0.34]">
-                    {stat.label}
-                  </p>
-                </div>
-              </RevealItem>
-            ))}
-          </RevealGroup>
+          <Reveal direction="up" delay={0.56}>
+            <div className="mt-10 inline-flex items-center gap-2.5 rounded-full border border-white/[0.08] bg-white/[0.035] px-5 py-3 backdrop-blur-xl">
+              <MapPin className="h-4 w-4 shrink-0 text-secondary" />
+              <p className="text-xs font-black uppercase tracking-[0.14em] text-white/[0.55]">
+                Sai daqui, <span className="text-white">Santa Maria do Pará — PA</span>, e chega em
+                qualquer canto do Brasil
+              </p>
+            </div>
+          </Reveal>
         </motion.div>
+      </section>
+
+      <PrintTypesShowcase />
+
+      <section className="relative border-y border-white/[0.06] bg-white/[0.025] py-4">
+        <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
+          {Array.from({ length: 2 }).map((_, index) => (
+            <div key={index} className="flex min-w-full items-center justify-around gap-8">
+              <span>acabamento impecável</span>
+              <span>acabamento profissional</span>
+              <span>impressoras de última geração</span>
+              <span>entrega nacional</span>
+              <span>materiais de alta qualidade</span>
+              <span>peças únicas</span>
+              <span>qualidade garantida</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="catalogo-preview" className="scroll-mt-28 py-14 sm:py-20">
+        <div className="container-section">
+          <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <Reveal direction="up">
+                <p className="section-label-accent mb-4">Catálogo</p>
+              </Reveal>
+              <RevealText
+                text="Escolha por categoria."
+                highlightFrom={2}
+                as="h2"
+                className="heading-lg justify-start text-white"
+              />
+            </div>
+            <Reveal direction="up" delay={0.16}>
+              <Link
+                to="/catalogo"
+                className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.55] transition-all hover:border-white/20 hover:bg-white hover:text-slate-950"
+              >
+                Ver catálogo completo
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Reveal>
+          </div>
+
+          {!categoriesReady ? (
+            <CategorySkeletonGrid />
+          ) : rootCategoryCards.length > 0 ? (
+            <RevealGroup className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
+              {rootCategoryCards.map(({ category, cover, count, href }) => (
+                <RevealItem key={category.id}>
+                  <Link
+                    to={href}
+                    className="group relative block aspect-[4/5] w-full overflow-hidden rounded-[26px] border border-white/[0.08] bg-white/[0.03] shadow-xl shadow-black/20 transition-all duration-500 hover:-translate-y-1 hover:border-white/[0.18]"
+                  >
+                    {cover ? (
+                      <img
+                        src={cover}
+                        loading="lazy"
+                        decoding="async"
+                        className="h-full w-full object-cover opacity-80 saturate-[0.9] transition-all duration-700 group-hover:scale-105 group-hover:opacity-100 group-hover:saturate-100"
+                        alt={category.name}
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-white/[0.03]">
+                        <Box className="h-9 w-9 text-dim" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-transparent opacity-85" />
+                    <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
+                      <h3 className="font-display text-base font-black uppercase leading-tight text-white sm:text-lg">
+                        {category.name}
+                      </h3>
+                      <p className="mt-1 text-[11px] font-black uppercase tracking-widest text-white/[0.5]">
+                        {count} modelo{count !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                  </Link>
+                </RevealItem>
+              ))}
+            </RevealGroup>
+          ) : (
+            <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
+              <Box className="mx-auto mb-4 h-9 w-9 text-dim" />
+              <p className="text-sm font-medium text-white/[0.35]">
+                Nenhuma categoria disponivel no momento.
+              </p>
+            </div>
+          )}
+        </div>
       </section>
 
       <section className="py-14 sm:py-20">
@@ -204,7 +311,7 @@ export default function Home() {
                 <span className="section-label-accent">Galeria real</span>
               </div>
               <RevealText
-                text="O que já saiu da impressora."
+                text="Prints reais. Da máquina às suas mãos."
                 highlightFrom={2}
                 as="h2"
                 className="heading-lg justify-start text-white"
@@ -246,7 +353,6 @@ export default function Home() {
               <AnimatePresence mode="popLayout">
                 {filteredItems.map((item, idx) => (
                   <motion.button
-                    layout
                     key={item.id}
                     type="button"
                     initial={{ opacity: 0, scale: 0.96, y: 18 }}
@@ -294,68 +400,6 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="relative border-y border-white/[0.06] bg-white/[0.025] py-4">
-        <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
-          {Array.from({ length: 2 }).map((_, index) => (
-            <div key={index} className="flex min-w-full items-center justify-around gap-8">
-              <span>precisão ±0.2mm</span>
-              <span>acabamento profissional</span>
-              <span>Bambu Lab P2S calibrada</span>
-              <span>entrega nacional</span>
-              <span>filamento premium</span>
-              <span>peças únicas</span>
-              <span>qualidade garantida</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="catalogo-preview" className="scroll-mt-28 py-14 sm:py-20">
-        <div className="container-section">
-          <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <Reveal direction="up">
-                <p className="section-label-accent mb-4">Catálogo</p>
-              </Reveal>
-              <RevealText
-                text="Objetos prontos. Sem esperar."
-                highlightFrom={2}
-                as="h2"
-                className="heading-lg justify-start text-white"
-              />
-            </div>
-            <Reveal direction="up" delay={0.16}>
-              <Link
-                to="/catalogo"
-                className="group inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-5 text-[10px] font-black uppercase tracking-[0.18em] text-white/[0.55] transition-all hover:border-white/20 hover:bg-white hover:text-slate-950"
-              >
-                Ver catálogo completo
-                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </Reveal>
-          </div>
-
-          {loading ? (
-            <ProductSkeletonGrid />
-          ) : featuredProducts.length > 0 ? (
-            <RevealGroup className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {featuredProducts.map((product) => (
-                <RevealItem key={product.id}>
-                  <ProductCard product={product} onAdd={handleAdd} />
-                </RevealItem>
-              ))}
-            </RevealGroup>
-          ) : (
-            <div className="rounded-[28px] border border-dashed border-white/10 bg-white/[0.02] px-6 py-16 text-center">
-              <Box className="mx-auto mb-4 h-9 w-9 text-dim" />
-              <p className="text-sm font-medium text-white/[0.35]">
-                Nenhum produto disponivel no momento.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
       <section className="container-section py-20 sm:py-28">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
           <div>
@@ -393,7 +437,7 @@ export default function Home() {
             {
               icon: ShieldCheck,
               title: "Qualidade que se vê",
-              text: "Bambu Lab P2S calibrada. Filamento premium. Resultado que parece produto de loja — porque é produto de loja.",
+              text: "Equipamentos de última geração. Materiais de alta qualidade. Resultado que parece produto de loja — porque é produto de loja.",
             },
           ].map((item) => (
             <RevealItem key={item.title}>
@@ -422,7 +466,7 @@ export default function Home() {
               <div className="relative z-10 flex h-full flex-col justify-between p-7 sm:p-10">
                 <div>
                   <p className="section-label-accent mb-5">Como funciona</p>
-                  <h2 className="max-w-xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-4xl sm:leading-[0.92] lg:text-5xl">
+                  <h2 className="max-w-xl font-display text-[clamp(1.875rem,1.5rem+1.6vw,3rem)] font-black uppercase leading-[0.95] text-white">
                     Do clique ao objeto real, sem complicação.
                   </h2>
                 </div>
@@ -446,7 +490,7 @@ export default function Home() {
               {
                 icon: Clock3,
                 title: "Validação e produção",
-                text: "Avaliamos material, resistência e acabamento. Sua peça entra em produção calibrada na Bambu Lab P2S.",
+                text: "Avaliamos o modelo, a resistência e o acabamento. Sua peça entra em produção com equipamento calibrado.",
               },
               {
                 icon: PackageCheck,
@@ -483,12 +527,12 @@ export default function Home() {
           <div className="relative z-10 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
             <div>
               <p className="section-label-accent mb-4">Comece agora</p>
-              <h2 className="max-w-3xl font-display text-3xl font-black uppercase leading-tight text-white sm:text-5xl sm:leading-[0.92] lg:text-6xl lg:leading-[0.9]">
+              <h2 className="max-w-3xl font-display text-[clamp(1.875rem,1.35rem+2.4vw,3.75rem)] font-black uppercase leading-[0.92] text-white">
                 Sua próxima peça está a um clique de distância.
               </h2>
               <p className="mt-5 max-w-2xl text-sm font-medium leading-relaxed text-white/[0.45] sm:text-base">
-                Escolha entre dezenas de modelos prontos no catálogo e receba em casa. Precisão de
-                ±0.2mm, materiais premium e entrega em todo o Brasil.
+                Escolha entre dezenas de modelos prontos no catálogo e receba em casa. Acabamento
+                profissional, materiais de qualidade e entrega para todo o Brasil.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
@@ -527,7 +571,7 @@ function AnimatedHeroCopy() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       setActiveCopy((current) => (current + 1) % heroCopyOptions.length);
-    }, 4200);
+    }, 6800);
 
     return () => window.clearInterval(interval);
   }, []);
@@ -537,40 +581,46 @@ function AnimatedHeroCopy() {
       <motion.div
         layout
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative min-h-[9rem] sm:min-h-[11rem] lg:min-h-[14rem]"
+        className="relative min-h-[7.5rem] sm:min-h-[9rem] lg:min-h-[10.5rem]"
       >
         <AnimatePresence mode="wait">
           <motion.h1
             key={activeCopy}
-            initial={{ opacity: 0, y: 26 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -22 }}
-            transition={{ duration: 0.72, ease: [0.16, 1, 0.3, 1] }}
-            className="max-w-4xl text-[clamp(2.2rem,5.5vw,5.5rem)] font-display font-black uppercase leading-[0.88] tracking-tight text-white [text-wrap:balance]"
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+            className="max-w-4xl font-display font-black uppercase text-white [text-wrap:balance]"
           >
-            {copy.lines.map((line, index) => (
-              <motion.span
-                key={`${line.text}-${index}`}
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.62, delay: index * 0.08, ease: [0.16, 1, 0.3, 1] }}
-                className={`block max-w-full text-balance ${line.accent ? "brand-gradient-text" : ""}`}
-              >
-                {line.text}
-              </motion.span>
-            ))}
+            {copy.lines.map((line, index) =>
+              line.accent ? (
+                <span
+                  key={`${line.text}-${index}`}
+                  className="brand-gradient-text mt-1 block max-w-full text-balance text-[clamp(2.4rem,6vw,6rem)] leading-[1.02]"
+                >
+                  {line.text}
+                </span>
+              ) : (
+                <span
+                  key={`${line.text}-${index}`}
+                  className="mb-1 block max-w-full text-balance text-[clamp(1.4rem,3.4vw,2.5rem)] font-bold leading-[1.15] tracking-wide text-white/55"
+                >
+                  {line.text}
+                </span>
+              ),
+            )}
           </motion.h1>
         </AnimatePresence>
       </motion.div>
 
-      <div className="relative mt-7 min-h-[7.5rem] max-w-2xl sm:min-h-[5rem]">
+      <div className="relative mt-6 min-h-[4.5rem] max-w-2xl sm:min-h-[3.75rem]">
         <AnimatePresence mode="wait">
           <motion.p
             key={copy.body}
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.9, ease: "easeInOut" }}
             className="text-base font-medium leading-relaxed text-white/[0.58] sm:text-lg"
           >
             {copy.body}
@@ -581,7 +631,7 @@ function AnimatedHeroCopy() {
       <div className="mt-5 flex max-w-2xl flex-wrap items-center gap-x-4 gap-y-2 border-l border-cyan-300/45 pl-4 text-[10px] font-black uppercase tracking-[0.2em] text-secondary">
         <span>Catálogo</span>
         <span className="hidden h-px w-8 bg-white/16 sm:inline-block" />
-        <span>STL sob medida</span>
+        <span>Sob encomenda</span>
         <span className="hidden h-px w-8 bg-white/16 sm:inline-block" />
         <span>Envio Brasil</span>
       </div>
@@ -589,21 +639,14 @@ function AnimatedHeroCopy() {
   );
 }
 
-function ProductSkeletonGrid() {
+function CategorySkeletonGrid() {
   return (
-    <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
       {Array.from({ length: 8 }).map((_, index) => (
         <div
           key={index}
-          className="overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.025]"
-        >
-          <div className="aspect-[4/5] animate-pulse bg-white/[0.06]" />
-          <div className="space-y-3 p-5">
-            <div className="h-4 w-2/3 rounded bg-white/[0.08]" />
-            <div className="h-3 w-full rounded bg-white/[0.06]" />
-            <div className="h-3 w-3/4 rounded bg-white/[0.06]" />
-          </div>
-        </div>
+          className="aspect-[4/5] animate-pulse overflow-hidden rounded-[26px] border border-white/[0.08] bg-white/[0.03]"
+        />
       ))}
     </div>
   );
