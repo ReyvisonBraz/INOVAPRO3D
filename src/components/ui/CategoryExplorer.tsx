@@ -5,11 +5,15 @@ import { Link, useNavigate } from "react-router-dom";
 import { cn } from "@/src/lib/utils";
 
 /**
- * Explorador de categorias — mesma lógica de interação do "Tipos de
- * impressão" (lista à esquerda, mídia à direita, troca sozinha), mas cada
- * categoria carrega várias fotos: elas passam automaticamente, o cliente
- * pode arrastar/clicar nas setas pra ver mais, e um botão "Ver mais" leva
- * pro catálogo já filtrado só com aquela categoria.
+ * Explorador de categorias.
+ *
+ * Desktop (lg+): lista à esquerda, mídia parada à direita — clique troca a
+ * foto ao lado, 2 cliques abre o catálogo já filtrado.
+ *
+ * Mobile: nada de painel flutuando/grudado na tela. Cada categoria vira o
+ * seu próprio bloco (nome + descrição + fotos), empilhado — conforme o
+ * cliente desce a página, o próximo bloco/categoria simplesmente aparece,
+ * sem truque de scroll-linking.
  *
  * Pra trocar/adicionar fotos depois: coloque os arquivos em
  * public/catalogo/<slug-da-categoria>/ e liste-os no array `images` do item
@@ -104,17 +108,20 @@ function useReducedMotion() {
   return reducedMotion;
 }
 
-export function CategoryExplorer() {
-  const navigate = useNavigate();
-  const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
+/**
+ * Painel de fotos de UMA categoria: passa sozinho, arrasta/clica pra ver
+ * mais, e tem o botão "Ver mais" pro catálogo filtrado. Usado tanto no
+ * painel fixo do desktop quanto em cada bloco empilhado do mobile — cada
+ * instância cuida do próprio índice de foto, então os blocos do mobile
+ * ciclam de forma independente uns dos outros.
+ */
+function CategoryPhotoPanel({ category }: { category: ExploredCategory }) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [photoDirection, setPhotoDirection] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [failed, setFailed] = useState<Record<string, boolean>>({});
   const reducedMotion = useReducedMotion();
-
-  const activeCategory = CATEGORIES[activeCategoryIndex];
-  const photoCount = activeCategory.images.length;
+  const photoCount = category.images.length;
 
   const goToPhoto = useCallback(
     (nextIndex: number, direction: number) => {
@@ -124,32 +131,126 @@ export function CategoryExplorer() {
     [photoCount],
   );
 
-  const handleSelectCategory = (index: number) => {
-    if (index === activeCategoryIndex) return;
-    setActiveCategoryIndex(index);
-    setPhotoIndex(0);
-    setPhotoDirection(0);
-  };
-
-  /** 2 cliques na categoria já leva pro catálogo filtrado, sem esperar o "Ver mais". */
-  const handleOpenCategoryCatalog = (category: ExploredCategory) => {
-    navigate(`/catalogo?q=${encodeURIComponent(category.searchTerm)}`);
-  };
-
   const handleNextPhoto = useCallback(() => goToPhoto(photoIndex + 1, 1), [goToPhoto, photoIndex]);
   const handlePrevPhoto = useCallback(() => goToPhoto(photoIndex - 1, -1), [goToPhoto, photoIndex]);
 
-  // Fotos da categoria ativa passam sozinhas; pausa no hover/foco e some
-  // completamente com prefers-reduced-motion.
+  // Fotos passam sozinhas; pausa no hover/foco e some completamente com
+  // prefers-reduced-motion.
   useEffect(() => {
     if (isPaused || reducedMotion || photoCount <= 1) return;
     const interval = window.setInterval(handleNextPhoto, PHOTO_CYCLE_DURATION);
     return () => window.clearInterval(interval);
   }, [isPaused, reducedMotion, photoCount, handleNextPhoto]);
 
-  const photoKey = `${activeCategory.id}-${photoIndex}`;
-  const activeSrc = activeCategory.images[photoIndex];
+  const photoKey = `${category.id}-${photoIndex}`;
+  const activeSrc = category.images[photoIndex];
   const activeFailed = failed[photoKey];
+
+  return (
+    <div
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
+      onFocus={() => setIsPaused(true)}
+      onBlur={() => setIsPaused(false)}
+    >
+      <div className="relative aspect-video overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.03] sm:aspect-[16/10]">
+        {activeFailed ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/[0.03] text-white/25">
+            <ImageOff className="h-8 w-8" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Foto em breve</span>
+          </div>
+        ) : (
+          <AnimatePresence initial={false} custom={photoDirection} mode="popLayout">
+            <motion.img
+              key={photoKey}
+              src={activeSrc}
+              alt={`${category.title} — peça impressa em 3D pela INOVAPRO3D (foto ${photoIndex + 1} de ${photoCount})`}
+              loading="lazy"
+              decoding="async"
+              custom={photoDirection}
+              initial={{ opacity: 0, x: photoDirection >= 0 ? 24 : -24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: photoDirection >= 0 ? -24 : 24 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute inset-0 h-full w-full object-cover"
+              drag={photoCount > 1 ? "x" : false}
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.6}
+              onDragEnd={(_event, info) => {
+                if (info.offset.x <= -SWIPE_THRESHOLD) handleNextPhoto();
+                else if (info.offset.x >= SWIPE_THRESHOLD) handlePrevPhoto();
+              }}
+              onError={() => setFailed((prev) => ({ ...prev, [photoKey]: true }))}
+            />
+          </AnimatePresence>
+        )}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
+
+        {photoCount > 1 && (
+          <div
+            className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 gap-1.5"
+            aria-hidden="true"
+          >
+            {category.images.map((image, index) => (
+              <span
+                key={image}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-colors duration-500",
+                  index === photoIndex ? "bg-white" : "bg-white/30",
+                )}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="absolute bottom-5 left-5 z-20">
+          <Link
+            to={`/catalogo?q=${encodeURIComponent(category.searchTerm)}`}
+            className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-5 py-2.5 text-xs font-black uppercase tracking-[0.08em] text-black shadow-[0_0_24px_rgba(34,211,238,0.45)] transition-all hover:bg-cyan-300 hover:shadow-[0_0_32px_rgba(34,211,238,0.65)] active:scale-95"
+          >
+            Ver mais
+            <ChevronRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
+
+        {photoCount > 1 && (
+          <div className="absolute bottom-5 right-5 z-20 flex gap-2">
+            <button
+              type="button"
+              onClick={handlePrevPhoto}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 backdrop-blur-md transition-all hover:bg-black/60 hover:text-white active:scale-90"
+              aria-label="Foto anterior"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              onClick={handleNextPhoto}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 backdrop-blur-md transition-all hover:bg-black/60 hover:text-white active:scale-90"
+              aria-label="Próxima foto"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export function CategoryExplorer() {
+  const navigate = useNavigate();
+  const [activeCategoryIndex, setActiveCategoryIndex] = useState(0);
+  const activeCategory = CATEGORIES[activeCategoryIndex];
+
+  const handleSelectCategory = (index: number) => {
+    setActiveCategoryIndex(index);
+  };
+
+  /** 2 cliques/toques na categoria já leva pro catálogo filtrado, sem esperar o "Ver mais". */
+  const handleOpenCategoryCatalog = (category: ExploredCategory) => {
+    navigate(`/catalogo?q=${encodeURIComponent(category.searchTerm)}`);
+  };
 
   return (
     <section className="pb-14 pt-4 sm:pb-20 sm:pt-6">
@@ -161,103 +262,13 @@ export function CategoryExplorer() {
           </h2>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-12 lg:items-center lg:gap-10">
-          {/* Mídia — no mobile fica em cima, no desktop do lado direito. */}
-          <div
-            className="order-1 lg:order-2 lg:col-span-7"
-            onMouseEnter={() => setIsPaused(true)}
-            onMouseLeave={() => setIsPaused(false)}
-            onFocus={() => setIsPaused(true)}
-            onBlur={() => setIsPaused(false)}
-          >
-            <div className="relative aspect-video overflow-hidden rounded-[28px] border border-white/[0.08] bg-white/[0.03] sm:aspect-[16/10]">
-              {activeFailed ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white/[0.03] text-white/25">
-                  <ImageOff className="h-8 w-8" />
-                  <span className="text-[10px] font-black uppercase tracking-[0.2em]">
-                    Foto em breve
-                  </span>
-                </div>
-              ) : (
-                <AnimatePresence initial={false} custom={photoDirection} mode="popLayout">
-                  <motion.img
-                    key={photoKey}
-                    src={activeSrc}
-                    alt={`${activeCategory.title} — peça impressa em 3D pela INOVAPRO3D (foto ${photoIndex + 1} de ${photoCount})`}
-                    loading="lazy"
-                    decoding="async"
-                    custom={photoDirection}
-                    initial={{ opacity: 0, x: photoDirection >= 0 ? 24 : -24 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: photoDirection >= 0 ? -24 : 24 }}
-                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                    className="absolute inset-0 h-full w-full object-cover"
-                    drag={photoCount > 1 ? "x" : false}
-                    dragConstraints={{ left: 0, right: 0 }}
-                    dragElastic={0.6}
-                    onDragEnd={(_event, info) => {
-                      if (info.offset.x <= -SWIPE_THRESHOLD) handleNextPhoto();
-                      else if (info.offset.x >= SWIPE_THRESHOLD) handlePrevPhoto();
-                    }}
-                    onError={() => setFailed((prev) => ({ ...prev, [photoKey]: true }))}
-                  />
-                </AnimatePresence>
-              )}
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent" />
-
-              {photoCount > 1 && (
-                <div
-                  className="absolute left-1/2 top-4 z-20 flex -translate-x-1/2 gap-1.5"
-                  aria-hidden="true"
-                >
-                  {activeCategory.images.map((image, index) => (
-                    <span
-                      key={image}
-                      className={cn(
-                        "h-1.5 w-1.5 rounded-full transition-colors duration-500",
-                        index === photoIndex ? "bg-white" : "bg-white/30",
-                      )}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <div className="absolute bottom-5 left-5 z-20">
-                <Link
-                  to={`/catalogo?q=${encodeURIComponent(activeCategory.searchTerm)}`}
-                  className="inline-flex items-center gap-2 rounded-full bg-cyan-400 px-5 py-2.5 text-xs font-black uppercase tracking-[0.08em] text-black shadow-[0_0_24px_rgba(34,211,238,0.45)] transition-all hover:bg-cyan-300 hover:shadow-[0_0_32px_rgba(34,211,238,0.65)] active:scale-95"
-                >
-                  Ver mais
-                  <ChevronRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
-
-              {photoCount > 1 && (
-                <div className="absolute bottom-5 right-5 z-20 flex gap-2">
-                  <button
-                    type="button"
-                    onClick={handlePrevPhoto}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 backdrop-blur-md transition-all hover:bg-black/60 hover:text-white active:scale-90"
-                    aria-label="Foto anterior"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleNextPhoto}
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-black/40 text-white/70 backdrop-blur-md transition-all hover:bg-black/60 hover:text-white active:scale-90"
-                    aria-label="Próxima foto"
-                  >
-                    <ChevronRight className="h-5 w-5" />
-                  </button>
-                </div>
-              )}
-            </div>
+        {/* Desktop — lista à esquerda, mídia parada à direita. */}
+        <div className="hidden lg:grid lg:grid-cols-12 lg:items-center lg:gap-10">
+          <div className="lg:col-span-7 lg:order-2">
+            <CategoryPhotoPanel key={activeCategory.id} category={activeCategory} />
           </div>
 
-          {/* Lista de categorias — clique 1x troca a foto ao lado, 2x abre o
-              catálogo já filtrado naquela categoria. */}
-          <div className="order-2 flex flex-col lg:order-1 lg:col-span-5">
+          <div className="flex flex-col lg:order-1 lg:col-span-5">
             {CATEGORIES.map((category, index) => {
               const isActive = activeCategoryIndex === index;
               return (
@@ -322,6 +333,38 @@ export function CategoryExplorer() {
               );
             })}
           </div>
+        </div>
+
+        {/* Mobile — cada categoria é o seu próprio bloco, empilhado. Nada
+            flutua nem gruda na tela: rolou, o próximo bloco aparece. */}
+        <div className="flex flex-col gap-12 lg:hidden">
+          {CATEGORIES.map((category, index) => (
+            <div key={category.id}>
+              <div className="mb-4 flex items-start gap-3 pl-4">
+                <span className="mt-1.5 shrink-0 font-mono text-[10px] font-black tabular-nums text-cyan-400">
+                  /{String(index + 1).padStart(2, "0")}
+                </span>
+                <div>
+                  <h3 className="font-display text-2xl font-black uppercase leading-tight text-white">
+                    {category.title}
+                  </h3>
+                  <p className="mt-2 max-w-md text-sm font-medium leading-relaxed text-white/50">
+                    {category.description}
+                  </p>
+                </div>
+              </div>
+              <div
+                onDoubleClick={() => handleOpenCategoryCatalog(category)}
+                title="Toque 2x para ver os produtos desta categoria"
+              >
+                <CategoryPhotoPanel category={category} />
+              </div>
+              <span className="mt-3 inline-flex items-center gap-1.5 pl-4 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-400/80">
+                <MousePointerClick className="h-3 w-3" />
+                Toque 2x na foto pra ver os produtos
+              </span>
+            </div>
+          ))}
         </div>
       </div>
     </section>

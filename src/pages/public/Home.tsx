@@ -152,7 +152,7 @@ export default function Home() {
   };
 
   return (
-    <div className="relative overflow-hidden">
+    <div className="relative">
       <PageSEO
         title="INOVAPRO3D"
         description="Impressão 3D com acabamento profissional. Catálogo com centenas de peças prontas, produção em 48h e entrega para todo o Brasil."
@@ -214,7 +214,7 @@ export default function Home() {
 
       <CategoryExplorer />
 
-      <section className="relative border-y border-white/[0.06] bg-white/[0.025] py-4">
+      <section className="relative overflow-hidden border-y border-white/[0.06] bg-white/[0.025] py-4">
         <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
           {Array.from({ length: 2 }).map((_, index) => (
             <div key={index} className="flex min-w-full items-center justify-around gap-8">
