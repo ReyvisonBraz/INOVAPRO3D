@@ -115,7 +115,14 @@ function useReducedMotion() {
  * instância cuida do próprio índice de foto, então os blocos do mobile
  * ciclam de forma independente uns dos outros.
  */
-function CategoryPhotoPanel({ category }: { category: ExploredCategory }) {
+function CategoryPhotoPanel({
+  category,
+  priority = false,
+}: {
+  category: ExploredCategory;
+  /** Painel visível já no primeiro paint (desktop ativo / 1º bloco mobile) — evita `loading="lazy"` atrasando o LCP. */
+  priority?: boolean;
+}) {
   const [photoIndex, setPhotoIndex] = useState(0);
   const [photoDirection, setPhotoDirection] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
@@ -145,6 +152,9 @@ function CategoryPhotoPanel({ category }: { category: ExploredCategory }) {
   const photoKey = `${category.id}-${photoIndex}`;
   const activeSrc = category.images[photoIndex];
   const activeFailed = failed[photoKey];
+  // Só a foto visível de cara (primeiro índice do painel prioritário) entra
+  // eager/high — trocas seguintes (clique, autoplay) seguem lazy normalmente.
+  const isPriorityPhoto = priority && photoIndex === 0;
 
   return (
     <div
@@ -165,7 +175,8 @@ function CategoryPhotoPanel({ category }: { category: ExploredCategory }) {
               key={photoKey}
               src={activeSrc}
               alt={`${category.title} — peça impressa em 3D pela INOVAPRO3D (foto ${photoIndex + 1} de ${photoCount})`}
-              loading="lazy"
+              loading={isPriorityPhoto ? "eager" : "lazy"}
+              fetchPriority={isPriorityPhoto ? "high" : "auto"}
               decoding="async"
               custom={photoDirection}
               initial={{ opacity: 0, x: photoDirection >= 0 ? 24 : -24 }}
@@ -265,7 +276,7 @@ export function CategoryExplorer() {
         {/* Desktop — lista à esquerda, mídia parada à direita. */}
         <div className="hidden lg:grid lg:grid-cols-12 lg:items-center lg:gap-10">
           <div className="lg:col-span-7 lg:order-2">
-            <CategoryPhotoPanel key={activeCategory.id} category={activeCategory} />
+            <CategoryPhotoPanel key={activeCategory.id} category={activeCategory} priority />
           </div>
 
           <div className="flex flex-col lg:order-1 lg:col-span-5">
@@ -357,7 +368,7 @@ export function CategoryExplorer() {
                 onDoubleClick={() => handleOpenCategoryCatalog(category)}
                 title="Toque 2x para ver os produtos desta categoria"
               >
-                <CategoryPhotoPanel category={category} />
+                <CategoryPhotoPanel category={category} priority={index === 0} />
               </div>
               <span className="mt-3 inline-flex items-center gap-1.5 pl-4 text-[10px] font-black uppercase tracking-[0.14em] text-cyan-400/80">
                 <MousePointerClick className="h-3 w-3" />
