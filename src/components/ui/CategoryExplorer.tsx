@@ -95,6 +95,7 @@ const CATEGORIES: ExploredCategory[] = [
 
 const PHOTO_CYCLE_DURATION = 3600;
 const SWIPE_THRESHOLD = 60;
+const imageVariant = (src: string, width: 360 | 640) => src.replace(/\.webp$/, `-${width}.webp`);
 
 function useReducedMotion() {
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -174,6 +175,10 @@ function CategoryPhotoPanel({
             <motion.img
               key={photoKey}
               src={activeSrc}
+              srcSet={`${imageVariant(activeSrc, 360)} 360w, ${imageVariant(activeSrc, 640)} 640w, ${activeSrc} 1000w`}
+              sizes="(max-width: 1023px) calc(100vw - 48px), min(58vw, 740px)"
+              width="1000"
+              height="1000"
               alt={`${category.title} — peça impressa em 3D pela INOVAPRO3D (foto ${photoIndex + 1} de ${photoCount})`}
               loading={isPriorityPhoto ? "eager" : "lazy"}
               fetchPriority={isPriorityPhoto ? "high" : "auto"}

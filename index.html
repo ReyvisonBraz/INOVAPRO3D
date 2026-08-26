@@ -76,22 +76,8 @@
       })();
     </script>
 
-    <!-- Preconnect para fontes Google -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Fontes carregadas de forma não-bloqueante com display=optional (sem FOUT) -->
-    <link
-      rel="preload"
-      as="style"
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=optional"
-      onload="this.rel = 'stylesheet'"
-    />
-    <noscript>
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&family=Outfit:wght@100..900&family=JetBrains+Mono:wght@100..800&display=optional"
-      />
-    </noscript>
+    <!-- O primeiro paint usa a pilha de fontes do sistema. Isso evita que uma
+         fonte remota altere métricas do texto e desloque hero/footer. -->
 
     <!-- Identidade / PWA -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -121,7 +107,8 @@
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:type" content="image/jpeg" />
-    <meta property="og:url" content="https://inovapro3d.com.br/" />
+    <meta property="og:url" content="https://www.inovapro3d.com.br/" />
+    <link rel="canonical" href="https://www.inovapro3d.com.br/" />
     <meta property="og:locale" content="pt_BR" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="INOVA PRO 3D — Impressão 3D Profissional" />
@@ -142,6 +129,19 @@
     ></script>
   </head>
   <body>
+    <style>
+      html{background:#020617;color:#f8fafc;font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}body{margin:0;background:#020617}.initial-shell{position:fixed;inset:0;z-index:9999;min-height:100vh;overflow:hidden;background:#020617;pointer-events:none}.initial-nav{height:64px;display:flex;align-items:center;padding:0 24px;font-weight:900;letter-spacing:.08em}.initial-hero{box-sizing:border-box;min-height:520px;padding:64px max(24px,calc((100vw - 1280px)/2 + 32px));background:radial-gradient(ellipse at 50% 0%,rgba(99,179,237,.1),transparent 55%)}.initial-hero h1{max-width:900px;margin:0;min-height:120px;text-transform:uppercase;line-height:1.02}.initial-kicker{display:block;margin-bottom:6px;color:rgba(255,255,255,.6);font-size:clamp(22px,3.4vw,40px);letter-spacing:.025em}.initial-accent{display:block;color:#93c5fd;font-size:clamp(38px,6vw,96px);font-weight:900}.initial-copy{max-width:672px;min-height:72px;margin:24px 0 0;color:rgba(255,255,255,.7);font-size:18px;line-height:1.65}.initial-tags{margin-top:20px;color:#cbd5e1;font-size:10px;font-weight:900;letter-spacing:.2em;text-transform:uppercase}.initial-actions{display:flex;gap:12px;margin-top:36px}.initial-actions a{min-height:60px;display:inline-flex;align-items:center;padding:0 28px;border-radius:16px;background:#fff;color:#0f172a;font-size:13px;font-weight:900;letter-spacing:.12em;text-decoration:none;text-transform:uppercase}@media(max-width:639px){.initial-nav{padding:0 20px}.initial-hero{min-height:570px;padding:54px 24px 32px}.initial-copy{font-size:16px}.initial-actions a{width:100%;box-sizing:border-box;justify-content:center}}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+    </style>
+    <div class="initial-shell" id="initial-shell">
+        <div class="initial-nav">INOVA PRO 3D</div>
+        <main class="initial-hero">
+          <h1><span class="initial-kicker">Você imagina.</span><span class="initial-accent">A gente imprime.</span></h1>
+          <p class="initial-copy">Da ideia à peça na sua mesa. Escolha no catálogo ou envie seu projeto — a gente cuida do resto.</p>
+          <div class="initial-tags">Catálogo &nbsp; · &nbsp; Sob encomenda &nbsp; · &nbsp; Envio Brasil</div>
+          <div class="initial-actions"><a href="/catalogo">Ver o catálogo</a></div>
+        </main>
+    </div>
+    <script>if(location.pathname!=="/")document.getElementById("initial-shell").style.display="none"</script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -1,5 +1,3 @@
-import { auth } from "./firebase";
-
 // Versão do app — ajuda a saber em qual build o erro aconteceu.
 const APP_VERSION = "INOVAPRO-OS v2.4.8";
 
@@ -50,14 +48,17 @@ export async function reportError(error: unknown, ctx: ReportContext = {}): Prom
       recentlySent.set(key, now);
     }
 
+    const currentUser = await import("./firebase")
+      .then(({ auth }) => auth.currentUser)
+      .catch(() => null);
     const payload = {
       message,
       stack,
       where: ctx.where ?? "desconhecido",
       route: typeof location !== "undefined" ? location.pathname + location.search : "",
       userAgent: typeof navigator !== "undefined" ? navigator.userAgent : "",
-      userEmail: auth.currentUser?.email ?? null,
-      userId: auth.currentUser?.uid ?? null,
+      userEmail: currentUser?.email ?? null,
+      userId: currentUser?.uid ?? null,
       userNote: ctx.userNote ?? null,
       userReported: !!ctx.userNote,
       appVersion: APP_VERSION,

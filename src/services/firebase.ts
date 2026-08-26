@@ -1,38 +1,20 @@
-import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore, doc, getDocFromServer } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID,
-};
-
-const firestoreDatabaseId: string = import.meta.env.VITE_FIREBASE_DATABASE_ID || "(default)";
-
-if (!firebaseConfig.apiKey) {
-  console.error(
-    "[INOVAPRO3D] Firebase não configurado. Adicione as variáveis VITE_FIREBASE_* " +
-      "no painel do Vercel (ou no arquivo .env local).",
-  );
-}
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+import { firebaseApp } from "./firebaseData";
 
 // Initialize Services
-export const db = getFirestore(app, firestoreDatabaseId);
-export const auth = getAuth(app);
+export const db = getFirestore(
+  firebaseApp,
+  import.meta.env.VITE_FIREBASE_DATABASE_ID || "(default)",
+);
+export const auth = getAuth(firebaseApp);
 
 // Storage NÃO é inicializado aqui de propósito: importar 'firebase/storage'
 // no topo o colocaria no bundle eager de TODA página. Só o admin faz upload,
 // então o módulo é carregado sob demanda via getStorageInstance().
 export async function getStorageInstance() {
   const { getStorage } = await import("firebase/storage");
-  return getStorage(app);
+  return getStorage(firebaseApp);
 }
 
 /**

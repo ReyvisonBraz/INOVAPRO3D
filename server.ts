@@ -1,6 +1,9 @@
 import dotenv from "dotenv";
+// Variáveis fornecidas pelo processo/hospedagem têm precedência. Carregar o
+// arquivo local primeiro também permite que ele sobrescreva o .env sem jamais
+// trocar NODE_ENV=production por um valor salvo em disco.
+dotenv.config({ path: ".env.local" });
 dotenv.config();
-dotenv.config({ path: ".env.local", override: true });
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
@@ -94,7 +97,7 @@ async function verifyToken(req: express.Request): Promise<string | null> {
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Stripe webhook needs raw body — register BEFORE express.json()
   const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -717,6 +720,7 @@ async function startServer() {
       res.setHeader("X-Frame-Options", "DENY");
       res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
       res.setHeader("Strict-Transport-Security", "max-age=63072000; includeSubDomains");
+      res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups");
       res.setHeader(
         "Permissions-Policy",
         "camera=(), microphone=(), geolocation=(), payment=(self)",
@@ -725,8 +729,22 @@ async function startServer() {
       next();
     });
     const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
+    app.use(
+      express.static(distPath, {
+        setHeaders(res, filePath) {
+          if (
+            filePath.includes(`${path.sep}assets${path.sep}`) ||
+            filePath.includes(`${path.sep}catalogo${path.sep}`)
+          ) {
+            res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+          } else if (filePath.endsWith(".html")) {
+            res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
+          }
+        },
+      }),
+    );
     app.get("*", (_req, res) => {
+      res.setHeader("Cache-Control", "public, max-age=0, must-revalidate");
       res.sendFile(path.join(distPath, "index.html"));
     });
   }

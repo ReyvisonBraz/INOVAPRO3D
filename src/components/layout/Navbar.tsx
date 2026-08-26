@@ -90,12 +90,13 @@ export function Navbar() {
     setShowPhoneOnboarding(Boolean(user && profile && !profile.phone && !isDismissed));
   }, [user, profile, isDismissed]);
 
+  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const { data: categories } = useFirestoreCollection<Category>("categories", {
+    enabled: isCatalogOpen,
     transform: (cats) => cats.filter((c) => c.active !== false),
     silent: true,
   });
   const [categoryTree, setCategoryTree] = useState<CategoryTreeNode[]>([]);
-  const [isCatalogOpen, setIsCatalogOpen] = useState(false);
   const catalogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

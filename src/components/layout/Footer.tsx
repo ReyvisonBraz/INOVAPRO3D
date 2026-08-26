@@ -3,8 +3,6 @@ import { Link } from "react-router-dom";
 import { Mail, MessageCircle, ArrowUpRight, CheckCircle2, Loader2 } from "lucide-react";
 import { BrandLogo } from "../brand/BrandLogo";
 import { SocialLinks } from "../ui/SocialLinks";
-import { collection, addDoc, serverTimestamp, query, where, getDocs } from "firebase/firestore";
-import { db } from "../../services/firebase";
 import { toast } from "sonner";
 import { waLink, CONTACT } from "../../lib/config";
 
@@ -22,6 +20,8 @@ export function Footer() {
     }
     setSubmitting(true);
     try {
+      const [{ collection, addDoc, serverTimestamp, query, where, getDocs }, { db }] =
+        await Promise.all([import("firebase/firestore"), import("../../services/firebase")]);
       const exists = await getDocs(
         query(collection(db, "newsletter"), where("email", "==", trimmed)),
       );
@@ -81,7 +81,7 @@ export function Footer() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="h-10 px-5 rounded-xl bg-primary text-white text-[10px] font-black uppercase tracking-widest hover:brightness-110 transition-all disabled:opacity-60 flex items-center gap-1.5"
+                    className="h-10 px-5 rounded-xl bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-colors disabled:opacity-60 flex items-center gap-1.5"
                   >
                     {submitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : "ENVIAR"}
                   </button>
@@ -104,9 +104,9 @@ export function Footer() {
 
           {/* Navigation Links */}
           <div className="lg:col-span-2 space-y-8">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">
               Plataforma
-            </h4>
+            </h2>
             <ul className="space-y-4">
               <FooterLink to="/">Início</FooterLink>
               <FooterLink to="/catalogo">Catálogo 3D</FooterLink>
@@ -116,9 +116,9 @@ export function Footer() {
           </div>
 
           <div className="lg:col-span-2 space-y-8">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">
               Saiba Mais
-            </h4>
+            </h2>
             <ul className="space-y-4">
               <FooterLink to="/sobre">Sobre Nós</FooterLink>
               <FooterLink to="/conhecimento">Como Funciona</FooterLink>
@@ -129,9 +129,9 @@ export function Footer() {
 
           {/* Atendimento */}
           <div className="lg:col-span-4 space-y-8">
-            <h4 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/30">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/60">
               Atendimento
-            </h4>
+            </h2>
             <div className="p-5 sm:p-8 rounded-[32px] bg-white/[0.03] border border-white/[0.06] space-y-4">
               <div className="flex items-center gap-3">
                 <span className="flex h-2 w-2 relative shrink-0">
@@ -209,7 +209,7 @@ function FooterLink({ to, children }: { to: string; children: React.ReactNode })
     <li>
       <Link
         to={to}
-        className="text-[12px] font-black uppercase tracking-widest text-white/40 hover:text-white hover:translate-x-1 inline-block transition-all duration-300"
+        className="text-[12px] font-black uppercase tracking-widest text-white/70 hover:text-white hover:translate-x-1 inline-block transition-all duration-300"
       >
         {children}
       </Link>

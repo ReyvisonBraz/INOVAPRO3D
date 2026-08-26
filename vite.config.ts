@@ -5,7 +5,24 @@ import { defineConfig } from "vite";
 
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: "non-blocking-app-css",
+        enforce: "post",
+        transformIndexHtml: {
+          order: "post",
+          handler(html, context) {
+            if (!context.bundle) return html;
+            return html.replace(
+              /<link rel="stylesheet" crossorigin href="([^"]+)">/g,
+              '<link rel="preload" as="style" crossorigin href="$1" onload="this.onload=null;this.rel=\'stylesheet\';window.__inovaStylesReady=true;window.__revealInovaApp&&window.__revealInovaApp()"><noscript><link rel="stylesheet" crossorigin href="$1"></noscript>',
+            );
+          },
+        },
+      },
+    ],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "."),

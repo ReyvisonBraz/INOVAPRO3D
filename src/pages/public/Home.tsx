@@ -1,4 +1,4 @@
-import { AnimatePresence, motion, useScroll, useTransform } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { PageSEO } from "../../components/seo/PageSEO";
 import {
   ArrowDown,
@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { orderBy } from "firebase/firestore";
 import { Button } from "../../components/ui/Button";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
 import { CategoryExplorer } from "../../components/ui/CategoryExplorer";
@@ -59,13 +58,31 @@ const heroCopyOptions = [
 ];
 
 export default function Home() {
+  const [catalogDataEnabled, setCatalogDataEnabled] = useState(false);
+  const [showcaseDataEnabled, setShowcaseDataEnabled] = useState(false);
+  const catalogSectionRef = useRef<HTMLElement>(null);
+  const showcaseSectionRef = useRef<HTMLElement>(null);
+
   const { data: showcase, loading: showcaseLoading } = useFirestoreCollection<ShowcaseItem>(
     "showcase",
     {
-      constraints: [orderBy("createdAt", "desc")],
+      enabled: showcaseDataEnabled,
+      transform: (items) =>
+        items.sort((a, b) => {
+          const timestamp = (value: unknown) =>
+            typeof value === "object" && value && "seconds" in value
+              ? Number((value as { seconds: number }).seconds)
+              : 0;
+          return (
+            timestamp((b as ShowcaseItem & { createdAt?: unknown }).createdAt) -
+            timestamp((a as ShowcaseItem & { createdAt?: unknown }).createdAt)
+          );
+        }),
+      silent: true,
     },
   );
   const { data: products, loading: productsLoading } = useFirestoreCollection<Product>("products", {
+    enabled: catalogDataEnabled,
     transform: (items) =>
       items
         .filter((product) => product.active !== false)
@@ -74,11 +91,12 @@ export default function Home() {
   const { data: categoriesData, loading: categoriesLoading } = useFirestoreCollection<Category>(
     "categories",
     {
+      enabled: catalogDataEnabled,
       transform: (items) => items.filter((c) => c.active !== false),
       silent: true,
     },
   );
-  const loading = showcaseLoading || productsLoading;
+  const loading = showcaseLoading;
   const categories = useMemo(
     () => Array.from(new Set(showcase.map((item) => item.category).filter(Boolean))) as string[],
     [showcase],
@@ -126,16 +144,30 @@ export default function Home() {
       setSelectedIndex(null);
     }
   };
-  // Escopado à seção do hero (em vez do documento inteiro) — evita recalcular
-  // esse scroll-tracking pela página toda enquanto o usuário rola qualquer
-  // outra seção, que era uma das causas do "piscar" ao rolar.
-  const heroRef = useRef<HTMLElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: heroRef,
-    offset: ["start start", "end start"],
-  });
-  const heroY = useTransform(scrollYProgress, [0, 1], [0, -90]);
-  const heroOpacity = useTransform(scrollYProgress, [0, 0.85], [1, 0.2]);
+  useEffect(() => {
+    if (!("IntersectionObserver" in window)) {
+      const timer = globalThis.setTimeout(() => {
+        setCatalogDataEnabled(true);
+        setShowcaseDataEnabled(true);
+      }, 0);
+      return () => globalThis.clearTimeout(timer);
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          if (entry.target === catalogSectionRef.current) setCatalogDataEnabled(true);
+          if (entry.target === showcaseSectionRef.current) setShowcaseDataEnabled(true);
+          observer.unobserve(entry.target);
+        }
+      },
+      { rootMargin: "400px 0px" },
+    );
+    if (catalogSectionRef.current) observer.observe(catalogSectionRef.current);
+    if (showcaseSectionRef.current) observer.observe(showcaseSectionRef.current);
+    return () => observer.disconnect();
+  }, []);
 
   const filteredItems =
     filter === "ALL" ? showcase : showcase.filter((item) => item.category === filter);
@@ -158,29 +190,21 @@ export default function Home() {
         description="Impressão 3D com acabamento profissional. Catálogo com centenas de peças prontas, produção em 48h e entrega para todo o Brasil."
         path="/"
       />
-      <section
-        ref={heroRef}
-        className="relative overflow-hidden px-4 pb-8 pt-14 sm:px-6 sm:pb-10 sm:pt-20 lg:px-8"
-      >
+      <section className="relative overflow-hidden px-4 pb-8 pt-14 sm:px-6 sm:pb-10 sm:pt-20 lg:px-8">
         {/* Brilho sutil único — o body já é escuro (#020617), então aqui só um
             glow leve no topo, sem empilhar outra camada escura por cima
             (era isso que deixava o topo pesado/turvo). */}
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,179,237,0.10),transparent_55%)]" />
         <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-surface to-transparent" />
 
-        <motion.div
-          style={{ y: heroY, opacity: heroOpacity }}
-          className="container-section relative z-10 flex flex-col items-start py-10 lg:py-16"
-        >
-          <Reveal direction="up" delay={0.08}>
-            <AnimatedHeroCopy />
-          </Reveal>
+        <div className="container-section relative z-10 flex flex-col items-start py-10 lg:py-16">
+          <AnimatedHeroCopy />
 
           <Reveal direction="up" delay={0.42}>
             <div className="mt-9 flex flex-col gap-3 sm:flex-row">
               <Link to="/catalogo" className="relative w-full sm:w-auto">
                 {products.length > 0 && (
-                  <span className="catalog-cta-badge inline-flex items-center rounded-full bg-primary px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_6px_18px_-4px_rgba(37,99,235,0.65)]">
+                  <span className="catalog-cta-badge inline-flex items-center rounded-full bg-blue-700 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-[0_6px_18px_-4px_rgba(37,99,235,0.65)]">
                     +{products.length} modelos
                   </span>
                 )}
@@ -209,7 +233,7 @@ export default function Home() {
               </p>
             </div>
           </Reveal>
-        </motion.div>
+        </div>
       </section>
 
       <CategoryExplorer />
@@ -230,7 +254,11 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="catalogo-preview" className="scroll-mt-28 py-14 sm:py-20">
+      <section
+        ref={catalogSectionRef}
+        id="catalogo-preview"
+        className="scroll-mt-28 py-14 sm:py-20"
+      >
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
             <div>
@@ -268,6 +296,8 @@ export default function Home() {
                     {cover ? (
                       <img
                         src={cover}
+                        width="1000"
+                        height="1000"
                         loading="lazy"
                         decoding="async"
                         className="h-full w-full object-cover opacity-80 saturate-[0.9] transition-all duration-700 group-hover:scale-105 group-hover:opacity-100 group-hover:saturate-100"
@@ -302,7 +332,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="py-14 sm:py-20">
+      <section ref={showcaseSectionRef} className="py-14 sm:py-20">
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
@@ -365,6 +395,8 @@ export default function Home() {
                   >
                     <img
                       src={item.image}
+                      width="1000"
+                      height="750"
                       loading="lazy"
                       decoding="async"
                       className="h-auto w-full object-cover opacity-75 saturate-[0.85] transition-all duration-700 group-hover:scale-105 group-hover:opacity-100 group-hover:saturate-100"
@@ -578,18 +610,14 @@ function AnimatedHeroCopy() {
 
   return (
     <div>
-      <motion.div
-        layout
-        transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative min-h-[7.5rem] sm:min-h-[9rem] lg:min-h-[10.5rem]"
-      >
-        <AnimatePresence mode="wait">
+      <div className="relative min-h-[7.5rem] sm:min-h-[9rem] lg:min-h-[10.5rem]">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.h1
             key={activeCopy}
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0 }}
             animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.98 }}
-            transition={{ duration: 1.1, ease: [0.16, 1, 0.3, 1] }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.35 }}
             className="max-w-4xl font-display font-black uppercase text-white [text-wrap:balance]"
           >
             {copy.lines.map((line, index) =>
@@ -611,10 +639,10 @@ function AnimatedHeroCopy() {
             )}
           </motion.h1>
         </AnimatePresence>
-      </motion.div>
+      </div>
 
       <div className="relative mt-6 min-h-[4.5rem] max-w-2xl sm:min-h-[3.75rem]">
-        <AnimatePresence mode="wait">
+        <AnimatePresence mode="wait" initial={false}>
           <motion.p
             key={copy.body}
             initial={{ opacity: 0 }}

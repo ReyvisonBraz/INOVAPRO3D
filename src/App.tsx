@@ -26,10 +26,10 @@ import CookieConsent from "./components/CookieConsent";
 import { trackPageView } from "./lib/analytics";
 import ShapeGrid from "./components/ui/ShapeGrid";
 import GradualBlur from "./components/ui/GradualBlur";
+import Home from "./pages/public/Home";
 
 const WELCOME_KEY = "inovapro3d:welcomed";
 
-const Home = lazy(() => import("./pages/public/Home"));
 const Catalog = lazy(() => import("./pages/public/Catalog"));
 const ProductDetail = lazy(() => import("./pages/public/ProductDetail"));
 const FilamentCalculator = lazy(() => import("./pages/public/FilamentCalculator"));
@@ -145,6 +145,11 @@ function InstallGate() {
 function RouterContent() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith("/admin");
+  const requiresAuth =
+    isAdminPage ||
+    location.pathname === "/calculadora" ||
+    location.pathname === "/checkout" ||
+    location.pathname === "/meus-pedidos";
   const { theme } = useTheme();
 
   // Cores do ShapeGrid de fundo — seguem o tema claro/escuro.
@@ -152,7 +157,7 @@ function RouterContent() {
   const gridHoverColor = theme === "dark" ? "rgba(59, 130, 246, 0.18)" : "rgba(37, 99, 235, 0.14)";
 
   return (
-    <AuthProvider>
+    <AuthProvider eager={requiresAuth}>
       <CartProvider>
         {/* `isolate` cria um stacking context: o fundo fixo em z-[-1] pinta
             acima do bg-surface e abaixo do conteúdo (sem isso, o background

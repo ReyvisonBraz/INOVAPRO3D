@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { collection, getDocs, query, type QueryConstraint } from "firebase/firestore";
-import { db } from "../services/firebase";
+import type { QueryConstraint } from "firebase/firestore";
 
 interface Options<T> {
   /** Restrições do Firestore (where, orderBy, limit...). Não precisa memoizar. */
@@ -41,10 +40,19 @@ export function useFirestoreCollection<T extends { id: string }>(
     setLoading(true);
     setError(null);
     try {
+      const [{ collection, getDocs, query }, { publicDb }] = await Promise.all([
+        import("firebase/firestore"),
+        import("../services/firebaseData"),
+      ]);
       const { constraints, transform } = optionsRef.current;
-      const base = collection(db, path);
+      const base = collection(publicDb, path);
       const q = constraints?.length ? query(base, ...constraints) : base;
-      const snap = await getDocs(q);
+      const snap = await Promise.race([
+        getDocs(q),
+        new Promise<never>((_, reject) =>
+          window.setTimeout(() => reject(new Error("Firestore timeout")), 8000),
+        ),
+      ]);
       let items = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as T);
       if (transform) items = transform(items);
       setData(items);
@@ -59,7 +67,11 @@ export function useFirestoreCollection<T extends { id: string }>(
   }, [path]);
 
   useEffect(() => {
-    if (enabled) refetch();
+    const timer = window.setTimeout(() => {
+      if (enabled) void refetch();
+      else setLoading(false);
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [enabled, refetch]);
 
   return { data, setData, loading, error, refetch };

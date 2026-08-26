@@ -4,8 +4,6 @@ import App from "./App.tsx";
 import "./index.css";
 import "./styles/readability.css";
 import "./styles/forms.css";
-import { testConnection } from "./services/firebase.ts";
-import { seedProducts } from "./services/seed.ts";
 import { installGlobalErrorHandlers } from "./services/errorReporting.ts";
 import { getConsent } from "./lib/consent.ts";
 import { initAnalytics } from "./lib/analytics.ts";
@@ -23,7 +21,9 @@ if (getConsent() === "accepted") initAnalytics();
 
 // Testes de conexão e seed só em desenvolvimento
 if (import.meta.env.DEV) {
-  testConnection().then(() => seedProducts());
+  Promise.all([import("./services/firebase.ts"), import("./services/seed.ts")]).then(
+    ([{ testConnection }, { seedProducts }]) => testConnection().then(() => seedProducts()),
+  );
 }
 
 // Após um deploy, os arquivos lazy (ex: ProductDetail-xxxx.js) mudam de nome e
@@ -43,3 +43,21 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </StrictMode>,
 );
+
+const revealApp = () => {
+  if (!window.__inovaAppMounted || !window.__inovaStylesReady) return;
+  document.getElementById("initial-shell")?.remove();
+};
+window.__revealInovaApp = revealApp;
+window.requestAnimationFrame(() => {
+  window.__inovaAppMounted = true;
+  revealApp();
+});
+
+declare global {
+  interface Window {
+    __inovaAppMounted?: boolean;
+    __inovaStylesReady?: boolean;
+    __revealInovaApp?: () => void;
+  }
+}

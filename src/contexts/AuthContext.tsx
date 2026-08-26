@@ -1,14 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- Provider + hook no mesmo módulo é o padrão idiomático deste projeto (não afeta runtime, só Fast Refresh). */
-import React, { createContext, useContext, useEffect, useState } from "react";
-import {
-  User,
-  onAuthStateChanged,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-} from "firebase/auth";
-import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { auth, db, handleFirestoreError, OperationType } from "../services/firebase";
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import type { User } from "firebase/auth";
 import type { UserProfile, UserProfileUpdate } from "../types/domain";
 
 interface AuthContextType {
@@ -23,81 +15,107 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({
+  children,
+  eager = false,
+}: {
+  children: React.ReactNode;
+  eager?: boolean;
+}) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(eager);
+  const authStartRef = useRef<Promise<void> | null>(null);
+  const unsubscribeRef = useRef<(() => void) | null>(null);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
+  const startAuth = useCallback(() => {
+    if (authStartRef.current) return authStartRef.current;
+    setLoading(true);
+    authStartRef.current = Promise.all([
+      import("firebase/auth"),
+      import("firebase/firestore"),
+      import("../services/firebase"),
+    ])
+      .then(([authApi, firestoreApi, firebase]) => {
+        unsubscribeRef.current = authApi.onAuthStateChanged(firebase.auth, async (currentUser) => {
+          setUser(currentUser);
 
-      if (currentUser) {
-        // Sync user profile with Firestore
-        const path = `users/${currentUser.uid}`;
-        try {
-          const userDocRef = doc(db, "users", currentUser.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (!userDoc.exists()) {
-            const nameParts = currentUser.displayName?.trim().split(/\s+/) ?? [];
-            const newProfile: UserProfile = {
-              email: currentUser.email,
-              name: currentUser.displayName,
-              firstName: nameParts[0] ?? undefined,
-              lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
-              photoURL: currentUser.photoURL,
-              role: "CUSTOMER",
-              createdAt: serverTimestamp(),
-              loyaltyPoints: 0,
-            };
+          if (currentUser) {
             try {
-              await setDoc(userDocRef, newProfile);
-              setProfile(newProfile);
-            } catch (err) {
-              handleFirestoreError(err, OperationType.CREATE, path);
+              const userDocRef = firestoreApi.doc(firebase.db, "users", currentUser.uid);
+              const userDoc = await firestoreApi.getDoc(userDocRef);
+
+              if (!userDoc.exists()) {
+                const nameParts = currentUser.displayName?.trim().split(/\s+/) ?? [];
+                const newProfile: UserProfile = {
+                  email: currentUser.email,
+                  name: currentUser.displayName,
+                  firstName: nameParts[0] ?? undefined,
+                  lastName: nameParts.length > 1 ? nameParts.slice(1).join(" ") : undefined,
+                  photoURL: currentUser.photoURL,
+                  role: "CUSTOMER",
+                  createdAt: firestoreApi.serverTimestamp(),
+                  loyaltyPoints: 0,
+                };
+                try {
+                  await firestoreApi.setDoc(userDocRef, newProfile);
+                  setProfile(newProfile);
+                } catch {
+                  setProfile(null);
+                }
+              } else {
+                const data = userDoc.data() as UserProfile;
+
+                // Sincronização Inteligente no Login (Profile Sync)
+                let needsUpdate = false;
+                const updatedFields: UserProfileUpdate = {};
+
+                if (currentUser.displayName && data.name !== currentUser.displayName) {
+                  updatedFields.name = currentUser.displayName;
+                  needsUpdate = true;
+                }
+                if (currentUser.photoURL && data.photoURL !== currentUser.photoURL) {
+                  updatedFields.photoURL = currentUser.photoURL;
+                  needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                  const updatedProfile = { ...data, ...updatedFields };
+                  await firestoreApi.setDoc(userDocRef, updatedFields, { merge: true });
+                  setProfile(updatedProfile);
+                } else {
+                  setProfile(data);
+                }
+              }
+            } catch {
+              // A navegação continua disponível mesmo se o perfil estiver offline.
+              setProfile(null);
             }
           } else {
-            const data = userDoc.data() as UserProfile;
-
-            // Sincronização Inteligente no Login (Profile Sync)
-            let needsUpdate = false;
-            const updatedFields: UserProfileUpdate = {};
-
-            if (currentUser.displayName && data.name !== currentUser.displayName) {
-              updatedFields.name = currentUser.displayName;
-              needsUpdate = true;
-            }
-            if (currentUser.photoURL && data.photoURL !== currentUser.photoURL) {
-              updatedFields.photoURL = currentUser.photoURL;
-              needsUpdate = true;
-            }
-
-            if (needsUpdate) {
-              const updatedProfile = { ...data, ...updatedFields };
-              await setDoc(userDocRef, updatedFields, { merge: true });
-              setProfile(updatedProfile);
-            } else {
-              setProfile(data);
-            }
+            setProfile(null);
           }
-        } catch (err) {
-          handleFirestoreError(err, OperationType.GET, path);
-        }
-      } else {
-        setProfile(null);
-      }
 
-      setLoading(false);
-    });
-
-    return () => unsubscribe();
+          setLoading(false);
+        });
+      })
+      .catch(() => setLoading(false));
+    return authStartRef.current;
   }, []);
 
+  useEffect(() => {
+    if (eager) void startAuth();
+    return () => unsubscribeRef.current?.();
+  }, [eager, startAuth]);
+
   const loginWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      await startAuth();
+      const [{ GoogleAuthProvider, signInWithPopup }, { auth }] = await Promise.all([
+        import("firebase/auth"),
+        import("../services/firebase"),
+      ]);
+      await auth.authStateReady();
+      if (!auth.currentUser) await signInWithPopup(auth, new GoogleAuthProvider());
     } catch (error) {
       console.error("Login failed:", error);
       throw error;
@@ -106,6 +124,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     try {
+      await startAuth();
+      const [{ signOut }, { auth }] = await Promise.all([
+        import("firebase/auth"),
+        import("../services/firebase"),
+      ]);
       await signOut(auth);
     } catch (error) {
       console.error("Logout failed:", error);
@@ -115,6 +138,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const updateProfile = async (data: UserProfileUpdate) => {
     if (!user) return;
     try {
+      const [{ doc, setDoc }, { db }] = await Promise.all([
+        import("firebase/firestore"),
+        import("../services/firebase"),
+      ]);
       const allowedKeys = ["name", "firstName", "lastName", "phone", "addresses", "photoURL"];
       const safeData = Object.fromEntries(
         Object.entries(data).filter(([key]) => allowedKeys.includes(key)),

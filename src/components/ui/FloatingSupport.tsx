@@ -87,6 +87,9 @@ export default function FloatingSupport() {
       </AnimatePresence>
 
       <motion.button
+        type="button"
+        aria-label={isOpen ? "Fechar central de atendimento" : "Abrir central de atendimento"}
+        aria-expanded={isOpen}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
