@@ -1,16 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  collection,
-  query,
-  getDocs,
-  orderBy,
-  limit,
-  onSnapshot,
-  startAfter,
-  type DocumentData,
-  type QueryDocumentSnapshot,
-} from "firebase/firestore";
+import { collection, query, getDocs, orderBy, limit } from "firebase/firestore";
 import { toast } from "sonner";
+import { useAdminOrders } from "../../../features/orders/hooks/useAdminOrders";
+import { useAdminQuotes } from "../../../features/quotes/hooks/useAdminQuotes";
 import { db, handleFirestoreError, OperationType } from "../../../services/firebase";
 import { fetchPrinters, isPermissionDenied } from "../../../services/printers";
 import type {
@@ -23,26 +15,38 @@ import type {
   Order,
   Printer,
   Product,
-  Quote,
   ShowcaseItem,
   Ticket,
   TrashEntry,
 } from "../../../types/domain";
 
-const QUOTES_PAGE_SIZE = 100;
-
 /**
- * Carrega todas as coleções do painel admin e mantém um listener em tempo
- * real que avisa (e refaz a busca) quando um pedido novo chega.
+ * Fachada de compatibilidade do painel administrativo. Pedidos já são
+ * carregados pela feature dedicada; as demais coleções serão extraídas
+ * gradualmente sem alterar o contrato consumido pelo Dashboard.
  */
 export function useAdminData() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [quotesCursor, setQuotesCursor] = useState<QueryDocumentSnapshot<DocumentData> | null>(
-    null,
-  );
-  const [quotesHasMore, setQuotesHasMore] = useState(false);
-  const [quotesLoadingMore, setQuotesLoadingMore] = useState(false);
+  const notifyNewOrder = useCallback((order: Order): void => {
+    toast.info(`Novo pedido de ${order.userName || "Cliente"}!`);
+  }, []);
+  const {
+    orders,
+    setOrders,
+    loading: ordersLoading,
+    refreshOrders,
+  } = useAdminOrders({ onNewOrder: notifyNewOrder });
+  const notifyQuotePaginationError = useCallback((): void => {
+    toast.error("Não foi possível carregar mais orçamentos.");
+  }, []);
+  const {
+    quotes,
+    setQuotes,
+    loading: quotesLoading,
+    loadingMore: quotesLoadingMore,
+    hasMore: quotesHasMore,
+    refreshQuotes,
+    loadMoreQuotes,
+  } = useAdminQuotes({ onLoadMoreError: notifyQuotePaginationError });
   const [products, setProducts] = useState<Product[]>([]);
   const [showcase, setShowcase] = useState<ShowcaseItem[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -57,13 +61,11 @@ export function useAdminData() {
   const [trashBlocked, setTrashBlocked] = useState(false);
   /** Regras do Firestore ainda não publicadas para a coleção `printers`. */
   const [printersBlocked, setPrintersBlocked] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [supportingDataLoading, setSupportingDataLoading] = useState(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchSupportingData = useCallback(async () => {
     try {
       const [
-        ordersSnap,
-        quotesSnap,
         productsSnap,
         showcaseSnap,
         materialsSnap,
@@ -72,10 +74,6 @@ export function useAdminData() {
         faqsSnap,
         logsSnap,
       ] = await Promise.all([
-        getDocs(query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(50))),
-        getDocs(
-          query(collection(db, "quotes"), orderBy("createdAt", "desc"), limit(QUOTES_PAGE_SIZE)),
-        ),
         getDocs(collection(db, "products")),
         getDocs(collection(db, "showcase")),
         getDocs(collection(db, "materials")),
@@ -85,14 +83,6 @@ export function useAdminData() {
         getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
       ]);
 
-      setOrders(
-        ordersSnap.docs.map((o) => ({ id: o.id, ...o.data() }) as Order).filter((o) => !o._deleted),
-      );
-      setQuotes(
-        quotesSnap.docs.map((q) => ({ id: q.id, ...q.data() }) as Quote).filter((q) => !q._deleted),
-      );
-      setQuotesCursor(quotesSnap.docs.at(-1) ?? null);
-      setQuotesHasMore(quotesSnap.size === QUOTES_PAGE_SIZE);
       setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() }) as Product));
       setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() }) as ShowcaseItem));
       setMaterials(materialsSnap.docs.map((m) => ({ id: m.id, ...m.data() }) as Material));
@@ -103,7 +93,7 @@ export function useAdminData() {
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, "admin/data");
     } finally {
-      setLoading(false);
+      setSupportingDataLoading(false);
     }
 
     try {
@@ -151,58 +141,20 @@ export function useAdminData() {
     }
   }, []);
 
-  const loadMoreQuotes = useCallback(async () => {
-    if (!quotesCursor || !quotesHasMore || quotesLoadingMore) return;
-    setQuotesLoadingMore(true);
-    try {
-      const snapshot = await getDocs(
-        query(
-          collection(db, "quotes"),
-          orderBy("createdAt", "desc"),
-          startAfter(quotesCursor),
-          limit(QUOTES_PAGE_SIZE),
-        ),
-      );
-      const next = snapshot.docs
-        .map((entry) => ({ id: entry.id, ...entry.data() }) as Quote)
-        .filter((entry) => !entry._deleted);
-      setQuotes((current) => {
-        const known = new Set(current.map((entry) => entry.id));
-        return [...current, ...next.filter((entry) => !known.has(entry.id))];
-      });
-      setQuotesCursor(snapshot.docs.at(-1) ?? quotesCursor);
-      setQuotesHasMore(snapshot.size === QUOTES_PAGE_SIZE);
-    } catch {
-      toast.error("Não foi possível carregar mais orçamentos.");
-    } finally {
-      setQuotesLoadingMore(false);
-    }
-  }, [quotesCursor, quotesHasMore, quotesLoadingMore]);
+  const fetchData = useCallback(async () => {
+    await Promise.all([refreshOrders(), refreshQuotes(), fetchSupportingData()]);
+  }, [fetchSupportingData, refreshOrders, refreshQuotes]);
 
   useEffect(() => {
-    fetchData();
-    const q = query(collection(db, "orders"), orderBy("createdAt", "desc"), limit(1));
-    let isInitialLoad = true;
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (isInitialLoad) {
-        isInitialLoad = false;
-        return;
-      }
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === "added") {
-          const orderData = change.doc.data();
-          toast.info(`Novo pedido de ${orderData.userName || "Cliente"}!`);
-          fetchData();
-        }
-      });
-    });
-    return () => unsubscribe();
-  }, [fetchData]);
+    void fetchSupportingData();
+  }, [fetchSupportingData]);
 
   const handleSyncData = useCallback(async () => {
     await fetchData();
     toast.success("Dados sincronizados com o servidor central");
   }, [fetchData]);
+
+  const loading = ordersLoading || quotesLoading || supportingDataLoading;
 
   return {
     orders,
