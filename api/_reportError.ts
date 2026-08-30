@@ -1,6 +1,13 @@
-// Lógica pura de relato de erro — sem dependências (Firestore/Telegram ficam
-// em quem chama: a função serverless da Vercel e o server.ts local).
-// Assim evitamos problemas de extensão de import entre os dois ambientes.
+// Lógica pura de relato de erro — Firestore/Telegram ficam em quem chama: a
+// função serverless da Vercel e o server.ts local.
+//
+// A rota é anônima por necessidade (erro acontece para visitante deslogado),
+// então todo campo aqui é hostil por definição. O documento do Firestore guarda
+// o texto original; a mensagem do Telegram, que é renderizada como HTML, sai
+// escapada — senão um `message` com markup vira link de phishing no canal de
+// operação.
+
+import { escapeHtml } from "./_escapeHtml.js";
 
 const str = (v: unknown, max: number): string =>
   (typeof v === "string" ? v : v == null ? "" : String(v)).slice(0, max);
@@ -49,12 +56,12 @@ export function buildErrorReport(body: ErrorReportInput): BuiltErrorReport {
 
   const telegramText =
     `${tag} — INOVAPRO3D\n\n` +
-    `📍 Onde: ${data.where}\n` +
-    `🧭 Rota: ${data.route || "—"}\n` +
-    `💬 ${data.message || "(sem mensagem)"}\n` +
-    (data.userNote ? `📝 Relato: ${data.userNote}\n` : "") +
-    (data.userEmail ? `👤 ${data.userEmail}\n` : "") +
-    (data.appVersion ? `🏷️ ${data.appVersion}\n` : "");
+    `📍 Onde: ${escapeHtml(data.where)}\n` +
+    `🧭 Rota: ${escapeHtml(data.route || "—")}\n` +
+    `💬 ${escapeHtml(data.message || "(sem mensagem)")}\n` +
+    (data.userNote ? `📝 Relato: ${escapeHtml(data.userNote)}\n` : "") +
+    (data.userEmail ? `👤 ${escapeHtml(data.userEmail)}\n` : "") +
+    (data.appVersion ? `🏷️ ${escapeHtml(data.appVersion)}\n` : "");
 
   return { valid, data, telegramText };
 }

@@ -1,5 +1,11 @@
 // Templates de e-mail (HTML inline, compatível com clientes de e-mail).
-// Funções puras — sem dependências.
+//
+// Todo dado que vem de fora entra escapado no HTML: cliente de e-mail renderiza
+// markup, então um nome como `<a/href=https://evil.com>` viraria link clicável
+// dentro de uma mensagem assinada pelo nosso domínio verificado. A versão em
+// texto puro (`text`) não é escapada de propósito — lá `&amp;` apareceria cru.
+
+import { escapeHtml } from "./_escapeHtml.js";
 
 export interface OrderEmailData {
   orderId: string;
@@ -31,11 +37,11 @@ function shell(title: string, bodyHtml: string, appUrl: string): string {
           <span style="font-size:18px;font-weight:800;letter-spacing:-0.3px;color:#ffffff;">INOVA<span style="color:#3b82f6;">PRO</span>3D</span>
         </td></tr>
         <tr><td style="padding:28px;">
-          <h1 style="margin:0 0 6px;font-size:20px;color:#0f172a;">${title}</h1>
+          <h1 style="margin:0 0 6px;font-size:20px;color:#0f172a;">${escapeHtml(title)}</h1>
           ${bodyHtml}
         </td></tr>
         <tr><td style="padding:18px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">
-          INOVAPRO3D — Impressão 3D profissional · <a href="${base}" style="color:#2563eb;text-decoration:none;">inovapro3d.com.br</a><br>
+          INOVAPRO3D — Impressão 3D profissional · <a href="${escapeHtml(base)}" style="color:#2563eb;text-decoration:none;">inovapro3d.com.br</a><br>
           Dúvidas? Responda este e-mail ou fale no WhatsApp.
         </td></tr>
       </table>
@@ -45,7 +51,7 @@ function shell(title: string, bodyHtml: string, appUrl: string): string {
 }
 
 function button(href: string, label: string): string {
-  return `<a href="${href}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:10px;">${label}</a>`;
+  return `<a href="${escapeHtml(href)}" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:12px 22px;border-radius:10px;">${escapeHtml(label)}</a>`;
 }
 
 export function orderConfirmationEmail(d: OrderEmailData): {
@@ -56,21 +62,24 @@ export function orderConfirmationEmail(d: OrderEmailData): {
   const shortId = d.orderId.slice(0, 10).toUpperCase();
   const base = (d.appUrl || "https://www.inovapro3d.com.br").replace(/\/+$/, "");
   const ordersUrl = `${base}/meus-pedidos`;
+  // `name` alimenta a versão em texto puro; `nameHtml` é a mesma informação já
+  // escapada, para o corpo em HTML.
   const name = d.customerName ? d.customerName.split(" ")[0] : "";
+  const nameHtml = escapeHtml(name);
 
   const subject = `Pedido #${shortId} recebido — INOVAPRO3D`;
 
   const body = `
     <p style="margin:0 0 14px;font-size:14px;color:#475569;line-height:1.6;">
-      ${name ? `Olá, <strong>${name}</strong>! ` : ""}Recebemos o seu pedido e ele já está no nosso sistema. 🎉
+      ${nameHtml ? `Olá, <strong>${nameHtml}</strong>! ` : ""}Recebemos o seu pedido e ele já está no nosso sistema. 🎉
     </p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;border:1px solid #e2e8f0;border-radius:12px;">
       <tr><td style="padding:14px 16px;border-bottom:1px solid #eef2f7;font-size:13px;color:#64748b;">Protocolo</td>
-          <td style="padding:14px 16px;border-bottom:1px solid #eef2f7;font-size:13px;color:#0f172a;font-weight:700;text-align:right;">#${shortId}</td></tr>
+          <td style="padding:14px 16px;border-bottom:1px solid #eef2f7;font-size:13px;color:#0f172a;font-weight:700;text-align:right;">#${escapeHtml(shortId)}</td></tr>
       <tr><td style="padding:14px 16px;border-bottom:1px solid #eef2f7;font-size:13px;color:#64748b;">Pagamento</td>
-          <td style="padding:14px 16px;border-bottom:1px solid #eef2f7;font-size:13px;color:#0f172a;text-align:right;">${paymentLabel(d.paymentMethod)}</td></tr>
+          <td style="padding:14px 16px;border-bottom:1px solid #eef2f7;font-size:13px;color:#0f172a;text-align:right;">${escapeHtml(paymentLabel(d.paymentMethod))}</td></tr>
       <tr><td style="padding:14px 16px;font-size:13px;color:#64748b;">Total</td>
-          <td style="padding:14px 16px;font-size:16px;color:#2563eb;font-weight:800;text-align:right;">${brl(d.total)}</td></tr>
+          <td style="padding:14px 16px;font-size:16px;color:#2563eb;font-weight:800;text-align:right;">${escapeHtml(brl(d.total))}</td></tr>
     </table>
     <p style="margin:0 0 18px;font-size:13px;color:#475569;line-height:1.6;">
       Você pode acompanhar cada etapa do pedido — da produção ao envio — na sua conta.

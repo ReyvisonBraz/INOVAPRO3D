@@ -26,6 +26,12 @@ import {
 } from "./api/_orderPricing.ts";
 import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "./shared/commercePricing.ts";
 import { extractSlicerImageWithGemini } from "./api/_slicerImage.ts";
+import {
+  buildOrderTelegramMessage,
+  loadOrderForNotification,
+  resolveTrustedIdentity,
+  resolveVerifiedEmail,
+} from "./api/_orderNotification.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -83,13 +89,39 @@ async function sendTelegram(message: string): Promise<void> {
 }
 
 // ── Firebase token verification middleware ─────────────────────────────────
+// Falha SEMPRE fechado: sem token válido, `null`. A versão anterior devolvia a
+// string "unchecked" quando o Admin SDK não estava configurado — e como toda
+// rota testava apenas `if (!uid)`, uma string não-vazia passava. Bastava uma
+// variável de ambiente ausente (typo, rotação de chave, deploy incompleto) para
+// desligar a autenticação do servidor inteiro em silêncio.
 async function verifyToken(req: express.Request): Promise<string | null> {
-  if (!isAdminSdkConfigured()) return "unchecked"; // dev fallback — not enforced
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) return null;
   try {
     const decoded = await getAdminAuth().verifyIdToken(header.slice(7));
     return decoded.uid;
+  } catch {
+    return null;
+  }
+}
+
+/** Igual a `verifyToken`, mas devolve também os claims usados como identidade. */
+async function verifyTokenWithClaims(req: express.Request): Promise<{
+  uid: string;
+  email?: string;
+  emailVerified?: boolean;
+  name?: string;
+} | null> {
+  const header = req.headers.authorization;
+  if (!header?.startsWith("Bearer ")) return null;
+  try {
+    const decoded = await getAdminAuth().verifyIdToken(header.slice(7));
+    return {
+      uid: decoded.uid,
+      email: decoded.email,
+      emailVerified: decoded.email_verified === true,
+      name: decoded.name,
+    };
   } catch {
     return null;
   }
@@ -114,56 +146,56 @@ async function startServer() {
       rateLimit(10),
       express.json(),
       async (req, res) => {
-        const uid = await verifyToken(req);
-        if (!uid) {
+        const auth = await verifyTokenWithClaims(req);
+        if (!auth) {
           res.status(401).json({ error: "Não autorizado." });
           return;
         }
 
-        const { orderId, customerEmail } = req.body as { orderId: string; customerEmail?: string };
+        const { orderId } = req.body as { orderId?: string };
         if (!orderId) {
           res.status(400).json({ error: "orderId é obrigatório" });
           return;
         }
 
+        // Sem Admin SDK não há como ler o total real do pedido. Recusa
+        // explícita: o fallback anterior aceitava `amount` do corpo da
+        // requisição, o que permitia fechar qualquer pedido pelo valor que o
+        // cliente quisesse.
+        if (!isAdminSdkConfigured()) {
+          res.status(503).json({ error: "Pagamento indisponível (servidor não configurado)." });
+          return;
+        }
+
         let amount: number;
         try {
-          if (isAdminSdkConfigured()) {
-            const orderSnap = await getAdminDb().collection("orders").doc(orderId).get();
-            if (!orderSnap.exists) {
-              res.status(404).json({ error: "Pedido não encontrado." });
-              return;
-            }
-            const order = orderSnap.data()!;
-            // Ensure the caller owns the order (skip for dev unchecked)
-            if (uid !== "unchecked" && order.userId !== uid) {
-              res.status(403).json({ error: "Acesso negado." });
-              return;
-            }
-            amount = Number(order.total);
-            if (!Number.isFinite(amount) || amount <= 0) {
-              res.status(400).json({ error: "Total do pedido inválido." });
-              return;
-            }
-          } else {
-            // Admin SDK not configured — fall back to client amount (dev only)
-            amount = Number(req.body.amount);
-            if (!amount) {
-              res.status(400).json({ error: "amount obrigatório (dev mode)" });
-              return;
-            }
+          const orderSnap = await getAdminDb().collection("orders").doc(orderId).get();
+          if (!orderSnap.exists) {
+            res.status(404).json({ error: "Pedido não encontrado." });
+            return;
           }
-        } catch (err) {
+          const order = orderSnap.data()!;
+          if (order.userId !== auth.uid) {
+            res.status(403).json({ error: "Acesso negado." });
+            return;
+          }
+          amount = Number(order.total);
+          if (!Number.isFinite(amount) || amount <= 0) {
+            res.status(400).json({ error: "Total do pedido inválido." });
+            return;
+          }
+        } catch {
           res.status(500).json({ error: "Erro ao verificar pedido." });
           return;
         }
 
         try {
+          const receiptEmail = resolveVerifiedEmail(auth);
           const paymentIntent = await stripe.paymentIntents.create({
             amount: Math.round(amount * 100),
             currency: "brl",
             payment_method_types: ["card", "pix"],
-            receipt_email: customerEmail,
+            ...(receiptEmail ? { receipt_email: receiptEmail } : {}),
             metadata: { orderId, platform: "inovapro3d" },
           });
           res.json({
@@ -226,17 +258,17 @@ async function startServer() {
         res.status(403).json({ error: "Apenas administradores podem ler recortes." });
         return;
       }
-      if (uid !== "unchecked") {
-        try {
-          const user = await getAdminDb().collection("users").doc(uid).get();
-          if (user.data()?.role !== "ADMIN") {
-            res.status(403).json({ error: "Apenas administradores podem ler recortes." });
-            return;
-          }
-        } catch {
-          res.status(403).json({ error: "Não foi possível validar sua sessão." });
+      // Checagem incondicional: antes ela era pulada quando o token vinha do
+      // atalho de desenvolvimento, deixando a cota da API Gemini aberta.
+      try {
+        const user = await getAdminDb().collection("users").doc(uid).get();
+        if (user.data()?.role !== "ADMIN") {
+          res.status(403).json({ error: "Apenas administradores podem ler recortes." });
           return;
         }
+      } catch {
+        res.status(403).json({ error: "Não foi possível validar sua sessão." });
+        return;
       }
 
       const imageData = typeof req.body?.imageData === "string" ? req.body.imageData : "";
@@ -268,22 +300,23 @@ async function startServer() {
   // O cliente envia SÓ itens e quantidades. O total é recomputado do catálogo
   // (Admin SDK bypassa as regras). Fecha a manipulação de preço via localStorage.
   app.post("/api/orders/create", rateLimit(10), async (req, res) => {
-    const uid = await verifyToken(req);
-    if (!uid) {
-      res.status(401).json({ error: "Não autorizado." });
-      return;
-    }
-    if (!isAdminSdkConfigured() || uid === "unchecked") {
+    if (!isAdminSdkConfigured()) {
       // Sem Admin SDK não há recálculo confiável — recusa explícita (evita fallback inseguro).
       res.status(503).json({ error: "Criação de pedido indisponível (servidor não configurado)." });
       return;
     }
+    const auth = await verifyTokenWithClaims(req);
+    if (!auth) {
+      res.status(401).json({ error: "Não autorizado." });
+      return;
+    }
+    const uid = auth.uid;
 
+    // `userName`/`userEmail` do corpo são ignorados de propósito — ver
+    // api/_orderNotification.ts. A identidade vem do token verificado.
     const body = req.body as {
       items?: OrderLineInput[];
-      userName?: string;
-      userEmail?: string;
-      phone?: string;
+      phone?: unknown;
     };
     const items = Array.isArray(body.items) ? body.items : [];
 
@@ -343,11 +376,14 @@ async function startServer() {
         quantity: l.quantity,
         type: "PRODUCT",
       }));
+      const identity = await resolveTrustedIdentity(adminDb, uid, auth);
+      const phone = typeof body.phone === "string" ? body.phone.slice(0, 32) : null;
+
       const ref = await adminDb.collection("orders").add({
         userId: uid,
-        userName: body.userName ?? null,
-        userEmail: body.userEmail ?? null,
-        phone: body.phone ?? null,
+        userName: identity.name,
+        userEmail: identity.email,
+        phone,
         items: orderItems,
         subtotal: totals.subtotal,
         discount: totals.discount,
@@ -369,57 +405,48 @@ async function startServer() {
   });
 
   // ── New order notification ─────────────────────────────────────────────────
-  // Auth required to prevent Telegram spam from unauthenticated callers.
+  // Espelha api/notify/new-order.ts (runtime de produção na Vercel). O corpo
+  // carrega apenas `orderId`: identidade vem do token e valores vêm do pedido;
+  // o chamador precisa ser o dono dele. Aceitar esses campos do corpo
+  // fazia da rota um relay de e-mail com a reputação do nosso domínio.
   app.post("/api/notify/new-order", rateLimit(5), async (req, res) => {
-    const uid = await verifyToken(req);
-    if (!uid) {
+    if (!isAdminSdkConfigured()) {
+      res.status(503).json({ error: "Serviço indisponível." });
+      return;
+    }
+    const auth = await verifyTokenWithClaims(req);
+    if (!auth) {
       res.status(401).json({ error: "Não autorizado." });
       return;
     }
 
-    const { orderId, customerName, customerEmail, total, itemCount, paymentMethod } = req.body as {
-      orderId: string;
-      customerName: string;
-      customerEmail: string;
-      total: number;
-      itemCount: number;
-      paymentMethod: string;
-    };
-    if (!orderId) {
-      res.status(400).json({ error: "orderId obrigatório" });
+    const adminDb = getAdminDb();
+    const identity = await resolveTrustedIdentity(adminDb, auth.uid, auth);
+    const lookup = await loadOrderForNotification(adminDb, req.body?.orderId, {
+      uid: auth.uid,
+      ...identity,
+    });
+    if (!lookup.ok) {
+      res.status(lookup.status).json({ error: lookup.error });
       return;
     }
+    const order = lookup.data;
+    const appUrl = process.env.APP_URL || "https://www.inovapro3d.com.br";
 
-    const methodLabel: Record<string, string> = {
-      stripe: "Stripe (cartão/PIX)",
-      pix_manual: "PIX Manual",
-    };
-    const now = new Date().toLocaleString("pt-BR", { timeZone: "America/Belem" });
-    const totalFmt = (total ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 });
-
-    await sendTelegram(
-      `🛍️ <b>Novo Pedido — INOVAPRO3D</b>\n\n` +
-        `👤 Cliente: ${customerName || "Não informado"}\n` +
-        `📧 ${customerEmail || "—"}\n` +
-        `💰 Valor: R$ ${totalFmt}\n` +
-        `📦 Itens: ${itemCount ?? "?"}\n` +
-        `💳 Pagamento: ${methodLabel[paymentMethod] ?? paymentMethod}\n` +
-        `🔑 Pedido: <code>${orderId}</code>\n` +
-        `📅 ${now}`,
-    );
+    await sendTelegram(buildOrderTelegramMessage(order, appUrl));
 
     // E-mail de confirmação para o cliente (SendPulse). No-op se não configurado.
-    if (customerEmail) {
+    if (order.customerEmail) {
       const mail = orderConfirmationEmail({
-        orderId,
-        customerName,
-        total,
-        paymentMethod,
-        appUrl: process.env.APP_URL,
+        orderId: order.orderId,
+        customerName: order.customerName,
+        total: order.total,
+        paymentMethod: order.paymentMethod,
+        appUrl,
       });
       await sendEmail({
-        to: customerEmail,
-        toName: customerName,
+        to: order.customerEmail,
+        toName: order.customerName,
         subject: mail.subject,
         html: mail.html,
         text: mail.text,
@@ -436,8 +463,8 @@ async function startServer() {
       return;
     }
 
-    const uid = await verifyToken(req);
-    if (!uid || uid === "unchecked") {
+    const auth = await verifyTokenWithClaims(req);
+    if (!auth) {
       res.status(401).json({ error: "Não autorizado." });
       return;
     }
@@ -463,7 +490,8 @@ async function startServer() {
       const result = await processPayment({
         orderId,
         paymentMethod,
-        userId: uid,
+        userId: auth.uid,
+        verifiedPayerEmail: resolveVerifiedEmail(auth) ?? undefined,
       });
 
       if (!result.success) {
@@ -532,7 +560,7 @@ async function startServer() {
   // ── Mercado Pago - Payment Status ──────────────────────────────────────────
   app.get("/api/mercadopago/payment-status", async (req, res) => {
     const uid = await verifyToken(req);
-    if (!uid || uid === "unchecked") {
+    if (!uid) {
       res.status(401).json({ error: "Não autorizado." });
       return;
     }

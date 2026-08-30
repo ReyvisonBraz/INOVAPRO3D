@@ -19,6 +19,8 @@ export interface CreatePaymentRequest {
   orderId: string;
   paymentMethod: "pix";
   userId: string;
+  /** E-mail obtido de uma claim `email_verified` do token, nunca do pedido. */
+  verifiedPayerEmail?: string;
   context?: RequestContext;
 }
 
@@ -63,7 +65,7 @@ function fail(errorCode: ErrorCode, error: string): AttemptReservation {
 
 // Processar pagamento
 export async function processPayment(request: CreatePaymentRequest): Promise<CreatePaymentResult> {
-  const { orderId, paymentMethod, userId } = request;
+  const { orderId, paymentMethod, userId, verifiedPayerEmail } = request;
 
   // Verificar se Admin SDK está configurado
   const adminDb = getAdminDb();
@@ -178,7 +180,9 @@ export async function processPayment(request: CreatePaymentRequest): Promise<Cre
       action: decision.action,
       decision,
       amount,
-      payerEmail: order.userEmail || undefined,
+      // Pedidos legados podem conter um e-mail que veio do cliente. O provedor
+      // recebe somente a identidade verificada na requisição atual.
+      payerEmail: verifiedPayerEmail,
     };
   });
 

@@ -4,6 +4,7 @@ import { AppError } from "../_observability/appError.js";
 import { createRequestContext } from "../_observability/context.js";
 import { sendApiError } from "../_observability/http.js";
 import { logEvent } from "../_observability/logger.js";
+import { resolveVerifiedEmail } from "../_orderNotification.js";
 import { processPayment } from "./_service.js";
 
 // Rate limiting simples
@@ -42,7 +43,14 @@ async function authenticate(
 
   try {
     const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
-    return { userId: decoded.uid, email: decoded.email };
+    return {
+      userId: decoded.uid,
+      email:
+        resolveVerifiedEmail({
+          email: decoded.email,
+          emailVerified: decoded.email_verified === true,
+        }) ?? undefined,
+    };
   } catch {
     return null;
   }
@@ -134,6 +142,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       orderId,
       paymentMethod,
       userId: user.userId,
+      verifiedPayerEmail: user.email,
       context,
     });
   } catch (error) {

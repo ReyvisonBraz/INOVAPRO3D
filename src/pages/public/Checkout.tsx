@@ -108,14 +108,11 @@ export default function Checkout() {
         quantity: i.quantity,
       }));
 
+      // Nome e e-mail não são enviados: o servidor os obtém do token verificado.
       const resp = await fetch("/api/orders/create", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({
-          items: payloadItems,
-          userName: checkoutUser.displayName || checkoutUser.email,
-          userEmail: checkoutUser.email,
-        }),
+        body: JSON.stringify({ items: payloadItems }),
       });
       if (!resp.ok) {
         throw await readApiError(resp, "Não foi possível gerar o pedido agora. Tente novamente.");
@@ -128,17 +125,11 @@ export default function Checkout() {
       };
       const { orderId, total: serverTotal } = order;
 
+      // Só o `orderId`: destinatário, nome e total saem do pedido no servidor.
       fetch("/api/notify/new-order", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
-        body: JSON.stringify({
-          orderId,
-          customerName: checkoutUser.displayName || checkoutUser.email,
-          customerEmail: checkoutUser.email,
-          total: serverTotal,
-          itemCount: items.length,
-          paymentMethod: mpEnabled ? "mercadopago" : "manual",
-        }),
+        body: JSON.stringify({ orderId }),
       }).catch(() => {});
 
       setCreatedOrderId(orderId);

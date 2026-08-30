@@ -14,12 +14,15 @@ import {
   type MaterialRecord,
 } from "../_orderPricing.js";
 import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing.js";
+import { resolveTrustedIdentity } from "../_orderNotification.js";
 
+// `userName`/`userEmail` chegam do cliente por compatibilidade, mas são
+// deliberadamente IGNORADOS: a identidade gravada no pedido vem do token
+// verificado. Aceitá-los do corpo permitia criar um pedido com o e-mail de
+// terceiro e, na sequência, disparar a notificação para essa vítima.
 interface CreateOrderPayload {
   items?: OrderLineInput[];
-  userName?: string;
-  userEmail?: string;
-  phone?: string;
+  phone?: unknown;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -49,9 +52,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
   let uid: string;
+  let decodedToken: { email?: string; emailVerified?: boolean; name?: string };
   try {
     const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
     uid = decoded.uid;
+    decodedToken = {
+      email: decoded.email,
+      emailVerified: decoded.email_verified === true,
+      name: decoded.name,
+    };
   } catch (error) {
     sendApiError(
       res,
@@ -138,11 +147,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       quantity: l.quantity,
       type: "PRODUCT",
     }));
+    // Identidade a partir do token verificado — nunca do corpo da requisição.
+    const identity = await resolveTrustedIdentity(adminDb, uid, decodedToken);
+    const phone = typeof body.phone === "string" ? body.phone.slice(0, 32) : null;
+
     const ref = await adminDb.collection("orders").add({
       userId: uid,
-      userName: body.userName ?? null,
-      userEmail: body.userEmail ?? null,
-      phone: body.phone ?? null,
+      userName: identity.name,
+      userEmail: identity.email,
+      phone,
       items: orderItems,
       subtotal: totals.subtotal,
       discount: totals.discount,
