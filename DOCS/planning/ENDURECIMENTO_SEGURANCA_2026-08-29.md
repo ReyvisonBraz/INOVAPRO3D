@@ -54,82 +54,93 @@ Três fatos levantados na auditoria mudam a prioridade do que resta e precisam f
 
 Atualizar esta tabela no mesmo commit que muda o código.
 
-| #   | Ponto                                    | Estado    | Onde vive no código                                            |
-| --- | ---------------------------------------- | --------- | -------------------------------------------------------------- |
-| 1   | Relay de e-mail em `notify/new-order`    | Concluído | `api/notify/new-order.ts` + `api/_orderNotification.ts`        |
-| 2   | Identidade em pedidos e pagamentos       | Concluído | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`        |
-| 3   | Injeção de HTML em e-mail/Telegram       | Concluído | `api/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
-| 4   | Fail-open do sentinela `"unchecked"`     | Concluído | `server.ts` (`verifyToken`)                                    |
-| 5   | Rotação das credenciais órfãs do `.env`  | Pendente  | ação manual — ver Fase 1.7                                     |
-| 6   | Webhook Stripe sem valor/idempotência    | Pendente  | `server.ts`; falta `api/stripe/`                               |
-| 7   | CSP em `Report-Only` na produção         | Pendente  | `vercel.json`                                                  |
-| 8   | SSRF por redirecionamento nos proxies    | Pendente  | `server.ts`, `api/_modelMetadata.ts`                           |
-| 9   | Regras do Firestore com lacunas          | Pendente  | `firestore.rules`                                              |
-| 10  | `NODE_ENV=development` gravado no `.env` | Pendente  | `.env`, `server.ts`                                            |
-| 11  | Leitura pública de orçamentos no Storage | Pendente  | `storage.rules`                                                |
-| 12  | Rate limiting distribuído                | Pendente  | — (espelha item 7 do plano do checkout)                        |
-| 13  | Dependências vulneráveis                 | Pendente  | `firebase-admin` e cadeia `gaxios`/`uuid`                      |
-| 14  | Cabeçalhos e limites do Express          | Pendente  | `server.ts`                                                    |
-| 15  | `role` em custom claims                  | Pendente  | `firestore.rules`, `storage.rules`, admin                      |
+| #   | Ponto                                      | Estado    | Onde vive no código                                            |
+| --- | ------------------------------------------ | --------- | -------------------------------------------------------------- |
+| 1   | Relay de e-mail em `notify/new-order`      | Concluído | `api/notify/new-order.ts` + `api/_orderNotification.ts`        |
+| 2   | Identidade em pedidos e pagamentos         | Concluído | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`        |
+| 3   | Injeção de HTML em e-mail/Telegram         | Concluído | `api/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
+| 4   | Fail-open do sentinela `"unchecked"`       | Concluído | `server.ts` (`verifyToken`)                                    |
+| 5   | Auditar credenciais órfãs e remover `.env` | Concluído | auditoria dos provedores + `.env.example`                      |
+| 6   | Webhook Stripe sem valor/idempotência      | Pendente  | `server.ts`; falta `api/stripe/`                               |
+| 7   | CSP em `Report-Only` na produção           | Pendente  | `vercel.json`                                                  |
+| 8   | SSRF por redirecionamento nos proxies      | Pendente  | `server.ts`, `api/_modelMetadata.ts`                           |
+| 9   | Regras do Firestore com lacunas            | Pendente  | `firestore.rules`                                              |
+| 10  | Guarda explícita do modo do Express        | Pendente  | `server.ts`                                                    |
+| 11  | Leitura pública de orçamentos no Storage   | Pendente  | `storage.rules`                                                |
+| 12  | Rate limiting distribuído                  | Pendente  | — (espelha item 7 do plano do checkout)                        |
+| 13  | Dependências vulneráveis                   | Pendente  | `firebase-admin` e cadeia `gaxios`/`uuid`                      |
+| 14  | Cabeçalhos e limites do Express            | Pendente  | `server.ts`                                                    |
+| 15  | `role` em custom claims                    | Pendente  | `firestore.rules`, `storage.rules`, admin                      |
 
 ---
 
-# FASE 1.7 — Rotação de credenciais (bloqueante, manual)
+# FASE 1.7 — Auditoria e remoção de credenciais legadas (concluída)
 
-**Prioridade máxima. Enquanto não for feito, um crítico segue aberto.**
+Concluída em 30 de agosto de 2026. A validação dos valores, feita sem registrá-los em logs, corrigiu
+uma premissa da auditoria inicial: não havia credencial Supabase válida a rotacionar e o token
+Mercado Pago legado já estava revogado.
 
 ## Problema
 
-O arquivo `.env` contém credenciais válidas de uma stack Supabase/Postgres que o código atual não
-usa mais. Nunca foram versionadas (histórico do git verificado), mas continuam válidas em disco.
+O arquivo `.env` misturava placeholders de uma antiga stack Supabase/Postgres, um segredo JWT local
+sem consumidor no código e um segundo par de credenciais Mercado Pago com nomes que a aplicação
+não lê. Mesmo ignorado pelo Git, manter esse arquivo tornava ambígua a origem da configuração e
+permitia que `NODE_ENV=development` alterasse silenciosamente o runtime auto-hospedado.
 
 ## Evidência
 
-Variáveis presentes no `.env` e ausentes do código: `SUPABASE_SERVICE_ROLE_KEY`, `JWT_SECRET`,
-`DB_PASSWORD`, `DATABASE_URL`, `DB_HOST`, `DB_USER`, `DB_NAME`, `DB_PORT`, `SENDPULSE_CLIENT_ID`,
-`SENDPULSE_CLIENT_SECRET`, `MERCADO_PAGO_ACCESS_TOKEN` (com underscore — o código lê
-`MERCADOPAGO_ACCESS_TOKEN`, sem). A configuração real vive em `.env.local`.
+Evidência verificada:
 
-A `SUPABASE_SERVICE_ROLE_KEY` é a mais grave: ignora Row Level Security e dá acesso total ao banco.
+- `.env` e `.env.local` nunca foram versionados; ambos são ignorados por `.gitignore`.
+- `DATABASE_URL`, `DB_HOST` e `DB_PASSWORD` continham marcadores de exemplo, e a service-role key
+  Supabase estava vazia. A listagem oficial de projetos não possui a referência `xxxxx` do arquivo.
+- O token `MERCADO_PAGO_ACCESS_TOKEN` legado respondeu `403` em `GET /users/me`; o token ativo de
+  `.env.local`, com o nome correto `MERCADOPAGO_ACCESS_TOKEN`, respondeu `200`. Eles são distintos.
+- `vercel env ls` não contém `SUPABASE_*`, `JWT_SECRET`, `DATABASE_URL`, `DB_*` nem as variáveis
+  legadas de SendPulse. Firebase e GitHub permanecem corretamente vinculados a `inovapro3d`.
+- A configuração realmente consumida pelo projeto vive em `.env.local` e nas variáveis cifradas da
+  Vercel. O arquivo local passou a ter permissão `0600`.
+- `npm run check` passou com 348 testes e o smoke local respondeu `200` na aplicação/health e `401`
+  na notificação anônima. Sem `NODE_ENV=development`, o build voltou a minificar corretamente — o
+  chunk React caiu de aproximadamente 469 kB para 264 kB e o painel admin de 655 kB para 341 kB.
 
 ## Passos
 
-1. **Rotacionar** cada credencial no painel de origem (Supabase, Mercado Pago, SendPulse, banco).
-   Rotacionar antes de apagar — apagar primeiro deixa a chave viva e sem registro de qual era.
-2. Confirmar que nenhuma delas aparece em variáveis de ambiente da Vercel
-   (`vercel env ls`) — se aparecer, remover lá também.
-3. Conferir se `GEMINI_API_KEY` do `.env` é a mesma em uso; se for, manter só em `.env.local`.
-4. Apagar o `.env`. A configuração local passa a viver exclusivamente em `.env.local`.
-5. Alinhar `.env.example` para refletir apenas as variáveis realmente lidas pelo código.
+1. Validar cada valor sem expô-lo e identificar o provedor de origem.
+2. Confirmar que nenhuma variável legada existe na Vercel.
+3. Consultar os provedores oficiais antes de revogar: Supabase era placeholder e Mercado Pago já
+   estava revogado, portanto nenhuma credencial ativa precisou ser alterada.
+4. Apagar o `.env`; a configuração local passa a viver exclusivamente em `.env.local`.
+5. Alinhar `.env.example` às variáveis realmente lidas e restringir `.env.local` a `0600`.
 
 ## Critério de aceite
 
-- `.env` não existe.
-- `grep -rE "SUPABASE|JWT_SECRET|DB_PASSWORD" .env* ` não retorna nada.
-- `npm run dev` sobe e o checkout completa um pedido de ponta a ponta.
+- `.env` não existe e nenhum arquivo de ambiente versionado contém as variáveis legadas.
+- `.env.example` documenta configuração cliente/servidor sem exemplos que pareçam segredos reais.
+- `npm run check` e o smoke test local passam usando somente `.env.local`.
 
 ---
 
 # FASE 2 — Alto
 
-## Item 10 · `NODE_ENV=development` no `.env`
+## Item 10 · Guarda explícita do modo do Express (parcialmente concluído)
 
-Executar primeiro: é o de menor esforço e protege todos os demais.
+O arquivo que forçava `development` já foi removido na Fase 1.7. Resta tornar a escolha do modo
+explícita no servidor auto-hospedado.
 
 ### Problema
 
 `server.ts` só aplica os cabeçalhos de segurança (CSP, HSTS, X-Frame-Options, Referrer-Policy,
 Permissions-Policy) no ramo `NODE_ENV === "production"`. No ramo contrário ele monta o **middleware
-de desenvolvimento do Vite**. Com `NODE_ENV=development` gravado em disco e `.env.local` não
-definindo a variável, qualquer host que não exporte `NODE_ENV` no ambiente do processo faz o
-servidor subir em modo de desenvolvimento — sem nenhum cabeçalho de segurança e com o dev server
-exposto.
+de desenvolvimento do Vite**. Antes da Fase 1.7, o `.env` forçava esse modo. Esse risco imediato foi
+removido, mas qualquer host auto-hospedado que não exporte `NODE_ENV` ainda assume desenvolvimento
+sem emitir um aviso específico.
 
 Na Vercel a plataforma define a variável, então o risco é do caminho auto-hospedado (`npm start`).
 
 ### Passos
 
-1. Remover `NODE_ENV` do `.env` (resolvido junto com a Fase 1.7, que apaga o arquivo).
+1. **Concluído:** remover `NODE_ENV` do `.env` junto com o próprio arquivo na Fase 1.7.
 2. Em `server.ts`, tornar a escolha explícita e ruidosa: derivar `isProduction` uma única vez e
    registrar no log qual modo foi escolhido e de onde veio a variável.
 3. Adicionar guarda: se `SERVE_STATIC=true` ou se existir `dist/` e `NODE_ENV` não for
