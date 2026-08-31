@@ -4,9 +4,16 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist/", "node_modules/", "*.config.js", "*.config.ts"] },
+  { ignores: ["dist/", ".vercel/", "node_modules/", "*.config.js", "*.config.ts"] },
   {
-    files: ["src/**/*.{ts,tsx}", "api/**/*.ts", "server.ts"],
+    files: [
+      "src/**/*.{ts,tsx}",
+      "api/**/*.ts",
+      "shared/**/*.ts",
+      "scripts/**/*.ts",
+      "server.ts",
+      "vercel.ts",
+    ],
     extends: [...tseslint.configs.recommended],
     plugins: {
       "react-hooks": reactHooks,

@@ -17,7 +17,7 @@ export default defineConfig(() => {
             if (!context.bundle) return html;
             return html.replace(
               /<link rel="stylesheet" crossorigin href="([^"]+)">/g,
-              '<link rel="preload" as="style" crossorigin href="$1" onload="this.onload=null;this.rel=\'stylesheet\';window.__inovaStylesReady=true;window.__revealInovaApp&&window.__revealInovaApp()"><noscript><link rel="stylesheet" crossorigin href="$1"></noscript>',
+              '<link id="inova-app-styles" rel="preload" as="style" crossorigin href="$1"><noscript><link rel="stylesheet" crossorigin href="$1"></noscript>',
             );
           },
         },

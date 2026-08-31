@@ -23,29 +23,29 @@ O INOVAPRO3D é uma plataforma completa para operar um negócio de impressão 3D
 
 ### Frontend — o que aparece na tela
 
-| Tecnologia | Pra que serve | Analogia |
-|---|---|---|
-| **React 19** | Monta as telas a partir de "componentes" | Peças de Lego: cada botão/card é uma peça reaproveitável |
-| **TypeScript** | JavaScript com "verificação de tipos" | Um corretor ortográfico para código: avisa erros antes de rodar |
-| **Vite 6** | Empacota e serve o código durante o desenvolvimento | A "fábrica" que transforma seu código em arquivos que o navegador entende |
-| **Tailwind CSS 4** | Estiliza tudo (cores, espaçamentos, fontes) | Em vez de criar arquivos de estilo separados, você escreve classes direto no HTML |
-| **React Router 7** | Controla as páginas/URLs (`/catalogo`, `/admin`...) | O "GPS" do site: decide qual tela mostrar pra cada endereço |
-| **Framer Motion** | Animações suaves (fade, slide) | O "diretor de cena" das transições |
-| **Three.js + React Three Fiber** | Visualizador 3D dos modelos STL | O motor que renderiza as peças 3D girando na tela |
-| **Recharts** | Gráficos do painel admin | Desenha os gráficos de vendas/pedidos |
-| **Sonner** | As notificações "toast" (caixinhas no rodapé) | O sistema de avisos rápidos |
-| **Lucide React** | Os ícones | Biblioteca de ícones prontos |
+| Tecnologia                       | Pra que serve                                       | Analogia                                                                          |
+| -------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------- |
+| **React 19**                     | Monta as telas a partir de "componentes"            | Peças de Lego: cada botão/card é uma peça reaproveitável                          |
+| **TypeScript**                   | JavaScript com "verificação de tipos"               | Um corretor ortográfico para código: avisa erros antes de rodar                   |
+| **Vite 6**                       | Empacota e serve o código durante o desenvolvimento | A "fábrica" que transforma seu código em arquivos que o navegador entende         |
+| **Tailwind CSS 4**               | Estiliza tudo (cores, espaçamentos, fontes)         | Em vez de criar arquivos de estilo separados, você escreve classes direto no HTML |
+| **React Router 7**               | Controla as páginas/URLs (`/catalogo`, `/admin`...) | O "GPS" do site: decide qual tela mostrar pra cada endereço                       |
+| **Framer Motion**                | Animações suaves (fade, slide)                      | O "diretor de cena" das transições                                                |
+| **Three.js + React Three Fiber** | Visualizador 3D dos modelos STL                     | O motor que renderiza as peças 3D girando na tela                                 |
+| **Recharts**                     | Gráficos do painel admin                            | Desenha os gráficos de vendas/pedidos                                             |
+| **Sonner**                       | As notificações "toast" (caixinhas no rodapé)       | O sistema de avisos rápidos                                                       |
+| **Lucide React**                 | Os ícones                                           | Biblioteca de ícones prontos                                                      |
 
 ### Backend — os bastidores
 
-| Tecnologia | Pra que serve |
-|---|---|
-| **Firebase Auth** | Login com Google. O Google cuida de toda a segurança de senha |
-| **Firestore** | Banco de dados. Guarda produtos, pedidos, usuários, etc. |
-| **Firebase Storage** | Guarda arquivos (imagens de produtos, capas de pastas) |
+| Tecnologia              | Pra que serve                                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| **Firebase Auth**       | Login com Google. O Google cuida de toda a segurança de senha                                                            |
+| **Firestore**           | Banco de dados. Guarda produtos, pedidos, usuários, etc.                                                                 |
+| **Firebase Storage**    | Guarda arquivos (imagens de produtos, capas de pastas)                                                                   |
 | **Express (server.ts)** | Mini-servidor próprio para: pagamentos Stripe, notificações Telegram, importar metadados de modelos 3D, proxy de imagens |
-| **Stripe** | Processa pagamentos com cartão e PIX |
-| **Telegram Bot** | Te avisa no Telegram quando entra pedido novo ou pagamento |
+| **Stripe**              | Processa pagamentos com cartão e PIX                                                                                     |
+| **Telegram Bot**        | Te avisa no Telegram quando entra pedido novo ou pagamento                                                               |
 
 ### Por que Firebase E um servidor Express?
 
@@ -60,20 +60,26 @@ Mas algumas coisas **não podem** rodar no navegador por segurança:
 ## Como o projeto roda
 
 ### No seu computador (desenvolvimento)
+
 ```bash
 npm install     # instala as dependências (1x só)
 npm run dev     # sobe tudo em http://localhost:3000
 ```
+
 O comando `dev` inicia o servidor Express, que por sua vez liga o Vite. Um processo só, uma porta só.
 
 ### Na internet (produção)
+
 ```bash
 npm run build   # gera a versão otimizada em dist/
 npm run start   # roda o servidor em produção
 ```
-O deploy é feito pela **Vercel** (o arquivo `vercel.json` configura isso).
+
+O deploy é feito pela **Vercel**. O arquivo `vercel.ts` configura rotas, cache e cabeçalhos de
+segurança; ele também gera automaticamente os hashes da política CSP.
 
 ### Verificar se o código tem erros
+
 ```bash
 npm run lint    # roda o TypeScript verificando tudo, sem gerar arquivos
 ```

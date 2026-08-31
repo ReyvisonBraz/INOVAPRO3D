@@ -2,13 +2,13 @@
 
 ## O panorama geral
 
-| Área | Situação |
-|---|---|
-| Segredos no código | ✅ Nenhuma chave secreta vazada no código |
-| Separação frontend/backend | ✅ Chaves secretas só no servidor |
+| Área                        | Situação                                       |
+| --------------------------- | ---------------------------------------------- |
+| Segredos no código          | ✅ Nenhuma chave secreta vazada no código      |
+| Separação frontend/backend  | ✅ Chaves secretas só no servidor              |
 | Regras do Storage (imagens) | ✅ Boas: só admin envia, só imagens, máx 10 MB |
-| Regras do Firestore | ⚠️ Boas no geral, com 2 pontos a corrigir |
-| Endpoints do servidor | ❌ 2 problemas importantes a corrigir |
+| Regras do Firestore         | ⚠️ Boas no geral, com 2 pontos a corrigir      |
+| Endpoints do servidor       | ❌ 2 problemas importantes a corrigir          |
 
 ## 🔴 Problemas IMPORTANTES (corrigir em breve)
 
@@ -35,6 +35,7 @@ funcionar (os sites externos bloqueavam o navegador). Mas ele aceitava
 internos da infraestrutura (ataque chamado SSRF).
 
 **Correção aplicada (jun/2026):**
+
 - Só aceita HTTPS e hosts da lista permitida (MakerWorld, Bambu Lab e seus
   CDNs, Thingiverse, Printables, Cults3D, MyMiniFactory — configurável via
   `IMAGE_PROXY_ALLOWED_HOSTS`)
@@ -68,12 +69,12 @@ usar Gemini, chamar somente pelo servidor.
 
 ## 🟡 Pontos de atenção (menores)
 
-| O quê | Onde | Risco |
-|---|---|---|
-| ~~Endpoint de debug público~~ | ~~`GET /api/debug/markers`~~ | ✅ Removido (jun/2026) — não era usado por nada |
-| Coleção `settings` pública | `firestore.rules` | OK se só tiver frete/banner; nunca guardar nada sensível ali |
-| Sem cabeçalhos de segurança (CSP, HSTS) | `server.ts` / `vercel.json` | Proteção extra contra ataques de injeção; adicionar depois |
-| Sem limite de requisições (rate limiting) | Todos os endpoints | Alguém pode martelar os endpoints; mitigar com Vercel/Cloudflare |
+| O quê                                     | Onde                                         | Risco                                                                                  |
+| ----------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
+| ~~Endpoint de debug público~~             | ~~`GET /api/debug/markers`~~                 | ✅ Removido (jun/2026) — não era usado por nada                                        |
+| Coleção `settings` pública                | `firestore.rules`                            | OK se só tiver frete/banner; nunca guardar nada sensível ali                           |
+| CSP ainda não bloqueante                  | `shared/security/cspPolicy.ts` / `vercel.ts` | Política com hashes está em `Report-Only`; analisar os relatos reais antes de promover |
+| Sem limite de requisições (rate limiting) | Todos os endpoints                           | Alguém pode martelar os endpoints; mitigar com Vercel/Cloudflare                       |
 
 ## ✅ O que JÁ está bem feito
 

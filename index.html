@@ -141,7 +141,32 @@
           <div class="initial-actions"><a href="/catalogo">Ver o catálogo</a></div>
         </main>
     </div>
-    <script>if(location.pathname!=="/")document.getElementById("initial-shell").style.display="none"</script>
+    <script>
+      (function () {
+        if (location.pathname !== "/") {
+          document.getElementById("initial-shell").style.display = "none";
+        }
+
+        var styles = document.getElementById("inova-app-styles");
+        if (!styles) {
+          window.__inovaStylesReady = true;
+          return;
+        }
+
+        var markStylesReady = function () {
+          window.__inovaStylesReady = true;
+          if (window.__revealInovaApp) window.__revealInovaApp();
+        };
+        styles.addEventListener("load", markStylesReady, { once: true });
+        styles.setAttribute("rel", "stylesheet");
+        try {
+          if (styles.sheet) markStylesReady();
+        } catch (_) {
+          // O evento load continua sendo a origem da verdade.
+        }
+        window.setTimeout(markStylesReady, 8000);
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

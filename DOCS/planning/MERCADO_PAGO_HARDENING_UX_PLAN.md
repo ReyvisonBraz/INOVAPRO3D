@@ -30,20 +30,20 @@ completo, resiliência operacional e endurecimento de segurança.
 Atualizar esta tabela no mesmo commit que muda o código. Ela existe para que qualquer retomada
 comece pela leitura do plano, e não por uma investigação do repositório.
 
-| #   | Ponto                          | Estado    | Onde vive no código                                                              |
-| --- | ------------------------------ | --------- | -------------------------------------------------------------------------------- |
-| 1   | Atualização em tempo real      | Concluído | `src/hooks/useOrderPaymentStatus.ts` + `PixPaymentStep.tsx`                      |
-| 2   | Expiração explícita do Pix     | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_client.ts`                   |
-| 3   | Nova tentativa após vencimento | Concluído | `shared/payments/pixAttempt.ts` + `api/mercadopago/_service.ts`                  |
-| 4   | Máquina de estados financeiros | Concluído | `shared/payments/paymentStateMachine.ts` + `api/mercadopago/_webhookDecision.ts` |
-| 5   | Reconciliação automática       | Pendente  | —                                                                                |
-| 6   | Endpoint de status confiável   | Pendente  | `api/mercadopago/payment-status.ts` ainda só lê o Firestore                      |
-| 7   | Rate limiting distribuído      | Pendente  | —                                                                                |
-| 8   | Contratos de erro e observação | Concluído | `shared/errors/catalog.ts`, `api/_observability/`, `src/lib/apiError.ts`         |
-| 9   | CSP bloqueante                 | Pendente  | `vercel.json` mantém `Report-Only`                                               |
-| 10  | IP e dados adicionais corretos | Concluído | IP fictício removido de `api/mercadopago/_client.ts`                             |
-| 11  | Redesign do checkout           | Concluído | `Checkout.tsx` + `PixPaymentStep.tsx` (hierarquia/feedback/acessibilidade)       |
-| 12  | Consolidar a API (Orders)      | Decidido  | decisão registrada; execução após a Fase 1                                       |
+| #   | Ponto                          | Estado        | Onde vive no código                                                              |
+| --- | ------------------------------ | ------------- | -------------------------------------------------------------------------------- |
+| 1   | Atualização em tempo real      | Concluído     | `src/hooks/useOrderPaymentStatus.ts` + `PixPaymentStep.tsx`                      |
+| 2   | Expiração explícita do Pix     | Concluído     | `shared/payments/pixAttempt.ts` + `api/mercadopago/_client.ts`                   |
+| 3   | Nova tentativa após vencimento | Concluído     | `shared/payments/pixAttempt.ts` + `api/mercadopago/_service.ts`                  |
+| 4   | Máquina de estados financeiros | Concluído     | `shared/payments/paymentStateMachine.ts` + `api/mercadopago/_webhookDecision.ts` |
+| 5   | Reconciliação automática       | Pendente      | —                                                                                |
+| 6   | Endpoint de status confiável   | Pendente      | `api/mercadopago/payment-status.ts` ainda só lê o Firestore                      |
+| 7   | Rate limiting distribuído      | Pendente      | —                                                                                |
+| 8   | Contratos de erro e observação | Concluído     | `shared/errors/catalog.ts`, `api/_observability/`, `src/lib/apiError.ts`         |
+| 9   | CSP bloqueante                 | Em observação | `vercel.ts` mantém a política endurecida em `Report-Only`                        |
+| 10  | IP e dados adicionais corretos | Concluído     | IP fictício removido de `api/mercadopago/_client.ts`                             |
+| 11  | Redesign do checkout           | Concluído     | `Checkout.tsx` + `PixPaymentStep.tsx` (hierarquia/feedback/acessibilidade)       |
+| 12  | Consolidar a API (Orders)      | Decidido      | decisão registrada; execução após a Fase 1                                       |
 
 ## Decisões fechadas em 5 de agosto de 2026
 

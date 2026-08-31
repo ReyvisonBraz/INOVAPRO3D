@@ -5,9 +5,12 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 import express from "express";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { isTrustedCspDocument, parseCspReportPayload } from "./api/_cspReport.ts";
+import { recordCspReports } from "./api/_cspReportRecorder.ts";
+import { createRequestContext } from "./api/_observability/context.ts";
 import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts";
 import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./api/firebaseAdmin.ts";
 import { buildErrorReport } from "./api/_reportError.ts";
@@ -34,6 +37,11 @@ import {
   resolveVerifiedEmail,
 } from "./api/_orderNotification.ts";
 import { resolveServerRuntime } from "./api/_serverRuntime.ts";
+import {
+  buildCspPolicy,
+  CSP_REPORT_PATH,
+  reportingEndpointsHeader,
+} from "./shared/security/cspPolicy.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -307,6 +315,51 @@ async function startServer() {
         console.error("[extract-slicer] falha na leitura:", error);
         res.status(502).json({ error: "Não foi possível interpretar o recorte. Tente novamente." });
       }
+    },
+  );
+
+  // O navegador pode usar o formato legado ou a Reporting API moderna.
+  // Esta rota vem antes do parser JSON global para impor um limite próprio e
+  // aceitar os media types específicos de CSP.
+  app.post(
+    CSP_REPORT_PATH,
+    rateLimit(60),
+    (req, res, next) => {
+      const contentType = req.headers["content-type"]?.split(";", 1)[0].toLowerCase();
+      if (
+        !contentType ||
+        !["application/csp-report", "application/reports+json", "application/json"].includes(
+          contentType,
+        )
+      ) {
+        res.status(415).end();
+        return;
+      }
+      next();
+    },
+    express.json({
+      limit: "32kb",
+      type: ["application/csp-report", "application/reports+json", "application/json"],
+    }),
+    async (req, res) => {
+      const context = createRequestContext(req, "security", "csp-report");
+      res.setHeader("Cache-Control", "no-store");
+      const reports = parseCspReportPayload(req.body);
+      if (reports.length === 0) {
+        res.status(400).end();
+        return;
+      }
+
+      const additionalHosts = [
+        process.env.APP_URL,
+        process.env.VERCEL_URL,
+        ...(!runtime.isProduction ? ["localhost", "127.0.0.1"] : []),
+      ].filter((value): value is string => !!value);
+      const trustedReports = reports.filter((report) =>
+        isTrustedCspDocument(report, additionalHosts),
+      );
+      if (trustedReports.length > 0) await recordCspReports(trustedReports, context);
+      res.status(204).end();
     },
   );
 
@@ -756,9 +809,20 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Paridade com vercel.json para quando o app é auto-hospedado (npm start).
-    const CSP =
-      "default-src 'self'; script-src 'self' 'unsafe-inline' https://js.stripe.com https://apis.google.com https://www.googletagmanager.com https://connect.facebook.net https://analytics.tiktok.com https://web.webpushs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://api.stripe.com https://www.google-analytics.com https://*.google-analytics.com https://analytics.tiktok.com https://connect.facebook.net https://www.facebook.com wss://*.firestore.googleapis.com; frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://accounts.google.com https://*.firebaseapp.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'";
+    // Paridade com vercel.ts para quando o app é auto-hospedado (npm start).
+    // A política é deliberadamente Report-Only nesta etapa: os relatos reais
+    // serão analisados antes de autorizar qualquer bloqueio em produção.
+    const cspReportOnly = buildCspPolicy(readFileSync(path.join(distPath, "index.html"), "utf8"));
+    let reportingEndpoint = reportingEndpointsHeader();
+    try {
+      if (process.env.APP_URL) {
+        reportingEndpoint = reportingEndpointsHeader(
+          new URL(CSP_REPORT_PATH, process.env.APP_URL).href,
+        );
+      }
+    } catch {
+      console.warn("[csp] APP_URL não é um endpoint HTTPS válido; usando o coletor de produção.");
+    }
     app.use((_req, res, next) => {
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("X-Frame-Options", "DENY");
@@ -769,7 +833,8 @@ async function startServer() {
         "Permissions-Policy",
         "camera=(), microphone=(), geolocation=(), payment=(self)",
       );
-      res.setHeader("Content-Security-Policy", CSP);
+      res.setHeader("Reporting-Endpoints", reportingEndpoint);
+      res.setHeader("Content-Security-Policy-Report-Only", cspReportOnly);
       next();
     });
     app.use(

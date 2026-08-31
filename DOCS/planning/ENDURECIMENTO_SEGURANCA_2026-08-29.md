@@ -54,23 +54,23 @@ Três fatos levantados na auditoria mudam a prioridade do que resta e precisam f
 
 Atualizar esta tabela no mesmo commit que muda o código.
 
-| #   | Ponto                                      | Estado    | Onde vive no código                                            |
-| --- | ------------------------------------------ | --------- | -------------------------------------------------------------- |
-| 1   | Relay de e-mail em `notify/new-order`      | Concluído | `api/notify/new-order.ts` + `api/_orderNotification.ts`        |
-| 2   | Identidade em pedidos e pagamentos         | Concluído | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`        |
-| 3   | Injeção de HTML em e-mail/Telegram         | Concluído | `api/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
-| 4   | Fail-open do sentinela `"unchecked"`       | Concluído | `server.ts` (`verifyToken`)                                    |
-| 5   | Auditar credenciais órfãs e remover `.env` | Concluído | auditoria dos provedores + `.env.example`                      |
-| 6   | Webhook Stripe sem valor/idempotência      | Pendente  | `server.ts`; falta `api/stripe/`                               |
-| 7   | CSP em `Report-Only` na produção           | Pendente  | `vercel.json`                                                  |
-| 8   | SSRF por redirecionamento nos proxies      | Pendente  | `server.ts`, `api/_modelMetadata.ts`                           |
-| 9   | Regras do Firestore com lacunas            | Pendente  | `firestore.rules`                                              |
-| 10  | Guarda explícita do modo do Express        | Concluído | `api/_serverRuntime.ts`, `server.ts`, `package.json`           |
-| 11  | Leitura pública de orçamentos no Storage   | Pendente  | `storage.rules`                                                |
-| 12  | Rate limiting distribuído                  | Pendente  | — (espelha item 7 do plano do checkout)                        |
-| 13  | Dependências vulneráveis                   | Pendente  | `firebase-admin` e cadeia `gaxios`/`uuid`                      |
-| 14  | Cabeçalhos e limites do Express            | Pendente  | `server.ts`                                                    |
-| 15  | `role` em custom claims                    | Pendente  | `firestore.rules`, `storage.rules`, admin                      |
+| #   | Ponto                                      | Estado        | Onde vive no código                                            |
+| --- | ------------------------------------------ | ------------- | -------------------------------------------------------------- |
+| 1   | Relay de e-mail em `notify/new-order`      | Concluído     | `api/notify/new-order.ts` + `api/_orderNotification.ts`        |
+| 2   | Identidade em pedidos e pagamentos         | Concluído     | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`        |
+| 3   | Injeção de HTML em e-mail/Telegram         | Concluído     | `api/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
+| 4   | Fail-open do sentinela `"unchecked"`       | Concluído     | `server.ts` (`verifyToken`)                                    |
+| 5   | Auditar credenciais órfãs e remover `.env` | Concluído     | auditoria dos provedores + `.env.example`                      |
+| 6   | Webhook Stripe sem valor/idempotência      | Pendente      | `server.ts`; falta `api/stripe/`                               |
+| 7   | CSP em `Report-Only` na produção           | Em observação | `vercel.ts`, `shared/security/`, `api/csp-report.ts`           |
+| 8   | SSRF por redirecionamento nos proxies      | Pendente      | `server.ts`, `api/_modelMetadata.ts`                           |
+| 9   | Regras do Firestore com lacunas            | Pendente      | `firestore.rules`                                              |
+| 10  | Guarda explícita do modo do Express        | Concluído     | `api/_serverRuntime.ts`, `server.ts`, `package.json`           |
+| 11  | Leitura pública de orçamentos no Storage   | Pendente      | `storage.rules`                                                |
+| 12  | Rate limiting distribuído                  | Pendente      | — (espelha item 7 do plano do checkout)                        |
+| 13  | Dependências vulneráveis                   | Pendente      | `firebase-admin` e cadeia `gaxios`/`uuid`                      |
+| 14  | Cabeçalhos e limites do Express            | Pendente      | `server.ts`                                                    |
+| 15  | `role` em custom claims                    | Pendente      | `firestore.rules`, `storage.rules`, admin                      |
 
 ---
 
@@ -163,12 +163,19 @@ Na Vercel a plataforma define a variável, então o risco é do caminho auto-hos
 
 ## Item 7 · CSP bloqueante
 
+Instrumentação concluída em 31 de agosto de 2026. A política endurecida está publicada somente em
+`Report-Only`; a promoção para bloqueio continua pendente até cumprir a janela de observação e os
+testes de fluxo descritos abaixo.
+
 ### Problema
 
-`vercel.json` publica a política como `Content-Security-Policy-Report-Only` — que reporta e não
-bloqueia. Na produção real não há CSP em vigor. A versão enforced existe apenas no ramo
-auto-hospedado do `server.ts`. Ambas trazem `'unsafe-inline'` em `script-src`, o que esvazia a
-proteção contra XSS mesmo quando ativa.
+Antes desta etapa, `vercel.json` publicava uma política `Report-Only` com `'unsafe-inline'` em
+`script-src`, o que impedia avaliar uma futura proteção efetiva contra XSS. O Express
+auto-hospedado divergia ainda mais: aplicava uma versão bloqueante dessa política permissiva.
+
+Agora ambos os runtimes usam a mesma política gerada, sem `'unsafe-inline'` para scripts, mas
+deliberadamente em `Report-Only`. Ela já mede a política que poderá ser promovida; ainda não bloqueia
+conteúdo até que o tráfego real comprove a allowlist.
 
 ### Evidência
 
@@ -199,35 +206,44 @@ erro óbvio. A geração precisa ser automática no build.
 
 ### Passos
 
-1. Criar `scripts/generate-csp.mjs`: lê `dist/index.html` após o build do Vite, extrai cada
-   `<script>` sem `src`, calcula `sha256-<base64>` e monta a diretiva `script-src`.
-2. Emitir o resultado em `dist/_headers` ou reescrever a chave em `vercel.json` — decidir na
-   execução qual mecanismo a Vercel honra para o projeto. Encadear no `npm run build`.
-3. Criar `api/csp-report.ts`: recebe relatórios de violação, aplica rate limit, grava resumo
-   (diretiva violada + URI bloqueada, sem dado pessoal) e registra via `logEvent`.
-4. Adicionar `report-uri /api/csp-report; report-to csp` à política **Report-Only** e publicar.
-5. **Observar tráfego real** por pelo menos sete dias. Cada violação é ou um script legítimo faltando
-   na política, ou um problema real.
-6. Verificar explicitamente os pontos de terceiro que a política precisa cobrir: pixels (GA4, Meta,
-   TikTok), `web.webpushs.com` e o service worker `public/sp-push-worker-fb.js` — confirmar se
-   `worker-src`/`manifest-src` precisam de diretiva própria em vez de herdar `default-src 'self'`.
-7. Com o relatório limpo, publicar `Content-Security-Policy` enforced **em preview primeiro**.
-   Validar navegação, login Google, checkout Pix e painel admin.
-8. Promover para produção e remover o cabeçalho `Report-Only`.
-9. Sincronizar a constante `CSP` do `server.ts` com a política final.
+1. **Concluído:** `shared/security/cspPolicy.ts` extrai cada `<script>` sem `src`, calcula os hashes
+   SHA-256 e monta a política a partir de uma única fonte de verdade.
+2. **Concluído:** substituir `vercel.json` por `vercel.ts`. A configuração programática lê o
+   `index.html` durante a compilação de configuração e injeta automaticamente a política e
+   `Reporting-Endpoints`.
+3. **Concluído:** `scripts/verify-csp.ts`, encadeado ao build, compara os hashes do fonte e do
+   artefato, recusa handlers HTML `on*` e recusa `'unsafe-inline'` em `script-src`.
+4. **Concluído:** remover o `onload` inline do preload de CSS. O bootstrap já coberto por hash passa
+   a registrar o evento e mantém fallback de oito segundos para não prender o shell inicial.
+5. **Concluído:** `api/csp-report.ts` aceita `report-uri` e Reporting API, limita corpo a 32 KiB,
+   lote a dez violações e requisições a 60/min por IP. URLs perdem query/hash e segmentos com IDs;
+   somente documentos dos domínios controlados são registrados.
+6. **Concluído:** agregar no Firestore por diretiva, origem bloqueada e disposição, sem política
+   completa, referrer, user-agent, query string ou amostra de script. Falha de telemetria não afeta
+   a navegação.
+7. **Concluído:** adicionar `worker-src`, `manifest-src`, `report-uri` e `report-to`; espelhar a
+   política gerada no Express também em modo `Report-Only`.
+8. **Em andamento:** observar tráfego real por pelo menos sete dias. Classificar cada violação como
+   integração legítima ausente, ruído de extensão ou evento suspeito.
+9. **Pendente:** com o relatório limpo, publicar `Content-Security-Policy` enforced **em preview
+   primeiro**. Validar navegação, login Google, checkout Pix e painel admin.
+10. **Pendente:** promover para produção e manter o canal de relatos para monitoramento.
 
 ### Critério de aceite
 
-- `script-src` sem `'unsafe-inline'`, com um hash por script inline.
-- Sete dias de relatório sem violação atribuível a script legítimo.
-- Fluxo completo validado em preview com a política enforced.
-- `curl -sI https://www.inovapro3d.com.br | grep -i content-security-policy` retorna o cabeçalho
-  enforced e nenhum `Report-Only`.
+- [x] `script-src` sem `'unsafe-inline'`, com um hash por script inline.
+- [x] Build local e build oficial da Vercel aprovam três hashes e nenhum handler HTML inline.
+- [x] Express entrega somente `Content-Security-Policy-Report-Only`; o coletor responde `204`.
+- [ ] Sete dias de relatório sem violação atribuível a script legítimo.
+- [ ] Fluxo completo validado em preview com a política enforced.
+- [ ] `curl -sI https://www.inovapro3d.com.br | grep -i content-security-policy` retorna o cabeçalho
+      enforced e nenhum `Report-Only`.
 
 ### Risco e reversão
 
-Quebra de pixel de terceiro é o risco provável. A reversão é publicar novamente como `Report-Only`
-— mudança de uma linha em `vercel.json`, sem redeploy de código.
+Quebra de pixel de terceiro é o risco provável. Durante a observação não há bloqueio. Quando a
+promoção ocorrer, a reversão será trocar a chave do header em `vercel.ts` novamente para
+`Content-Security-Policy-Report-Only` e republicar.
 
 ---
 
@@ -475,3 +491,5 @@ Itens 7 e 6A podem correr em paralelo: tocam arquivos distintos e não compartil
 | 2026-08-29 | Não subir `firebase-admin` via `audit fix --force`                  | Proposta rebaixa para a versão 10.x e quebra a API em uso                                             |
 | 2026-08-29 | Endurecer o webhook Stripe antes de ativá-lo em produção            | Não existe na Vercel; ativar sem transação e idempotência repete a falha já resolvida no Mercado Pago |
 | 2026-08-29 | Validação de cupom será server-side quando o recurso for construído | Consulta pelo cliente exige leitura pública da coleção                                                |
+| 2026-08-31 | Gerar CSP em `vercel.ts` a partir de um módulo compartilhado        | Evita hashes manuais e mantém Vercel, build e Express na mesma política                               |
+| 2026-08-31 | Coletar antes de bloquear                                           | A allowlist precisa ser comprovada por tráfego e fluxos reais; `Report-Only` não quebra a produção    |

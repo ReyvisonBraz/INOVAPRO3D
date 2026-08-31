@@ -10,7 +10,7 @@ INOVAPRO3D/
 │   └── _modelMetadata.ts  ← A lógica de fato (compartilhada com server.ts)
 ├── firestore.rules        ← Regras de segurança do banco de dados
 ├── storage.rules          ← Regras de segurança dos arquivos/imagens
-├── vercel.json            ← Configuração do deploy na Vercel
+├── vercel.ts              ← Deploy e cabeçalhos CSP gerados para a Vercel
 ├── vite.config.ts         ← Configuração do empacotador
 ├── .env                   ← Chaves e segredos (NUNCA vai pro GitHub)
 │
@@ -68,11 +68,11 @@ Em vez de cada tela ter sua própria cópia, existe **uma única fonte da verdad
 
 Os três contexts do projeto:
 
-| Context | Guarda | Persiste onde |
-|---|---|---|
-| `AuthContext` | Usuário logado + perfil (papel: CUSTOMER/ADMIN) | Firebase cuida sozinho |
-| `CartContext` | Itens do carrinho | `localStorage` do navegador (sobrevive a F5) |
-| `ThemeContext` | Tema claro/escuro | `localStorage` |
+| Context        | Guarda                                          | Persiste onde                                |
+| -------------- | ----------------------------------------------- | -------------------------------------------- |
+| `AuthContext`  | Usuário logado + perfil (papel: CUSTOMER/ADMIN) | Firebase cuida sozinho                       |
+| `CartContext`  | Itens do carrinho                               | `localStorage` do navegador (sobrevive a F5) |
+| `ThemeContext` | Tema claro/escuro                               | `localStorage`                               |
 
 ## Conceito-chave 2: A hierarquia de "provedores"
 
@@ -91,16 +91,16 @@ HelmetProvider (SEO)
 
 O `App.tsx` mapeia cada URL para uma página:
 
-| URL | Página | Proteção |
-|---|---|---|
-| `/` | Home | Pública |
-| `/catalogo` | Catálogo | Pública |
-| `/produto/:id` | Detalhe do produto | Pública |
-| `/calculadora` | Calculadora de filamento | Pública |
-| `/checkout` | Finalizar compra | Pública (pede login pra concluir) |
-| `/conhecimento` | Central de ajuda/FAQ | Pública |
-| `/meus-pedidos` | Pedidos do cliente | 🔒 Precisa estar logado |
-| `/admin` | Painel administrativo | 🔒🔒 Precisa ser ADMIN |
+| URL             | Página                   | Proteção                          |
+| --------------- | ------------------------ | --------------------------------- |
+| `/`             | Home                     | Pública                           |
+| `/catalogo`     | Catálogo                 | Pública                           |
+| `/produto/:id`  | Detalhe do produto       | Pública                           |
+| `/calculadora`  | Calculadora de filamento | Pública                           |
+| `/checkout`     | Finalizar compra         | Pública (pede login pra concluir) |
+| `/conhecimento` | Central de ajuda/FAQ     | Pública                           |
+| `/meus-pedidos` | Pedidos do cliente       | 🔒 Precisa estar logado           |
+| `/admin`        | Painel administrativo    | 🔒🔒 Precisa ser ADMIN            |
 
 O **`ProtectedRoute`** é o porteiro: verifica no `AuthContext` se a pessoa está logada
 (e se é admin, quando exigido). Se não estiver, redireciona para a Home.
@@ -166,23 +166,23 @@ Essa separação é **boa prática** ✅ — mas o maestro ficou grande demais
 
 ## Conceito-chave 6: O servidor Express (server.ts)
 
-| Endpoint | O que faz |
-|---|---|
-| `POST /api/stripe/create-payment-intent` | Cria uma cobrança no Stripe |
-| `POST /api/stripe/webhook` | Recebe a confirmação de pagamento do Stripe |
-| `POST /api/notify/new-order` | Manda mensagem no seu Telegram |
-| `GET /api/model-metadata?url=...` | Importa título/fotos de um link do MakerWorld/Bambu |
-| `GET /api/proxy-image?url=...` | Baixa imagem externa para o navegador converter em WebP |
-| `GET /api/health` | Verifica se o servidor está vivo |
+| Endpoint                                 | O que faz                                               |
+| ---------------------------------------- | ------------------------------------------------------- |
+| `POST /api/stripe/create-payment-intent` | Cria uma cobrança no Stripe                             |
+| `POST /api/stripe/webhook`               | Recebe a confirmação de pagamento do Stripe             |
+| `POST /api/notify/new-order`             | Manda mensagem no seu Telegram                          |
+| `GET /api/model-metadata?url=...`        | Importa título/fotos de um link do MakerWorld/Bambu     |
+| `GET /api/proxy-image?url=...`           | Baixa imagem externa para o navegador converter em WebP |
+| `GET /api/health`                        | Verifica se o servidor está vivo                        |
 
 ## Serviços externos que o projeto consome
 
-| Serviço | Usado para | De onde |
-|---|---|---|
-| Firebase (Google) | Login, banco, imagens | Todo o frontend |
-| Stripe | Pagamentos | server.ts + Checkout |
-| Telegram | Notificações pra você | server.ts |
-| ViaCEP | Buscar endereço pelo CEP | Checkout |
-| MyMemory | Traduzir descrições EN→PT na importação | adminHelpers + api/ |
-| Bambu Lab API | Metadados de modelos do MakerWorld | api/_modelMetadata.ts |
-| QR Server | Gerar QR code do PIX manual | MyOrders |
+| Serviço           | Usado para                              | De onde               |
+| ----------------- | --------------------------------------- | --------------------- |
+| Firebase (Google) | Login, banco, imagens                   | Todo o frontend       |
+| Stripe            | Pagamentos                              | server.ts + Checkout  |
+| Telegram          | Notificações pra você                   | server.ts             |
+| ViaCEP            | Buscar endereço pelo CEP                | Checkout              |
+| MyMemory          | Traduzir descrições EN→PT na importação | adminHelpers + api/   |
+| Bambu Lab API     | Metadados de modelos do MakerWorld      | api/_modelMetadata.ts |
+| QR Server         | Gerar QR code do PIX manual             | MyOrders              |
