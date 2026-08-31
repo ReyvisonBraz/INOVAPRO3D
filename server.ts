@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 dotenv.config();
 import express from "express";
+import { existsSync } from "node:fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts";
@@ -32,6 +33,7 @@ import {
   resolveTrustedIdentity,
   resolveVerifiedEmail,
 } from "./api/_orderNotification.ts";
+import { resolveServerRuntime } from "./api/_serverRuntime.ts";
 
 // ── Image proxy host allowlist ─────────────────────────────────────────────
 // Model-import hosts plus the CDNs they serve images from.
@@ -130,6 +132,20 @@ async function verifyTokenWithClaims(req: express.Request): Promise<{
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
+  const distPath = path.join(process.cwd(), "dist");
+  const runtime = resolveServerRuntime({
+    nodeEnv: process.env.NODE_ENV,
+    serveStatic: process.env.SERVE_STATIC,
+    args: process.argv.slice(2),
+    distExists: existsSync(path.join(distPath, "index.html")),
+  });
+
+  // Mantém bibliotecas e diagnósticos alinhados ao modo efetivo. Isso é
+  // especialmente importante quando `npm start` seleciona produção pelo flag
+  // explícito, sem depender de sintaxe de variável de ambiente do shell.
+  process.env.NODE_ENV = runtime.mode;
+  console.log(`[runtime] modo=${runtime.mode} origem=${runtime.source}`);
+  runtime.warnings.forEach((warning) => console.warn(`[runtime] aviso: ${warning}`));
 
   // Stripe webhook needs raw body — register BEFORE express.json()
   const stripeSecret = process.env.STRIPE_SECRET_KEY;
@@ -653,7 +669,7 @@ async function startServer() {
     res.json({
       status: "online",
       timestamp: new Date().toISOString(),
-      environment: process.env.NODE_ENV || "development",
+      environment: runtime.mode,
       checks: {
         firebase: "pending",
         storage: "online",
@@ -733,7 +749,7 @@ async function startServer() {
     }
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  if (!runtime.isProduction) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
@@ -756,7 +772,6 @@ async function startServer() {
       res.setHeader("Content-Security-Policy", CSP);
       next();
     });
-    const distPath = path.join(process.cwd(), "dist");
     app.use(
       express.static(distPath, {
         setHeaders(res, filePath) {
@@ -778,8 +793,13 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`INOVAPRO3D server running at http://localhost:${PORT}`);
+    console.log(
+      `INOVAPRO3D server running at http://localhost:${PORT} (${runtime.mode}, ${runtime.source})`,
+    );
   });
 }
 
-startServer();
+startServer().catch((error) => {
+  console.error("[startup] Não foi possível iniciar o servidor:", error);
+  process.exitCode = 1;
+});

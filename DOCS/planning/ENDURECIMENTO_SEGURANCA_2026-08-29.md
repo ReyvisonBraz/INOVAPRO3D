@@ -65,7 +65,7 @@ Atualizar esta tabela no mesmo commit que muda o código.
 | 7   | CSP em `Report-Only` na produção           | Pendente  | `vercel.json`                                                  |
 | 8   | SSRF por redirecionamento nos proxies      | Pendente  | `server.ts`, `api/_modelMetadata.ts`                           |
 | 9   | Regras do Firestore com lacunas            | Pendente  | `firestore.rules`                                              |
-| 10  | Guarda explícita do modo do Express        | Pendente  | `server.ts`                                                    |
+| 10  | Guarda explícita do modo do Express        | Concluído | `api/_serverRuntime.ts`, `server.ts`, `package.json`           |
 | 11  | Leitura pública de orçamentos no Storage   | Pendente  | `storage.rules`                                                |
 | 12  | Rate limiting distribuído                  | Pendente  | — (espelha item 7 do plano do checkout)                        |
 | 13  | Dependências vulneráveis                   | Pendente  | `firebase-admin` e cadeia `gaxios`/`uuid`                      |
@@ -123,33 +123,41 @@ Evidência verificada:
 
 # FASE 2 — Alto
 
-## Item 10 · Guarda explícita do modo do Express (parcialmente concluído)
+## Item 10 · Guarda explícita do modo do Express (concluído)
 
-O arquivo que forçava `development` já foi removido na Fase 1.7. Resta tornar a escolha do modo
-explícita no servidor auto-hospedado.
+Concluído em 31 de agosto de 2026. O arquivo que forçava `development` foi removido na Fase 1.7 e a
+decisão do modo agora é explícita, validada e coberta por testes.
 
 ### Problema
 
-`server.ts` só aplica os cabeçalhos de segurança (CSP, HSTS, X-Frame-Options, Referrer-Policy,
-Permissions-Policy) no ramo `NODE_ENV === "production"`. No ramo contrário ele monta o **middleware
-de desenvolvimento do Vite**. Antes da Fase 1.7, o `.env` forçava esse modo. Esse risco imediato foi
-removido, mas qualquer host auto-hospedado que não exporte `NODE_ENV` ainda assume desenvolvimento
-sem emitir um aviso específico.
+`server.ts` aplicava os cabeçalhos de segurança apenas quando `NODE_ENV === "production"`; no ramo
+contrário montava o middleware de desenvolvimento do Vite. Depois da remoção do `.env`, `npm start`
+deixou de receber `NODE_ENV=development`, mas também não selecionava produção sozinho. Assim, o
+bundle auto-hospedado ainda podia iniciar o Vite de desenvolvimento silenciosamente.
 
 Na Vercel a plataforma define a variável, então o risco é do caminho auto-hospedado (`npm start`).
 
 ### Passos
 
-1. **Concluído:** remover `NODE_ENV` do `.env` junto com o próprio arquivo na Fase 1.7.
-2. Em `server.ts`, tornar a escolha explícita e ruidosa: derivar `isProduction` uma única vez e
-   registrar no log qual modo foi escolhido e de onde veio a variável.
-3. Adicionar guarda: se `SERVE_STATIC=true` ou se existir `dist/` e `NODE_ENV` não for
-   `production`, emitir aviso claro na saída em vez de subir o Vite silenciosamente.
+1. Remover `NODE_ENV` do `.env` junto com o próprio arquivo na Fase 1.7.
+2. Isolar a decisão em `resolveServerRuntime`, função pura que aceita somente `development`, `test`
+   ou `production` e recusa configurações ambíguas.
+3. Fazer `npm start` passar `--serve-static`; essa intenção explícita seleciona produção sem
+   depender da sintaxe de variáveis do shell e prevalece sobre um `NODE_ENV` conflitante com aviso.
+4. Recusar produção quando `dist/index.html` está ausente. Em desenvolvimento, avisar quando
+   `NODE_ENV` não foi definido e quando há um build que será ignorado.
+5. Expor no health check e no log o modo efetivo calculado pela mesma origem da verdade.
 
 ### Critério de aceite
 
-- `NODE_ENV=production npm start` responde com os cinco cabeçalhos.
-- Subir sem `NODE_ENV` definido imprime aviso explícito informando o modo.
+- Nove testes unitários cobrem produção, desenvolvimento, `test`, flags, conflitos, valores
+  inválidos e build ausente.
+- `npm run check` passa com 357 testes.
+- `npm start`, sem `NODE_ENV`, responde `200`, informa `production` no health check e entrega os
+  sete cabeçalhos: CSP, HSTS, X-Content-Type-Options, X-Frame-Options, Referrer-Policy, COOP e
+  Permissions-Policy.
+- `npm run dev`, sem `NODE_ENV`, responde `200`, informa `development` e registra os dois avisos
+  esperados quando `dist/index.html` existe.
 
 ---
 

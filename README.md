@@ -42,6 +42,9 @@ npm run start
 
 `npm run build` gera o frontend Vite e o bundle do servidor em `dist/`.
 
+`npm start` serve exclusivamente o build de `dist/`, com modo de produção e cabeçalhos de
+segurança. Ele não depende de `NODE_ENV` definido no shell.
+
 `npm run clean` remove `dist/` de forma compativel com Windows.
 
 ## Configuracao
@@ -53,7 +56,10 @@ Variaveis conhecidas:
 - `GEMINI_API_KEY`: exposta pelo Vite como `process.env.GEMINI_API_KEY` para recursos de IA quando usados.
 - `APP_URL`: URL publica da aplicacao, quando houver deploy.
 - `DISABLE_HMR`: quando `true`, desativa HMR/file watching no Vite.
-- `NODE_ENV`: controla modo de desenvolvimento/producao do servidor Express.
+- `NODE_ENV`: aceita apenas `development`, `test` ou `production`. Valor desconhecido impede a
+  inicializacao do servidor.
+- `SERVE_STATIC`: quando `true`, força o build de `dist/`; `npm start` usa o equivalente
+  `--serve-static` automaticamente.
 - `MODEL_IMPORT_ALLOWED_HOSTS`: hosts permitidos no importador de produtos por link. Padrao: `makerworld.com,bambulab.com,bambulab.cn`.
 
 ## Firebase
