@@ -1,7 +1,7 @@
 import type { VercelConfig } from "@vercel/config/v1";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { buildCspPolicy, reportingEndpointsHeader } from "./shared/security/cspPolicy.js";
+import { buildCspPolicy } from "./shared/security/cspPolicy.js";
 
 // A CLI compila vercel.ts em `.vercel/vercel-temp.mjs`; `import.meta.url`
 // apontaria para essa cópia temporária. O cwd permanece na raiz do projeto.
@@ -23,7 +23,10 @@ export const config: VercelConfig = {
           key: "Permissions-Policy",
           value: "camera=(), microphone=(), geolocation=(), payment=(self)",
         },
-        { key: "Reporting-Endpoints", value: reportingEndpointsHeader() },
+        {
+          key: "Reporting-Endpoints",
+          value: 'csp="https://www.inovapro3d.com.br/api/csp-report"',
+        },
         { key: "Content-Security-Policy-Report-Only", value: cspReportOnly },
       ],
     },
