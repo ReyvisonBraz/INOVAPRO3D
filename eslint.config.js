@@ -9,6 +9,7 @@ export default tseslint.config(
     files: [
       "src/**/*.{ts,tsx}",
       "api/**/*.ts",
+      "server/**/*.ts",
       "shared/**/*.ts",
       "scripts/**/*.ts",
       "tests/**/*.ts",

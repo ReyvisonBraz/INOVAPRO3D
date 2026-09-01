@@ -2,19 +2,19 @@
 // servidor. Espelha o endpoint Express em server.ts — na Vercel o runtime de
 // produção são estas funções de api/, não o Express. Mantenha os dois em sincronia.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../firebaseAdmin.js";
-import { AppError } from "../_observability/appError.js";
-import { createRequestContext } from "../_observability/context.js";
-import { sendApiError } from "../_observability/http.js";
-import { logEvent } from "../_observability/logger.js";
+import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { AppError } from "../../server/_observability/appError.js";
+import { createRequestContext } from "../../server/_observability/context.js";
+import { sendApiError } from "../../server/_observability/http.js";
+import { logEvent } from "../../server/_observability/logger.js";
 import {
   computeOrderTotal,
   type OrderLineInput,
   type ProductRecord,
   type MaterialRecord,
-} from "../_orderPricing.js";
+} from "../../server/_orderPricing.js";
 import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing.js";
-import { resolveTrustedIdentity } from "../_orderNotification.js";
+import { resolveTrustedIdentity } from "../../server/_orderNotification.js";
 
 // `userName`/`userEmail` chegam do cliente por compatibilidade, mas são
 // deliberadamente IGNORADOS: a identidade gravada no pedido vem do token

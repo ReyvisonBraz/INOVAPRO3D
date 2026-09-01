@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, isAdminSdkConfigured } from "../firebaseAdmin.js";
-import { AppError } from "../_observability/appError.js";
-import { createRequestContext } from "../_observability/context.js";
-import { sendApiError } from "../_observability/http.js";
-import { logEvent } from "../_observability/logger.js";
-import { resolveVerifiedEmail } from "../_orderNotification.js";
-import { processPayment } from "./_service.js";
+import { getAdminAuth, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { AppError } from "../../server/_observability/appError.js";
+import { createRequestContext } from "../../server/_observability/context.js";
+import { sendApiError } from "../../server/_observability/http.js";
+import { logEvent } from "../../server/_observability/logger.js";
+import { resolveVerifiedEmail } from "../../server/_orderNotification.js";
+import { processPayment } from "../../server/mercadopago/_service.js";
 
 // Rate limiting simples
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();

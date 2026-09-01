@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, getAdminDb } from "../firebaseAdmin.js";
-import { extractSlicerImageWithGemini } from "../_slicerImage.js";
+import { getAdminAuth, getAdminDb } from "../../server/firebaseAdmin.js";
+import { extractSlicerImageWithGemini } from "../../server/_slicerImage.js";
 
 const ALLOWED_MIME_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const MAX_BASE64_LENGTH = 4_000_000;

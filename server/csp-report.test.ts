@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { recordCspReports } from "./_cspReportRecorder.js";
-import handler from "./csp-report";
+import handler from "../api/csp-report";
 
 vi.mock("./_cspReportRecorder.js", () => ({
   recordCspReports: vi.fn(),

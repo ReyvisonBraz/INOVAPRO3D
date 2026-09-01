@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildErrorReport } from "./_reportError.js";
-import { getAdminDb, isAdminSdkConfigured } from "./firebaseAdmin.js";
+import { buildErrorReport } from "../server/_reportError.js";
+import { getAdminDb, isAdminSdkConfigured } from "../server/firebaseAdmin.js";
 
 async function notifyTelegram(text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;

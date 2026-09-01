@@ -6,14 +6,14 @@
 // quando o header estava presente — omitir o header pulava a checagem inteira e
 // transformava a rota em relay de e-mail aberto na internet.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../firebaseAdmin.js";
-import { sendEmail } from "../_email.js";
-import { orderConfirmationEmail } from "../_emailTemplates.js";
+import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { sendEmail } from "../../server/_email.js";
+import { orderConfirmationEmail } from "../../server/_emailTemplates.js";
 import {
   buildOrderTelegramMessage,
   loadOrderForNotification,
   resolveTrustedIdentity,
-} from "../_orderNotification.js";
+} from "../../server/_orderNotification.js";
 
 async function notifyTelegram(text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;

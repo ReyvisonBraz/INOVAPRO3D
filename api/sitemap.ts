@@ -1,6 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { buildSitemapXml, siteBaseUrl, SITEMAP_STATIC_PATHS, type SitemapUrl } from "./_sitemap.js";
-import { getAdminDb, isAdminSdkConfigured } from "./firebaseAdmin.js";
+import {
+  buildSitemapXml,
+  siteBaseUrl,
+  SITEMAP_STATIC_PATHS,
+  type SitemapUrl,
+} from "../server/_sitemap.js";
+import { getAdminDb, isAdminSdkConfigured } from "../server/firebaseAdmin.js";
 
 export default async function handler(_req: VercelRequest, res: VercelResponse) {
   const base = siteBaseUrl();

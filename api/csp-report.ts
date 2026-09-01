@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { isTrustedCspDocument, parseCspReportPayload } from "./_cspReport.js";
-import { recordCspReports } from "./_cspReportRecorder.js";
-import { createRequestContext } from "./_observability/context.js";
-import { logEvent } from "./_observability/logger.js";
+import { isTrustedCspDocument, parseCspReportPayload } from "../server/_cspReport.js";
+import { recordCspReports } from "../server/_cspReportRecorder.js";
+import { createRequestContext } from "../server/_observability/context.js";
+import { logEvent } from "../server/_observability/logger.js";
 
 export const config = {
   api: {

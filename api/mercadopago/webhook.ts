@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { isAdminSdkConfigured } from "../firebaseAdmin.js";
-import { AppError } from "../_observability/appError.js";
-import { createRequestContext } from "../_observability/context.js";
-import { sendApiError } from "../_observability/http.js";
-import { logEvent } from "../_observability/logger.js";
-import { validateWebhookSignature } from "./_webhook.js";
-import { processPaymentWebhook } from "./_webhookService.js";
+import { isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { AppError } from "../../server/_observability/appError.js";
+import { createRequestContext } from "../../server/_observability/context.js";
+import { sendApiError } from "../../server/_observability/http.js";
+import { logEvent } from "../../server/_observability/logger.js";
+import { validateWebhookSignature } from "../../server/mercadopago/_webhook.js";
+import { processPaymentWebhook } from "../../server/mercadopago/_webhookService.js";
 
 interface MercadoPagoWebhookPayload {
   action?: string;

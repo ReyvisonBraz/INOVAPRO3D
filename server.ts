@@ -8,35 +8,35 @@ import express from "express";
 import { existsSync, readFileSync } from "node:fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { isTrustedCspDocument, parseCspReportPayload } from "./api/_cspReport.ts";
-import { recordCspReports } from "./api/_cspReportRecorder.ts";
-import { createRequestContext } from "./api/_observability/context.ts";
-import { readModelMetadata, isAllowedImportHost } from "./api/_modelMetadata.ts";
-import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./api/firebaseAdmin.ts";
-import { buildErrorReport } from "./api/_reportError.ts";
+import { isTrustedCspDocument, parseCspReportPayload } from "./server/_cspReport.ts";
+import { recordCspReports } from "./server/_cspReportRecorder.ts";
+import { createRequestContext } from "./server/_observability/context.ts";
+import { readModelMetadata, isAllowedImportHost } from "./server/_modelMetadata.ts";
+import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./server/firebaseAdmin.ts";
+import { buildErrorReport } from "./server/_reportError.ts";
 import {
   buildSitemapXml,
   siteBaseUrl,
   SITEMAP_STATIC_PATHS,
   type SitemapUrl,
-} from "./api/_sitemap.ts";
-import { sendEmail } from "./api/_email.ts";
-import { orderConfirmationEmail } from "./api/_emailTemplates.ts";
+} from "./server/_sitemap.ts";
+import { sendEmail } from "./server/_email.ts";
+import { orderConfirmationEmail } from "./server/_emailTemplates.ts";
 import {
   computeOrderTotal,
   type OrderLineInput,
   type ProductRecord,
   type MaterialRecord,
-} from "./api/_orderPricing.ts";
+} from "./server/_orderPricing.ts";
 import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "./shared/commercePricing.ts";
-import { extractSlicerImageWithGemini } from "./api/_slicerImage.ts";
+import { extractSlicerImageWithGemini } from "./server/_slicerImage.ts";
 import {
   buildOrderTelegramMessage,
   loadOrderForNotification,
   resolveTrustedIdentity,
   resolveVerifiedEmail,
-} from "./api/_orderNotification.ts";
-import { resolveServerRuntime } from "./api/_serverRuntime.ts";
+} from "./server/_orderNotification.ts";
+import { resolveServerRuntime } from "./server/_serverRuntime.ts";
 import {
   buildCspPolicy,
   CSP_REPORT_PATH,
@@ -382,7 +382,7 @@ async function startServer() {
     const uid = auth.uid;
 
     // `userName`/`userEmail` do corpo são ignorados de propósito — ver
-    // api/_orderNotification.ts. A identidade vem do token verificado.
+    // server/_orderNotification.ts. A identidade vem do token verificado.
     const body = req.body as {
       items?: OrderLineInput[];
       phone?: unknown;
@@ -555,7 +555,7 @@ async function startServer() {
     }
 
     try {
-      const { processPayment } = await import("./api/mercadopago/_service.js");
+      const { processPayment } = await import("./server/mercadopago/_service.js");
       const result = await processPayment({
         orderId,
         paymentMethod,
@@ -600,7 +600,7 @@ async function startServer() {
       return;
     }
 
-    const { validateWebhookSignature } = await import("./api/mercadopago/_webhook.js");
+    const { validateWebhookSignature } = await import("./server/mercadopago/_webhook.js");
     const validation = validateWebhookSignature({
       signature: req.header("x-signature"),
       requestId: req.header("x-request-id"),
@@ -613,7 +613,7 @@ async function startServer() {
     }
 
     try {
-      const { processPaymentWebhook } = await import("./api/mercadopago/_webhookService.js");
+      const { processPaymentWebhook } = await import("./server/mercadopago/_webhookService.js");
       const outcome = await processPaymentWebhook({
         paymentId,
         action: req.body?.action,
