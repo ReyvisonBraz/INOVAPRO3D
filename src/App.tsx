@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from "react";
+import React, { Suspense, lazy, useEffect, useRef, useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -10,22 +10,14 @@ import {
 import { AnimatePresence } from "framer-motion";
 import { HelmetProvider } from "react-helmet-async";
 import { Navbar } from "./components/layout/Navbar";
-import { Footer } from "./components/layout/Footer";
 import { ErrorBoundary } from "./components/layout/ErrorBoundary";
-import FloatingSupport from "./components/ui/FloatingSupport";
-import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { CartProvider } from "./contexts/CartContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
-import CompleteProfileModal from "./components/auth/CompleteProfileModal";
-import { WelcomeModalPresence } from "./components/welcome/WelcomeModal";
-import { maybeShowInstallToast } from "./lib/pwaInstall";
 import { OnboardingProvider, useOnboarding } from "./contexts/OnboardingContext";
-import CookieConsent from "./components/CookieConsent";
 import { trackPageView } from "./lib/analytics";
-import ShapeGrid from "./components/ui/ShapeGrid";
-import GradualBlur from "./components/ui/GradualBlur";
+import { maybeShowInstallToast } from "./lib/pwaInstall";
 import Home from "./pages/public/Home";
 
 const WELCOME_KEY = "inovapro3d:welcomed";
@@ -39,6 +31,19 @@ const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const Knowledge = lazy(() => import("./pages/public/Knowledge"));
 const About = lazy(() => import("./pages/public/About"));
 const NotFound = lazy(() => import("./pages/public/NotFound"));
+const AppBackgroundEffects = lazy(() => import("./components/layout/AppBackgroundEffects"));
+const CompleteProfileModal = lazy(() => import("./components/auth/CompleteProfileModal"));
+const CookieConsent = lazy(() => import("./components/CookieConsent"));
+const FloatingSupport = lazy(() => import("./components/ui/FloatingSupport"));
+const Footer = lazy(() =>
+  import("./components/layout/Footer").then((module) => ({ default: module.Footer })),
+);
+const Toaster = lazy(() => import("sonner").then((module) => ({ default: module.Toaster })));
+const WelcomeModalPresence = lazy(() =>
+  import("./components/welcome/WelcomeModal").then((module) => ({
+    default: module.WelcomeModalPresence,
+  })),
+);
 
 function RouteLoader() {
   return (
@@ -88,7 +93,9 @@ function ProfileModalGate() {
   if (!needsProfileCompletion || dismissed) return null;
   return (
     <AnimatePresence>
-      <CompleteProfileModal onDismiss={() => setDismissed(true)} />
+      <Suspense fallback={null}>
+        <CompleteProfileModal onDismiss={() => setDismissed(true)} />
+      </Suspense>
     </AnimatePresence>
   );
 }
@@ -99,22 +106,21 @@ function WelcomeGate() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith("/admin");
   const { activeStep, advance } = useOnboarding();
-  const [open, setOpen] = useState(false);
+  const [welcomed, setWelcomed] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem(WELCOME_KEY));
+    } catch {
+      return false;
+    }
+  });
+  const skippedWelcome = useRef(false);
+  const open = activeStep === "welcome" && !loading && !user && !isAdminPage && !welcomed;
 
   useEffect(() => {
-    if (activeStep !== "welcome" || loading || open) return;
-    let welcomed = false;
-    try {
-      welcomed = Boolean(localStorage.getItem(WELCOME_KEY));
-    } catch {
-      /* modo privado */
-    }
-    if (!user && !isAdminPage && !welcomed) {
-      setOpen(true);
-    } else {
-      advance(); // não vai exibir → passa para o próximo aviso (cookies)
-    }
-  }, [activeStep, loading, open, user, isAdminPage, advance]);
+    if (activeStep !== "welcome" || loading || open || skippedWelcome.current) return;
+    skippedWelcome.current = true;
+    advance(); // não vai exibir → passa para o próximo aviso (cookies)
+  }, [activeStep, loading, open, advance]);
 
   const handleClose = () => {
     try {
@@ -122,11 +128,15 @@ function WelcomeGate() {
     } catch {
       /* modo privado */
     }
-    setOpen(false);
+    setWelcomed(true);
     advance();
   };
 
-  return <WelcomeModalPresence open={open} onClose={handleClose} />;
+  return (
+    <Suspense fallback={null}>
+      <WelcomeModalPresence open={open} onClose={handleClose} />
+    </Suspense>
+  );
 }
 
 /** Convite de instalação do app — dispara no seu passo do fluxo (2ª+ visita). */
@@ -142,6 +152,81 @@ function InstallGate() {
   return null;
 }
 
+function DeferredCookieConsent() {
+  const { activeStep } = useOnboarding();
+  if (activeStep !== "cookies") return null;
+
+  return (
+    <Suspense fallback={null}>
+      <CookieConsent />
+    </Suspense>
+  );
+}
+
+function DeferredFooter() {
+  const footerRef = useRef<HTMLElement>(null);
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const footer = footerRef.current;
+    if (!footer) return;
+
+    if (!("IntersectionObserver" in window)) {
+      const timer = globalThis.setTimeout(() => setEnabled(true), 0);
+      return () => globalThis.clearTimeout(timer);
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setEnabled(true);
+        observer.disconnect();
+      },
+      { rootMargin: "800px 0px" },
+    );
+    observer.observe(footer);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <footer ref={footerRef} className="min-h-px">
+      {enabled && (
+        <Suspense fallback={null}>
+          <Footer />
+        </Suspense>
+      )}
+    </footer>
+  );
+}
+
+function useDeferredMount(delay = 1200) {
+  const [enabled, setEnabled] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setEnabled(true), delay);
+    return () => window.clearTimeout(timer);
+  }, [delay]);
+
+  return enabled;
+}
+
+function usePrefersReducedMotion() {
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const handleChange = (event: MediaQueryListEvent) => setReducedMotion(event.matches);
+    media.addEventListener("change", handleChange);
+    return () => media.removeEventListener("change", handleChange);
+  }, []);
+
+  return reducedMotion;
+}
+
 function RouterContent() {
   const location = useLocation();
   const isAdminPage = location.pathname.startsWith("/admin");
@@ -151,10 +236,9 @@ function RouterContent() {
     location.pathname === "/checkout" ||
     location.pathname === "/meus-pedidos";
   const { theme } = useTheme();
-
-  // Cores do ShapeGrid de fundo — seguem o tema claro/escuro.
-  const gridBorderColor = theme === "dark" ? "rgba(148, 163, 184, 0.14)" : "rgba(15, 23, 42, 0.14)";
-  const gridHoverColor = theme === "dark" ? "rgba(59, 130, 246, 0.18)" : "rgba(37, 99, 235, 0.14)";
+  const deferredMountReady = useDeferredMount();
+  const reducedMotion = usePrefersReducedMotion();
+  const showVisualEffects = deferredMountReady && !reducedMotion;
 
   return (
     <AuthProvider eager={requiresAuth}>
@@ -170,35 +254,11 @@ function RouterContent() {
           <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
             <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-[radial-gradient(circle,rgba(37,99,235,0.10),transparent_70%)]" />
             <div className="absolute bottom-[-10%] right-[-10%] w-[30%] h-[30%] bg-[radial-gradient(circle,rgba(30,64,175,0.10),transparent_70%)]" />
-            <ShapeGrid
-              direction="diagonal"
-              speed={0.25}
-              squareSize={48}
-              shape="hexagon"
-              borderColor={gridBorderColor}
-              hoverFillColor={gridHoverColor}
-            />
-            {/* GradualBlur nas bordas — desfoca os hexágonos no topo e no
-                rodapé da tela, sumindo com o "degradê em x/y" que aparece
-                no mobile e dando um fade suave ao fundo animado. */}
-            <GradualBlur
-              position="top"
-              target="parent"
-              height="6rem"
-              strength={2}
-              divCount={5}
-              curve="bezier"
-              className="bg-fade-top"
-            />
-            <GradualBlur
-              position="bottom"
-              target="parent"
-              height="6rem"
-              strength={2}
-              divCount={5}
-              curve="bezier"
-              className="bg-fade-bottom"
-            />
+            {showVisualEffects && (
+              <Suspense fallback={null}>
+                <AppBackgroundEffects theme={theme} />
+              </Suspense>
+            )}
           </div>
 
           {!isAdminPage && (
@@ -303,23 +363,27 @@ function RouterContent() {
             </ErrorBoundary>
           </main>
 
-          {!isAdminPage && (
-            <footer>
-              <Footer />
-            </footer>
-          )}
+          {!isAdminPage && <DeferredFooter />}
 
-          {!isAdminPage && <FloatingSupport />}
-          <Toaster
-            position="bottom-center"
-            richColors
-            theme={theme}
-            toastOptions={{ duration: 2800 }}
-          />
+          {!isAdminPage && (
+            <Suspense fallback={null}>
+              <FloatingSupport />
+            </Suspense>
+          )}
+          {deferredMountReady && (
+            <Suspense fallback={null}>
+              <Toaster
+                position="bottom-center"
+                richColors
+                theme={theme}
+                toastOptions={{ duration: 2800 }}
+              />
+            </Suspense>
+          )}
           <ProfileModalGate />
           <OnboardingProvider>
             <WelcomeGate />
-            <CookieConsent />
+            <DeferredCookieConsent />
             <InstallGate />
           </OnboardingProvider>
         </div>

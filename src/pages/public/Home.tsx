@@ -16,15 +16,16 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Link } from "react-router-dom";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "../../components/ui/Button";
 import { FloatingBackground } from "../../components/ui/FloatingBackground";
-import { CategoryExplorer } from "../../components/ui/CategoryExplorer";
 import { Reveal, RevealGroup, RevealItem, RevealText } from "../../components/ui/Reveal";
 import { useFirestoreCollection } from "../../hooks/useFirestoreCollection";
 import { categorySlug } from "../../lib/categoryTree";
 import { filterProductsByCategory } from "../../lib/productCategory";
 import type { Category, Product, ShowcaseItem } from "../../types/domain";
+
+const CategoryExplorer = lazy(() => import("../../components/ui/CategoryExplorer"));
 
 const heroCopyOptions = [
   {
@@ -236,7 +237,9 @@ export default function Home() {
         </div>
       </section>
 
-      <CategoryExplorer />
+      <Suspense fallback={<CategoryExplorerFallback />}>
+        <CategoryExplorer />
+      </Suspense>
 
       <section className="relative overflow-hidden border-y border-white/[0.06] bg-white/[0.025] py-4">
         <div className="homepage-marquee flex gap-8 whitespace-nowrap text-[10px] font-black uppercase tracking-[0.24em] text-white/[0.28]">
@@ -664,6 +667,20 @@ function AnimatedHeroCopy() {
         <span>Envio Brasil</span>
       </div>
     </div>
+  );
+}
+
+function CategoryExplorerFallback() {
+  return (
+    <section className="min-h-[36rem] pb-14 pt-4 sm:pb-20 sm:pt-6" aria-hidden="true">
+      <div className="container-section animate-pulse">
+        <div className="mb-10 space-y-4 sm:mb-12">
+          <div className="h-3 w-28 rounded-full bg-white/[0.06]" />
+          <div className="h-10 max-w-2xl rounded-2xl bg-white/[0.05]" />
+        </div>
+        <div className="aspect-video rounded-[28px] border border-white/[0.06] bg-white/[0.03] sm:aspect-[16/10]" />
+      </div>
+    </section>
   );
 }
 

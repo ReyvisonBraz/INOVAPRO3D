@@ -1,5 +1,3 @@
-import { toast } from "sonner";
-
 /**
  * Gerenciador de instalação do PWA INOVAPRO3D.
  *
@@ -100,27 +98,29 @@ export async function promptInstall(): Promise<boolean> {
 export function showInstallToast() {
   if (isStandalone()) return;
 
-  if (isIOS()) {
+  void import("sonner").then(({ toast }) => {
+    if (isIOS()) {
+      toast("📲 Instale o app INOVAPRO3D", {
+        description: "Toque em Compartilhar e depois em “Adicionar à Tela de Início”.",
+        duration: 9000,
+      });
+      return;
+    }
+
+    if (!canInstall()) return;
+
     toast("📲 Instale o app INOVAPRO3D", {
-      description: "Toque em Compartilhar e depois em “Adicionar à Tela de Início”.",
-      duration: 9000,
-    });
-    return;
-  }
-
-  if (!canInstall()) return;
-
-  toast("📲 Instale o app INOVAPRO3D", {
-    description: "Acesso rápido na sua tela inicial, como um aplicativo.",
-    duration: 12000,
-    action: {
-      label: "Instalar",
-      onClick: () => {
-        void promptInstall().then((accepted) => {
-          if (accepted) toast.success("App instalado! Bem-vindo(a). 🚀");
-        });
+      description: "Acesso rápido na sua tela inicial, como um aplicativo.",
+      duration: 12000,
+      action: {
+        label: "Instalar",
+        onClick: () => {
+          void promptInstall().then((accepted) => {
+            if (accepted) toast.success("App instalado! Bem-vindo(a). 🚀");
+          });
+        },
       },
-    },
+    });
   });
 }
 
