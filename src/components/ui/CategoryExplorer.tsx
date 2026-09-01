@@ -98,10 +98,14 @@ const SWIPE_THRESHOLD = 60;
 const imageVariant = (src: string, width: 360 | 640) => src.replace(/\.webp$/, `-${width}.webp`);
 
 function useReducedMotion() {
-  const [reducedMotion, setReducedMotion] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(() =>
+    typeof window === "undefined"
+      ? false
+      : window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+  );
+
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setReducedMotion(mq.matches);
     const handler = (event: MediaQueryListEvent) => setReducedMotion(event.matches);
     mq.addEventListener("change", handler);
     return () => mq.removeEventListener("change", handler);
@@ -355,7 +359,7 @@ export function CategoryExplorer() {
             flutua nem gruda na tela: rolou, o próximo bloco aparece. */}
         <div className="flex flex-col gap-12 lg:hidden">
           {CATEGORIES.map((category, index) => (
-            <div key={category.id}>
+            <div key={category.id} className="performance-deferred-card">
               <div className="mb-4 flex items-start gap-3 pl-4">
                 <span className="mt-1.5 shrink-0 font-mono text-[10px] font-black tabular-nums text-cyan-400">
                   /{String(index + 1).padStart(2, "0")}

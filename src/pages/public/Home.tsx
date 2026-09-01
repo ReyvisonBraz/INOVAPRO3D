@@ -257,7 +257,7 @@ export default function Home() {
       <section
         ref={catalogSectionRef}
         id="catalogo-preview"
-        className="scroll-mt-28 py-14 sm:py-20"
+        className="performance-deferred-section scroll-mt-28 py-14 sm:py-20"
       >
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 sm:mb-12 lg:flex-row lg:items-end lg:justify-between">
@@ -332,7 +332,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section ref={showcaseSectionRef} className="py-14 sm:py-20">
+      <section ref={showcaseSectionRef} className="performance-deferred-section py-14 sm:py-20">
         <div className="container-section">
           <div className="mb-10 flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
             <div>
@@ -432,7 +432,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container-section py-20 sm:py-28">
+      <section className="performance-deferred-section performance-deferred-section--tall container-section py-20 sm:py-28">
         <div className="grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
           <div>
             <Reveal direction="up">
@@ -489,7 +489,7 @@ export default function Home() {
         </RevealGroup>
       </section>
 
-      <section className="container-section py-20 sm:py-28">
+      <section className="performance-deferred-section performance-deferred-section--tall container-section py-20 sm:py-28">
         <div className="grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <Reveal direction="right" className="min-h-[420px]">
             <div className="relative h-full overflow-hidden rounded-[32px] border border-white/[0.08] bg-white/[0.03]">
@@ -553,7 +553,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container-section pb-28 pt-8 sm:pb-36">
+      <section className="performance-deferred-section container-section pb-28 pt-8 sm:pb-36">
         <div className="relative overflow-hidden rounded-[36px] border border-white/[0.08] bg-white/[0.04] px-6 py-12 sm:px-10 sm:py-16 lg:px-16">
           <FloatingBackground subtle />
           <div className="relative z-10 grid gap-10 lg:grid-cols-[1fr_auto] lg:items-center">
@@ -597,12 +597,12 @@ export default function Home() {
 }
 
 function AnimatedHeroCopy() {
-  const [activeCopy, setActiveCopy] = useState(0);
-  const copy = heroCopyOptions[activeCopy];
+  const [copyCycle, setCopyCycle] = useState(0);
+  const copy = heroCopyOptions[copyCycle % heroCopyOptions.length];
 
   useEffect(() => {
     const interval = window.setInterval(() => {
-      setActiveCopy((current) => (current + 1) % heroCopyOptions.length);
+      setCopyCycle((current) => current + 1);
     }, 6800);
 
     return () => window.clearInterval(interval);
@@ -613,8 +613,8 @@ function AnimatedHeroCopy() {
       <div className="relative min-h-[7.5rem] sm:min-h-[9rem] lg:min-h-[10.5rem]">
         <AnimatePresence mode="wait" initial={false}>
           <motion.h1
-            key={activeCopy}
-            initial={{ opacity: 0 }}
+            key={copyCycle}
+            initial={copyCycle > 0 ? { opacity: 0 } : false}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
@@ -644,8 +644,8 @@ function AnimatedHeroCopy() {
       <div className="relative mt-6 min-h-[4.5rem] max-w-2xl sm:min-h-[3.75rem]">
         <AnimatePresence mode="wait" initial={false}>
           <motion.p
-            key={copy.body}
-            initial={{ opacity: 0 }}
+            key={copyCycle}
+            initial={copyCycle > 0 ? { opacity: 0 } : false}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.9, ease: "easeInOut" }}

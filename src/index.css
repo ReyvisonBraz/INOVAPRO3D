@@ -142,6 +142,28 @@
   }
 }
 
+/*
+ * Mantém o conteúdo fora da dobra no DOM (SEO, acessibilidade e navegação por
+ * âncora continuam intactos), mas adia seu custo de layout e pintura até ele
+ * se aproximar da viewport. O tamanho intrínseco evita saltos na rolagem e o
+ * valor `auto` passa a reutilizar a altura real depois da primeira renderização.
+ */
+@supports (content-visibility: auto) {
+  .performance-deferred-section {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 480px;
+  }
+
+  .performance-deferred-section--tall {
+    contain-intrinsic-size: auto 1060px;
+  }
+
+  .performance-deferred-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 350px;
+  }
+}
+
 /* Noise/Grain Overlay */
 .noise {
   position: fixed;
