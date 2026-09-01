@@ -11,6 +11,10 @@ Complementa `MERCADO_PAGO_HARDENING_UX_PLAN.md`, que já rastreia CSP bloqueante
 limiting distribuído (item 7). Onde houver sobreposição, este documento é a fonte de detalhe e
 aquele permanece como índice do checkout.
 
+Para saber **de quem é a próxima ação** — o que depende de um console de terceiro ou de uma decisão
+sua, e o que a IA executa sozinha mediante autorização — ver `ROTEIRO_EXECUCAO_SEGURANCA.md`. Ele é
+uma visão derivada: o detalhe técnico continua aqui.
+
 ## Princípios do trabalho
 
 - **Falhar fechado.** Ausência de configuração, de token ou de credencial nega o acesso. Nunca
@@ -54,23 +58,23 @@ Três fatos levantados na auditoria mudam a prioridade do que resta e precisam f
 
 Atualizar esta tabela no mesmo commit que muda o código.
 
-| #   | Ponto                                      | Estado        | Onde vive no código                                            |
-| --- | ------------------------------------------ | ------------- | -------------------------------------------------------------- |
-| 1   | Relay de e-mail em `notify/new-order`      | Concluído     | `api/notify/new-order.ts` + `api/_orderNotification.ts`        |
-| 2   | Identidade em pedidos e pagamentos         | Concluído     | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`        |
-| 3   | Injeção de HTML em e-mail/Telegram         | Concluído     | `api/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
-| 4   | Fail-open do sentinela `"unchecked"`       | Concluído     | `server.ts` (`verifyToken`)                                    |
-| 5   | Auditar credenciais órfãs e remover `.env` | Concluído     | auditoria dos provedores + `.env.example`                      |
-| 6   | Webhook Stripe sem valor/idempotência      | Pendente      | `server.ts`; falta `api/stripe/`                               |
-| 7   | CSP em `Report-Only` na produção           | Em observação | `vercel.json`, `shared/security/`, `api/csp-report.ts`         |
-| 8   | SSRF por redirecionamento nos proxies      | Pendente      | `server.ts`, `api/_modelMetadata.ts`                           |
-| 9   | Regras do Firestore com lacunas            | Concluído     | `firestore.rules`, `tests/rules/`, `Footer.tsx`                |
-| 10  | Guarda explícita do modo do Express        | Concluído     | `api/_serverRuntime.ts`, `server.ts`, `package.json`           |
-| 11  | Leitura pública de orçamentos no Storage   | Pendente      | `storage.rules`                                                |
-| 12  | Rate limiting distribuído                  | Pendente      | — (espelha item 7 do plano do checkout)                        |
-| 13  | Dependências vulneráveis                   | Pendente      | `firebase-admin` e cadeia `gaxios`/`uuid`                      |
-| 14  | Cabeçalhos e limites do Express            | Pendente      | `server.ts`                                                    |
-| 15  | `role` em custom claims                    | Pendente      | `firestore.rules`, `storage.rules`, admin                      |
+| #   | Ponto                                      | Estado        | Onde vive no código                                               |
+| --- | ------------------------------------------ | ------------- | ----------------------------------------------------------------- |
+| 1   | Relay de e-mail em `notify/new-order`      | Concluído     | `api/notify/new-order.ts` + `server/_orderNotification.ts`        |
+| 2   | Identidade em pedidos e pagamentos         | Concluído     | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`           |
+| 3   | Injeção de HTML em e-mail/Telegram         | Concluído     | `server/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
+| 4   | Fail-open do sentinela `"unchecked"`       | Concluído     | `server.ts` (`verifyToken`)                                       |
+| 5   | Auditar credenciais órfãs e remover `.env` | Concluído     | auditoria dos provedores + `.env.example`                         |
+| 6   | Webhook Stripe sem valor/idempotência      | Pendente      | `server.ts`; falta `api/stripe/`                                  |
+| 7   | CSP em `Report-Only` na produção           | Em observação | `vercel.json`, `shared/security/`, `api/csp-report.ts`            |
+| 8   | SSRF por redirecionamento nos proxies      | Pendente      | `server.ts`, `server/_modelMetadata.ts`                           |
+| 9   | Regras do Firestore com lacunas            | Concluído     | `firestore.rules`, `tests/rules/`, `Footer.tsx`                   |
+| 10  | Guarda explícita do modo do Express        | Concluído     | `server/_serverRuntime.ts`, `server.ts`, `package.json`           |
+| 11  | Leitura pública de orçamentos no Storage   | Pendente      | `storage.rules`                                                   |
+| 12  | Rate limiting distribuído                  | Pendente      | — (espelha item 7 do plano do checkout)                           |
+| 13  | Dependências vulneráveis                   | Pendente      | `firebase-admin` e cadeia `gaxios`/`uuid`                         |
+| 14  | Cabeçalhos e limites do Express            | Pendente      | `server.ts`                                                       |
+| 15  | `role` em custom claims                    | Pendente      | `firestore.rules`, `storage.rules`, admin                         |
 
 ---
 
@@ -257,13 +261,13 @@ corresponde ao total, sem idempotência (o mesmo evento reprocessado reescreve o
 transação e sem máquina de estados. Nenhum outro tipo de evento é tratado — falha e estorno passam
 despercebidos.
 
-O contraste é interno: `api/mercadopago/_webhookService.ts` faz **tudo isso corretamente**. A
+O contraste é interno: `server/mercadopago/_webhookService.ts` faz **tudo isso corretamente**. A
 assimetria é o problema, não a ausência de conhecimento no time.
 
 ### Decisão
 
 Reaproveitar o padrão do Mercado Pago em vez de inventar outro. A decisão de transição já está
-isolada em `api/mercadopago/_webhookDecision.ts` como função pura testável — o Stripe ganha um
+isolada em `server/mercadopago/_webhookDecision.ts` como função pura testável — o Stripe ganha um
 equivalente com a mesma forma, e a máquina de estados de `shared/payments/paymentStateMachine.ts`
 é reutilizada.
 
@@ -304,12 +308,12 @@ segunda apenas se o Stripe for realmente ativado em produção.
 
 ### Problema
 
-`/api/proxy-image` (`server.ts`) e `readModelMetadata` (`api/_modelMetadata.ts`) validam o host
+`/api/proxy-image` (`server.ts`) e `readModelMetadata` (`server/_modelMetadata.ts`) validam o host
 **antes** do fetch, mas usam `redirect: "follow"`. Um host permitido — ou comprometido, ou que
 aceite URL de redirecionamento aberto — pode devolver 302 para `169.254.169.254` (metadados de
 nuvem) ou para um IP interno, e a requisição segue com a validação já vencida.
 
-Agravantes: `api/_modelMetadata.ts` aceita `http:` além de `https:`, e `/api/model-metadata` não tem
+Agravantes: `server/_modelMetadata.ts` aceita `http:` além de `https:`, e `/api/model-metadata` não tem
 rate limit nem autenticação.
 
 ### Decisão
@@ -319,7 +323,7 @@ revalidando o host a cada salto.
 
 ### Passos
 
-1. Criar `api/_safeFetch.ts` exportando `safeFetch(url, { isAllowedHost, maxRedirects: 3 })`:
+1. Criar `server/_safeFetch.ts` exportando `safeFetch(url, { isAllowedHost, maxRedirects: 3 })`:
    - aceitar apenas `https:`;
    - `redirect: "manual"`, seguindo em laço próprio;
    - revalidar o host contra a allowlist **a cada salto**;
@@ -327,7 +331,7 @@ revalidando o host a cada salto.
      `127/8`, `169.254/16`, `::1`, `fc00::/7`, `fe80::/10`;
    - limite de tamanho e timeout explícitos.
 2. Trocar os dois `fetch` por `safeFetch`.
-3. Remover `http:` da lista aceita em `api/_modelMetadata.ts`.
+3. Remover `http:` da lista aceita em `server/_modelMetadata.ts`.
 4. Aplicar `rateLimit` a `/api/model-metadata` no Express e checar o equivalente na função
    serverless `api/model-metadata.ts`.
 5. Testes: host permitido que redireciona para IP privado → bloqueado; cadeia acima de 3 saltos →
