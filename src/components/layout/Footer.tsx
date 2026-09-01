@@ -11,33 +11,43 @@ export function Footer() {
   const [submitting, setSubmitting] = useState(false);
   const [subscribed, setSubscribed] = useState(false);
 
+  // O e-mail normalizado é o ID do documento: quem decide a duplicidade é o
+  // Firestore, não uma consulta prévia. A checagem anterior lia a coleção
+  // `newsletter`, cuja leitura é reservada ao admin — negada, o `catch` engolia
+  // a exceção e todo visitante recebia "não foi possível concluir".
   const handleNewsletter = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = email.trim().toLowerCase();
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+    // `/` quebraria o caminho do documento; o limite de 254 é o mesmo da regra,
+    // e sem ele a recusa chegaria aqui disfarçada de "já inscrito".
+    if (!trimmed || trimmed.length > 254 || !/^[^\s@/]+@[^\s@/]+\.[^\s@/]+$/.test(trimmed)) {
       toast.error("Informe um e-mail válido.");
       return;
     }
     setSubmitting(true);
     try {
-      const [{ collection, addDoc, serverTimestamp, query, where, getDocs }, { db }] =
-        await Promise.all([import("firebase/firestore"), import("../../services/firebase")]);
-      const exists = await getDocs(
-        query(collection(db, "newsletter"), where("email", "==", trimmed)),
-      );
-      if (!exists.empty) {
-        toast.info("Esse e-mail já está inscrito!");
-        setSubscribed(true);
-        return;
-      }
-      await addDoc(collection(db, "newsletter"), { email: trimmed, createdAt: serverTimestamp() });
+      const [{ doc, setDoc, serverTimestamp }, { db }] = await Promise.all([
+        import("firebase/firestore"),
+        import("../../services/firebase"),
+      ]);
+      await setDoc(doc(db, "newsletter", trimmed), {
+        email: trimmed,
+        createdAt: serverTimestamp(),
+      });
       setSubscribed(true);
       setEmail("");
       toast.success("Inscrito com sucesso!", {
         description: "Você receberá nossas novidades em breve.",
       });
-    } catch {
-      toast.error("Não foi possível concluir. Tente novamente.");
+    } catch (err) {
+      // A regra concede `create` e não `update`: reinscrever esbarra na
+      // permissão em vez de sobrescrever a data da inscrição original.
+      if ((err as { code?: string } | null)?.code === "permission-denied") {
+        setSubscribed(true);
+        toast.info("Esse e-mail já está inscrito!");
+      } else {
+        toast.error("Não foi possível concluir. Tente novamente.");
+      }
     } finally {
       setSubmitting(false);
     }

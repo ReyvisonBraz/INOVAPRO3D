@@ -64,7 +64,7 @@ Atualizar esta tabela no mesmo commit que muda o código.
 | 6   | Webhook Stripe sem valor/idempotência      | Pendente      | `server.ts`; falta `api/stripe/`                               |
 | 7   | CSP em `Report-Only` na produção           | Em observação | `vercel.json`, `shared/security/`, `api/csp-report.ts`         |
 | 8   | SSRF por redirecionamento nos proxies      | Pendente      | `server.ts`, `api/_modelMetadata.ts`                           |
-| 9   | Regras do Firestore com lacunas            | Pendente      | `firestore.rules`                                              |
+| 9   | Regras do Firestore com lacunas            | Concluído     | `firestore.rules`, `tests/rules/`, `Footer.tsx`                |
 | 10  | Guarda explícita do modo do Express        | Concluído     | `api/_serverRuntime.ts`, `server.ts`, `package.json`           |
 | 11  | Leitura pública de orçamentos no Storage   | Pendente      | `storage.rules`                                                |
 | 12  | Rate limiting distribuído                  | Pendente      | — (espelha item 7 do plano do checkout)                        |
@@ -340,10 +340,12 @@ revalidando o host a cada salto.
 
 ---
 
-## Item 9 · Regras do Firestore
+## Item 9 · Regras do Firestore (concluído)
 
-Quatro correções independentes. Todas de baixo risco — a investigação confirmou que o cliente já se
-comporta como as regras deveriam exigir.
+Concluído em 31 de agosto de 2026. Quatro correções independentes, todas de baixo risco — a
+investigação confirmou que o cliente já se comportava como as regras deveriam exigir. A exceção foi
+a newsletter, onde a regra e o cliente estavam em desacordo desde sempre e a inscrição não
+funcionava para ninguém.
 
 ### 9a · Cupons deixam de ser públicos
 
@@ -404,6 +406,53 @@ Aplicar o mesmo raciocínio a `reviewReports`, hoje sem limite por denunciante.
   sobrescreve.
 - Inscrição na newsletter funcionando de ponta a ponta pela interface.
 - Avaliar, editar e remover avaliação continuam funcionando.
+
+### 9e · O defeito que a suíte encontrou: campo opcional que era obrigatório
+
+Descoberto ao rodar a suíte pela primeira vez, não pela revisão de código — é o retorno concreto do
+investimento no emulador.
+
+Em regras do Firestore, ler `data.campo` de uma chave **ausente** não devolve `null`: aborta a
+avaliação com `Property X is undefined on object`, e o efeito é negação total da escrita. Ou seja,
+todo campo declarado opcional via `optionalString(data.campo, …)` era, na prática, **obrigatório** —
+e o erro só aparecia quando alguém omitia a chave.
+
+Havia 24 chamadas nesse formato, em sete validadores (`isValidCustomerUserCreate`,
+`isValidProfileSelfUpdate`, `isValidAdminUserUpdate`, `isValidTicketCreate`, `isValidQuoteCreate`,
+`isValidReview`, `isValidReviewReport`), mais uma escrita inline em `isValidReview`
+(`data.comment == null || …`), que o helper mascarava. Só `isValidCategory` já usava a forma segura.
+Todas passaram para `data.get('campo', null)`, e os helpers ganharam um comentário de ATENÇÃO
+explicando por que a forma direta não pode voltar.
+
+O defeito era **latente**: nenhum código cliente cria tickets, e os fluxos que existem sempre
+enviavam os campos opcionais preenchidos. Continuaria invisível até o primeiro usuário sem foto de
+perfil ou sem comentário na avaliação. Um bloco de testes dedicado (`campos opcionais ausentes`)
+fixa a classe inteira, omitindo _todos_ os campos opcionais de perfil, orçamento, avaliação e
+denúncia.
+
+### Estado da verificação
+
+`tests/rules/firestore.rules.test.ts` — **19 testes, todos passando**. Cobre os seis casos do
+critério de aceite mais a classe de defeito acima. Roda por `npm run test:rules`, que sobe o
+emulador do Firestore via `firebase emulators:exec`. Ficou em configuração própria
+(`vitest.rules.config.ts`) para que `npm run check` continue determinístico e sem dependência de
+Java.
+
+`npm run check` também está verde: 374 testes em 48 arquivos, lint sem erros, Prettier limpo, build
+e verificação de CSP OK.
+
+**Dependência de ambiente:** o emulador exige JDK. Instalado via `brew install openjdk` (26.0.2.1).
+Como a fórmula é _keg-only_, o binário não entra no PATH sozinho — antes de rodar a suíte:
+
+```sh
+export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"
+npm run test:rules
+```
+
+Regra de manutenção: `npm run test:rules` é obrigatório em toda mudança de `firestore.rules`. Como
+não está em `npm run check`, é a disciplina que sustenta a cobertura. Rodar a suíte é pré-requisito
+para publicar as regras com `firebase deploy --only firestore:rules` — o que ainda **não** foi
+feito: as regras estão validadas no emulador, mas não publicadas.
 
 ---
 
@@ -494,3 +543,6 @@ Itens 7 e 6A podem correr em paralelo: tocam arquivos distintos e não compartil
 | 2026-08-29 | Validação de cupom será server-side quando o recurso for construído | Consulta pelo cliente exige leitura pública da coleção                                                |
 | 2026-08-31 | Gerar a CSP versionada com `npm run csp:sync`                       | O deploy Git descartou valores calculados em `vercel.ts`; o verificador impede configuração obsoleta  |
 | 2026-08-31 | Coletar antes de bloquear                                           | A allowlist precisa ser comprovada por tráfego e fluxos reais; `Report-Only` não quebra a produção    |
+| 2026-08-31 | E-mail normalizado como ID do documento na newsletter               | A unicidade vira garantia do Firestore; dispensa a leitura da coleção, que a regra nega ao visitante  |
+| 2026-08-31 | Suíte de regras fora de `npm run check`                             | O emulador exige Java; separar mantém o check determinístico, ao custo de exigir disciplina no rules  |
+| 2026-09-01 | Campo opcional em regra só via `data.get('campo', null)`            | Ler chave ausente aborta a avaliação e nega a escrita: o "opcional" virava obrigatório em silêncio    |

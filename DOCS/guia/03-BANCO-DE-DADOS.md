@@ -19,22 +19,23 @@ Firestore (o arquivo geral)
 
 ### 🛍️ Loja
 
-| Coleção | Guarda | Quem escreve | Quem lê |
-|---|---|---|---|
-| `products` | Produtos do catálogo: nome, descrição, preço, fotos, categoria, estoque, modelo 3D | Admin | Todo mundo (catálogo é público) |
-| `categories` | As **pastas** do catálogo: nome, capa, ordem, ativa/oculta | Admin | Todo mundo |
-| `materials` | Filamentos: PLA, PETG... com cor e preço | Admin | Todo mundo |
-| `showcase` | Banner rotativo da Home/Catálogo | Admin | Todo mundo |
-| `coupons` | Cupons de desconto | Admin | ⚠️ Todo mundo (problema! veja doc 05) |
+| Coleção      | Guarda                                                                             | Quem escreve | Quem lê                              |
+| ------------ | ---------------------------------------------------------------------------------- | ------------ | ------------------------------------ |
+| `products`   | Produtos do catálogo: nome, descrição, preço, fotos, categoria, estoque, modelo 3D | Admin        | Todo mundo (catálogo é público)      |
+| `categories` | As **pastas** do catálogo: nome, capa, ordem, ativa/oculta                         | Admin        | Todo mundo                           |
+| `materials`  | Filamentos: PLA, PETG... com cor e preço                                           | Admin        | Todo mundo                           |
+| `showcase`   | Banner rotativo da Home/Catálogo                                                   | Admin        | Todo mundo                           |
+| `coupons`    | Cupons de desconto                                                                 | Admin        | Só admin (a validação é no servidor) |
 
 ### 📦 Vendas
 
-| Coleção | Guarda | Quem escreve | Quem lê |
-|---|---|---|---|
-| `orders` | Pedidos: itens, total, endereço, status, rastreio | Cliente cria; admin atualiza | Cliente vê os seus; admin vê todos |
+| Coleção  | Guarda                                                             | Quem escreve                 | Quem lê                            |
+| -------- | ------------------------------------------------------------------ | ---------------------------- | ---------------------------------- |
+| `orders` | Pedidos: itens, total, endereço, status, rastreio                  | Cliente cria; admin atualiza | Cliente vê os seus; admin vê todos |
 | `quotes` | Orçamentos personalizados: arquivo, material, peso, preço estimado | Cliente cria; admin gerencia | Cliente vê os seus; admin vê todos |
 
 **Status de um pedido** (a "esteira" de produção):
+
 ```
 PENDING_PAYMENT → PAID → QUEUE → SLICING → PRINTING
                 → FINISHING → READY → SHIPPED → COMPLETED
@@ -43,22 +44,22 @@ PENDING_PAYMENT → PAID → QUEUE → SLICING → PRINTING
 
 ### 👥 Pessoas
 
-| Coleção | Guarda | Detalhe importante |
-|---|---|---|
-| `users` | Perfil de cada usuário logado: nome, e-mail, foto, **papel** (role) | O campo `role` define quem é ADMIN. Criado automaticamente no 1º login como CUSTOMER |
-| `customers` | CRM: clientes com tags, telefone, anotações | Só admin acessa |
-| `newsletter` | E-mails inscritos no rodapé do site | Qualquer um pode se inscrever |
+| Coleção      | Guarda                                                              | Detalhe importante                                                                                              |
+| ------------ | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `users`      | Perfil de cada usuário logado: nome, e-mail, foto, **papel** (role) | O campo `role` define quem é ADMIN. Criado automaticamente no 1º login como CUSTOMER                            |
+| `customers`  | CRM: clientes com tags, telefone, anotações                         | Só admin acessa                                                                                                 |
+| `newsletter` | E-mails inscritos no rodapé do site                                 | Qualquer um pode se inscrever. **O ID do documento é o próprio e-mail** — é isso que impede inscrição duplicada |
 
 ### 🛠️ Operação
 
-| Coleção | Guarda |
-|---|---|
-| `tickets` | Pedidos de suporte enviados pelos clientes |
-| `faqs` | Perguntas frequentes da Central de Ajuda |
-| `settings` | Configurações globais (frete fixo, banner promo, modo manutenção) |
-| `logs` | Trilha de auditoria: o que cada admin fez e quando |
-| `savedCalculations` | Cálculos salvos da calculadora de filamento |
-| `system` | Documento `health` usado só pra testar a conexão |
+| Coleção             | Guarda                                                                            |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `tickets`           | Pedidos de suporte enviados pelos clientes (é preciso estar logado para abrir um) |
+| `faqs`              | Perguntas frequentes da Central de Ajuda                                          |
+| `settings`          | Configurações globais (frete fixo, banner promo, modo manutenção)                 |
+| `logs`              | Trilha de auditoria: o que cada admin fez e quando                                |
+| `savedCalculations` | Cálculos salvos da calculadora de filamento                                       |
+| `system`            | Documento `health` usado só pra testar a conexão                                  |
 
 ## O arquivo de "contratos": types/domain.ts
 
@@ -66,15 +67,15 @@ Esse arquivo define **a forma exata** de cada dado. Exemplo real:
 
 ```typescript
 export interface Product {
-  id: string;            // identificador único
-  name: string;          // nome do produto
-  description: string;   // descrição
-  basePrice: number;     // preço base em reais
-  images: string[];      // lista de URLs das fotos
-  category: string;      // em qual pasta está
-  active?: boolean;      // visível no site? (o "?" = campo opcional)
-  stock?: number;        // quantas unidades
-  modelUrl?: string;     // arquivo 3D para o visualizador
+  id: string; // identificador único
+  name: string; // nome do produto
+  description: string; // descrição
+  basePrice: number; // preço base em reais
+  images: string[]; // lista de URLs das fotos
+  category: string; // em qual pasta está
+  active?: boolean; // visível no site? (o "?" = campo opcional)
+  stock?: number; // quantas unidades
+  modelUrl?: string; // arquivo 3D para o visualizador
   // ...
 }
 ```
@@ -112,7 +113,13 @@ isAdmin()     → o papel dela no banco é "ADMIN"?
 ```
 
 Exemplo traduzido para português:
+
 > "Qualquer um pode LER produtos. Só admin pode CRIAR/EDITAR/APAGAR produtos."
 > "Um cliente só pode LER os pedidos onde o userId é o dele. Admin lê todos."
 
-⚠️ Existem dois pontos fracos nessas regras hoje — explicados na doc **05-SEGURANCA.md**.
+Um detalhe que vale saber: em várias coleções **o ID do documento é a regra**. A avaliação vai em
+`produto_usuário`, o voto em `avaliação__usuário`, a inscrição da newsletter no próprio e-mail. É o
+que garante "um por pessoa" sem precisar consultar o banco antes de gravar.
+
+⚠️ Ao mudar `firestore.rules`, rode `npm run test:rules`: o emulador confere se as regras cumprem o
+que os comentários prometem. Ela não entra no `npm run check` porque precisa de Java.

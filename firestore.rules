@@ -18,6 +18,11 @@ service cloud.firestore {
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
     function changedKeys() { return incoming().diff(existing()).affectedKeys(); }
+    // ATENÇÃO ao chamar estes dois: passe sempre `data.get('campo', null)`, e
+    // nunca `data.campo`. Acessar uma chave ausente não devolve null — aborta a
+    // avaliação da regra com "Property X is undefined on object", e o efeito é
+    // uma negação total. O campo "opcional" vira obrigatório sem que ninguém
+    // perceba, porque o erro só aparece quando alguém omite a chave.
     function optionalString(value, maxSize) {
       return value == null || (value is string && value.size() <= maxSize);
     }
@@ -39,30 +44,30 @@ service cloud.firestore {
              data.role == 'CUSTOMER' &&
              data.createdAt == request.time &&
              (!('loyaltyPoints' in data) || data.loyaltyPoints == 0) &&
-             optionalString(data.name, 160) &&
-             optionalString(data.firstName, 80) &&
-             optionalString(data.lastName, 80) &&
-             optionalString(data.photoURL, 2048);
+             optionalString(data.get('name', null), 160) &&
+             optionalString(data.get('firstName', null), 80) &&
+             optionalString(data.get('lastName', null), 80) &&
+             optionalString(data.get('photoURL', null), 2048);
     }
 
     function isValidProfileSelfUpdate() {
       return changedKeys().hasOnly(['name', 'firstName', 'lastName', 'phone', 'addresses', 'photoURL']) &&
-             optionalString(incoming().name, 160) &&
-             optionalString(incoming().firstName, 80) &&
-             optionalString(incoming().lastName, 80) &&
-             optionalString(incoming().phone, 32) &&
-             optionalString(incoming().photoURL, 2048);
+             optionalString(incoming().get('name', null), 160) &&
+             optionalString(incoming().get('firstName', null), 80) &&
+             optionalString(incoming().get('lastName', null), 80) &&
+             optionalString(incoming().get('phone', null), 32) &&
+             optionalString(incoming().get('photoURL', null), 2048);
     }
 
     function isValidAdminUserUpdate() {
       return changedKeys().hasOnly(['role', 'loyaltyPoints', 'name', 'firstName', 'lastName', 'phone', 'addresses', 'photoURL']) &&
              isValidUser(incoming()) &&
-             optionalString(incoming().name, 160) &&
-             optionalString(incoming().firstName, 80) &&
-             optionalString(incoming().lastName, 80) &&
-             optionalString(incoming().phone, 32) &&
-             optionalString(incoming().photoURL, 2048) &&
-             optionalNumber(incoming().loyaltyPoints);
+             optionalString(incoming().get('name', null), 160) &&
+             optionalString(incoming().get('firstName', null), 80) &&
+             optionalString(incoming().get('lastName', null), 80) &&
+             optionalString(incoming().get('phone', null), 32) &&
+             optionalString(incoming().get('photoURL', null), 2048) &&
+             optionalNumber(incoming().get('loyaltyPoints', null));
     }
 
     function isValidTicketCreate(data) {
@@ -72,23 +77,38 @@ service cloud.firestore {
              data.message is string && data.message.size() >= 10 && data.message.size() <= 4000 &&
              data.status == 'OPEN' &&
              data.createdAt == request.time &&
-             optionalString(data.userId, 128) &&
-             optionalString(data.userName, 160) &&
-             optionalString(data.email, 254) &&
-             optionalString(data.phone, 32);
+             optionalString(data.get('userId', null), 128) &&
+             optionalString(data.get('userName', null), 160) &&
+             optionalString(data.get('email', null), 254) &&
+             optionalString(data.get('phone', null), 32);
+    }
+
+    // O ID do documento É o e-mail normalizado. Isso transforma a unicidade da
+    // inscrição em uma garantia do próprio Firestore: o cliente não precisa
+    // consultar a coleção antes de gravar — leitura que a regra nega e que
+    // quebrava a inscrição para todo visitante.
+    function isValidNewsletterSignup(docId, data) {
+      return data.keys().hasOnly(['email', 'createdAt']) &&
+             data.keys().hasAll(['email', 'createdAt']) &&
+             data.email is string &&
+             data.email.size() <= 254 &&
+             data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$') &&
+             data.email == data.email.lower() &&
+             docId == data.email &&
+             data.createdAt == request.time;
     }
 
     function isValidQuoteCreate(data) {
       return data.keys().hasOnly(['userId', 'userName', 'userEmail', 'status', 'fileName', 'materialId', 'infill', 'estimatedPrice', 'createdAt']) &&
              data.keys().hasAll(['userId', 'status', 'fileName', 'materialId', 'infill', 'createdAt']) &&
              data.userId == request.auth.uid &&
-             optionalString(data.userName, 160) &&
-             optionalString(data.userEmail, 254) &&
+             optionalString(data.get('userName', null), 160) &&
+             optionalString(data.get('userEmail', null), 254) &&
              data.status == 'PENDING' &&
              data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 120 &&
              isValidId(data.materialId) &&
              data.infill is number && data.infill >= 0 && data.infill <= 100 &&
-             optionalNumber(data.estimatedPrice) &&
+             optionalNumber(data.get('estimatedPrice', null)) &&
              data.createdAt == request.time;
     }
 
@@ -108,9 +128,9 @@ service cloud.firestore {
       return data.productId is string && data.productId.size() <= 128 &&
              data.userId is string &&
              data.rating is number && data.rating >= 1 && data.rating <= 5 &&
-             (data.comment == null || (data.comment is string && data.comment.size() <= 1000)) &&
-             optionalString(data.userName, 160) &&
-             optionalString(data.userPhoto, 2048) &&
+             optionalString(data.get('comment', null), 1000) &&
+             optionalString(data.get('userName', null), 160) &&
+             optionalString(data.get('userPhoto', null), 2048) &&
              data.keys().hasAll(['productId', 'userId', 'rating', 'createdAt']) &&
              data.keys().hasOnly(['productId', 'userId', 'userName', 'userPhoto', 'rating', 'comment', 'createdAt', 'updatedAt', 'hidden']);
     }
@@ -128,7 +148,7 @@ service cloud.firestore {
       return data.reviewId is string && data.reviewId.size() <= 256 &&
              data.productId is string && data.productId.size() <= 128 &&
              data.reporterId is string &&
-             optionalString(data.reason, 500) &&
+             optionalString(data.get('reason', null), 500) &&
              data.keys().hasAll(['reviewId', 'productId', 'reporterId', 'createdAt']) &&
              data.keys().hasOnly(['reviewId', 'productId', 'reporterId', 'reason', 'createdAt']);
     }
@@ -192,9 +212,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // COUPONS
+    // COUPONS — código, percentual, limite de uso e validade são regra
+    // comercial, não conteúdo de vitrine: leitura pública entregava a tabela
+    // inteira de descontos a qualquer visitante. Quando o recurso for
+    // construído, a validação do cupom acontece no servidor, dentro de
+    // `orders/create`, junto do recálculo do total — nunca por consulta do
+    // cliente, que exigiria reabrir esta leitura.
     match /coupons/{couponId} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -205,9 +230,14 @@ service cloud.firestore {
       // O dono cria/edita, mas nunca controla o campo `hidden` (moderação):
       // no create ele não pode existir; no update ele deve ser preservado —
       // isso impede reexibir uma avaliação ocultada apenas reenviando-a.
+      // O ID determinístico é o que impõe "1 avaliação por usuário por
+      // produto". Sem exigi-lo, bastava variar o ID do documento para publicar
+      // avaliações ilimitadas do mesmo produto — o comentário prometia um
+      // limite que a regra não cobrava.
       allow create: if isSignedIn()
                     && isValidReview(incoming())
                     && incoming().userId == request.auth.uid
+                    && reviewId == incoming().productId + '_' + request.auth.uid
                     && !('hidden' in incoming());
       allow update: if isSignedIn()
                     && isValidReview(incoming())
@@ -218,30 +248,38 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
     }
 
-    // VOTOS de "útil / não útil" nas avaliações. 1 por usuário por avaliação.
+    // VOTOS de "útil / não útil" nas avaliações. 1 por usuário por avaliação —
+    // garantido pelo ID `reviewId__uid` (dois underscores), o mesmo que
+    // `useReviews.ts` já grava. Sem a exigência, o mesmo usuário empilhava
+    // votos variando o ID.
     match /reviewVotes/{voteId} {
       allow read: if true;
       allow create, update: if isSignedIn()
                             && isValidReviewVote(incoming())
-                            && incoming().userId == request.auth.uid;
+                            && incoming().userId == request.auth.uid
+                            && voteId == incoming().reviewId + '__' + request.auth.uid;
       allow delete: if isSignedIn() && existing().userId == request.auth.uid;
     }
 
     // DENÚNCIAS de avaliações. Criadas por qualquer logado; só admin lê/modera.
+    // Mesmo ID determinístico dos votos: uma denúncia por pessoa por avaliação,
+    // senão um único denunciante inunda a fila de moderação.
     match /reviewReports/{reportId} {
       allow read: if isAdmin();
       allow create: if isSignedIn()
                     && isValidReviewReport(incoming())
-                    && incoming().reporterId == request.auth.uid;
+                    && incoming().reporterId == request.auth.uid
+                    && reportId == incoming().reviewId + '__' + request.auth.uid;
       allow delete: if isAdmin();
     }
 
-    // NEWSLETTER
+    // NEWSLETTER — inscrição anônima continua permitida (é um formulário
+    // público), mas só na forma exata: e-mail como ID, `createdAt` carimbado
+    // pelo servidor e nenhum campo extra. Sem `update`: reinscrever falha em
+    // vez de sobrescrever a data da inscrição original.
     match /newsletter/{docId} {
       allow read: if isAdmin();
-      allow create: if incoming().email is string &&
-                       incoming().email.size() <= 254 &&
-                       incoming().keys().hasOnly(['email', 'createdAt']);
+      allow create: if isValidNewsletterSignup(docId, incoming());
     }
 
     // SAVED CALCULATIONS
@@ -262,10 +300,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // TICKETS
+    // TICKETS — a validação de formato não limitava quem escreve: sem
+    // `isSignedIn()` qualquer anônimo criava chamados em volume. Nenhum ponto
+    // do cliente cria ticket hoje (o painel só lê e atualiza), então exigir
+    // sessão não muda nada em uso. Um formulário de contato anônimo, se
+    // entrar no roadmap, passa por endpoint com rate limit — não por
+    // reabertura desta regra.
     match /tickets/{ticketId} {
       allow read: if isAdmin();
-      allow create: if isValidTicketCreate(incoming());
+      allow create: if isSignedIn() && isValidTicketCreate(incoming());
       allow update, delete: if isAdmin();
     }
 

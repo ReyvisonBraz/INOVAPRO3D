@@ -44,17 +44,18 @@ internos da infraestrutura (ataque chamado SSRF).
 - A conversão tenta carregar direto primeiro; o proxy é só o plano B para
   hosts que bloqueiam o navegador
 
-### 3. Os cupons de desconto são públicos
+### 3. Os cupons de desconto são públicos — ✅ CORRIGIDO
 
 **Onde:** `firestore.rules` — coleção `coupons`
 
-**O problema:** hoje qualquer visitante consegue listar **todos os cupons
-com seus percentuais de desconto** direto do banco. Alguém pode descobrir
-cupons que você nem divulgou.
+**O problema:** qualquer visitante conseguia listar **todos os cupons com seus
+percentuais de desconto** direto do banco, inclusive os que você nem divulgou.
 
-**A correção:** restringir a leitura a admin e validar o cupom no servidor
-durante o checkout (o cliente digita o código, o servidor responde só
-"válido/inválido").
+**Correção aplicada (ago/2026):** leitura restrita a admin. Quando o recurso de
+cupom for de fato construído, a validação acontece no servidor durante o
+checkout — o cliente digita o código e o servidor responde só
+"válido/inválido". Consultar a coleção pelo navegador exigiria reabrir a
+leitura.
 
 ### 4. GEMINI_API_KEY exposta no site (se preenchida) — ✅ CORRIGIDO
 
@@ -92,5 +93,10 @@ usar Gemini, chamar somente pelo servidor.
 2. ~~Remover `GEMINI_API_KEY` do `vite.config.ts`~~ ✅ Feito (jun/2026)
 3. ~~Remover/proteger `/api/debug/markers`~~ ✅ Feito (jun/2026)
 4. ~~Rate limiting nos endpoints~~ ✅ Feito (jun/2026) — notify: 5/min, proxy: 60/min
-5. Tornar `coupons` admin-only nas regras — quando for usar cupons de verdade
-6. Proteger `/api/notify/new-order` com verificação de token Firebase (requer `firebase-admin`)
+5. ~~Tornar `coupons` admin-only nas regras~~ ✅ Feito (ago/2026)
+6. ~~Proteger `/api/notify/new-order` com verificação de token Firebase~~ ✅ Feito (ago/2026) —
+   token obrigatório e o pedido precisa ser do próprio chamador
+
+> Ao mexer em `firestore.rules`, rode `npm run test:rules`. A suíte sobe o emulador do Firestore e
+> confere as promessas que as regras fazem (um voto por avaliação, uma inscrição por e-mail etc.).
+> Ela não roda no `npm run check` porque precisa de Java instalado.
