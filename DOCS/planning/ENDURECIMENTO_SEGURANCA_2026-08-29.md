@@ -62,7 +62,7 @@ Atualizar esta tabela no mesmo commit que muda o código.
 | 4   | Fail-open do sentinela `"unchecked"`       | Concluído     | `server.ts` (`verifyToken`)                                    |
 | 5   | Auditar credenciais órfãs e remover `.env` | Concluído     | auditoria dos provedores + `.env.example`                      |
 | 6   | Webhook Stripe sem valor/idempotência      | Pendente      | `server.ts`; falta `api/stripe/`                               |
-| 7   | CSP em `Report-Only` na produção           | Em observação | `vercel.ts`, `shared/security/`, `api/csp-report.ts`           |
+| 7   | CSP em `Report-Only` na produção           | Em observação | `vercel.json`, `shared/security/`, `api/csp-report.ts`         |
 | 8   | SSRF por redirecionamento nos proxies      | Pendente      | `server.ts`, `api/_modelMetadata.ts`                           |
 | 9   | Regras do Firestore com lacunas            | Pendente      | `firestore.rules`                                              |
 | 10  | Guarda explícita do modo do Express        | Concluído     | `api/_serverRuntime.ts`, `server.ts`, `package.json`           |
@@ -208,11 +208,12 @@ erro óbvio. A geração precisa ser automática no build.
 
 1. **Concluído:** `shared/security/cspPolicy.ts` extrai cada `<script>` sem `src`, calcula os hashes
    SHA-256 e monta a política a partir de uma única fonte de verdade.
-2. **Concluído:** substituir `vercel.json` por `vercel.ts`. A configuração programática lê o
-   `index.html` durante a compilação de configuração e injeta automaticamente a política e
-   `Reporting-Endpoints`.
-3. **Concluído:** `scripts/verify-csp.ts`, encadeado ao build, compara os hashes do fonte e do
-   artefato, recusa handlers HTML `on*` e recusa `'unsafe-inline'` em `script-src`.
+2. **Concluído:** gerar a política versionada em `vercel.json` com `npm run csp:sync`. O deploy via
+   Git removeu valores computados de `vercel.ts`, embora a CLI local os aceitasse; a configuração
+   estática gerada é a opção que a validação remota honra de forma determinística.
+3. **Concluído:** `scripts/verify-csp.ts`, encadeado ao build, compara os hashes do fonte, do
+   artefato e de `vercel.json`, recusa handlers HTML `on*` e recusa `'unsafe-inline'` em
+   `script-src`. Se alguém editar um script sem sincronizar, o build falha com a correção exata.
 4. **Concluído:** remover o `onload` inline do preload de CSS. O bootstrap já coberto por hash passa
    a registrar o evento e mantém fallback de oito segundos para não prender o shell inicial.
 5. **Concluído:** `api/csp-report.ts` aceita `report-uri` e Reporting API, limita corpo a 32 KiB,
@@ -242,7 +243,7 @@ erro óbvio. A geração precisa ser automática no build.
 ### Risco e reversão
 
 Quebra de pixel de terceiro é o risco provável. Durante a observação não há bloqueio. Quando a
-promoção ocorrer, a reversão será trocar a chave do header em `vercel.ts` novamente para
+promoção ocorrer, a reversão será trocar a chave do header em `vercel.json` novamente para
 `Content-Security-Policy-Report-Only` e republicar.
 
 ---
@@ -491,5 +492,5 @@ Itens 7 e 6A podem correr em paralelo: tocam arquivos distintos e não compartil
 | 2026-08-29 | Não subir `firebase-admin` via `audit fix --force`                  | Proposta rebaixa para a versão 10.x e quebra a API em uso                                             |
 | 2026-08-29 | Endurecer o webhook Stripe antes de ativá-lo em produção            | Não existe na Vercel; ativar sem transação e idempotência repete a falha já resolvida no Mercado Pago |
 | 2026-08-29 | Validação de cupom será server-side quando o recurso for construído | Consulta pelo cliente exige leitura pública da coleção                                                |
-| 2026-08-31 | Gerar CSP em `vercel.ts` a partir de um módulo compartilhado        | Evita hashes manuais e mantém Vercel, build e Express na mesma política                               |
+| 2026-08-31 | Gerar a CSP versionada com `npm run csp:sync`                       | O deploy Git descartou valores calculados em `vercel.ts`; o verificador impede configuração obsoleta  |
 | 2026-08-31 | Coletar antes de bloquear                                           | A allowlist precisa ser comprovada por tráfego e fluxos reais; `Report-Only` não quebra a produção    |

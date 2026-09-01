@@ -69,12 +69,12 @@ usar Gemini, chamar somente pelo servidor.
 
 ## 🟡 Pontos de atenção (menores)
 
-| O quê                                     | Onde                                         | Risco                                                                                  |
-| ----------------------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
-| ~~Endpoint de debug público~~             | ~~`GET /api/debug/markers`~~                 | ✅ Removido (jun/2026) — não era usado por nada                                        |
-| Coleção `settings` pública                | `firestore.rules`                            | OK se só tiver frete/banner; nunca guardar nada sensível ali                           |
-| CSP ainda não bloqueante                  | `shared/security/cspPolicy.ts` / `vercel.ts` | Política com hashes está em `Report-Only`; analisar os relatos reais antes de promover |
-| Sem limite de requisições (rate limiting) | Todos os endpoints                           | Alguém pode martelar os endpoints; mitigar com Vercel/Cloudflare                       |
+| O quê                                     | Onde                                           | Risco                                                                                  |
+| ----------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------- |
+| ~~Endpoint de debug público~~             | ~~`GET /api/debug/markers`~~                   | ✅ Removido (jun/2026) — não era usado por nada                                        |
+| Coleção `settings` pública                | `firestore.rules`                              | OK se só tiver frete/banner; nunca guardar nada sensível ali                           |
+| CSP ainda não bloqueante                  | `shared/security/cspPolicy.ts` / `vercel.json` | Política com hashes está em `Report-Only`; analisar os relatos reais antes de promover |
+| Sem limite de requisições (rate limiting) | Todos os endpoints                             | Alguém pode martelar os endpoints; mitigar com Vercel/Cloudflare                       |
 
 ## ✅ O que JÁ está bem feito
 

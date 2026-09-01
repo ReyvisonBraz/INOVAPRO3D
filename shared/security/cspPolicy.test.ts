@@ -47,6 +47,23 @@ describe("CSP policy", () => {
     expect(findInlineEventHandlers(html)).toEqual([]);
   });
 
+  it("mantém a configuração versionada da Vercel sincronizada", () => {
+    const html = readFileSync(new URL("../../index.html", import.meta.url), "utf8");
+    const config = JSON.parse(
+      readFileSync(new URL("../../vercel.json", import.meta.url), "utf8"),
+    ) as {
+      headers: Array<{
+        source: string;
+        headers: Array<{ key: string; value: string }>;
+      }>;
+    };
+    const policy = config.headers
+      .find((entry) => entry.source === "/(.*)")
+      ?.headers.find((header) => header.key === "Content-Security-Policy-Report-Only")?.value;
+
+    expect(policy).toBe(buildCspPolicy(html));
+  });
+
   it("recusa endpoint de reporting sem HTTPS", () => {
     expect(() => reportingEndpointsHeader("http://example.test/report")).toThrow("HTTPS");
   });

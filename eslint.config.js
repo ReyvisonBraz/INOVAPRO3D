@@ -6,14 +6,7 @@ import eslintConfigPrettier from "eslint-config-prettier";
 export default tseslint.config(
   { ignores: ["dist/", ".vercel/", "node_modules/", "*.config.js", "*.config.ts"] },
   {
-    files: [
-      "src/**/*.{ts,tsx}",
-      "api/**/*.ts",
-      "shared/**/*.ts",
-      "scripts/**/*.ts",
-      "server.ts",
-      "vercel.ts",
-    ],
+    files: ["src/**/*.{ts,tsx}", "api/**/*.ts", "shared/**/*.ts", "scripts/**/*.ts", "server.ts"],
     extends: [...tseslint.configs.recommended],
     plugins: {
       "react-hooks": reactHooks,

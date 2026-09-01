@@ -75,8 +75,9 @@ npm run build   # gera a versão otimizada em dist/
 npm run start   # roda o servidor em produção
 ```
 
-O deploy é feito pela **Vercel**. O arquivo `vercel.ts` configura rotas, cache e cabeçalhos de
-segurança; ele também gera automaticamente os hashes da política CSP.
+O deploy é feito pela **Vercel**. O arquivo `vercel.json` configura rotas, cache e cabeçalhos de
+segurança. Os hashes da política CSP são atualizados por `npm run csp:sync` e conferidos em todo
+build.
 
 ### Verificar se o código tem erros
 

@@ -10,7 +10,7 @@ INOVAPRO3D/
 │   └── _modelMetadata.ts  ← A lógica de fato (compartilhada com server.ts)
 ├── firestore.rules        ← Regras de segurança do banco de dados
 ├── storage.rules          ← Regras de segurança dos arquivos/imagens
-├── vercel.ts              ← Deploy e cabeçalhos CSP gerados para a Vercel
+├── vercel.json            ← Deploy e cabeçalhos CSP gerados para a Vercel
 ├── vite.config.ts         ← Configuração do empacotador
 ├── .env                   ← Chaves e segredos (NUNCA vai pro GitHub)
 │

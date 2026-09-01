@@ -40,7 +40,7 @@ comece pela leitura do plano, e não por uma investigação do repositório.
 | 6   | Endpoint de status confiável   | Pendente      | `api/mercadopago/payment-status.ts` ainda só lê o Firestore                      |
 | 7   | Rate limiting distribuído      | Pendente      | —                                                                                |
 | 8   | Contratos de erro e observação | Concluído     | `shared/errors/catalog.ts`, `api/_observability/`, `src/lib/apiError.ts`         |
-| 9   | CSP bloqueante                 | Em observação | `vercel.ts` mantém a política endurecida em `Report-Only`                        |
+| 9   | CSP bloqueante                 | Em observação | `vercel.json` mantém a política gerada em `Report-Only`                          |
 | 10  | IP e dados adicionais corretos | Concluído     | IP fictício removido de `api/mercadopago/_client.ts`                             |
 | 11  | Redesign do checkout           | Concluído     | `Checkout.tsx` + `PixPaymentStep.tsx` (hierarquia/feedback/acessibilidade)       |
 | 12  | Consolidar a API (Orders)      | Decidido      | decisão registrada; execução após a Fase 1                                       |
