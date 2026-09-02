@@ -16,48 +16,46 @@ Atualizado em 1 de setembro de 2026.
 
 ## Onde estamos agora
 
-Quatro fatos que definem o ponto de partida:
+Situação em 1 de setembro de 2026, ao fim do dia:
 
-1. **As regras do Firestore já estão valendo em produção.** Publicadas em 1 de setembro via
+1. **As regras do Firestore estão valendo em produção.** Publicadas via
    `firebase deploy --only firestore:rules`.
-2. **O código também já está publicado no repositório.** `main` está em sincronia com `origin/main`
-   (`git rev-list --left-right --count origin/main...main` devolve `0 0`). Os commits `b054a92`,
-   `491a2d4` e `44cc2f9` **estão em `origin/main`**, junto com `b58aafc`. Não há nada pendente de
-   push.
-3. **E o código publicado é sadio.** `npm run check` roda verde num worktree isolado em `b58aafc`:
-   typecheck, lint, formato, testes e build, incluindo o `verify-csp`.
-4. **Mas a produção serve um deployment antigo.** O `vercel.json` em `origin/main` traz a política
-   por hash, sem `'unsafe-inline'`; `curl -sSI https://www.inovapro3d.com.br` devolve
-   `content-security-policy-report-only` **com** `'unsafe-inline'` — a política fraca anterior.
-   Como o código está pushed e compila, a explicação não é falta de push: **o deploy da Vercel não
-   surtiu efeito** (falhou, não foi promovido, ou o auto-deploy está desconectado).
+2. **O código está publicado e sadio.** `main` e `origin/main` estão ambos em `e099126`.
+   `npm run check` roda verde: typecheck, lint, formato, 374 testes, build e `verify-csp`.
+3. **O deploy da Vercel chegou à produção.** Confirmado por `curl`: os três hashes `sha256-` servidos
+   pelo site são exatamente os do `vercel.json` do commit publicado.
+4. **A CSP endurecida está no ar.** `script-src` traz os hashes e **não contém mais
+   `'unsafe-inline'`**. A política segue em modo `Report-Only`, como planejado para esta etapa.
 
-Duas consequências:
+**A janela de observação de 7 dias da CSP começou em 1 de setembro de 2026 e fecha em 8 de setembro
+de 2026.** É a partir dessa data que `IA-8` (ler os relatos acumulados) e `H-6` (decidir promover a
+política a bloqueante) fazem sentido.
 
-- **A janela de observação de 7 dias da CSP ainda não começou.** O relógio parte quando a política
-  por hash aparecer no `curl`, não no push — que já aconteceu.
-- **A newsletter provavelmente segue quebrada no ar.** Se o deployment é anterior a `b054a92`, o
-  `Footer.tsx` servido ainda consulta a coleção `newsletter` com `getDocs`, consulta que a regra nova
-  nega. A correção está em `origin/main` e entra no primeiro deploy que de fato acontecer.
+Ponto em aberto: **a newsletter ainda não foi conferida no site.** O `Footer.tsx` corrigido entrou
+neste deploy, então a inscrição deve ter voltado a funcionar — mas isso é `H-9` e ninguém verificou
+ainda.
 
-**A próxima ação não é `IA-1`.** É `H-1`: abrir o painel da Vercel e descobrir por que o deploy não
-chegou à produção. Nenhum passo de código destrava enquanto isso não for respondido.
+Histórico, para não se repetir o engano: uma versão anterior deste documento afirmava que havia 3
+commits sem push e que por isso a Vercel não fazia deploy. Os commits já estavam em `origin/main`; o
+sintoma observado (política fraca no ar) vinha de um deployment que ainda não havia sido atualizado,
+não de falta de push. Antes de atribuir causa a um sintoma de produção, conferir
+`git rev-list --left-right --count origin/main...main`.
 
 ---
 
 ## Bloco H — só você
 
-| Tag     | O que fazer                                                                                                                                                                                                                                                                        | Onde               | Destrava | Quando              |
-| ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------ | -------- | ------------------- |
-| **H-1** | **Descobrir por que o deploy não chegou à produção.** O código está em `origin/main` e compila; mesmo assim o site serve a CSP antiga. Ler o log do último build no painel da Vercel, ver se ele falhou, se foi promovido a produção e se o auto-deploy do repositório está ligado | Painel Vercel      | tudo     | **agora, primeiro** |
-| **H-2** | Fixar o PATH do JDK no `~/.zshrc`: `export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"`                                                                                                                                                                                             | Seu shell          | `IA-*`   | qualquer momento    |
-| **H-3** | **Decidir: o Stripe vai ser ativado?** Hoje não existe função Stripe na Vercel. Se a resposta for "não por enquanto", o item 6 encolhe para só a parte A (lógica pura + teste)                                                                                                     | Decisão de negócio | item 6B  | antes de `IA-6`     |
-| **H-4** | Se H-3 = sim: registrar a URL do webhook no console do Stripe, gerar o signing secret e cadastrá-lo como variável de ambiente na Vercel                                                                                                                                            | Console Stripe     | item 6B  | depois de H-3       |
-| **H-5** | **Decidir: os arquivos de orçamento precisam ser lidos por quem não está logado?** (link enviado ao cliente, ficha impressa aberta fora do painel...)                                                                                                                              | Decisão de produto | item 11  | antes de `IA-9`     |
-| **H-6** | Ler os relatos de violação de CSP acumulados na janela e **decidir promover a política a bloqueante**                                                                                                                                                                              | Você + `IA-8`      | item 7   | 7 dias após `IA-2`  |
-| **H-7** | Criar a instância Upstash Redis (ou equivalente) e me passar as variáveis de ambiente                                                                                                                                                                                              | Painel Upstash     | item 12  | Fase 3              |
-| **H-8** | Rodar o script de backfill de custom claims contra a base real de usuários                                                                                                                                                                                                         | Sua máquina        | item 15  | Fase 3, por último  |
-| **H-9** | Conferir no site, com um e-mail seu, que a inscrição na newsletter voltou a funcionar                                                                                                                                                                                              | Navegador          | —        | após `IA-2`         |
+| Tag         | O que fazer                                                                                                                                                                                            | Onde               | Destrava | Quando              |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------ | -------- | ------------------- |
+| ~~**H-1**~~ | ~~Descobrir por que o deploy não chegou à produção.~~ **Concluído em 1 de setembro.** O build da Vercel passou; só houve um aviso de versão, sem falha. A CSP por hash foi confirmada no ar por `curl` | Painel Vercel      | tudo     | ✅ feito            |
+| **H-2**     | Fixar o PATH do JDK no `~/.zshrc`: `export PATH="/opt/homebrew/opt/openjdk/bin:$PATH"`                                                                                                                 | Seu shell          | `IA-*`   | qualquer momento    |
+| **H-3**     | **Decidir: o Stripe vai ser ativado?** Hoje não existe função Stripe na Vercel. Se a resposta for "não por enquanto", o item 6 encolhe para só a parte A (lógica pura + teste)                         | Decisão de negócio | item 6B  | antes de `IA-6`     |
+| **H-4**     | Se H-3 = sim: registrar a URL do webhook no console do Stripe, gerar o signing secret e cadastrá-lo como variável de ambiente na Vercel                                                                | Console Stripe     | item 6B  | depois de H-3       |
+| **H-5**     | **Decidir: os arquivos de orçamento precisam ser lidos por quem não está logado?** (link enviado ao cliente, ficha impressa aberta fora do painel...)                                                  | Decisão de produto | item 11  | antes de `IA-9`     |
+| **H-6**     | Ler os relatos de violação de CSP acumulados na janela e **decidir promover a política a bloqueante**                                                                                                  | Você + `IA-8`      | item 7   | 7 dias após `IA-2`  |
+| **H-7**     | Criar a instância Upstash Redis (ou equivalente) e me passar as variáveis de ambiente                                                                                                                  | Painel Upstash     | item 12  | Fase 3              |
+| **H-8**     | Rodar o script de backfill de custom claims contra a base real de usuários                                                                                                                             | Sua máquina        | item 15  | Fase 3, por último  |
+| **H-9**     | Conferir no site, com um e-mail seu, que a inscrição na newsletter voltou a funcionar. O `Footer.tsx` corrigido já está no ar desde o deploy de 1 de setembro                                          | Navegador          | —        | **liberado, agora** |
 
 Sobre **H-9**: a IA consegue fazer isso pelo Playwright, mas o teste grava uma linha de verdade no
 banco de produção. Se preferir que eu faça, é só autorizar — só quis que a escolha fosse sua.
@@ -69,36 +67,33 @@ banco de produção. Se preferir que eu faça, é só autorizar — só quis que
 Cada linha é um passo autônomo: sai com a suíte verde, um commit e a tabela de estado do plano
 atualizada no mesmo commit.
 
-| Tag       | O que faço                                                                                                                                                                                                                       | Item  | Depende de     | Toca produção?                                                      |
-| --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------- | ------------------------------------------------------------------- |
-| **IA-1**  | ~~`git push origin main`~~ — **já feito.** `origin/main` está em `b58aafc`. Substituído por: aplicar no repositório a correção que o `H-1` apontar (ajuste de `vercel.json`, commit para disparar redeploy, o que o log indicar) | 7, 9  | **H-1**        | **Sim, deploy**                                                     |
-| **IA-2**  | Confirmar por `curl` que a política por hash chegou ao ar, e só então registrar a data de início da janela de 7 dias no plano                                                                                                    | 7     | IA-1           | Não                                                                 |
-| **IA-3**  | Corrigir o estado do item 7 na tabela (hoje diz "Em observação", mas a política endurecida não estava no ar) e anotar o recorte dev/runtime do `npm audit`                                                                       | 7, 13 | IA-2           | Não                                                                 |
-| **IA-4**  | **Item 8 — SSRF por redirecionamento.** Criar `server/_safeFetch.ts` revalidando o host a cada salto, ligar em `server.ts` e `server/_modelMetadata.ts`, com testes                                                              | 8     | —              | No próximo deploy                                                   |
-| **IA-5**  | **Item 14 — cabeçalhos e limites do Express.** `helmet`, CORS explícito, `limit` no `express.json()`, enxugar `/api/health`, parar de vazar `err.message` do Stripe                                                              | 14    | —              | No próximo deploy                                                   |
-| **IA-6**  | **Item 6A — decisão do webhook Stripe.** Extrair `server/stripe/_webhookDecision.ts` como lógica pura (valor conferido, idempotência) e cobrir com teste. Não exige conta Stripe                                                 | 6     | H-3            | Não (só lógica, ainda solta)                                        |
-| **IA-7**  | **Item 13 — dependências.** `npm audit fix` sem `--force` primeiro; se não resolver, `overrides` fixando `gaxios`/`uuid`. Valido com `npm run check` completo                                                                    | 13    | —              | No próximo deploy                                                   |
-| **IA-8**  | Ler e resumir os relatos de violação de CSP acumulados, separando ruído de extensão de navegador do que é script real do site                                                                                                    | 7     | 7 dias de IA-2 | Não                                                                 |
-| **IA-9**  | **Item 11 — orçamentos no Storage.** Auditar `src/components/print/` e reportar se a ficha depende de leitura pública; só então mexer em `storage.rules`                                                                         | 11    | H-5            | Publicação de regra                                                 |
-| **IA-10** | **Item 7 — promover a CSP a bloqueante.** Trocar `Report-Only` pelo cabeçalho real, validar em preview antes de produção                                                                                                         | 7     | H-6            | **Sim, com risco de quebrar o site se houver script fora da lista** |
-| **IA-11** | **Item 12 — rate limiting distribuído.** Trocar o `Map` em memória por Redis compartilhado, configurar `trust proxy`, chavear por `uid` quando houver token                                                                      | 12    | H-7            | No próximo deploy                                                   |
-| **IA-12** | **Item 15 — `role` em custom claims.** Gravar o claim no admin, regras aceitando claim **ou** `get()`, e escrever o script de backfill para você rodar                                                                           | 15    | —              | Publicação de regra + H-8                                           |
+| Tag          | O que faço                                                                                                                                                                                                      | Item | Depende de        | Toca produção?                                                      |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ----------------- | ------------------------------------------------------------------- |
+| ~~**IA-1**~~ | ~~`git push origin main`~~ **Concluído.** `origin/main` está em `e099126` e o deploy chegou à produção                                                                                                          | 7, 9 | —                 | ✅ feito                                                            |
+| ~~**IA-2**~~ | ~~Confirmar por `curl` que a política por hash chegou ao ar.~~ **Concluído em 1 de setembro:** os três hashes servidos batem com os do `vercel.json` publicado. **Janela de 7 dias: 1 → 8 de setembro de 2026** | 7    | IA-1              | ✅ feito                                                            |
+| **IA-3**     | Anotar o recorte dev/runtime do `npm audit` no plano técnico. (A parte do item 7 já foi feita: o estado da tabela reflete a política no ar desde 1 de setembro)                                                 | 13   | —                 | Não                                                                 |
+| **IA-4**     | **Item 8 — SSRF por redirecionamento.** Criar `server/_safeFetch.ts` revalidando o host a cada salto, ligar em `server.ts` e `server/_modelMetadata.ts`, com testes                                             | 8    | —                 | No próximo deploy                                                   |
+| **IA-5**     | **Item 14 — cabeçalhos e limites do Express.** `helmet`, CORS explícito, `limit` no `express.json()`, enxugar `/api/health`, parar de vazar `err.message` do Stripe                                             | 14   | —                 | No próximo deploy                                                   |
+| **IA-6**     | **Item 6A — decisão do webhook Stripe.** Extrair `server/stripe/_webhookDecision.ts` como lógica pura (valor conferido, idempotência) e cobrir com teste. Não exige conta Stripe                                | 6    | H-3               | Não (só lógica, ainda solta)                                        |
+| **IA-7**     | **Item 13 — dependências.** `npm audit fix` sem `--force` primeiro; se não resolver, `overrides` fixando `gaxios`/`uuid`. Valido com `npm run check` completo                                                   | 13   | —                 | No próximo deploy                                                   |
+| **IA-8**     | Ler e resumir os relatos de violação de CSP acumulados, separando ruído de extensão de navegador do que é script real do site                                                                                   | 7    | **8 de setembro** | Não                                                                 |
+| **IA-9**     | **Item 11 — orçamentos no Storage.** Auditar `src/components/print/` e reportar se a ficha depende de leitura pública; só então mexer em `storage.rules`                                                        | 11   | H-5               | Publicação de regra                                                 |
+| **IA-10**    | **Item 7 — promover a CSP a bloqueante.** Trocar `Report-Only` pelo cabeçalho real, validar em preview antes de produção                                                                                        | 7    | H-6               | **Sim, com risco de quebrar o site se houver script fora da lista** |
+| **IA-11**    | **Item 12 — rate limiting distribuído.** Trocar o `Map` em memória por Redis compartilhado, configurar `trust proxy`, chavear por `uid` quando houver token                                                     | 12   | H-7               | No próximo deploy                                                   |
+| **IA-12**    | **Item 15 — `role` em custom claims.** Gravar o claim no admin, regras aceitando claim **ou** `get()`, e escrever o script de backfill para você rodar                                                          | 15   | —                 | Publicação de regra + H-8                                           |
 
 ---
 
 ## Ordem sugerida
 
-O que trava mais coisa vem primeiro. **`H-1` é a única com urgência real** e é sua: enquanto não se
-souber por que o deploy não chega à produção, a newsletter segue quebrada no ar, o relógio da CSP não
-anda, e todo `IA-n` que "toca produção" fica sem efeito prático — o código entra no repositório e
-para lá.
+O bloqueio inicial saiu: o deploy chegou à produção em 1 de setembro e a CSP endurecida está no ar.
+Com `H-1`, `IA-1` e `IA-2` fechados, o caminho crítico agora é o **relógio de 7 dias** — nada o
+acelera, então o que faz sentido é preencher a espera com os itens independentes.
 
 ```
-agora        H-1  por que o deploy não chegou?   (painel Vercel — só você)
+feito        H-1 → IA-1 → IA-2         (deploy, confirmação por curl, janela aberta)
                      ↓
-             IA-1 → IA-2 → IA-3        (correção, confirmação por curl, doc)
-                     ↓
-             H-9  conferir newsletter no site
+agora        H-9  conferir newsletter no site
                      ↓
 esta semana  IA-4  SSRF          ─┐
              IA-5  Express       ─┤ independentes entre si,
@@ -107,7 +102,7 @@ esta semana  IA-4  SSRF          ─┐
              H-3 decidir Stripe → IA-6  webhook (parte A)
              H-5 decidir orçamentos → IA-9  Storage
                      ↓
-dia 7        IA-8 ler relatos → H-6 decidir → IA-10  CSP bloqueante
+8 de set     IA-8 ler relatos → H-6 decidir → IA-10  CSP bloqueante
                      ↓
 Fase 3       H-7 Upstash → IA-11  rate limiting
              IA-12 custom claims → H-8 backfill

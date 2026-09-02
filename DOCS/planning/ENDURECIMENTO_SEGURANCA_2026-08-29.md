@@ -58,23 +58,23 @@ Três fatos levantados na auditoria mudam a prioridade do que resta e precisam f
 
 Atualizar esta tabela no mesmo commit que muda o código.
 
-| #   | Ponto                                      | Estado        | Onde vive no código                                               |
-| --- | ------------------------------------------ | ------------- | ----------------------------------------------------------------- |
-| 1   | Relay de e-mail em `notify/new-order`      | Concluído     | `api/notify/new-order.ts` + `server/_orderNotification.ts`        |
-| 2   | Identidade em pedidos e pagamentos         | Concluído     | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`           |
-| 3   | Injeção de HTML em e-mail/Telegram         | Concluído     | `server/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
-| 4   | Fail-open do sentinela `"unchecked"`       | Concluído     | `server.ts` (`verifyToken`)                                       |
-| 5   | Auditar credenciais órfãs e remover `.env` | Concluído     | auditoria dos provedores + `.env.example`                         |
-| 6   | Webhook Stripe sem valor/idempotência      | Pendente      | `server.ts`; falta `api/stripe/`                                  |
-| 7   | CSP em `Report-Only` na produção           | Em observação | `vercel.json`, `shared/security/`, `api/csp-report.ts`            |
-| 8   | SSRF por redirecionamento nos proxies      | Pendente      | `server.ts`, `server/_modelMetadata.ts`                           |
-| 9   | Regras do Firestore com lacunas            | Concluído     | `firestore.rules`, `tests/rules/`, `Footer.tsx`                   |
-| 10  | Guarda explícita do modo do Express        | Concluído     | `server/_serverRuntime.ts`, `server.ts`, `package.json`           |
-| 11  | Leitura pública de orçamentos no Storage   | Pendente      | `storage.rules`                                                   |
-| 12  | Rate limiting distribuído                  | Pendente      | — (espelha item 7 do plano do checkout)                           |
-| 13  | Dependências vulneráveis                   | Pendente      | `firebase-admin` e cadeia `gaxios`/`uuid`                         |
-| 14  | Cabeçalhos e limites do Express            | Pendente      | `server.ts`                                                       |
-| 15  | `role` em custom claims                    | Pendente      | `firestore.rules`, `storage.rules`, admin                         |
+| #   | Ponto                                      | Estado                | Onde vive no código                                               |
+| --- | ------------------------------------------ | --------------------- | ----------------------------------------------------------------- |
+| 1   | Relay de e-mail em `notify/new-order`      | Concluído             | `api/notify/new-order.ts` + `server/_orderNotification.ts`        |
+| 2   | Identidade em pedidos e pagamentos         | Concluído             | `api/orders/create.ts`, `api/mercadopago/`, `server.ts`           |
+| 3   | Injeção de HTML em e-mail/Telegram         | Concluído             | `server/_escapeHtml.ts` + `_emailTemplates.ts`, `_reportError.ts` |
+| 4   | Fail-open do sentinela `"unchecked"`       | Concluído             | `server.ts` (`verifyToken`)                                       |
+| 5   | Auditar credenciais órfãs e remover `.env` | Concluído             | auditoria dos provedores + `.env.example`                         |
+| 6   | Webhook Stripe sem valor/idempotência      | Pendente              | `server.ts`; falta `api/stripe/`                                  |
+| 7   | CSP em `Report-Only` na produção           | Em observação até 8/9 | `vercel.json`, `shared/security/`, `api/csp-report.ts`            |
+| 8   | SSRF por redirecionamento nos proxies      | Pendente              | `server.ts`, `server/_modelMetadata.ts`                           |
+| 9   | Regras do Firestore com lacunas            | Concluído             | `firestore.rules`, `tests/rules/`, `Footer.tsx`                   |
+| 10  | Guarda explícita do modo do Express        | Concluído             | `server/_serverRuntime.ts`, `server.ts`, `package.json`           |
+| 11  | Leitura pública de orçamentos no Storage   | Pendente              | `storage.rules`                                                   |
+| 12  | Rate limiting distribuído                  | Pendente              | — (espelha item 7 do plano do checkout)                           |
+| 13  | Dependências vulneráveis                   | Pendente              | `firebase-admin` e cadeia `gaxios`/`uuid`                         |
+| 14  | Cabeçalhos e limites do Express            | Pendente              | `server.ts`                                                       |
+| 15  | `role` em custom claims                    | Pendente              | `firestore.rules`, `storage.rules`, admin                         |
 
 ---
 
@@ -170,6 +170,14 @@ Na Vercel a plataforma define a variável, então o risco é do caminho auto-hos
 Instrumentação concluída em 31 de agosto de 2026. A política endurecida está publicada somente em
 `Report-Only`; a promoção para bloqueio continua pendente até cumprir a janela de observação e os
 testes de fluxo descritos abaixo.
+
+**A política endurecida chegou à produção em 1 de setembro de 2026.** Confirmado por
+`curl -sSI https://www.inovapro3d.com.br`: os três hashes `sha256-` servidos em
+`content-security-policy-report-only` são exatamente os do `vercel.json` do commit publicado, e
+`script-src` não contém mais `'unsafe-inline'`.
+
+**Janela de observação: 1 de setembro → 8 de setembro de 2026.** Só a partir de 8 de setembro faz
+sentido ler os relatos acumulados e decidir a promoção a bloqueante.
 
 ### Problema
 
