@@ -1,0 +1,6 @@
+# Ambiente isolado do gerador de relatório — recriável, não versionado.
+.venv/
+
+# Rasterizações usadas para conferir o PDF antes de entregar.
+_preview/
+_grafico-*.png
