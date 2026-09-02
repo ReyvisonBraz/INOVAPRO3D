@@ -3,6 +3,7 @@ import { isTrustedCspDocument, parseCspReportPayload } from "../server/_cspRepor
 import { recordCspReports } from "../server/_cspReportRecorder.js";
 import { createRequestContext } from "../server/_observability/context.js";
 import { logEvent } from "../server/_observability/logger.js";
+import { checkRateLimit, clientIp } from "../server/_rateLimit.js";
 
 export const config = {
   api: {
@@ -18,35 +19,10 @@ const ALLOWED_CONTENT_TYPES = new Set([
   "application/json",
 ]);
 
-const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-
 class BodyTooLargeError extends Error {}
 
 function firstHeader(value: string | string[] | undefined): string {
   return Array.isArray(value) ? (value[0] ?? "") : (value ?? "");
-}
-
-function clientKey(req: VercelRequest): string {
-  const forwarded = firstHeader(req.headers["x-forwarded-for"]).split(",")[0]?.trim();
-  return (forwarded || req.socket.remoteAddress || "unknown").slice(0, 80);
-}
-
-function consumeRateLimit(req: VercelRequest): boolean {
-  const now = Date.now();
-  if (rateBuckets.size > 2_000) {
-    for (const [key, bucket] of rateBuckets) {
-      if (bucket.resetAt <= now) rateBuckets.delete(key);
-    }
-  }
-
-  const key = clientKey(req);
-  const bucket = rateBuckets.get(key);
-  if (!bucket || bucket.resetAt <= now) {
-    rateBuckets.set(key, { count: 1, resetAt: now + 60_000 });
-    return true;
-  }
-  bucket.count += 1;
-  return bucket.count <= MAX_REQUESTS_PER_MINUTE;
 }
 
 async function readBody(req: VercelRequest): Promise<string> {
@@ -89,8 +65,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(415).end();
     return;
   }
-  if (!consumeRateLimit(req)) {
-    res.setHeader("Retry-After", "60");
+  const { allowed, retryAfterSeconds } = await checkRateLimit(
+    "csp-report",
+    clientIp(req),
+    MAX_REQUESTS_PER_MINUTE,
+    context,
+  );
+  if (!allowed) {
+    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
     res.status(429).end();
     return;
   }

@@ -151,7 +151,13 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
     }
     try {
       setIsImportingProduct(true);
-      const response = await fetch(`/api/model-metadata?url=${encodeURIComponent(url)}`);
+      // /api/model-metadata agora exige admin (era um proxy de leitura de URL
+      // aberto a qualquer visitante, sem revalidar redirect — SSRF anônimo).
+      const idToken = await auth.currentUser?.getIdToken();
+      if (!idToken) throw new Error("Sua sessão expirou. Entre novamente.");
+      const response = await fetch(`/api/model-metadata?url=${encodeURIComponent(url)}`, {
+        headers: { Authorization: `Bearer ${idToken}` },
+      });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Não foi possível importar este link.");
 

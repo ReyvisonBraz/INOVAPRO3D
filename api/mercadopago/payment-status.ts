@@ -1,34 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
 import { AppError } from "../../server/_observability/appError.js";
-import { createRequestContext, type RequestContext } from "../../server/_observability/context.js";
+import { createRequestContext } from "../../server/_observability/context.js";
 import { sendApiError } from "../../server/_observability/http.js";
 import { logEvent } from "../../server/_observability/logger.js";
-
-const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-
-function applyRateLimit(
-  req: VercelRequest,
-  res: VercelResponse,
-  context: RequestContext,
-  maxPerMinute: number,
-): boolean {
-  const key = `${req.method}:${req.url}:${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
-  const now = Date.now();
-  const bucket = rateBuckets.get(key);
-
-  if (!bucket || now > bucket.resetAt) {
-    rateBuckets.set(key, { count: 1, resetAt: now + 60_000 });
-    return true;
-  }
-
-  bucket.count++;
-  if (bucket.count <= maxPerMinute) return true;
-
-  res.setHeader("Retry-After", "60");
-  sendApiError(res, context, new AppError("RATE_LIMITED"));
-  return false;
-}
+import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
 
 async function authenticate(req: VercelRequest): Promise<string | null> {
   const authHeader = req.headers.authorization as string | undefined;
@@ -51,7 +27,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  if (!applyRateLimit(req, res, context, 30)) return;
+  const { allowed, retryAfterSeconds } = await checkRateLimit(
+    "mercadopago-payment-status",
+    clientIp(req),
+    30,
+    context,
+  );
+  if (!allowed) {
+    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
+    sendApiError(res, context, new AppError("RATE_LIMITED"));
+    return;
+  }
 
   if (!isAdminSdkConfigured()) {
     sendApiError(

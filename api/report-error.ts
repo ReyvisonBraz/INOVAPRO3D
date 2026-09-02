@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { buildErrorReport } from "../server/_reportError.js";
 import { getAdminDb, isAdminSdkConfigured } from "../server/firebaseAdmin.js";
+import { checkRateLimit, clientIp } from "../server/_rateLimit.js";
 
 async function notifyTelegram(text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -23,6 +24,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(405).json({ error: "Método não permitido." });
     return;
   }
+
+  // A rota é anônima por necessidade (erro acontece para visitante deslogado
+  // também), e sem limite era possível gravar em `errorReports` e disparar o
+  // Telegram operacional em laço, sem token nem header algum. Mesmo teto do
+  // espelho em server.ts — o único lugar que já tinha essa proteção.
+  const { allowed, retryAfterSeconds } = await checkRateLimit("report-error", clientIp(req), 20);
+  if (!allowed) {
+    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
+    res.status(429).json({ id: null, error: "Muitas requisições. Tente novamente em instantes." });
+    return;
+  }
+
   try {
     const { valid, data, telegramText } = buildErrorReport(req.body || {});
     if (!valid) {

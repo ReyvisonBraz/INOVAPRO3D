@@ -15,6 +15,7 @@ import {
 } from "../../server/_orderPricing.js";
 import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing.js";
 import { resolveTrustedIdentity } from "../../server/_orderNotification.js";
+import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
 
 // `userName`/`userEmail` chegam do cliente por compatibilidade, mas são
 // deliberadamente IGNORADOS: a identidade gravada no pedido vem do token
@@ -32,6 +33,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     sendApiError(res, context, new AppError("METHOD_NOT_ALLOWED"));
+    return;
+  }
+
+  // O espelho Express (server.ts) sempre teve `rateLimit(10)` nesta rota;
+  // esta função — o runtime de produção na Vercel — nunca teve limite algum.
+  const { allowed, retryAfterSeconds } = await checkRateLimit(
+    "orders-create",
+    clientIp(req),
+    10,
+    context,
+  );
+  if (!allowed) {
+    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
+    sendApiError(res, context, new AppError("RATE_LIMITED"));
     return;
   }
 

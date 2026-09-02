@@ -6,31 +6,7 @@ import { sendApiError } from "../../server/_observability/http.js";
 import { logEvent } from "../../server/_observability/logger.js";
 import { resolveVerifiedEmail } from "../../server/_orderNotification.js";
 import { processPayment } from "../../server/mercadopago/_service.js";
-
-// Rate limiting simples
-const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-function rateLimit(maxPerMinute: number, context: ReturnType<typeof createRequestContext>) {
-  return (req: VercelRequest, res: VercelResponse, next: () => void) => {
-    const key = `${req.method}:${req.url}:${req.headers["x-forwarded-for"] || req.socket.remoteAddress}`;
-    const now = Date.now();
-    const bucket = rateBuckets.get(key);
-
-    if (!bucket || now > bucket.resetAt) {
-      rateBuckets.set(key, { count: 1, resetAt: now + 60_000 });
-      next();
-      return;
-    }
-
-    bucket.count++;
-    if (bucket.count > maxPerMinute) {
-      res.setHeader("Retry-After", "60");
-      sendApiError(res, context, new AppError("RATE_LIMITED"));
-      return;
-    }
-
-    next();
-  };
-}
+import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
 
 // Middleware de autenticação
 async function authenticate(
@@ -72,9 +48,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   // Rate limiting: 10 requisições por minuto
-  rateLimit(10, context)(req, res, () => {});
-
-  if (res.writableEnded) {
+  const { allowed, retryAfterSeconds } = await checkRateLimit(
+    "mercadopago-process-payment",
+    clientIp(req),
+    10,
+    context,
+  );
+  if (!allowed) {
+    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
+    sendApiError(res, context, new AppError("RATE_LIMITED"));
     return;
   }
 

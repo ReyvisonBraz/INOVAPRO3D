@@ -14,6 +14,7 @@ import {
   loadOrderForNotification,
   resolveTrustedIdentity,
 } from "../../server/_orderNotification.js";
+import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
 
 async function notifyTelegram(text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -34,6 +35,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método não permitido." });
+    return;
+  }
+
+  // O espelho Express (server.ts) sempre teve `rateLimit(5)` nesta rota; esta
+  // função — o runtime de produção na Vercel — nunca teve limite algum.
+  const { allowed, retryAfterSeconds } = await checkRateLimit("notify-new-order", clientIp(req), 5);
+  if (!allowed) {
+    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
+    res.status(429).json({ error: "Muitas requisições. Tente novamente em instantes." });
     return;
   }
 
