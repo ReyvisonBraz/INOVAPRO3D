@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main, develop]
 
+# O job só instala dependências e roda checagens — não precisa escrever no
+# repositório. Sem esta declaração o GITHUB_TOKEN herda o padrão da conta, que
+# em repositórios mais antigos é leitura e escrita.
+permissions:
+  contents: read
+
 jobs:
   check:
     runs-on: ubuntu-latest
