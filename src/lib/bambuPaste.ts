@@ -73,6 +73,17 @@ export function slicerImageExtractionToPasteText(raw: unknown): {
     : [];
   const blocks: string[] = [];
 
+  // O usuário pode recortar apenas a tabela de consumo, sem a seção de
+  // tempos/placas. Nesse caso o modelo devolve `plates: []` e os pesos em
+  // `filaments`. Preserve esses dados em uma bandeja provisória para que a
+  // prévia possa ser revisada e o tempo preenchido manualmente.
+  if (!sourcePlates.length && totalFilaments.length) {
+    sourcePlates.push({ name: "Plate 1", timeText: "", filaments: totalFilaments });
+    warnings.unshift(
+      "O recorte não mostra o tempo de impressão. O consumo foi colocado na Bandeja 1; preencha o tempo manualmente.",
+    );
+  }
+
   sourcePlates.forEach((source, plateIndex) => {
     if (!isRecord(source)) return;
     const name =
