@@ -213,6 +213,24 @@ describe("slicerImageExtractionToPasteText", () => {
     expect(converted.warnings[0]).toContain("consumo total");
   });
 
+  it("preserva o consumo quando o recorte não mostra placas nem tempo", () => {
+    const converted = slicerImageExtractionToPasteText({
+      plates: [],
+      filaments: [
+        { label: "Filamento 1", grams: 1.04 },
+        { label: "Filamento 4", grams: 2.84 },
+      ],
+      warnings: ["A seção de tempos não está visível."],
+    });
+    const parsed = parseBambuPaste(converted.text);
+
+    expect(converted.text).toContain("Filamento 1: 1.04 g");
+    expect(parsed.plates).toHaveLength(1);
+    expect(parsed.totalGrams).toBeCloseTo(3.88, 5);
+    expect(parsed.totalHours).toBe(0);
+    expect(converted.warnings[0]).toContain("preencha o tempo manualmente");
+  });
+
   it("descarta números inválidos ou absurdos vindos do modelo", () => {
     const converted = slicerImageExtractionToPasteText({
       plates: [{ name: "Plate 1", timeText: "1h", filaments: [{ label: "PLA", grams: 999_999 }] }],
