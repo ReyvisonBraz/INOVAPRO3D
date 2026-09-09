@@ -5,9 +5,18 @@ import {
   PAYMENT_METHOD_LABELS,
 } from "../../lib/company";
 import { formatBRL } from "../../lib/pricing";
-import type { QuoteDocumentData } from "../../lib/quoteDocument";
+import type { QuoteDocumentData, QuoteDocumentProductSpec } from "../../lib/quoteDocument";
 
 const date = (value: Date) => value.toLocaleDateString("pt-BR");
+
+/** Ordem de leitura da ficha do produto. Campo sem valor não vira linha. */
+const SPEC_FIELDS: [keyof QuoteDocumentProductSpec, string][] = [
+  ["dimensions", "Medidas"],
+  ["material", "Material"],
+  ["colors", "Cores"],
+  ["finish", "Acabamento"],
+  ["weight", "Peso"],
+];
 
 const socialHandle = (value: string) =>
   value
@@ -160,6 +169,31 @@ export function QuoteDocument({ data }: { data: QuoteDocumentData }) {
         )}
       </section>
 
+      {data.showProductSpec && data.productSpec && (
+        <section className="doc-spec doc-avoid">
+          <h2>Ficha do produto</h2>
+          <dl className="doc-spec-grid">
+            {SPEC_FIELDS.map(([key, label]) =>
+              data.productSpec?.[key] ? (
+                <div key={key}>
+                  <dt>{label}</dt>
+                  <dd>{data.productSpec[key]}</dd>
+                </div>
+              ) : null,
+            )}
+          </dl>
+        </section>
+      )}
+
+      {data.customerNotes && (
+        <section
+          className={`doc-notes doc-avoid${data.highlightCustomerNotes ? " doc-notes--highlight" : ""}`}
+        >
+          <h2>{data.highlightCustomerNotes ? "Observação importante" : "Observações"}</h2>
+          <p>{data.customerNotes}</p>
+        </section>
+      )}
+
       {(data.paymentTerms || data.company.acceptedPaymentMethods?.length) && (
         <section className="doc-payment doc-avoid">
           <div>
@@ -173,13 +207,6 @@ export function QuoteDocument({ data }: { data: QuoteDocumentData }) {
               ))}
             </div>
           )}
-        </section>
-      )}
-
-      {data.customerNotes && (
-        <section className="doc-notes doc-avoid">
-          <h2>Observações</h2>
-          <p>{data.customerNotes}</p>
         </section>
       )}
 

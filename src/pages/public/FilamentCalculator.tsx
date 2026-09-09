@@ -23,6 +23,7 @@ import { CalculatorPricingGuidance } from "../../components/calculator/Calculato
 import { CalculatorPrintActions } from "../../components/calculator/CalculatorPrintActions";
 import { CalculatorCustomerSelector } from "../../components/calculator/CalculatorCustomerSelector";
 import { CalculatorCustomerDetails } from "../../components/calculator/CalculatorCustomerDetails";
+import { CalculatorProductSpecSection } from "../../components/calculator/CalculatorProductSpecSection";
 import { CalculatorQuoteImageSection } from "../../components/calculator/CalculatorQuoteImageSection";
 import { CalculatorSaveAction } from "../../components/calculator/CalculatorSaveAction";
 import { CalculatorJobStats } from "../../components/calculator/CalculatorJobStats";
@@ -205,6 +206,15 @@ function FilamentCalculatorContent({
     postSave,
     showImageOnQuote,
     setShowImageOnQuote,
+    productSpec,
+    setProductSpec,
+    derivedProductSpec,
+    showProductSpecOnQuote,
+    setShowProductSpecOnQuote,
+    customerNotes,
+    setCustomerNotes,
+    highlightCustomerNotes,
+    setHighlightCustomerNotes,
     continueEditingSavedQuote,
     duplicateSavedQuote,
     startNewCalculation,
@@ -248,6 +258,7 @@ function FilamentCalculatorContent({
   });
   const [isPrintingReport, setIsPrintingReport] = useState(false);
   const [imageSectionOpen, setImageSectionOpen] = useState(false);
+  const [specSectionOpen, setSpecSectionOpen] = useState(false);
   const printReport = (mode: "CLIENT" | "PRODUCTION") => {
     return printDocument(
       () => {
@@ -474,6 +485,20 @@ function FilamentCalculatorContent({
                   onUpload={handleUploadImage}
                   onRemove={() => setQuoteImageUrl("")}
                   onShowImageOnQuoteChange={setShowImageOnQuote}
+                />
+
+                <CalculatorProductSpecSection
+                  spec={productSpec}
+                  derived={derivedProductSpec}
+                  open={specSectionOpen}
+                  showOnQuote={showProductSpecOnQuote}
+                  customerNotes={customerNotes}
+                  highlightNotes={highlightCustomerNotes}
+                  onToggle={() => setSpecSectionOpen((current) => !current)}
+                  onSpecChange={setProductSpec}
+                  onShowOnQuoteChange={setShowProductSpecOnQuote}
+                  onCustomerNotesChange={setCustomerNotes}
+                  onHighlightNotesChange={setHighlightCustomerNotes}
                 />
 
                 <CalculatorSaveAction

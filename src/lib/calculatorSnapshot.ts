@@ -17,6 +17,7 @@ import {
   type MaterialKey,
   type PricingSettings,
 } from "./pricing";
+import type { QuoteProductSpec } from "../types/domain";
 import type {
   CalculatorFilament,
   CalculatorPlate,
@@ -96,13 +97,26 @@ export interface QuoteCalcSnapshot {
   client: SnapshotClient;
   imageUrl?: string;
   showImageOnQuote: boolean;
+  /** Ficha do produto (medidas, material, cores, acabamento) da proposta. */
+  productSpec?: QuoteProductSpec;
+  showProductSpecOnQuote: boolean;
+  highlightCustomerNotes: boolean;
   /** Momento em que o cálculo foi congelado (ISO). */
   generatedAt: string;
 }
 
-/** Estado da calculadora aceito por `buildCalcSnapshot`. */
-export type SnapshotSource = Omit<QuoteCalcSnapshot, "version" | "generatedAt"> & {
+/**
+ * Estado da calculadora aceito por `buildCalcSnapshot`. Os dois interruptores
+ * da proposta são opcionais aqui porque `buildCalcSnapshot` já os assume como
+ * ligados — snapshots antigos e chamadas parciais continuam válidos.
+ */
+export type SnapshotSource = Omit<
+  QuoteCalcSnapshot,
+  "version" | "generatedAt" | "showProductSpecOnQuote" | "highlightCustomerNotes"
+> & {
   generatedAt?: string;
+  showProductSpecOnQuote?: boolean;
+  highlightCustomerNotes?: boolean;
 };
 
 // ----------------------------------------------------------------------------
@@ -167,6 +181,35 @@ function sanitizeManual(raw: unknown): ManualFilament | undefined {
   };
 }
 
+/** Medida positiva ou `undefined` — zero e lixo somem da ficha. */
+const optionalMeasure = (value: unknown): number | undefined => {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : undefined;
+};
+
+/**
+ * Sanea a ficha do produto. Devolve `undefined` quando nada sobrou, para não
+ * gravar um objeto vazio no Firestore nem renderizar um bloco em branco.
+ */
+export function sanitizeProductSpec(raw: unknown): QuoteProductSpec | undefined {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return undefined;
+  const r = raw as Record<string, unknown>;
+  const spec: QuoteProductSpec = {
+    ...(optionalMeasure(r.width) !== undefined ? { width: optionalMeasure(r.width) } : {}),
+    ...(optionalMeasure(r.height) !== undefined ? { height: optionalMeasure(r.height) } : {}),
+    ...(optionalMeasure(r.depth) !== undefined ? { depth: optionalMeasure(r.depth) } : {}),
+    ...(optionalText(r.material) ? { material: optionalText(r.material) } : {}),
+    ...(optionalText(r.colors) ? { colors: optionalText(r.colors) } : {}),
+    ...(optionalText(r.finish) ? { finish: optionalText(r.finish) } : {}),
+  };
+  if (Object.keys(spec).length === 0) return undefined;
+  // A unidade só acompanha medidas: sozinha ela não sustenta a ficha.
+  if (spec.width !== undefined || spec.height !== undefined || spec.depth !== undefined) {
+    spec.unit = r.unit === "mm" ? "mm" : "cm";
+  }
+  return spec;
+}
+
 function sanitizeFilament(raw: unknown, plateId: string, index: number): CalculatorFilament {
   const r = asRecord(raw);
   const manual = sanitizeManual(r.manual);
@@ -221,6 +264,7 @@ function sanitizeProject(raw: unknown): CalculatorProject {
 export function buildCalcSnapshot(source: SnapshotSource): QuoteCalcSnapshot {
   const machine = sanitizeMachine(source.machine);
   const overrides = sanitizeOverrides(source.machineOverrides);
+  const productSpec = sanitizeProductSpec(source.productSpec);
   return {
     version: CALC_SNAPSHOT_VERSION,
     mode: source.mode === "FULL" ? "FULL" : "QUICK",
@@ -295,6 +339,9 @@ export function buildCalcSnapshot(source: SnapshotSource): QuoteCalcSnapshot {
     },
     ...(optionalText(source.imageUrl) ? { imageUrl: source.imageUrl } : {}),
     showImageOnQuote: source.showImageOnQuote !== false,
+    ...(productSpec ? { productSpec } : {}),
+    showProductSpecOnQuote: source.showProductSpecOnQuote !== false,
+    highlightCustomerNotes: source.highlightCustomerNotes !== false,
     generatedAt: optionalText(source.generatedAt) ?? new Date().toISOString(),
   };
 }
@@ -324,6 +371,9 @@ export function mergeCalcSnapshot(raw: unknown): QuoteCalcSnapshot | null {
     client: asRecord(r.client) as unknown as SnapshotClient,
     imageUrl: optionalText(r.imageUrl),
     showImageOnQuote: r.showImageOnQuote !== false,
+    productSpec: sanitizeProductSpec(r.productSpec),
+    showProductSpecOnQuote: r.showProductSpecOnQuote !== false,
+    highlightCustomerNotes: r.highlightCustomerNotes !== false,
     generatedAt: optionalText(r.generatedAt),
   });
 }

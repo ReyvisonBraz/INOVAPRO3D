@@ -23,9 +23,9 @@ import {
   type UpdateData,
 } from "firebase/firestore";
 import { auth, db, getStorageInstance } from "../services/firebase";
-import type { MaterialUsage, QuoteStatus } from "../types/domain";
+import type { MaterialUsage, QuoteProductSpec, QuoteStatus } from "../types/domain";
 import type { CalculatorProject } from "./calculatorProject";
-import type { QuoteCalcSnapshot } from "./calculatorSnapshot";
+import { sanitizeProductSpec, type QuoteCalcSnapshot } from "./calculatorSnapshot";
 
 export interface SaveQuoteInput {
   /** Nome do cliente (obrigatório para identificar o orçamento). */
@@ -74,6 +74,12 @@ export interface SaveQuoteInput {
   printerName?: string;
   /** Exibir a imagem do produto na proposta impressa ao cliente. */
   showImageOnQuote?: boolean;
+  /** Ficha do produto (medidas, material, cores, acabamento) da proposta. */
+  productSpec?: QuoteProductSpec;
+  /** Exibir o bloco "Ficha do produto" na proposta impressa. */
+  showProductSpecOnQuote?: boolean;
+  /** Renderizar a observação do cliente como bloco destacado. */
+  highlightCustomerNotes?: boolean;
   documentNumber?: string;
   validUntil?: string;
   paymentTerms?: string;
@@ -133,17 +139,37 @@ export function buildQuotePayload(
   if (optional(input.printerId)) data.printerId = input.printerId;
   if (optional(input.printerName)) data.printerName = input.printerName;
   if (input.showImageOnQuote !== undefined) data.showImageOnQuote = input.showImageOnQuote;
+  if (input.showProductSpecOnQuote !== undefined)
+    data.showProductSpecOnQuote = input.showProductSpecOnQuote;
+  if (input.highlightCustomerNotes !== undefined)
+    data.highlightCustomerNotes = input.highlightCustomerNotes;
   if (optional(input.documentNumber)) data.documentNumber = input.documentNumber;
   if (optional(input.validUntil)) data.validUntil = input.validUntil;
   if (optional(input.paymentTerms)) data.paymentTerms = input.paymentTerms;
   if (optional(input.notes)) data.adminNotes = input.notes;
-  if (optional(input.customerNotes)) data.notes = input.customerNotes;
+  // Mesma convenção da imagem: string vazia num update apaga a observação.
+  if (optional(input.customerNotes)) {
+    data.notes = input.customerNotes;
+  } else if (opts.isUpdate && input.customerNotes === "") {
+    data.notes = deleteField();
+  }
 
   // String vazia = o usuário removeu a imagem; `undefined` = não mexer nela.
   if (input.imageUrl) {
     data.imageUrl = input.imageUrl;
   } else if (opts.isUpdate && input.imageUrl === "") {
     data.imageUrl = deleteField();
+  }
+
+  // Mesma convenção da imagem: ficha esvaziada num update apaga o campo, mas
+  // `undefined` (a tela nem tocou nela) não mexe no que já está gravado.
+  if (input.productSpec !== undefined) {
+    const productSpec = sanitizeProductSpec(input.productSpec);
+    if (productSpec) {
+      data.productSpec = productSpec;
+    } else if (opts.isUpdate) {
+      data.productSpec = deleteField();
+    }
   }
 
   if (input.materialUsages?.length) {

@@ -137,3 +137,48 @@ describe("buildQuotePayload — campos comuns", () => {
     expect(data.total).toBe(0);
   });
 });
+
+describe("buildQuotePayload — ficha do produto e observação", () => {
+  it("grava a ficha saneada e os dois interruptores", () => {
+    const data = buildQuotePayload(
+      {
+        ...baseInput,
+        productSpec: { width: 40, height: 30, unit: "cm", finish: "Verniz fosco" },
+        showProductSpecOnQuote: false,
+        highlightCustomerNotes: false,
+      },
+      { isUpdate: false },
+    );
+
+    expect(data.productSpec).toEqual({
+      width: 40,
+      height: 30,
+      unit: "cm",
+      finish: "Verniz fosco",
+    });
+    expect(data.showProductSpecOnQuote).toBe(false);
+    expect(data.highlightCustomerNotes).toBe(false);
+  });
+
+  it("ficha vazia não entra na criação e apaga o campo na atualização", () => {
+    const criacao = buildQuotePayload({ ...baseInput, productSpec: {} }, { isUpdate: false });
+    expect("productSpec" in criacao).toBe(false);
+
+    const atualizacao = buildQuotePayload({ ...baseInput, productSpec: {} }, { isUpdate: true });
+    expect(atualizacao.productSpec).toBeDefined();
+    expect(atualizacao.productSpec).not.toEqual({});
+  });
+
+  it("observação apagada limpa o campo na atualização, mas não na criação", () => {
+    const criacao = buildQuotePayload({ ...baseInput, customerNotes: "" }, { isUpdate: false });
+    expect("notes" in criacao).toBe(false);
+
+    const atualizacao = buildQuotePayload({ ...baseInput, customerNotes: "" }, { isUpdate: true });
+    expect(atualizacao.notes).toBeDefined();
+  });
+
+  it("sem tocar na ficha, a atualização não mexe no que já está gravado", () => {
+    const data = buildQuotePayload(baseInput, { isUpdate: true });
+    expect("productSpec" in data).toBe(false);
+  });
+});

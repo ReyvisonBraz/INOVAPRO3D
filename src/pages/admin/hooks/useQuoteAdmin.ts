@@ -11,7 +11,8 @@ import {
 import { toast } from "sonner";
 import { auth, db } from "../../../services/firebase";
 import type { AdminTabId } from "../../../lib/adminHelpers";
-import type { Customer, Quote, Ticket } from "../../../types/domain";
+import type { Customer, Quote, QuoteProductSpec, Ticket } from "../../../types/domain";
+import { sanitizeProductSpec } from "../../../lib/calculatorSnapshot";
 import { buildCommercialQuoteMessage } from "../../../lib/quoteMessage";
 
 interface Deps {
@@ -71,6 +72,9 @@ export function useQuoteAdmin({
   const [editingQuoteValidUntil, setEditingQuoteValidUntil] = useState("");
   const [editingQuotePaymentTerms, setEditingQuotePaymentTerms] = useState("");
   const [editingQuoteShowImage, setEditingQuoteShowImage] = useState(true);
+  const [editingQuoteProductSpec, setEditingQuoteProductSpec] = useState<QuoteProductSpec>({});
+  const [editingQuoteShowProductSpec, setEditingQuoteShowProductSpec] = useState(true);
+  const [editingQuoteHighlightNotes, setEditingQuoteHighlightNotes] = useState(true);
   const [isCalcAssistantOpen, setIsCalcAssistantOpen] = useState(false);
   const [isApprovingQuote, setIsApprovingQuote] = useState(false);
   const [approvalStatus, setApprovalStatus] = useState<QuoteApprovalStatus | null>(null);
@@ -104,6 +108,11 @@ export function useQuoteAdmin({
       setEditingQuoteValidUntil(quoteRecord?.validUntil || "");
       setEditingQuotePaymentTerms(quoteRecord?.paymentTerms || "");
       setEditingQuoteShowImage(quoteRecord?.showImageOnQuote !== false);
+      setEditingQuoteProductSpec(
+        quoteRecord?.productSpec ?? quoteRecord?.calcSnapshot?.productSpec ?? {},
+      );
+      setEditingQuoteShowProductSpec(quoteRecord?.showProductSpecOnQuote !== false);
+      setEditingQuoteHighlightNotes(quoteRecord?.highlightCustomerNotes !== false);
       const matchedCustomer = customers.find(
         (c) =>
           (c.email &&
@@ -274,6 +283,8 @@ export function useQuoteAdmin({
           paymentTerms: editingQuotePaymentTerms.trim(),
           validUntil: editingQuoteValidUntil,
           showImageOnQuote: editingQuoteShowImage,
+          showProductSpecOnQuote: editingQuoteShowProductSpec,
+          highlightCustomerNotes: editingQuoteHighlightNotes,
           updatedAt: serverTimestamp(),
         });
         await addDoc(collection(db, "logs"), {
@@ -333,6 +344,8 @@ export function useQuoteAdmin({
         const unitPrice = Math.max(0, Number(editingQuoteUnitPrice) || 0);
         const imagePayload =
           editingQuoteImageUrl.trim() !== "" ? { imageUrl: editingQuoteImageUrl.trim() } : {};
+        // Ficha vazia apaga o campo, para o PDF não guardar um bloco em branco.
+        const productSpec = sanitizeProductSpec(editingQuoteProductSpec);
         await updateDoc(doc(db, "quotes", quote.id), {
           fileName: editingQuoteFileName.trim() || "Peça personalizada",
           materialId: editingQuoteMaterial.trim() || "PLA Pro",
@@ -349,6 +362,9 @@ export function useQuoteAdmin({
           validUntil: editingQuoteValidUntil,
           paymentTerms: editingQuotePaymentTerms.trim(),
           showImageOnQuote: editingQuoteShowImage,
+          showProductSpecOnQuote: editingQuoteShowProductSpec,
+          highlightCustomerNotes: editingQuoteHighlightNotes,
+          productSpec: productSpec ?? deleteField(),
           phone: phoneClean,
           ...imagePayload,
           ...(isQuote(quote) && quote.calcSnapshot ? { calcSnapshotStale: true } : {}),
@@ -415,6 +431,9 @@ export function useQuoteAdmin({
                 validUntil: editingQuoteValidUntil,
                 paymentTerms: editingQuotePaymentTerms.trim(),
                 showImageOnQuote: editingQuoteShowImage,
+                showProductSpecOnQuote: editingQuoteShowProductSpec,
+                highlightCustomerNotes: editingQuoteHighlightNotes,
+                productSpec,
                 imageUrl:
                   editingQuoteImageUrl.trim() || (isQuote(prev) ? prev.imageUrl : undefined),
                 phone: phoneClean,
@@ -446,6 +465,9 @@ export function useQuoteAdmin({
       editingQuoteValidUntil,
       editingQuotePaymentTerms,
       editingQuoteShowImage,
+      editingQuoteProductSpec,
+      editingQuoteShowProductSpec,
+      editingQuoteHighlightNotes,
       setSelectedCustomer,
       fetchData,
     ],
@@ -485,6 +507,12 @@ export function useQuoteAdmin({
     setEditingQuotePaymentTerms,
     editingQuoteShowImage,
     setEditingQuoteShowImage,
+    editingQuoteProductSpec,
+    setEditingQuoteProductSpec,
+    editingQuoteShowProductSpec,
+    setEditingQuoteShowProductSpec,
+    editingQuoteHighlightNotes,
+    setEditingQuoteHighlightNotes,
     handleQuantityChange,
     handleUnitPriceChange,
     handleQuoteTotalChange,

@@ -1101,6 +1101,7 @@
 
   .doc-info-grid h2,
   .doc-notes h2,
+  .doc-spec h2,
   .doc-terms h2,
   .doc-checklist h2,
   .doc-cost-grid h2,
@@ -1248,7 +1249,8 @@
 
   .doc-notes,
   .doc-terms,
-  .doc-checklist {
+  .doc-checklist,
+  .doc-spec {
     margin-top: 6mm;
     padding: 4mm;
     border: 0.25mm solid var(--doc-line);
@@ -1259,6 +1261,51 @@
   .doc-terms p,
   .doc-checklist p {
     margin: 1.5mm 0 0;
+  }
+
+  .doc-spec {
+    background: #f8fbff;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .doc-spec-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3mm 5mm;
+    margin: 0;
+  }
+
+  .doc-spec-grid dt {
+    font-size: 6.7pt;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--doc-primary);
+  }
+
+  .doc-spec-grid dd {
+    margin: 1mm 0 0;
+    font-size: 8.3pt;
+    font-weight: 800;
+  }
+
+  /* Observação destacada: barra lateral + fundo âmbar, para o cliente ler. */
+  .doc-notes--highlight {
+    border-color: #fcd9a0;
+    border-left: 1.2mm solid #f59e0b;
+    background: #fffaef;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .doc-notes--highlight h2 {
+    color: #b45309;
+  }
+
+  .doc-notes--highlight p {
+    font-size: 8.6pt;
+    font-weight: 600;
   }
 
   .doc-acceptance {

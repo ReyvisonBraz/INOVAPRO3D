@@ -61,7 +61,7 @@ import {
   PrintDocumentHost,
   type PrintDocumentEntry,
 } from "../../components/print/PrintDocumentHost";
-import { buildQuoteDocumentData } from "../../lib/quoteDocument";
+import { buildQuoteDocumentData, deriveProductSpecAuto } from "../../lib/quoteDocument";
 import { printDocument, type PrintDocumentMode } from "../../lib/printing";
 import AdminTrashPanel from "./components/AdminTrashPanel";
 import AdminCalculatorTemplatesPanel from "./components/AdminCalculatorTemplatesPanel";
@@ -80,6 +80,7 @@ import { AdminQuoteCustomerSection } from "./components/AdminQuoteCustomerSectio
 import { AdminQuoteImageSection } from "./components/AdminQuoteImageSection";
 import { AdminQuoteCommercialSection } from "./components/AdminQuoteCommercialSection";
 import { AdminQuoteNotesSection } from "./components/AdminQuoteNotesSection";
+import { AdminQuoteProductSpecSection } from "./components/AdminQuoteProductSpecSection";
 import { AdminQuotePricingAssistant } from "./components/AdminQuotePricingAssistant";
 import { AdminQuoteEditorActions } from "./components/AdminQuoteEditorActions";
 import { AdminProductFormModal } from "./components/AdminProductFormModal";
@@ -372,6 +373,12 @@ export default function AdminDashboard() {
     setEditingQuotePaymentTerms,
     editingQuoteShowImage,
     setEditingQuoteShowImage,
+    editingQuoteProductSpec,
+    setEditingQuoteProductSpec,
+    editingQuoteShowProductSpec,
+    setEditingQuoteShowProductSpec,
+    editingQuoteHighlightNotes,
+    setEditingQuoteHighlightNotes,
     handleQuantityChange,
     handleUnitPriceChange,
     handleQuoteTotalChange,
@@ -553,6 +560,9 @@ export default function AdminDashboard() {
       validUntil: editingQuoteValidUntil,
       paymentTerms: editingQuotePaymentTerms.trim(),
       showImageOnQuote: editingQuoteShowImage,
+      productSpec: editingQuoteProductSpec,
+      showProductSpecOnQuote: editingQuoteShowProductSpec,
+      highlightCustomerNotes: editingQuoteHighlightNotes,
     };
   }, [
     selectedCustomer,
@@ -573,7 +583,18 @@ export default function AdminDashboard() {
     editingQuoteValidUntil,
     editingQuotePaymentTerms,
     editingQuoteShowImage,
+    editingQuoteProductSpec,
+    editingQuoteShowProductSpec,
+    editingQuoteHighlightNotes,
   ]);
+
+  /** Material e cores lidos das bandejas do orçamento — viram placeholder. */
+  const editingQuoteDerivedSpec = useMemo(() => {
+    const project =
+      editingQuotePreview?.calcSnapshot?.project ?? editingQuotePreview?.calculationProject;
+    if (!project) return { material: "", colors: "" };
+    return deriveProductSpecAuto(project, materials);
+  }, [editingQuotePreview, materials]);
 
   const {
     isAdding: isCouponAdding,
@@ -1336,6 +1357,16 @@ export default function AdminDashboard() {
                       imageUrl={editingQuoteImageUrl}
                       onChangeImageUrl={setEditingQuoteImageUrl}
                       onUploadImage={handleQuoteImageUpload}
+                    />
+
+                    <AdminQuoteProductSpecSection
+                      spec={editingQuoteProductSpec}
+                      derived={editingQuoteDerivedSpec}
+                      showOnQuote={editingQuoteShowProductSpec}
+                      highlightNotes={editingQuoteHighlightNotes}
+                      onSpecChange={setEditingQuoteProductSpec}
+                      onShowOnQuoteChange={setEditingQuoteShowProductSpec}
+                      onHighlightNotesChange={setEditingQuoteHighlightNotes}
                     />
                     <AdminQuotePricingAssistant
                       isOpen={isCalcAssistantOpen}

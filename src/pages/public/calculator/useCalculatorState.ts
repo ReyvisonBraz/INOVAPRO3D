@@ -21,7 +21,7 @@ import {
   mergeCalcSnapshot,
   type QuoteCalcSnapshot,
 } from "../../../lib/calculatorSnapshot";
-import { buildQuoteDocumentData } from "../../../lib/quoteDocument";
+import { buildQuoteDocumentData, deriveProductSpecAuto } from "../../../lib/quoteDocument";
 import { DEFAULT_COMPANY_PROFILE } from "../../../lib/company";
 import { fetchCompanyProfile } from "../../../services/company";
 import { buildInventoryForecast } from "../../../lib/inventoryForecast";
@@ -63,6 +63,7 @@ import type {
   Material,
   MaterialUsage,
   Quote,
+  QuoteProductSpec,
   QuoteStatus,
 } from "../../../types/domain";
 import {
@@ -141,6 +142,10 @@ type CalculatorDraft = {
   quoteStatus?: QuoteStatus;
   calcMode?: "QUICK" | "FULL";
   showImageOnQuote?: boolean;
+  productSpec?: QuoteProductSpec;
+  showProductSpecOnQuote?: boolean;
+  customerNotes?: string;
+  highlightCustomerNotes?: boolean;
 };
 
 export type CalculatorDraftSummary = {
@@ -433,6 +438,24 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
   const [showImageOnQuote, setShowImageOnQuote] = useState(
     initialSnapshot?.showImageOnQuote ?? initialDraft?.showImageOnQuote ?? true,
   );
+  const [productSpec, setProductSpec] = useState<QuoteProductSpec>(
+    initialQuote?.productSpec ?? initialSnapshot?.productSpec ?? initialDraft?.productSpec ?? {},
+  );
+  const [showProductSpecOnQuote, setShowProductSpecOnQuote] = useState(
+    initialQuote?.showProductSpecOnQuote ??
+      initialSnapshot?.showProductSpecOnQuote ??
+      initialDraft?.showProductSpecOnQuote ??
+      true,
+  );
+  const [customerNotes, setCustomerNotes] = useState(
+    initialQuote?.notes ?? initialDraft?.customerNotes ?? "",
+  );
+  const [highlightCustomerNotes, setHighlightCustomerNotes] = useState(
+    initialQuote?.highlightCustomerNotes ??
+      initialSnapshot?.highlightCustomerNotes ??
+      initialDraft?.highlightCustomerNotes ??
+      true,
+  );
   const [clientName, setClientName] = useState(
     initialSnapshot?.client.name ?? initialDraft?.clientName ?? initialQuote?.userName ?? "",
   );
@@ -593,6 +616,10 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
         quoteStatus,
         calcMode,
         showImageOnQuote,
+        productSpec,
+        showProductSpecOnQuote,
+        customerNotes,
+        highlightCustomerNotes,
       };
       try {
         window.localStorage.setItem(CALCULATOR_DRAFT_STORAGE_KEY, JSON.stringify(draft));
@@ -642,6 +669,10 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     quoteStatus,
     calcMode,
     showImageOnQuote,
+    productSpec,
+    showProductSpecOnQuote,
+    customerNotes,
+    highlightCustomerNotes,
   ]);
 
   // Filamentos reais cadastrados no painel. O orçamento apenas registra a
@@ -825,6 +856,12 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     };
   }, [material, materialSettings, spoolPrice, spoolWeight]);
 
+  /** Material e cores lidos das bandejas — viram placeholder na ficha. */
+  const derivedProductSpec = useMemo(
+    () => deriveProductSpecAuto(project, inventoryMaterials),
+    [project, inventoryMaterials],
+  );
+
   const printableSnapshot = useMemo(
     () =>
       buildCalcSnapshot({
@@ -866,6 +903,9 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
         },
         imageUrl: quoteImageUrl || undefined,
         showImageOnQuote,
+        productSpec,
+        showProductSpecOnQuote,
+        highlightCustomerNotes,
       }),
     [
       calcMode,
@@ -900,6 +940,9 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
       selectedCustomerId,
       quoteImageUrl,
       showImageOnQuote,
+      productSpec,
+      showProductSpecOnQuote,
+      highlightCustomerNotes,
     ],
   );
 
@@ -931,6 +974,9 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     setSpoolWeight(snapshot.material.spoolWeight);
     setReservePct(snapshot.material.reservePct);
     setSteadyPower(snapshot.material.fallbackSteadyPowerWatts);
+    setProductSpec(snapshot.productSpec ?? {});
+    setShowProductSpecOnQuote(snapshot.showProductSpecOnQuote);
+    setHighlightCustomerNotes(snapshot.highlightCustomerNotes);
     setQuoteId("");
     setQuoteStatus("PENDING");
     setSnapshotStale(false);
@@ -1112,6 +1158,10 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
       printerId: selectedPrinter?.id,
       printerName: selectedPrinter?.name,
       showImageOnQuote,
+      productSpec,
+      showProductSpecOnQuote,
+      notes: customerNotes.trim() || undefined,
+      highlightCustomerNotes,
       calculationProject: project,
       calcSnapshot: printableSnapshot,
     };
@@ -1132,6 +1182,10 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     quoteImageUrl,
     selectedPrinter,
     showImageOnQuote,
+    productSpec,
+    showProductSpecOnQuote,
+    customerNotes,
+    highlightCustomerNotes,
     printableSnapshot,
     companyProfile,
     inventoryMaterials,
@@ -1163,6 +1217,10 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     setSnapshotStale(false);
     setPostSave(null);
     setShowImageOnQuote(true);
+    setProductSpec({});
+    setShowProductSpecOnQuote(true);
+    setCustomerNotes("");
+    setHighlightCustomerNotes(true);
   };
 
   const continueEditingSavedQuote = () => setPostSave(null);
@@ -1319,6 +1377,9 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
         },
         imageUrl: quoteImageUrl || undefined,
         showImageOnQuote,
+        productSpec,
+        showProductSpecOnQuote,
+        highlightCustomerNotes,
       });
       const saved = await saveOrUpdateQuoteFromCalc({
         quoteId: quoteId || undefined,
@@ -1346,6 +1407,10 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
         printerId: selectedPrinter?.id,
         printerName: selectedPrinter?.name,
         showImageOnQuote,
+        productSpec,
+        showProductSpecOnQuote,
+        customerNotes: customerNotes.trim(),
+        highlightCustomerNotes,
         notes: `Custo previsto ${result.totalCost.toFixed(2)} · atacado ${result.wholesaleTotal.toFixed(2)} · varejo ${result.retailTotal.toFixed(2)} · ${project.plates.length} bandeja(s) · ${result.weightGrams.toFixed(2)}g · ${result.hours.toFixed(2)}h`,
       });
       setQuoteId(saved.id);
@@ -1470,6 +1535,15 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     postSave,
     showImageOnQuote,
     setShowImageOnQuote,
+    productSpec,
+    setProductSpec,
+    derivedProductSpec,
+    showProductSpecOnQuote,
+    setShowProductSpecOnQuote,
+    customerNotes,
+    setCustomerNotes,
+    highlightCustomerNotes,
+    setHighlightCustomerNotes,
     continueEditingSavedQuote,
     duplicateSavedQuote,
     startNewCalculation: discardCalculatorDraft,

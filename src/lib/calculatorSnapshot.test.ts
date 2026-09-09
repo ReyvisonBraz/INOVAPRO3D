@@ -3,6 +3,7 @@ import {
   buildCalcSnapshot,
   CALC_SNAPSHOT_VERSION,
   mergeCalcSnapshot,
+  sanitizeProductSpec,
   snapshotToPricingArgs,
   type SnapshotSource,
 } from "./calculatorSnapshot";
@@ -254,5 +255,47 @@ describe("mergeCalcSnapshot defensivo", () => {
     expect(relido.commercial.priceTier).toBe("RETAIL");
     expect(relido.commercial.markupMode).toBe("mult");
     expect(relido.material.key).toBe("pla");
+  });
+});
+
+describe("ficha do produto no snapshot", () => {
+  it("preserva medidas, textos e interruptores num round-trip", () => {
+    const snapshot = buildCalcSnapshot({
+      ...source,
+      productSpec: {
+        width: 40,
+        height: 30,
+        depth: 2,
+        unit: "cm",
+        material: "PLA Silk",
+        colors: "Preto · Dourado",
+        finish: "Verniz fosco",
+      },
+      showProductSpecOnQuote: false,
+      highlightCustomerNotes: false,
+    });
+    const relido = mergeCalcSnapshot(JSON.parse(JSON.stringify(snapshot)))!;
+
+    expect(relido.productSpec).toEqual(snapshot.productSpec);
+    expect(relido.showProductSpecOnQuote).toBe(false);
+    expect(relido.highlightCustomerNotes).toBe(false);
+  });
+
+  it("assume os dois interruptores ligados quando o snapshot é antigo", () => {
+    const relido = mergeCalcSnapshot({ project: { plates: [] } })!;
+
+    expect(relido.showProductSpecOnQuote).toBe(true);
+    expect(relido.highlightCustomerNotes).toBe(true);
+    expect(relido.productSpec).toBeUndefined();
+  });
+
+  it("descarta medidas inválidas e ficha sem nenhum campo aproveitável", () => {
+    expect(sanitizeProductSpec({ width: "quarenta", height: 0, material: "   " })).toBeUndefined();
+    expect(sanitizeProductSpec(null)).toBeUndefined();
+    expect(sanitizeProductSpec({ unit: "cm" })).toBeUndefined();
+    expect(sanitizeProductSpec({ height: 30, unit: "polegada" })).toEqual({
+      height: 30,
+      unit: "cm",
+    });
   });
 });

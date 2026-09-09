@@ -184,6 +184,25 @@ export interface TrashEntry {
   deletedBy?: string | null;
 }
 
+/**
+ * Ficha comercial do produto exibida na proposta impressa. Todos os campos são
+ * opcionais: o que ficar vazio simplesmente não é renderizado no PDF.
+ *
+ * As medidas são gravadas exatamente como digitadas, junto da unidade escolhida
+ * — não há conversão entre mm e cm em lugar nenhum, só formatação.
+ */
+export interface QuoteProductSpec {
+  width?: number;
+  height?: number;
+  depth?: number;
+  unit?: "mm" | "cm";
+  /** Sobrescreve o material derivado dos filamentos do projeto. */
+  material?: string;
+  /** Sobrescreve as cores derivadas dos filamentos do projeto. */
+  colors?: string;
+  finish?: string;
+}
+
 export interface Quote {
   id: string;
   userId: string;
@@ -237,6 +256,12 @@ export interface Quote {
   printerName?: string;
   /** Exibir a imagem do produto na proposta impressa do cliente. */
   showImageOnQuote?: boolean;
+  /** Medidas, material, cores e acabamento mostrados na proposta. */
+  productSpec?: QuoteProductSpec;
+  /** Exibir o bloco "Ficha do produto" na proposta impressa. Padrão: true. */
+  showProductSpecOnQuote?: boolean;
+  /** Renderizar a observação do cliente como bloco destacado. Padrão: true. */
+  highlightCustomerNotes?: boolean;
   /** Número legível da proposta (ex.: ORC-2026-000123). */
   documentNumber?: string;
   subtotal?: number;

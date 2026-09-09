@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { CompanyProfile, Quote } from "../types/domain";
+import type { CalculatorProject } from "./calculatorProject";
 import { buildCalcSnapshot } from "./calculatorSnapshot";
 import { DEFAULT_MACHINE, DEFAULT_PRICING_SETTINGS } from "./pricing";
-import { buildQuoteDocumentData, formatQuoteNumber } from "./quoteDocument";
+import { buildQuoteDocumentData, deriveProductSpecAuto, formatQuoteNumber } from "./quoteDocument";
 
 const issuedAt = new Date("2026-08-15T12:00:00-03:00");
 
@@ -168,5 +169,150 @@ describe("buildQuoteDocumentData", () => {
     );
     expect(document.imageUrl).toContain("produto.png");
     expect(document.showImage).toBe(false);
+  });
+});
+
+describe("deriveProductSpecAuto", () => {
+  const plateWith = (filaments: CalculatorProject["plates"][number]["filaments"]) => ({
+    id: "p1",
+    name: "Bandeja 1",
+    type: "SINGLE_COLOR" as const,
+    totalTime: "1h",
+    pieces: 1,
+    repetitions: 1,
+    filaments,
+  });
+
+  it("lê tipo, marca e cor de filamento manual", () => {
+    const derived = deriveProductSpecAuto({
+      name: "Quadro",
+      outputQuantity: 1,
+      plates: [
+        plateWith([
+          {
+            id: "f1",
+            materialName: "Manual",
+            materialKey: "pla",
+            totalGrams: 100,
+            pricePerGram: 0.1,
+            steadyPowerWatts: 120,
+            manual: { color: "Dourado", brand: "Voolt", type: "PLA_SILK", pricePerKg: 120 },
+          },
+        ]),
+      ],
+    });
+
+    expect(derived.material).toBe("PLA Silk Voolt");
+    expect(derived.colors).toBe("Dourado");
+  });
+
+  it("lê cor e marca do material do estoque", () => {
+    const derived = deriveProductSpecAuto(
+      {
+        name: "Quadro",
+        outputQuantity: 1,
+        plates: [
+          plateWith([
+            {
+              id: "f1",
+              materialId: "pla-preto",
+              materialName: "PLA Preto",
+              materialKey: "pla",
+              totalGrams: 100,
+              pricePerGram: 0.1,
+              steadyPowerWatts: 120,
+            },
+          ]),
+        ],
+      },
+      [{ id: "pla-preto", name: "PLA Preto", type: "PLA", color: "Preto", brand: "3D Fila" }],
+    );
+
+    expect(derived.material).toBe("PLA 3D Fila");
+    expect(derived.colors).toBe("Preto");
+  });
+
+  it("deduplica repetições e cai no nome do filamento sem estoque casado", () => {
+    const filament = {
+      id: "f1",
+      materialId: "sumiu",
+      materialName: "PETG Translúcido",
+      materialKey: "petg" as const,
+      totalGrams: 100,
+      pricePerGram: 0.1,
+      steadyPowerWatts: 130,
+    };
+    const derived = deriveProductSpecAuto({
+      name: "Quadro",
+      outputQuantity: 1,
+      plates: [plateWith([filament, { ...filament, id: "f2" }])],
+    });
+
+    expect(derived.material).toBe("PETG Translúcido");
+    expect(derived.colors).toBe("");
+  });
+});
+
+describe("ficha do produto no documento", () => {
+  it("formata medidas, herda material/cores das bandejas e traz o peso do cálculo", () => {
+    const document = buildQuoteDocumentData(
+      legacyQuote({
+        id: "spec-quote",
+        calcSnapshot: snapshot,
+        productSpec: { width: 40, height: 30, depth: 2, unit: "cm", finish: "Verniz fosco" },
+      }),
+      company,
+      {
+        issuedAt,
+        materials: [{ id: "pla-preto", name: "PLA Preto", type: "PLA", color: "Preto" }],
+      },
+    );
+
+    expect(document.productSpec?.dimensions).toBe("40 × 30 × 2 cm");
+    expect(document.productSpec?.material).toBe("PLA");
+    expect(document.productSpec?.colors).toBe("Preto");
+    expect(document.productSpec?.finish).toBe("Verniz fosco");
+    expect(document.productSpec?.weight).toMatch(/ g$/);
+    expect(document.showProductSpec).toBe(true);
+    expect(document.highlightCustomerNotes).toBe(true);
+  });
+
+  it("omite eixos não informados e o material digitado vence o automático", () => {
+    const document = buildQuoteDocumentData(
+      legacyQuote({
+        calcSnapshot: snapshot,
+        productSpec: { width: 12.5, height: 8, unit: "mm", material: "Resina" },
+      }),
+      company,
+      { issuedAt },
+    );
+
+    expect(document.productSpec?.dimensions).toBe("12,5 × 8 mm");
+    expect(document.productSpec?.material).toBe("Resina");
+  });
+
+  it("respeita os interruptores de exibição", () => {
+    const document = buildQuoteDocumentData(
+      legacyQuote({
+        productSpec: { width: 10, unit: "cm" },
+        showProductSpecOnQuote: false,
+        highlightCustomerNotes: false,
+      }),
+      company,
+      { issuedAt },
+    );
+
+    expect(document.showProductSpec).toBe(false);
+    expect(document.highlightCustomerNotes).toBe(false);
+  });
+
+  it("não monta a ficha quando não há nada a mostrar", () => {
+    const document = buildQuoteDocumentData(
+      legacyQuote({ weight: 0, quantity: 1, total: 100 }),
+      company,
+      { issuedAt },
+    );
+
+    expect(document.productSpec).toBeUndefined();
   });
 });

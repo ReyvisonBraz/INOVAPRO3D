@@ -1,5 +1,9 @@
-import type { CompanyProfile, Material, Quote } from "../types/domain";
-import { computeProjectPricing, type CalculatorProject } from "./calculatorProject";
+import type { CompanyProfile, Material, Quote, QuoteProductSpec } from "../types/domain";
+import {
+  computeProjectPricing,
+  type CalculatorProject,
+  type ManualFilament,
+} from "./calculatorProject";
 import { mergeCalcSnapshot, snapshotToPricingArgs } from "./calculatorSnapshot";
 import { computeValidUntil, DEFAULT_COMPANY_PROFILE, mergeCompanyProfile } from "./company";
 import { buildInventoryForecast, type InventoryForecast } from "./inventoryForecast";
@@ -24,6 +28,17 @@ export interface ProductionPlateRow {
   filaments: string;
   grams: number;
   materialCost: number;
+}
+
+/** Ficha do produto já resolvida e formatada para impressão. */
+export interface QuoteDocumentProductSpec {
+  /** Ex.: "40 × 30 × 2 cm". Eixos não informados são omitidos. */
+  dimensions?: string;
+  material?: string;
+  colors?: string;
+  finish?: string;
+  /** Ex.: "420 g". Vem do cálculo, não da digitação. */
+  weight?: string;
 }
 
 export interface QuoteDocumentProduction {
@@ -63,6 +78,10 @@ export interface QuoteDocumentData {
   total: number;
   unitPrice: number;
   customerNotes?: string;
+  /** `undefined` quando não há nada a mostrar — o bloco inteiro some. */
+  productSpec?: QuoteDocumentProductSpec;
+  showProductSpec: boolean;
+  highlightCustomerNotes: boolean;
   production: QuoteDocumentProduction;
 }
 
@@ -113,6 +132,99 @@ export function formatQuoteNumber(
   if (quote.documentNumber?.trim()) return quote.documentNumber.trim().toUpperCase();
   const issuedAt = dateFromFirestore(quote.createdAt) ?? new Date();
   return `ORC-${issuedAt.getFullYear()}-${stableSixDigits(quote.id)}`;
+}
+
+const MANUAL_TYPE_LABELS: Record<ManualFilament["type"], string> = {
+  PLA: "PLA",
+  PLA_HIGH_SPEED: "PLA High Speed",
+  PLA_SILK: "PLA Silk",
+  PETG: "PETG",
+};
+
+/** Junta valores únicos, na ordem em que aparecem, ignorando vazios. */
+function joinUnique(values: (string | undefined)[]): string {
+  const seen = new Set<string>();
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) seen.add(trimmed);
+  }
+  return [...seen].join(" · ");
+}
+
+/** "PLA Silk" + "Voolt" → "PLA Silk Voolt". */
+const withBrand = (type?: string, brand?: string): string =>
+  [type?.trim(), brand?.trim()].filter(Boolean).join(" ");
+
+/**
+ * Lê material e cores direto dos filamentos das bandejas, para que a ficha do
+ * produto venha preenchida sem digitação. Filamento manual traz tipo/cor/marca
+ * do próprio cadastro avulso; filamento do estoque busca no `Material`.
+ * Sem nenhuma dessas pistas, sobra o nome do filamento como material.
+ */
+export function deriveProductSpecAuto(
+  project: CalculatorProject,
+  materials?: Material[],
+): { material: string; colors: string } {
+  const byId = new Map((materials ?? []).map((material) => [material.id, material]));
+  const materialLabels: (string | undefined)[] = [];
+  const colorLabels: (string | undefined)[] = [];
+
+  for (const plate of project.plates ?? []) {
+    for (const filament of plate.filaments ?? []) {
+      if (filament.manual) {
+        const type = MANUAL_TYPE_LABELS[filament.manual.type] ?? filament.manual.type;
+        materialLabels.push(withBrand(type, filament.manual.brand));
+        colorLabels.push(filament.manual.color);
+        continue;
+      }
+      const stock = filament.materialId ? byId.get(filament.materialId) : undefined;
+      if (stock) {
+        materialLabels.push(withBrand(stock.type || stock.name, stock.brand));
+        colorLabels.push(stock.color);
+        continue;
+      }
+      materialLabels.push(filament.materialName);
+    }
+  }
+
+  return { material: joinUnique(materialLabels), colors: joinUnique(colorLabels) };
+}
+
+/** "40 × 30 × 2 cm" — eixos ausentes somem, unidade só aparece se houver medida. */
+function formatDimensions(spec: QuoteProductSpec | undefined): string {
+  if (!spec) return "";
+  const axes = [spec.width, spec.height, spec.depth].filter(
+    (value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0,
+  );
+  if (axes.length === 0) return "";
+  const numbers = axes.map((value) => value.toLocaleString("pt-BR", { maximumFractionDigits: 2 }));
+  return `${numbers.join(" × ")} ${spec.unit ?? "cm"}`;
+}
+
+function buildDocumentProductSpec(
+  spec: QuoteProductSpec | undefined,
+  project: CalculatorProject,
+  materials: Material[] | undefined,
+  weightGrams: number | undefined,
+): QuoteDocumentProductSpec | undefined {
+  const auto = deriveProductSpecAuto(project, materials);
+  const dimensions = formatDimensions(spec);
+  const material = spec?.material?.trim() || auto.material;
+  const colors = spec?.colors?.trim() || auto.colors;
+  const finish = spec?.finish?.trim() || "";
+  const weight =
+    typeof weightGrams === "number" && weightGrams > 0
+      ? `${weightGrams.toLocaleString("pt-BR", { maximumFractionDigits: 0 })} g`
+      : "";
+
+  const resolved: QuoteDocumentProductSpec = {
+    ...(dimensions ? { dimensions } : {}),
+    ...(material ? { material } : {}),
+    ...(colors ? { colors } : {}),
+    ...(finish ? { finish } : {}),
+    ...(weight ? { weight } : {}),
+  };
+  return Object.keys(resolved).length > 0 ? resolved : undefined;
 }
 
 function legacyProject(quote: Quote): CalculatorProject {
@@ -202,6 +314,13 @@ export function buildQuoteDocumentData(
         },
       ];
 
+  const productSpec = buildDocumentProductSpec(
+    quote.productSpec ?? snapshot?.productSpec,
+    project,
+    options.materials,
+    result?.weightGrams ?? quote.weight,
+  );
+
   return {
     quoteId: quote.id,
     quoteNumber: formatQuoteNumber(quote),
@@ -230,6 +349,11 @@ export function buildQuoteDocumentData(
     total,
     unitPrice: money(quote.unitPrice) || total / quantity,
     ...(quote.notes ? { customerNotes: quote.notes } : {}),
+    ...(productSpec ? { productSpec } : {}),
+    showProductSpec:
+      (quote.showProductSpecOnQuote ?? snapshot?.showProductSpecOnQuote ?? true) !== false,
+    highlightCustomerNotes:
+      (quote.highlightCustomerNotes ?? snapshot?.highlightCustomerNotes ?? true) !== false,
     production: {
       degraded: !snapshot,
       ...(!snapshot
