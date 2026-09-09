@@ -10,6 +10,9 @@ interface AdminMaterialFormModalProps {
   setMaterial: Dispatch<SetStateAction<MaterialDraft>>;
   onSubmit: FormEventHandler<HTMLFormElement>;
   onClose: () => void;
+  /** Quando presente, o formulário edita o filamento em vez de criar um novo. */
+  isEditing?: boolean;
+  isSubmitting?: boolean;
 }
 
 export function AdminMaterialFormModal({
@@ -17,6 +20,8 @@ export function AdminMaterialFormModal({
   setMaterial,
   onSubmit,
   onClose,
+  isEditing = false,
+  isSubmitting = false,
 }: AdminMaterialFormModalProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl">
@@ -29,7 +34,9 @@ export function AdminMaterialFormModal({
         <button onClick={onClose} className="absolute top-8 right-8 text-dim hover:text-white">
           <Plus className="w-8 h-8 rotate-45" />
         </button>
-        <h2 className="text-3xl font-black italic tracking-tighter mb-8">Novo Material</h2>
+        <h2 className="text-3xl font-black italic tracking-tighter mb-8">
+          {isEditing ? "Editar Material" : "Novo Material"}
+        </h2>
         <form onSubmit={onSubmit} className="space-y-6">
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-dim">Identificação</label>
@@ -51,7 +58,7 @@ export function AdminMaterialFormModal({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase text-dim">Custo p/ Kg</label>
+              <label className="text-[10px] font-black uppercase text-dim">Custo p/ Kg (R$)</label>
               <NumInput
                 min={0}
                 step={0.01}
@@ -61,6 +68,10 @@ export function AdminMaterialFormModal({
               />
             </div>
           </div>
+          <p className="-mt-3 text-[11px] leading-relaxed text-dim">
+            O custo por kg é o que a calculadora cobra por grama deste filamento. Sem ele, o
+            orçamento cai no preço de referência do preset e erra o custo real do rolo.
+          </p>
           <div className="space-y-2">
             <label className="text-[10px] font-black uppercase text-dim">Cor do Display</label>
             <input
@@ -71,15 +82,30 @@ export function AdminMaterialFormModal({
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-[10px] font-black uppercase text-dim">Saldo inicial (g)</label>
-              <NumInput
-                min={0}
-                value={material.stockGrams}
-                onChange={(value) => setMaterial({ ...material, stockGrams: value })}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
-              />
-            </div>
+            {isEditing ? (
+              // O saldo só muda por "Movimentar", que registra a movimentação.
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <span className="text-[10px] font-black uppercase text-dim">Saldo atual</span>
+                <strong className="mt-1 block text-sm font-bold tabular-nums">
+                  {Number(material.stockGrams ?? 0).toLocaleString("pt-BR")}g
+                </strong>
+                <span className="mt-1 block text-[10px] leading-snug text-dim">
+                  Altere em "Movimentar"
+                </span>
+              </div>
+            ) : (
+              <div>
+                <label className="text-[10px] font-black uppercase text-dim">
+                  Saldo inicial (g)
+                </label>
+                <NumInput
+                  min={0}
+                  value={material.stockGrams}
+                  onChange={(value) => setMaterial({ ...material, stockGrams: value })}
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-sm"
+                />
+              </div>
+            )}
             <div>
               <label className="text-[10px] font-black uppercase text-dim">
                 Estoque minimo (g)
@@ -126,9 +152,10 @@ export function AdminMaterialFormModal({
           />
           <Button
             type="submit"
+            disabled={isSubmitting}
             className="w-full h-16 rounded-[24px] uppercase font-black text-xs italic tracking-widest"
           >
-            Registrar Material
+            {isEditing ? "Salvar alteracoes" : "Registrar Material"}
           </Button>
         </form>
       </motion.div>

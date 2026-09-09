@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeProjectPricing,
+  inventoryPricePerGram,
   validateCalculatorProject,
   type CalculatorProject,
 } from "./calculatorProject";
@@ -15,6 +16,27 @@ const options = {
   retailMarkup: DEFAULT_PRICING_SETTINGS.retailMarkup,
   minPrice: DEFAULT_PRICING_SETTINGS.minPrice,
 };
+
+describe("inventoryPricePerGram", () => {
+  it("prefere pricePerGram quando existe", () => {
+    expect(inventoryPricePerGram({ pricePerGram: 0.08, pricePerKg: 90 }, 0.117)).toBeCloseTo(
+      0.08,
+      6,
+    );
+  });
+
+  it("converte pricePerKg quando falta pricePerGram", () => {
+    expect(inventoryPricePerGram({ pricePerKg: 90 }, 0.117)).toBeCloseTo(0.09, 6);
+  });
+
+  it("cai na referência quando o material não tem preço nenhum", () => {
+    expect(inventoryPricePerGram({}, 0.117)).toBeCloseTo(0.117, 6);
+  });
+
+  it("ignora preços zerados ou inválidos e usa a referência", () => {
+    expect(inventoryPricePerGram({ pricePerGram: 0, pricePerKg: -5 }, 0.117)).toBeCloseTo(0.117, 6);
+  });
+});
 
 describe("computeProjectPricing", () => {
   it("soma bandejas e respeita o preço individual de cada filamento", () => {

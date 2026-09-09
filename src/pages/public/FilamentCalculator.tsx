@@ -127,7 +127,7 @@ function FilamentCalculatorContent({
     failureImpactPct,
     setFailureImpactPct,
     inventoryMaterials,
-    materialSettings,
+    referencePricePerGram,
     printers,
     selectedPrinterId,
     setSelectedPrinterId,
@@ -306,11 +306,7 @@ function FilamentCalculatorContent({
                 materials={inventoryMaterials}
                 pricingSettings={pricingSettings}
                 issues={projectIssues}
-                fallbackPricePerKg={{
-                  pla: (materialSettings.pla.spoolPrice / materialSettings.pla.spoolWeight) * 1000,
-                  petg:
-                    (materialSettings.petg.spoolPrice / materialSettings.petg.spoolWeight) * 1000,
-                }}
+                referencePricePerGram={referencePricePerGram}
                 formattedTime={formatHoursToHHMM(result.hours)}
                 weightGrams={result.weightGrams}
                 onSlicerApply={(plates, mode) => {

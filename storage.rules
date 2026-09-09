@@ -30,8 +30,20 @@ service firebase.storage {
     }
 
     // Imagens opcionais anexadas a orçamentos salvos pela calculadora.
+    // Leitura restrita: diferente das pastas de vitrine acima, o conteúdo aqui
+    // é peça de cliente. `read` no Storage concede `get` E `list`, então
+    // `if true` não expunha só quem soubesse a URL — deixava o prefixo
+    // `quotes/` inteiro enumerável por `listAll()` a partir de qualquer
+    // visitante, com o UID do dono no caminho.
+    //
+    // `isAdmin()` cobre todo o uso atual: a calculadora (/calculadora) e o
+    // documento de orçamento são telas de admin, e nenhuma rota de cliente
+    // abre um orçamento. Se um dia o cliente dono precisar ver a própria
+    // imagem, capture o segmento do UID em vez de reabrir o prefixo:
+    //   match /quotes/{ownerId}/{allPaths=**} {
+    //     allow read: if isAdmin() || request.auth.uid == ownerId;
     match /quotes/{allPaths=**} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 

@@ -140,6 +140,43 @@ describe("applyPasteToProject", () => {
     expect(applied.warnings.some((w) => w.includes("não bate"))).toBe(false);
   });
 
+  // O cadastro do painel grava `pricePerKg`, nunca `pricePerGram`: ler só o
+  // segundo fazia o rolo real ser cobrado pelo preço de referência do preset.
+  it("usa o pricePerKg do estoque quando o material não tem pricePerGram", () => {
+    const parsed = parseBambuPaste("Plate 1\nPrint time: 2h\nPLA Preto: 40g");
+    const applied = applyPasteToProject(parsed, {
+      ...ctx,
+      materials: [
+        material({ id: "preto", name: "PLA Preto", color: "Preto", type: "PLA", pricePerKg: 90 }),
+      ],
+    });
+    expect(applied.plates[0].filaments[0].pricePerGram).toBeCloseTo(0.09, 6);
+  });
+
+  it("prefere pricePerGram quando o material tem os dois", () => {
+    const parsed = parseBambuPaste("Plate 1\nPrint time: 2h\nPLA Preto: 40g");
+    const applied = applyPasteToProject(parsed, {
+      ...ctx,
+      materials: [
+        material({
+          id: "preto",
+          name: "PLA Preto",
+          color: "Preto",
+          type: "PLA",
+          pricePerGram: 0.08,
+          pricePerKg: 90,
+        }),
+      ],
+    });
+    expect(applied.plates[0].filaments[0].pricePerGram).toBeCloseTo(0.08, 6);
+  });
+
+  it("cai no preço de referência quando o material do estoque não tem preço", () => {
+    const parsed = parseBambuPaste("Plate 1\nPrint time: 2h\nPLA Preto: 40g");
+    const applied = applyPasteToProject(parsed, ctx);
+    expect(applied.plates[0].filaments[0].pricePerGram).toBeCloseTo(0.117, 6);
+  });
+
   it("filamento sem correspondência vira manual com preço de referência, nunca de graça", () => {
     const parsed = parseBambuPaste("Plate 1\nPrint time: 2h\nPETG Amarelo Fluor: 40g");
     const applied = applyPasteToProject(parsed, ctx);

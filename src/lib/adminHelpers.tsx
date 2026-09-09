@@ -2,6 +2,7 @@
 import { memo } from "react";
 import type { FirebaseStorage } from "firebase/storage";
 import { NumberField } from "../components/ui/NumberField";
+import { auth } from "../services/firebase";
 
 // A lista de abas vive em `pages/admin/adminConfig.ts`, junto do menu e dos
 // subtítulos. Aqui só reexportamos para não haver duas verdades.
@@ -112,6 +113,31 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   });
 }
 
+/**
+ * `/api/proxy-image` agora exige admin (a rota fazia fetch de qualquer URL
+ * https de host permitido, sem revalidar redirect — SSRF anônimo). Uma tag
+ * `<img>` não consegue carregar um header `Authorization`, então o proxy
+ * precisa ser um `fetch()` autenticado; o blob resultante vira uma URL local
+ * só para o `<img>` decodificar, revogada assim que o load termina.
+ */
+async function loadImageViaProxy(url: string): Promise<HTMLImageElement> {
+  const user = auth.currentUser;
+  if (!user) throw new Error("Sua sessão expirou. Entre novamente.");
+  const idToken = await user.getIdToken();
+
+  const response = await fetch(`/api/proxy-image?url=${encodeURIComponent(url)}`, {
+    headers: { Authorization: `Bearer ${idToken}` },
+  });
+  if (!response.ok) throw new Error("Não foi possível carregar a imagem pelo proxy.");
+
+  const objectUrl = URL.createObjectURL(await response.blob());
+  try {
+    return await loadImage(objectUrl);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 const WEBP_MAX_DIMENSION = 1200;
 const WEBP_QUALITY = 0.85;
 
@@ -153,7 +179,7 @@ export async function importAndConvertImage(
     img = await loadImage(url);
   } catch (err) {
     if (!isExternalUrl(url)) throw err;
-    img = await loadImage(`/api/proxy-image?url=${encodeURIComponent(url)}`);
+    img = await loadImageViaProxy(url);
   }
 
   const blob = await toWebpBlob(img);

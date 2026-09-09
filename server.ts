@@ -13,6 +13,8 @@ import { recordCspReports } from "./server/_cspReportRecorder.ts";
 import { createRequestContext } from "./server/_observability/context.ts";
 import { readModelMetadata, isAllowedImportHost } from "./server/_modelMetadata.ts";
 import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./server/firebaseAdmin.ts";
+import { verifyAdminRequest } from "./server/_adminAuth.ts";
+import { checkRateLimit, clientIp } from "./server/_rateLimit.ts";
 import { buildErrorReport } from "./server/_reportError.ts";
 import {
   buildSitemapXml,
@@ -61,20 +63,20 @@ function isAllowedImageHost(hostname: string): boolean {
   );
 }
 
-// ── Simple in-memory rate limiter (per IP per route) ───────────────────────
-const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+// ── Rate limiter compartilhado (persistido no Firestore) ───────────────────
+// A chave é o path da rota — cada `app.x("/api/rota", rateLimit(n), ...)"
+// continua isolado dos demais, igual ao `Map` que este código substituiu.
+// Ver server/_rateLimit.ts para por que o contador não pode mais viver só na
+// memória do processo.
 function rateLimit(maxPerMinute: number) {
-  return (req: express.Request, res: express.Response, next: express.NextFunction) => {
-    const key = `${req.path}:${req.ip}`;
-    const now = Date.now();
-    const bucket = rateBuckets.get(key);
-    if (!bucket || now > bucket.resetAt) {
-      rateBuckets.set(key, { count: 1, resetAt: now + 60_000 });
-      next();
-      return;
-    }
-    bucket.count++;
-    if (bucket.count > maxPerMinute) {
+  return async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    const { allowed, retryAfterSeconds } = await checkRateLimit(
+      req.path,
+      clientIp(req),
+      maxPerMinute,
+    );
+    if (!allowed) {
+      res.setHeader("Retry-After", String(retryAfterSeconds || 60));
       res.status(429).json({ error: "Muitas requisições. Tente novamente em instantes." });
       return;
     }
@@ -627,7 +629,9 @@ async function startServer() {
   });
 
   // ── Mercado Pago - Payment Status ──────────────────────────────────────────
-  app.get("/api/mercadopago/payment-status", async (req, res) => {
+  // O espelho serverless (api/mercadopago/payment-status.ts) já limitava a
+  // 30/min; esta rota nunca teve limite nenhum.
+  app.get("/api/mercadopago/payment-status", rateLimit(30), async (req, res) => {
     const uid = await verifyToken(req);
     if (!uid) {
       res.status(401).json({ error: "Não autorizado." });
@@ -731,8 +735,16 @@ async function startServer() {
     });
   });
 
-  // Proxy external images so the browser can load them CORS-safely for canvas conversion
+  // Proxy external images so the browser can load them CORS-safely for canvas
+  // conversion. Admin-only: só é chamado por src/lib/adminHelpers.tsx, do
+  // painel de produtos. Anônimo, era uma rota de fetch arbitrário — o
+  // servidor buscava qualquer URL https de host permitido e devolvia o
+  // corpo, sem revalidar o destino final após redirect.
   app.get("/api/proxy-image", rateLimit(60), async (req, res) => {
+    if (!(await verifyAdminRequest(req))) {
+      res.status(403).json({ error: "Apenas administradores podem usar o proxy de imagens." });
+      return;
+    }
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
     if (!rawUrl) {
       res.status(400).json({ error: "url obrigatória" });
@@ -789,7 +801,15 @@ async function startServer() {
     }
   });
 
-  app.get("/api/model-metadata", async (req, res) => {
+  // Admin-only: só é chamado por src/pages/admin/hooks/useProductAdmin.ts, ao
+  // importar um modelo por link. Anônimo, era um proxy de leitura de URL
+  // aberto a qualquer visitante, com o mesmo problema de redirect não
+  // revalidado do /api/proxy-image acima.
+  app.get("/api/model-metadata", rateLimit(20), async (req, res) => {
+    if (!(await verifyAdminRequest(req))) {
+      res.status(403).json({ error: "Apenas administradores podem importar links de modelo." });
+      return;
+    }
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
 
     try {

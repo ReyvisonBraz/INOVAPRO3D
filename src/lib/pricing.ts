@@ -572,9 +572,9 @@ export const HELP = {
   material:
     "Filamento usado no job. Define o preço por grama e o consumo de energia. PLA é o principal; PETG aquece mais e custa mais.",
   spoolPrice:
-    "Preço do carretel usado como referência geral. Nas bandejas do novo projeto, o preço do filamento selecionado no estoque ou informado manualmente por kg tem prioridade.",
+    "Preço de um rolo usado APENAS como plano B: filamento colado do slicer que não bate com nenhum item do estoque, ou material do estoque cadastrado sem custo por kg. Filamento com preço próprio (estoque ou manual) sempre tem prioridade e ignora este campo. Vale para o material selecionado acima; os outros seguem as Configurações do painel.",
   spoolWeight:
-    "Peso líquido do carretel de referência, sem o peso do plástico vazio. Normalmente é 1000 g. Nas bandejas com preço informado por kg, esse campo não altera o custo.",
+    "Peso líquido do rolo de referência, sem o plástico vazio — normalmente 1000 g. Serve só para converter o preço do rolo em preço por grama, junto com o campo ao lado.",
   weight:
     "Use a coluna Total do Bambu Studio para cada filamento. Ela reúne modelo, suporte, material purgado/corado e torre; não use apenas o peso do modelo.",
   time: "Tempo total mostrado pelo Bambu Studio. Aceita 1d 4h 12m, 2h30m, 36m57s, 2:30, 7.50h ou horas decimais. Dias e segundos entram no cálculo, mas a tela resume o resultado em horas e minutos.",

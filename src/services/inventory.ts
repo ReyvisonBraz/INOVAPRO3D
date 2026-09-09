@@ -1,4 +1,11 @@
-import { addDoc, collection, doc, runTransaction, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  runTransaction,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
 import { auth, db } from "./firebase";
 import { aggregateMaterialUsages, inventoryActionForTransition } from "../lib/inventory";
 import type { InventoryMovementType, MaterialUsage, Order, OrderStatus } from "../types/domain";
@@ -25,6 +32,28 @@ export async function createMaterial(draft: MaterialDraft): Promise<void> {
     ...draft,
     inStock: draft.stockGrams > 0,
     createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Campos que a edição de um filamento pode alterar.
+ *
+ * Saldo, reserva e `inStock` ficam de fora DE PROPÓSITO: quem mexe neles é
+ * `adjustMaterialStock`, que grava a movimentação em `inventoryMovements`.
+ * Deixar o formulário reescrever o saldo furaria esse livro-razão.
+ */
+export type MaterialEditableFields = Omit<
+  MaterialDraft,
+  "stockGrams" | "reservedGrams" | "inStock"
+>;
+
+export async function updateMaterial(
+  materialId: string,
+  patch: MaterialEditableFields,
+): Promise<void> {
+  await updateDoc(doc(db, "materials", materialId), {
+    ...patch,
     updatedAt: serverTimestamp(),
   });
 }
