@@ -1,6 +1,6 @@
 import { memo, type FC } from "react";
 import { motion } from "framer-motion";
-import { AlertTriangle, ArrowDownUp, PackageOpen, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowDownUp, PackageOpen, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../../components/ui/Button";
 import { cn } from "../../../lib/utils";
 import { AdminEmptyState, AdminMetric, AdminSectionHeader } from "./AdminPrimitives";
@@ -10,17 +10,27 @@ interface AdminMaterialsPanelProps {
   materials: Material[];
   onDeleteMaterial: (id: string) => void;
   onAddMaterial: () => void;
+  onEditMaterial: (material: Material) => void;
   onToggleStock: (id: string, current: boolean) => void;
   onAdjustStock: (material: Material) => void;
+}
+
+/** R$/kg efetivo, na mesma ordem que a calculadora usa para custear o rolo. */
+function pricePerKgOf(material: Material): number {
+  const perGram = Number(material.pricePerGram ?? 0);
+  if (perGram > 0) return perGram * 1000;
+  return Math.max(0, Number(material.pricePerKg ?? 0));
 }
 
 const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(function AdminMaterialsPanel({
   materials,
   onDeleteMaterial,
   onAddMaterial,
+  onEditMaterial,
   onToggleStock,
   onAdjustStock,
 }) {
+  const missingPrice = materials.filter((item) => pricePerKgOf(item) <= 0).length;
   const stock = materials.reduce((sum, item) => sum + Number(item.stockGrams ?? 0), 0);
   const reserved = materials.reduce((sum, item) => sum + Number(item.reservedGrams ?? 0), 0);
   const lowStock = materials.filter(
@@ -48,7 +58,7 @@ const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(function AdminMat
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <AdminMetric label="Cadastrados" value={materials.length} hint="SKUs de material" />
         <AdminMetric label="Estoque fisico" value={`${stock.toLocaleString("pt-BR")}g`} />
         <AdminMetric
@@ -62,6 +72,12 @@ const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(function AdminMat
           hint="Precisam de atencao"
           tone={lowStock ? "danger" : "success"}
         />
+        <AdminMetric
+          label="Sem custo"
+          value={missingPrice}
+          hint="Orcam pelo preco de referencia"
+          tone={missingPrice ? "danger" : "success"}
+        />
       </div>
 
       {materials.length ? (
@@ -73,6 +89,7 @@ const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(function AdminMat
             const minimum = Number(material.minimumStockGrams ?? 0);
             const isLow = available <= minimum;
             const coverage = physical > 0 ? Math.min(100, (available / physical) * 100) : 0;
+            const pricePerKg = pricePerKgOf(material);
             return (
               <article key={material.id} className="admin-panel group overflow-hidden">
                 <div className="flex items-start gap-3 border-b border-white/[0.06] p-4">
@@ -96,6 +113,13 @@ const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(function AdminMat
                     </p>
                   </div>
                   <button
+                    onClick={() => onEditMaterial(material)}
+                    className="grid h-8 w-8 place-items-center rounded-lg text-white/30 transition hover:bg-white/[0.08] hover:text-white"
+                    aria-label={`Editar ${material.name}`}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
                     onClick={() => onDeleteMaterial(material.id)}
                     className="grid h-8 w-8 place-items-center rounded-lg text-white/30 transition hover:bg-red-500/10 hover:text-red-300"
                     aria-label={`Excluir ${material.name}`}
@@ -104,6 +128,30 @@ const AdminMaterialsPanel: FC<AdminMaterialsPanelProps> = memo(function AdminMat
                   </button>
                 </div>
                 <div className="space-y-4 p-4">
+                  <button
+                    onClick={() => onEditMaterial(material)}
+                    className={cn(
+                      "flex w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition",
+                      pricePerKg > 0
+                        ? "border-white/[0.08] bg-white/[0.025] hover:bg-white/[0.06]"
+                        : "border-red-400/25 bg-red-400/[0.07] hover:bg-red-400/[0.12]",
+                    )}
+                  >
+                    <span className="text-[10px] text-white/38">Custo do filamento</span>
+                    {pricePerKg > 0 ? (
+                      <strong className="text-xs font-semibold tabular-nums text-white">
+                        {pricePerKg.toLocaleString("pt-BR", {
+                          style: "currency",
+                          currency: "BRL",
+                        })}
+                        <span className="font-normal text-white/38">/kg</span>
+                      </strong>
+                    ) : (
+                      <strong className="text-[11px] font-semibold text-red-300">
+                        Definir custo
+                      </strong>
+                    )}
+                  </button>
                   <div className="grid grid-cols-3 gap-2">
                     <StockValue label="Fisico" value={physical} />
                     <StockValue label="Reservado" value={held} tone="warning" />

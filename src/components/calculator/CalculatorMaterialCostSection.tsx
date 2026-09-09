@@ -41,13 +41,13 @@ export function CalculatorMaterialCostSection({
       <CollapsibleSection
         icon={Package}
         title="Filamento & Custos"
-        summary={`R$${spoolPrice}/carretel · reserva ${reservePct}% · falha ${failureRatePct}%`}
+        summary={`reserva ${reservePct}% · falha ${failureRatePct}% · referência R$${spoolPrice}/rolo`}
         open={open}
         onToggle={onToggle}
       >
         <div className="grid gap-4 sm:grid-cols-2">
           <NumberField
-            label="Preço do carretel"
+            label="Preço de referência do rolo"
             prefix="R$"
             value={spoolPrice}
             onChange={onSpoolPriceChange}
@@ -55,7 +55,7 @@ export function CalculatorMaterialCostSection({
             help={HELP.spoolPrice}
           />
           <NumberField
-            label="Peso do carretel"
+            label="Peso do rolo de referência"
             suffix="g"
             value={spoolWeight}
             onChange={onSpoolWeightChange}
@@ -63,6 +63,11 @@ export function CalculatorMaterialCostSection({
             help={HELP.spoolWeight}
           />
         </div>
+        <p className="mt-2 text-[11px] leading-relaxed text-white/40">
+          Plano B: vale só para filamento{" "}
+          <strong className="text-white/60">sem preço próprio</strong> — colado do slicer sem
+          correspondência no estoque, ou material cadastrado sem custo por kg.
+        </p>
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <NumberField
             label="Margem técnica de material"
@@ -99,8 +104,9 @@ export function CalculatorMaterialCostSection({
           />
         </div>
         <div className="mt-5 rounded-xl border border-blue-400/20 bg-blue-400/[0.05] p-4 text-xs leading-relaxed text-white/50">
-          Os filamentos e os pesos reais do Bambu Studio são definidos em cada bandeja no início do
-          cálculo. Filamentos manuais entram no custo previsto, mas não movimentam o estoque.
+          O custo do material vem de cada bandeja, com o preço do filamento escolhido no estoque ou
+          informado à mão — não dos campos acima. Filamentos manuais entram no custo previsto, mas
+          não movimentam o estoque.
         </div>
       </CollapsibleSection>
     </Reveal>

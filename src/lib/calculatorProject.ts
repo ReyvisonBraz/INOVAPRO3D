@@ -6,6 +6,7 @@ import {
   type PricingResult,
   type PricingSettings,
 } from "./pricing";
+import type { Material } from "../types/domain";
 
 export type CalculatorPlateType = "SINGLE_COLOR" | "MULTICOLOR";
 
@@ -77,6 +78,26 @@ export interface ProjectPricingSummary {
   result: PricingResult;
   plates: PlatePricingSummary[];
   totalPieces: number;
+}
+
+/**
+ * Preço por grama de um filamento do estoque, em ordem de confiança:
+ * `pricePerGram` (campo legado) → `pricePerKg` → preço de referência do preset.
+ *
+ * O cadastro do painel grava APENAS `pricePerKg`, então quem lê só
+ * `pricePerGram` ignora o preço real do rolo e cobra o preset em silêncio.
+ * Todos os caminhos que montam um `CalculatorFilament` a partir do estoque
+ * (editor de bandeja e colar do slicer) passam por aqui para não divergirem.
+ */
+export function inventoryPricePerGram(
+  material: Pick<Material, "pricePerGram" | "pricePerKg">,
+  fallbackPricePerGram: number,
+): number {
+  const perGram = Math.max(0, Number(material.pricePerGram) || 0);
+  if (perGram > 0) return perGram;
+  const perKg = Math.max(0, Number(material.pricePerKg) || 0);
+  if (perKg > 0) return perKg / 1000;
+  return Math.max(0, Number(fallbackPricePerGram) || 0);
 }
 
 export function createEmptyPlate(index = 1): CalculatorPlate {

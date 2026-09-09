@@ -806,6 +806,25 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     [project, inventoryMaterials],
   );
 
+  // Preço de referência por material (R$/g). Só vale para filamento SEM preço
+  // próprio: colado do slicer sem correspondência no estoque, ou material do
+  // estoque cadastrado sem custo por kg. Filamento com preço real sempre ganha.
+  //
+  // O material selecionado usa o valor editável da aba "Filamento & Custos";
+  // os demais seguem as Configurações do admin. Fonte única: quem precisa do
+  // fallback (colar do slicer e o editor de bandeja) recebe daqui, para os dois
+  // caminhos nunca cobrarem preços diferentes pelo mesmo filamento.
+  const referencePricePerGram = useMemo<Record<MaterialKey, number>>(() => {
+    const fromSettings = (key: MaterialKey) =>
+      Math.max(0, materialSettings[key].spoolPrice) /
+      Math.max(1, materialSettings[key].spoolWeight);
+    const override = Math.max(0, spoolPrice) / Math.max(1, spoolWeight);
+    return {
+      pla: material === "pla" ? override : fromSettings("pla"),
+      petg: material === "petg" ? override : fromSettings("petg"),
+    };
+  }, [material, materialSettings, spoolPrice, spoolWeight]);
+
   const printableSnapshot = useMemo(
     () =>
       buildCalcSnapshot({
@@ -1366,7 +1385,7 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     failureImpactPct,
     setFailureImpactPct,
     selectMaterial,
-    materialSettings,
+    referencePricePerGram,
     inventoryMaterials,
     // impressora
     printers,

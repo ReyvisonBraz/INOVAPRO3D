@@ -4,6 +4,7 @@ import { NumberField } from "../ui/NumberField";
 import type { Material } from "../../types/domain";
 import {
   createEmptyPlate,
+  inventoryPricePerGram,
   type CalculatorFilament,
   type CalculatorPlate,
   type CalculatorProject,
@@ -22,6 +23,8 @@ interface Props {
   onChange: (project: CalculatorProject) => void;
   materials: Material[];
   pricingSettings: PricingSettings;
+  /** Preço de referência (R$/g) para material do estoque cadastrado sem custo. */
+  referencePricePerGram: Record<MaterialKey, number>;
   issues?: ProjectValidationIssue[];
 }
 
@@ -133,6 +136,7 @@ export function CalculatorProjectEditor({
   onChange,
   materials,
   pricingSettings,
+  referencePricePerGram,
   issues = [],
 }: Props) {
   const [drafts, setDrafts] = useState<Record<string, FilamentDraft>>({});
@@ -206,10 +210,7 @@ export function CalculatorProjectEditor({
       const selected = materials.find((material) => material.id === draft.materialId);
       if (!selected) return;
       const key = materialKeyFromType(selected.type);
-      const pricePerGram =
-        Number(selected.pricePerGram ?? 0) ||
-        Number(selected.pricePerKg ?? 0) / 1000 ||
-        pricingSettings.materials[key].spoolPrice / pricingSettings.materials[key].spoolWeight;
+      const pricePerGram = inventoryPricePerGram(selected, referencePricePerGram[key]);
       filament = {
         id: globalThis.crypto.randomUUID(),
         materialId: selected.id,

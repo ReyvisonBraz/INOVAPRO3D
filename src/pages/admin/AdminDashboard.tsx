@@ -292,9 +292,12 @@ export default function AdminDashboard() {
 
   const {
     isAddingMaterial,
+    isSubmittingMaterial,
+    editingMaterialId,
     newMaterial,
     setNewMaterial,
     openMaterialForm,
+    openMaterialEditor,
     closeMaterialForm,
     handleMaterialSubmit,
     handleAdjustMaterialStock,
@@ -936,6 +939,7 @@ export default function AdminDashboard() {
                 materials={materials}
                 onDeleteMaterial={(id) => deleteItem("materials", id)}
                 onAddMaterial={openMaterialForm}
+                onEditMaterial={openMaterialEditor}
                 onToggleStock={(id, current) =>
                   updateStatus("materials", id, { inStock: !current })
                 }
@@ -1461,6 +1465,8 @@ export default function AdminDashboard() {
             setMaterial={setNewMaterial}
             onSubmit={handleMaterialSubmit}
             onClose={closeMaterialForm}
+            isEditing={Boolean(editingMaterialId)}
+            isSubmitting={isSubmittingMaterial}
           />
         )}
 

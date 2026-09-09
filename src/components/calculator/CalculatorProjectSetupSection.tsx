@@ -4,7 +4,7 @@ import type {
   CalculatorProject,
   ProjectValidationIssue,
 } from "../../lib/calculatorProject";
-import type { PricingSettings } from "../../lib/pricing";
+import type { MaterialKey, PricingSettings } from "../../lib/pricing";
 import type { Material } from "../../types/domain";
 import { Reveal } from "../ui/Reveal";
 import { CalculatorProjectEditor } from "./CalculatorProjectEditor";
@@ -16,10 +16,8 @@ interface CalculatorProjectSetupSectionProps {
   materials: Material[];
   pricingSettings: PricingSettings;
   issues: ProjectValidationIssue[];
-  fallbackPricePerKg: {
-    pla: number;
-    petg: number;
-  };
+  /** Preço de referência (R$/g) para filamento sem preço próprio. */
+  referencePricePerGram: Record<MaterialKey, number>;
   formattedTime: string;
   weightGrams: number;
   onProjectChange: (project: CalculatorProject) => void;
@@ -31,7 +29,7 @@ export function CalculatorProjectSetupSection({
   materials,
   pricingSettings,
   issues,
-  fallbackPricePerKg,
+  referencePricePerGram,
   formattedTime,
   weightGrams,
   onProjectChange,
@@ -46,7 +44,10 @@ export function CalculatorProjectSetupSection({
       >
         <SlicerPasteBox
           materials={materials}
-          fallbackPricePerKg={fallbackPricePerKg}
+          fallbackPricePerKg={{
+            pla: referencePricePerGram.pla * 1000,
+            petg: referencePricePerGram.petg * 1000,
+          }}
           hasExistingPlates={project.plates.some((plate) => plate.filaments.length > 0)}
           onApply={onSlicerApply}
         />
@@ -56,6 +57,7 @@ export function CalculatorProjectSetupSection({
           onChange={onProjectChange}
           materials={materials}
           pricingSettings={pricingSettings}
+          referencePricePerGram={referencePricePerGram}
           issues={issues}
         />
         <div className="mt-4 grid gap-3 sm:grid-cols-3">

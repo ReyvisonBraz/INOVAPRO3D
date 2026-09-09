@@ -11,6 +11,7 @@
 import { parseTimeToHours } from "./pricing";
 import {
   createEmptyPlate,
+  inventoryPricePerGram,
   type CalculatorFilament,
   type CalculatorPlate,
 } from "./calculatorProject";
@@ -329,14 +330,16 @@ function toCalculatorFilament(
   const id = `${plateId}-paste-${index + 1}`;
 
   if (inventoryMatch) {
-    const pricePerGram = Math.max(0, Number(inventoryMatch.pricePerGram) || 0);
     return {
       id,
       materialId: inventoryMatch.id,
       materialName: inventoryMatch.name,
       materialKey: key,
       totalGrams: parsed.grams,
-      pricePerGram: pricePerGram || (ctx.fallbackPricePerKg[key] || 0) / 1000,
+      pricePerGram: inventoryPricePerGram(
+        inventoryMatch,
+        (ctx.fallbackPricePerKg[key] || 0) / 1000,
+      ),
       steadyPowerWatts: key === "petg" ? 230 : 200,
     };
   }
