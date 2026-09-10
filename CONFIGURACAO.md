@@ -11,14 +11,15 @@ e, para rodar local, no arquivo **`.env`** na raiz.
 
 ## 1. 📱 Contato (✅ já configurado, confirmar na Vercel)
 
-| Variável | Valor | Onde pega |
-|---|---|---|
-| `VITE_WHATSAPP_PHONE` | `5591980774776` | número da loja, formato `55` + DDD + número |
-| `VITE_CONTACT_EMAIL` | `contato@inovapro3d.com.br` | e-mail oficial |
+| Variável              | Valor                       | Onde pega                                   |
+| --------------------- | --------------------------- | ------------------------------------------- |
+| `VITE_WHATSAPP_PHONE` | `5591980774776`             | número da loja, formato `55` + DDD + número |
+| `VITE_CONTACT_EMAIL`  | `contato@inovapro3d.com.br` | e-mail oficial                              |
 
 > ⚠️ Atualizar `VITE_WHATSAPP_PHONE` **na Vercel** — senão o site no ar usa o número antigo.
 
 **Redes sociais** ficam em [`src/lib/config.ts`](src/lib/config.ts) (não são env):
+
 - Instagram e Facebook ✅ já preenchidos.
 - **TikTok / Kwai**: quando tiver, cole a URL em `SOCIAL.tiktok` / `SOCIAL.kwai` — o ícone aparece sozinho no rodapé e no botão flutuante.
 
@@ -28,11 +29,11 @@ e, para rodar local, no arquivo **`.env`** na raiz.
 
 Sem IDs, o site funciona normal — o rastreamento só fica dormindo. Carrega só após o cliente aceitar os cookies.
 
-| Variável | Exemplo | Onde pega |
-|---|---|---|
-| `VITE_GA4_ID` | `G-XXXXXXXXXX` | analytics.google.com → Admin → Fluxos de dados → ID de métricas |
-| `VITE_META_PIXEL_ID` | `123456789012345` | business.facebook.com → Gerenciador de Eventos → Pixel → ID |
-| `VITE_TIKTOK_PIXEL_ID` | `CXXXXXXXXXXXXXXX` | ads.tiktok.com → Ferramentas → Eventos → Pixel da Web |
+| Variável               | Exemplo            | Onde pega                                                       |
+| ---------------------- | ------------------ | --------------------------------------------------------------- |
+| `VITE_GA4_ID`          | `G-XXXXXXXXXX`     | analytics.google.com → Admin → Fluxos de dados → ID de métricas |
+| `VITE_META_PIXEL_ID`   | `123456789012345`  | business.facebook.com → Gerenciador de Eventos → Pixel → ID     |
+| `VITE_TIKTOK_PIXEL_ID` | `CXXXXXXXXXXXXXXX` | ads.tiktok.com → Ferramentas → Eventos → Pixel da Web           |
 
 Eventos já enviados automaticamente: `page_view`, `add_to_cart`, `begin_checkout`, `purchase`.
 
@@ -40,73 +41,64 @@ Eventos já enviados automaticamente: `page_view`, `add_to_cart`, `begin_checkou
 
 ## 3. 🌐 SEO
 
-| Item | Status | Ação |
-|---|---|---|
-| `robots.txt` | ✅ pronto | nenhuma |
-| `sitemap.xml` (com produtos) | ✅ pronto | precisa de `APP_URL` + Admin SDK (item 4) |
-| Google Search Console | ⏳ pendente | após o deploy, cadastrar `https://www.inovapro3d.com.br/sitemap.xml` em search.google.com/search-console |
+| Item                         | Status      | Ação                                                                                                     |
+| ---------------------------- | ----------- | -------------------------------------------------------------------------------------------------------- |
+| `robots.txt`                 | ✅ pronto   | nenhuma                                                                                                  |
+| `sitemap.xml` (com produtos) | ✅ pronto   | precisa de `APP_URL` + Admin SDK (item 4)                                                                |
+| Google Search Console        | ⏳ pendente | após o deploy, cadastrar `https://www.inovapro3d.com.br/sitemap.xml` em search.google.com/search-console |
 
-| Variável | Valor | Para quê |
-|---|---|---|
+| Variável  | Valor                           | Para quê                           |
+| --------- | ------------------------------- | ---------------------------------- |
 | `APP_URL` | `https://www.inovapro3d.com.br` | gerar os links corretos no sitemap |
 
 ---
 
 ## 4. 🔥 Firebase (servidor / Admin SDK)
 
-Necessário para: gravar relatos de erro, listar produtos no sitemap, validar pedidos no Stripe.
+Necessário para: gravar relatos de erro, listar produtos no sitemap, validar pedidos no checkout.
 
-| Variável | Onde pega |
-|---|---|
+| Variável                | Onde pega                                                                                                                |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `FIREBASE_CLIENT_EMAIL` | console Firebase → Configurações do projeto → Contas de serviço → Gerar nova chave privada (JSON) → campo `client_email` |
-| `FIREBASE_PRIVATE_KEY` | mesmo JSON → campo `private_key` (cole inteiro, com as `\n`) |
+| `FIREBASE_PRIVATE_KEY`  | mesmo JSON → campo `private_key` (cole inteiro, com as `\n`)                                                             |
 
 **Regras do Firestore/Storage** — sempre que mudar `firestore.rules` ou `storage.rules`:
+
 ```bash
 firebase deploy --only firestore:rules,storage --project inovapro3d
 ```
 
 ---
 
-## 5. 💳 Stripe (pagamentos)
-
-| Variável | Onde pega |
-|---|---|
-| `VITE_STRIPE_PUBLIC_KEY` | dashboard.stripe.com → Desenvolvedores → Chaves de API → Publicável |
-| `STRIPE_SECRET_KEY` | mesma tela → Secreta |
-| `STRIPE_WEBHOOK_SECRET` | Stripe → Webhooks → endpoint `/api/stripe/webhook` → Signing secret |
-
-> Para testar sem cobrar de verdade, use as chaves de **teste** (modo Test) e os cartões de teste do Stripe.
-
----
-
-## 6. ✉️ E-mail transacional (SendPulse)
+## 5. ✉️ E-mail transacional (SendPulse)
 
 Envia **confirmação de pedido** automática para o cliente. Sem as chaves, fica
 desligado (não quebra nada). Remetente: `vendas@inovapro3d.com.br` (já ativado no SendPulse).
 
-| Variável | Onde pega |
-|---|---|
+| Variável                | Onde pega                                         |
+| ----------------------- | ------------------------------------------------- |
 | `SENDPULSE_API_USER_ID` | SendPulse → Configurações da conta → **API** → ID |
-| `SENDPULSE_API_SECRET` | mesma tela → Secret |
-| `EMAIL_FROM` | `vendas@inovapro3d.com.br` (remetente verificado) |
-| `EMAIL_FROM_NAME` | `INOVAPRO3D` |
+| `SENDPULSE_API_SECRET`  | mesma tela → Secret                               |
+| `EMAIL_FROM`            | `vendas@inovapro3d.com.br` (remetente verificado) |
+| `EMAIL_FROM_NAME`       | `INOVAPRO3D`                                      |
 
 > Para boa entrega (não cair no spam), verifique o **domínio** no SendPulse
 > (SPF/DKIM no DNS), além do remetente. A caixa de entrada `vendas@` fica no **Zoho Mail**.
 
-## 7. 🔔 Telegram (avisos automáticos)
+---
+
+## 6. 🔔 Telegram (avisos automáticos)
 
 Usado para: aviso de **novo pedido**, **pagamento confirmado** e **erro no site**.
 
-| Variável | Onde pega |
-|---|---|
-| `TELEGRAM_BOT_TOKEN` | crie um bot com o @BotFather no Telegram → ele te dá o token |
-| `TELEGRAM_CHAT_ID` | mande uma msg pro bot e acesse `https://api.telegram.org/bot<TOKEN>/getUpdates` → campo `chat.id` |
+| Variável             | Onde pega                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------- |
+| `TELEGRAM_BOT_TOKEN` | crie um bot com o @BotFather no Telegram → ele te dá o token                                      |
+| `TELEGRAM_CHAT_ID`   | mande uma msg pro bot e acesse `https://api.telegram.org/bot<TOKEN>/getUpdates` → campo `chat.id` |
 
 ---
 
-## 8. 📝 Conteúdo / Jurídico (pendente)
+## 7. 📝 Conteúdo / Jurídico (pendente)
 
 - **Política de Privacidade (LGPD)**: o link do banner de cookies aponta para `/conhecimento#privacidade`, mas o texto ainda é um rascunho. Preencher com uma política real (ideal revisar com alguém de jurídico).
 - **Página "Sobre / Quem somos"**: ✅ pronta em `/sobre`.
@@ -119,7 +111,6 @@ Usado para: aviso de **novo pedido**, **pagamento confirmado** e **erro no site*
 - [ ] IDs de Analytics/Pixels (GA4, Meta, TikTok) — quando tiver as contas
 - [ ] `APP_URL` na Vercel
 - [ ] `FIREBASE_CLIENT_EMAIL` + `FIREBASE_PRIVATE_KEY` na Vercel
-- [ ] Stripe (chaves + webhook) na Vercel
 - [ ] SendPulse (`SENDPULSE_API_USER_ID` + `SENDPULSE_API_SECRET`) na Vercel + domínio verificado
 - [ ] Telegram (token + chat id) na Vercel
 - [ ] Sitemap cadastrado no Google Search Console

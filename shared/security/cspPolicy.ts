@@ -5,7 +5,6 @@ export const CSP_REPORT_PATH = "/api/csp-report";
 export const CSP_PRODUCTION_REPORT_ENDPOINT = "https://www.inovapro3d.com.br/api/csp-report";
 
 const EXTERNAL_SCRIPT_SOURCES = [
-  "https://js.stripe.com",
   "https://apis.google.com",
   "https://www.googletagmanager.com",
   "https://connect.facebook.net",
@@ -67,7 +66,6 @@ export function buildCspPolicy(html: string): string {
       "https://identitytoolkit.googleapis.com",
       "https://securetoken.googleapis.com",
       "https://firebasestorage.googleapis.com",
-      "https://api.stripe.com",
       "https://www.google-analytics.com",
       "https://*.google-analytics.com",
       "https://analytics.tiktok.com",
@@ -76,13 +74,7 @@ export function buildCspPolicy(html: string): string {
       "https://web.webpushs.com",
       "wss://*.firestore.googleapis.com",
     ]),
-    directive("frame-src", [
-      "'self'",
-      "https://js.stripe.com",
-      "https://hooks.stripe.com",
-      "https://accounts.google.com",
-      "https://*.firebaseapp.com",
-    ]),
+    directive("frame-src", ["'self'", "https://accounts.google.com", "https://*.firebaseapp.com"]),
     directive("worker-src", ["'self'", "blob:"]),
     directive("manifest-src", ["'self'"]),
     directive("object-src", ["'none'"]),
