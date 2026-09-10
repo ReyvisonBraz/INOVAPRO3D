@@ -3,7 +3,7 @@ import { isTrustedCspDocument, parseCspReportPayload } from "../server/_cspRepor
 import { recordCspReports } from "../server/_cspReportRecorder.js";
 import { createRequestContext } from "../server/_observability/context.js";
 import { logEvent } from "../server/_observability/logger.js";
-import { checkRateLimit, clientIp } from "../server/_rateLimit.js";
+import { runGuards } from "../server/_middleware/guards.js";
 
 export const config = {
   api: {
@@ -65,14 +65,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.status(415).end();
     return;
   }
-  const { allowed, retryAfterSeconds } = await checkRateLimit(
-    "csp-report",
-    clientIp(req),
-    MAX_REQUESTS_PER_MINUTE,
+
+  // Só o rate limit passa pelo guarda compartilhado aqui: método e
+  // content-type já foram checados acima, nessa ordem, de propósito — o
+  // guarda genérico não conhece Content-Type, e não vale a pena esconder
+  // essa checagem específica de CSP atrás de uma abstração compartilhada.
+  const decision = await runGuards(
+    req,
+    { rateLimit: { bucket: "csp-report", maxPerMinute: MAX_REQUESTS_PER_MINUTE } },
     context,
   );
-  if (!allowed) {
-    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
+  if (!decision.ok) {
+    if (decision.reason === "RATE_LIMITED") {
+      res.setHeader("Retry-After", String(decision.retryAfterSeconds ?? 60));
+    }
     res.status(429).end();
     return;
   }
