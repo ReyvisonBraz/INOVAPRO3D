@@ -1,43 +1,22 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { getAdminDb, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
 import { AppError } from "../../server/_observability/appError.js";
 import { createRequestContext } from "../../server/_observability/context.js";
 import { sendApiError } from "../../server/_observability/http.js";
 import { logEvent } from "../../server/_observability/logger.js";
-import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
-
-async function authenticate(req: VercelRequest): Promise<string | null> {
-  const authHeader = req.headers.authorization as string | undefined;
-  if (!authHeader?.startsWith("Bearer ")) return null;
-
-  try {
-    return (await getAdminAuth().verifyIdToken(authHeader.slice(7))).uid;
-  } catch {
-    return null;
-  }
-}
+import { applyCatalogGuards } from "../../server/_middleware/vercelGuards.js";
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const context = createRequestContext(req, "payment-api", "get-payment-status");
   res.setHeader("X-Correlation-Id", context.correlationId);
 
-  if (req.method !== "GET") {
-    res.setHeader("Allow", "GET");
-    sendApiError(res, context, new AppError("METHOD_NOT_ALLOWED"));
-    return;
-  }
-
-  const { allowed, retryAfterSeconds } = await checkRateLimit(
-    "mercadopago-payment-status",
-    clientIp(req),
-    30,
-    context,
-  );
-  if (!allowed) {
-    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
-    sendApiError(res, context, new AppError("RATE_LIMITED"));
-    return;
-  }
+  // Método + taxa antes da configuração, como na ordem original: o erro de
+  // Admin SDK aqui é PAYMENT_CONFIGURATION_ERROR, não o genérico do guarda.
+  const methodAndRate = await applyCatalogGuards(req, res, context, {
+    methods: ["GET"],
+    rateLimit: { bucket: "mercadopago-payment-status", maxPerMinute: 30 },
+  });
+  if (methodAndRate === false) return;
 
   if (!isAdminSdkConfigured()) {
     sendApiError(
@@ -50,11 +29,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  const userId = await authenticate(req);
-  if (!userId) {
-    sendApiError(res, context, new AppError("AUTH_REQUIRED"));
-    return;
-  }
+  const identity = await applyCatalogGuards(req, res, context, {
+    auth: "user",
+    requireAdminSdk: false,
+  });
+  if (!identity) return;
+  const userId = identity.uid;
 
   const rawOrderId = req.query.orderId;
   const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;

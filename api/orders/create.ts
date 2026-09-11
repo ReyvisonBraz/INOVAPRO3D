@@ -2,7 +2,7 @@
 // servidor. Espelha o endpoint Express em server.ts — na Vercel o runtime de
 // produção são estas funções de api/, não o Express. Mantenha os dois em sincronia.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { getAdminDb } from "../../server/firebaseAdmin.js";
 import { AppError } from "../../server/_observability/appError.js";
 import { createRequestContext } from "../../server/_observability/context.js";
 import { sendApiError } from "../../server/_observability/http.js";
@@ -15,7 +15,7 @@ import {
 } from "../../server/_orderPricing.js";
 import { calculatePixTotal, DEFAULT_PIX_DISCOUNT_PERCENT } from "../../shared/commercePricing.js";
 import { resolveTrustedIdentity } from "../../server/_orderNotification.js";
-import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
+import { applyCatalogGuards } from "../../server/_middleware/vercelGuards.js";
 
 // `userName`/`userEmail` chegam do cliente por compatibilidade, mas são
 // deliberadamente IGNORADOS: a identidade gravada no pedido vem do token
@@ -30,63 +30,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const context = createRequestContext(req, "order-api", "create-order");
   res.setHeader("X-Correlation-Id", context.correlationId);
 
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    sendApiError(res, context, new AppError("METHOD_NOT_ALLOWED"));
-    return;
-  }
-
   // O espelho Express (server.ts) sempre teve `rateLimit(10)` nesta rota;
   // esta função — o runtime de produção na Vercel — nunca teve limite algum.
-  const { allowed, retryAfterSeconds } = await checkRateLimit(
-    "orders-create",
-    clientIp(req),
-    10,
-    context,
-  );
-  if (!allowed) {
-    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
-    sendApiError(res, context, new AppError("RATE_LIMITED"));
-    return;
-  }
-
-  // Auth obrigatória + Admin SDK obrigatório (sem ele não há recálculo confiável).
-  if (!isAdminSdkConfigured()) {
-    sendApiError(
-      res,
-      context,
-      new AppError("SERVICE_CONFIGURATION_ERROR", {
-        technicalMessage: "Firebase Admin SDK não configurado para criar pedido",
-      }),
-    );
-    return;
-  }
-  const authHeader = req.headers.authorization as string | undefined;
-  if (!authHeader?.startsWith("Bearer ")) {
-    sendApiError(res, context, new AppError("AUTH_REQUIRED"));
-    return;
-  }
-  let uid: string;
-  let decodedToken: { email?: string; emailVerified?: boolean; name?: string };
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
-    uid = decoded.uid;
-    decodedToken = {
-      email: decoded.email,
-      emailVerified: decoded.email_verified === true,
-      name: decoded.name,
-    };
-  } catch (error) {
-    sendApiError(
-      res,
-      context,
-      new AppError("AUTH_REQUIRED", {
-        cause: error,
-        technicalMessage: "Token Firebase inválido",
-      }),
-    );
-    return;
-  }
+  // Auth obrigatória + Admin SDK obrigatório (sem ele não há recálculo
+  // confiável), ambos implícitos em `auth: "user"`.
+  const decodedToken = await applyCatalogGuards(req, res, context, {
+    methods: ["POST"],
+    rateLimit: { bucket: "orders-create", maxPerMinute: 10 },
+    auth: "user",
+  });
+  if (!decodedToken) return;
+  const uid = decodedToken.uid;
 
   const body = (req.body ?? {}) as CreateOrderPayload;
   const items = Array.isArray(body.items) ? body.items : [];

@@ -1,64 +1,27 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
 import { AppError } from "../../server/_observability/appError.js";
 import { createRequestContext } from "../../server/_observability/context.js";
 import { sendApiError } from "../../server/_observability/http.js";
 import { logEvent } from "../../server/_observability/logger.js";
 import { resolveVerifiedEmail } from "../../server/_orderNotification.js";
 import { processPayment } from "../../server/mercadopago/_service.js";
-import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
-
-// Middleware de autenticação
-async function authenticate(
-  req: VercelRequest,
-): Promise<{ userId: string; email?: string } | null> {
-  const authHeader = req.headers.authorization as string | undefined;
-  if (!authHeader?.startsWith("Bearer ")) {
-    return null;
-  }
-
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
-    return {
-      userId: decoded.uid,
-      email:
-        resolveVerifiedEmail({
-          email: decoded.email,
-          emailVerified: decoded.email_verified === true,
-        }) ?? undefined,
-    };
-  } catch {
-    return null;
-  }
-}
+import { applyCatalogGuards } from "../../server/_middleware/vercelGuards.js";
 
 // Handler principal
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const context = createRequestContext(req, "payment-api", "create-pix");
   res.setHeader("X-Correlation-Id", context.correlationId);
 
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    sendApiError(
-      res,
-      context,
-      new AppError("METHOD_NOT_ALLOWED", { technicalMessage: "Método HTTP não permitido" }),
-    );
-    return;
-  }
-
-  // Rate limiting: 10 requisições por minuto
-  const { allowed, retryAfterSeconds } = await checkRateLimit(
-    "mercadopago-process-payment",
-    clientIp(req),
-    10,
-    context,
-  );
-  if (!allowed) {
-    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
-    sendApiError(res, context, new AppError("RATE_LIMITED"));
-    return;
-  }
+  // Método + rate limit primeiro, sem auth — a ordem original checava a
+  // configuração do pagamento entre eles e a identidade, e os dois erros de
+  // configuração abaixo usam PAYMENT_CONFIGURATION_ERROR, não o
+  // SERVICE_CONFIGURATION_ERROR genérico do guarda. Por isso ficam de fora.
+  const methodAndRate = await applyCatalogGuards(req, res, context, {
+    methods: ["POST"],
+    rateLimit: { bucket: "mercadopago-process-payment", maxPerMinute: 10 },
+  });
+  if (methodAndRate === false) return;
 
   // Verificar se serviço está habilitado
   if (process.env.MERCADOPAGO_ENABLED !== "true") {
@@ -84,12 +47,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return;
   }
 
-  // Autenticar usuário
-  const user = await authenticate(req);
-  if (!user) {
-    sendApiError(res, context, new AppError("AUTH_REQUIRED"));
-    return;
-  }
+  // Autenticar usuário — método e taxa já passaram acima, então este guarda
+  // só resolve identidade (`requireAdminSdk: false`: já confirmado logo acima).
+  const identity = await applyCatalogGuards(req, res, context, {
+    auth: "user",
+    requireAdminSdk: false,
+  });
+  if (!identity) return;
+  const user = {
+    userId: identity.uid,
+    email:
+      resolveVerifiedEmail({
+        email: identity.email,
+        emailVerified: identity.emailVerified,
+      }) ?? undefined,
+  };
 
   // Validar payload
   const body = (req.body ?? {}) as {

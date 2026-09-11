@@ -6,7 +6,7 @@
 // quando o header estava presente — omitir o header pulava a checagem inteira e
 // transformava a rota em relay de e-mail aberto na internet.
 import type { VercelRequest, VercelResponse } from "@vercel/node";
-import { getAdminAuth, getAdminDb, isAdminSdkConfigured } from "../../server/firebaseAdmin.js";
+import { getAdminDb } from "../../server/firebaseAdmin.js";
 import { sendEmail } from "../../server/_email.js";
 import { orderConfirmationEmail } from "../../server/_emailTemplates.js";
 import {
@@ -14,7 +14,7 @@ import {
   loadOrderForNotification,
   resolveTrustedIdentity,
 } from "../../server/_orderNotification.js";
-import { checkRateLimit, clientIp } from "../../server/_rateLimit.js";
+import { applyLegacyGuards } from "../../server/_middleware/vercelGuards.js";
 
 async function notifyTelegram(text: string): Promise<void> {
   const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -32,47 +32,16 @@ async function notifyTelegram(text: string): Promise<void> {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    res.status(405).json({ error: "Método não permitido." });
-    return;
-  }
-
   // O espelho Express (server.ts) sempre teve `rateLimit(5)` nesta rota; esta
   // função — o runtime de produção na Vercel — nunca teve limite algum.
-  const { allowed, retryAfterSeconds } = await checkRateLimit("notify-new-order", clientIp(req), 5);
-  if (!allowed) {
-    res.setHeader("Retry-After", String(retryAfterSeconds || 60));
-    res.status(429).json({ error: "Muitas requisições. Tente novamente em instantes." });
-    return;
-  }
-
-  // Sem Admin SDK não há como verificar o token nem ler o pedido. Recusa
-  // explícita: degradar para "sem autenticação" seria abrir a rota.
-  if (!isAdminSdkConfigured()) {
-    res.status(503).json({ error: "Serviço indisponível." });
-    return;
-  }
-
-  const authHeader = typeof req.headers.authorization === "string" ? req.headers.authorization : "";
-  if (!authHeader.startsWith("Bearer ")) {
-    res.status(401).json({ error: "Não autorizado." });
-    return;
-  }
-
-  let decodedToken: { uid: string; email?: string; emailVerified?: boolean; name?: string };
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(authHeader.slice(7));
-    decodedToken = {
-      uid: decoded.uid,
-      email: decoded.email,
-      emailVerified: decoded.email_verified === true,
-      name: decoded.name,
-    };
-  } catch {
-    res.status(401).json({ error: "Token inválido." });
-    return;
-  }
+  // Sem Admin SDK não há como verificar o token nem ler o pedido, e o guarda
+  // recusa explicitamente: degradar para "sem autenticação" seria abrir a rota.
+  const decodedToken = await applyLegacyGuards(req, res, {
+    methods: ["POST"],
+    rateLimit: { bucket: "notify-new-order", maxPerMinute: 5 },
+    auth: "user",
+  });
+  if (!decodedToken) return;
 
   const adminDb = getAdminDb();
   const identity = await resolveTrustedIdentity(adminDb, decodedToken.uid, decodedToken);
