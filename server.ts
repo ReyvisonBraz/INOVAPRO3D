@@ -12,8 +12,8 @@ import { isTrustedCspDocument, parseCspReportPayload } from "./server/_cspReport
 import { recordCspReports } from "./server/_cspReportRecorder.ts";
 import { createRequestContext } from "./server/_observability/context.ts";
 import { readModelMetadata, isAllowedImportHost } from "./server/_modelMetadata.ts";
-import { getAdminDb, getAdminAuth, isAdminSdkConfigured } from "./server/firebaseAdmin.ts";
-import { verifyAdminRequest } from "./server/_adminAuth.ts";
+import { getAdminDb, isAdminSdkConfigured } from "./server/firebaseAdmin.ts";
+import { requireIdentity } from "./server/_middleware/expressGuards.ts";
 import { checkRateLimit, clientIp } from "./server/_rateLimit.ts";
 import { buildErrorReport } from "./server/_reportError.ts";
 import {
@@ -100,45 +100,6 @@ async function sendTelegram(message: string): Promise<void> {
   }
 }
 
-// ── Firebase token verification middleware ─────────────────────────────────
-// Falha SEMPRE fechado: sem token válido, `null`. A versão anterior devolvia a
-// string "unchecked" quando o Admin SDK não estava configurado — e como toda
-// rota testava apenas `if (!uid)`, uma string não-vazia passava. Bastava uma
-// variável de ambiente ausente (typo, rotação de chave, deploy incompleto) para
-// desligar a autenticação do servidor inteiro em silêncio.
-async function verifyToken(req: express.Request): Promise<string | null> {
-  const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) return null;
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(header.slice(7));
-    return decoded.uid;
-  } catch {
-    return null;
-  }
-}
-
-/** Igual a `verifyToken`, mas devolve também os claims usados como identidade. */
-async function verifyTokenWithClaims(req: express.Request): Promise<{
-  uid: string;
-  email?: string;
-  emailVerified?: boolean;
-  name?: string;
-} | null> {
-  const header = req.headers.authorization;
-  if (!header?.startsWith("Bearer ")) return null;
-  try {
-    const decoded = await getAdminAuth().verifyIdToken(header.slice(7));
-    return {
-      uid: decoded.uid,
-      email: decoded.email,
-      emailVerified: decoded.email_verified === true,
-      name: decoded.name,
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -162,23 +123,8 @@ async function startServer() {
     rateLimit(12),
     express.json({ limit: "5mb" }),
     async (req, res) => {
-      const uid = await verifyToken(req);
-      if (!uid) {
-        res.status(403).json({ error: "Apenas administradores podem ler recortes." });
-        return;
-      }
-      // Checagem incondicional: antes ela era pulada quando o token vinha do
-      // atalho de desenvolvimento, deixando a cota da API Gemini aberta.
-      try {
-        const user = await getAdminDb().collection("users").doc(uid).get();
-        if (user.data()?.role !== "ADMIN") {
-          res.status(403).json({ error: "Apenas administradores podem ler recortes." });
-          return;
-        }
-      } catch {
-        res.status(403).json({ error: "Não foi possível validar sua sessão." });
-        return;
-      }
+      const identity = await requireIdentity(req, res, { auth: "admin" });
+      if (identity === false) return;
 
       const imageData = typeof req.body?.imageData === "string" ? req.body.imageData : "";
       const mimeType = typeof req.body?.mimeType === "string" ? req.body.mimeType : "";
@@ -254,16 +200,11 @@ async function startServer() {
   // O cliente envia SÓ itens e quantidades. O total é recomputado do catálogo
   // (Admin SDK bypassa as regras). Fecha a manipulação de preço via localStorage.
   app.post("/api/orders/create", rateLimit(10), async (req, res) => {
-    if (!isAdminSdkConfigured()) {
-      // Sem Admin SDK não há recálculo confiável — recusa explícita (evita fallback inseguro).
-      res.status(503).json({ error: "Criação de pedido indisponível (servidor não configurado)." });
-      return;
-    }
-    const auth = await verifyTokenWithClaims(req);
-    if (!auth) {
-      res.status(401).json({ error: "Não autorizado." });
-      return;
-    }
+    // `auth: "user"` nunca devolve `identity: null` no sucesso — só `false`
+    // (já respondeu) ou uma `Identity` de verdade. `!auth` narra os dois
+    // falsy (`false` e o `null` inalcançável) e sai com `Identity` puro.
+    const auth = await requireIdentity(req, res, { auth: "user" });
+    if (!auth) return;
     const uid = auth.uid;
 
     // `userName`/`userEmail` do corpo são ignorados de propósito — ver
@@ -364,15 +305,8 @@ async function startServer() {
   // o chamador precisa ser o dono dele. Aceitar esses campos do corpo
   // fazia da rota um relay de e-mail com a reputação do nosso domínio.
   app.post("/api/notify/new-order", rateLimit(5), async (req, res) => {
-    if (!isAdminSdkConfigured()) {
-      res.status(503).json({ error: "Serviço indisponível." });
-      return;
-    }
-    const auth = await verifyTokenWithClaims(req);
-    if (!auth) {
-      res.status(401).json({ error: "Não autorizado." });
-      return;
-    }
+    const auth = await requireIdentity(req, res, { auth: "user" });
+    if (!auth) return;
 
     const adminDb = getAdminDb();
     const identity = await resolveTrustedIdentity(adminDb, auth.uid, auth);
@@ -417,11 +351,8 @@ async function startServer() {
       return;
     }
 
-    const auth = await verifyTokenWithClaims(req);
-    if (!auth) {
-      res.status(401).json({ error: "Não autorizado." });
-      return;
-    }
+    const auth = await requireIdentity(req, res, { auth: "user" });
+    if (!auth) return;
 
     const accessToken = process.env.MERCADOPAGO_ACCESS_TOKEN;
     if (!accessToken) {
@@ -515,11 +446,9 @@ async function startServer() {
   // O espelho serverless (api/mercadopago/payment-status.ts) já limitava a
   // 30/min; esta rota nunca teve limite nenhum.
   app.get("/api/mercadopago/payment-status", rateLimit(30), async (req, res) => {
-    const uid = await verifyToken(req);
-    if (!uid) {
-      res.status(401).json({ error: "Não autorizado." });
-      return;
-    }
+    const auth = await requireIdentity(req, res, { auth: "user" });
+    if (!auth) return;
+    const uid = auth.uid;
 
     const orderId = req.query.orderId as string;
     if (!orderId) {
@@ -624,10 +553,8 @@ async function startServer() {
   // servidor buscava qualquer URL https de host permitido e devolvia o
   // corpo, sem revalidar o destino final após redirect.
   app.get("/api/proxy-image", rateLimit(60), async (req, res) => {
-    if (!(await verifyAdminRequest(req))) {
-      res.status(403).json({ error: "Apenas administradores podem usar o proxy de imagens." });
-      return;
-    }
+    const auth = await requireIdentity(req, res, { auth: "admin" });
+    if (!auth) return;
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
     if (!rawUrl) {
       res.status(400).json({ error: "url obrigatória" });
@@ -689,10 +616,8 @@ async function startServer() {
   // aberto a qualquer visitante, com o mesmo problema de redirect não
   // revalidado do /api/proxy-image acima.
   app.get("/api/model-metadata", rateLimit(20), async (req, res) => {
-    if (!(await verifyAdminRequest(req))) {
-      res.status(403).json({ error: "Apenas administradores podem importar links de modelo." });
-      return;
-    }
+    const auth = await requireIdentity(req, res, { auth: "admin" });
+    if (!auth) return;
     const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
 
     try {
