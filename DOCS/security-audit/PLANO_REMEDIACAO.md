@@ -9,9 +9,9 @@
 Relatório completo dos achados: [`relatorio-auditoria-seguranca.pdf`](./relatorio-auditoria-seguranca.pdf)
 (gerado por `gerar_relatorio.py` a partir de `dados_auditoria.py` — ver `README.md` desta pasta).
 
-Branch de trabalho: `security/quotes-storage-lockdown` (criada a partir de `main`,
-nunca commitar direto na `main`). PR ainda não aberto:
-https://github.com/ReyvisonBraz/INOVAPRO3D/pull/new/security/quotes-storage-lockdown
+Branch de trabalho atual: `security/onda2-middleware-compartilhado`.
+A branch da Onda 0/1 (`security/quotes-storage-lockdown`) **já foi mergeada
+na `main`** no commit `9a5797f` — não há PR pendente dela.
 
 ---
 
@@ -25,10 +25,11 @@ https://github.com/ReyvisonBraz/INOVAPRO3D/pull/new/security/quotes-storage-lock
 | A4  | Rate limit em memória (inefetivo em serverless)                                             | Baixa       | ✅ Corrigido (causa raiz do A2)                                        | Onda 1 |
 | A5  | Personificação de identidade em avaliações (`userName`/`userPhoto` não vinculados ao token) | Baixa       | ⬜ Aberto                                                              | Onda 4 |
 | A6  | CSP em `Report-Only`, nunca promovida a enforce                                             | Baixa       | ⬜ Aberto                                                              | Onda 3 |
-| A7  | Webhook Stripe sem conferência de valor (existe no código, não em produção)                 | Baixa       | ⬜ Aberto — decisão pendente (consertar ou remover)                    | Onda 2 |
+| A7  | Webhook Stripe sem conferência de valor (existe no código, não em produção)                 | Baixa       | ✅ Corrigido — caminho Stripe **removido** por inteiro                 | Onda 2 |
+| A9  | `api/calculator/extract-slicer` sem rate limit na Vercel (espelho Express tinha)            | Baixa       | ✅ Corrigido — achado durante a Onda 2, fora do relatório original     | Onda 2 |
 | A8  | `GITHUB_TOKEN` sem `permissions: contents: read` explícito no CI                            | Informativa | ✅ Corrigido                                                           | Onda 0 |
 
-**Zero críticas, zero altas, zero médias em aberto.** Restam 3 baixas.
+**Zero críticas, zero altas, zero médias em aberto.** Restam 2 baixas (A5 e A6).
 
 ## Itens operacionais (não são código)
 
@@ -36,7 +37,7 @@ https://github.com/ReyvisonBraz/INOVAPRO3D/pull/new/security/quotes-storage-lock
 | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Deploy de `storage.rules`/`firestore.rules` em produção | ✅ Feito 04/09/2026 — ver changelog                                                                                     |
 | Política de TTL em `rateLimits.resetAt` (Firestore)     | ✅ Criada 04/09/2026 via API Admin do Firestore (`ttlConfig` state `CREATING` → `ACTIVE` é automático, não requer ação) |
-| Abrir o PR da branch para `main`                        | ⬜ Pendente — link acima                                                                                                |
+| Abrir o PR da branch da Onda 0/1 para `main`            | ✅ Obsoleto — a branch já foi mergeada em `9a5797f`                                                                     |
 
 ---
 
@@ -65,19 +66,52 @@ admin quebraria.
 
 Commit: `bf372a6`.
 
-### Onda 2 — não iniciada
+### Onda 2 — concluída
 
 **Objetivo:** eliminar a _classe_ de falha "a defesa existe num runtime só"
 (Express vs. Vercel serverless), não só os sintomas já corrigidos.
 
-- Extrair `withAuth` / `withRateLimit` / `withAdmin` para `server/_middleware/`,
-  consumidos pelos dois runtimes (hoje `server.ts` e `api/*.ts` duplicam a lógica
-  de auth/rate-limit/admin-gate ponto a ponto).
-- Decidir o destino do webhook Stripe (A7): ele existe em código mas não está em
-  produção hoje. Duas saídas — (a) publicar `api/stripe/webhook.ts` com o mesmo
-  rigor de conferência de valor que o Mercado Pago já tem, ou (b) remover o
-  caminho Express morto para não deixar código de pagamento não testado/não
-  usado no repositório.
+Criado `server/_middleware/`, seguindo o padrão de `_rateLimitDecision.ts` —
+decisão pura separada do I/O:
+
+- `_guardDecision.ts` — `decideGuards()`, pura. Ordem método → taxa → Admin SDK
+  → identidade → papel. 11 testes, cobrindo a ordem e, sobretudo, que o
+  fail-open do rate limit **nunca** vaza para a autenticação, que falha fechado.
+- `guards.ts` — `runGuards()`, o I/O. Uma `verifyBearerIdentity()` no lugar das
+  **7 cópias** manuais de verificação de Bearer que existiam.
+- `vercelGuards.ts` — `applyCatalogGuards` (envelope `{error:{code,message}}`)
+  e `applyLegacyGuards` (`{error:"texto"}`). Os dois formatos já existiam na
+  Vercel e nenhum foi unificado: mudaria o contrato que o frontend consome.
+- `expressGuards.ts` — `requireIdentity()` para o `server.ts`.
+
+Migrados os 11 chamadores em 4 commits, por risco crescente (rotas sem
+pagamento → Express → notificação → pagamento), com o gate completo entre
+cada grupo. `server/_adminAuth.ts` ficou sem chamador e foi removido.
+
+**A7 — decisão: remover, não consertar.** `StripePaymentForm.tsx` e
+`src/lib/stripe.ts` tinham zero importadores, o `Checkout.tsx` usa só Mercado
+Pago e nunca existiu `api/stripe/*` na Vercel. Mas com `STRIPE_SECRET_KEY`
+definida o Express registrava `/api/stripe/webhook` — que marcava pedido
+`PAID` a partir de `metadata.orderId`, sem conferir valor — sempre que subia.
+Removidas as 2 rotas, os 2 arquivos órfãos, as 3 dependências, as entradas
+`*.stripe.com` da CSP e as variáveis `STRIPE_*` da documentação. Mantidos só
+os 2 rótulos `"stripe"` em `_orderNotification.ts`/`_emailTemplates.ts`, que
+exibem `paymentMethod` de pedidos **históricos**.
+
+**A9 (novo).** Ao migrar, apareceu o mesmo formato do A2 ainda vivo:
+`api/calculator/extract-slicer.ts` — o runtime de produção — não tinha rate
+limit nenhum, enquanto o espelho Express tinha `rateLimit(12)`. A rota chama a
+API Gemini. Corrigido junto (12/min), e ela ainda reimplementava o admin-gate
+à mão, duplicação que o próprio `_adminAuth.ts` documentava como dívida.
+
+Efeito colateral, no sentido de fechar divergência: as mensagens de erro de
+auth/rate-limit passam a vir de `shared/errors/catalog.ts` nos dois runtimes —
+antes o mesmo erro tinha texto diferente em rota diferente. E
+`process-payment`/`payment-status` no Express, que **não** checavam
+`isAdminSdkConfigured()` antes de autenticar (o espelho da Vercel checava),
+passaram a checar.
+
+Commits: `9cc8afd`, `fa12152`, `e0afffc`, `b369289`, `1c717c0`.
 
 ### Onda 3 — não iniciada
 
@@ -109,6 +143,13 @@ avaliação com nome/foto de terceiro.
 
 ## Changelog
 
+- **2026-09-10/11** — Onda 2 concluída (commits `9cc8afd`, `fa12152`,
+  `e0afffc`, `b369289`, `1c717c0`). Guardas compartilhados em
+  `server/_middleware/`, 7 cópias de verificação de token reduzidas a uma,
+  11 rotas migradas. A7 resolvido por remoção do caminho Stripe. Achado e
+  corrigido o A9 (`extract-slicer` sem rate limit na Vercel), que não estava
+  no relatório original — mesmo formato do A2, o que confirma que tratar a
+  classe, e não só os sintomas, era a leitura certa para esta onda.
 - **2026-09-04** — Firebase CLI conectado (`littlefigther50@gmail.com`, projeto
   `inovapro3d`). Deploy manual de `firestore:rules` + `storage` rules — revelou
   que `storage.rules` (fix do A1) estava commitado desde a Onda 0 mas nunca
@@ -129,13 +170,13 @@ dia, outra pessoa):
 
 1. Leia a tabela **"Status dos achados"** acima — ela é a fonte da verdade de
    o que falta.
-2. Confira `git log --oneline main..security/quotes-storage-lockdown` para ver
-   exatamente o que já foi commitado nesta branch.
+2. Confira `git log --oneline main..<branch de trabalho>` para ver exatamente
+   o que já foi commitado fora da `main`.
 3. Rode `npm run check && npm run test:rules` para confirmar que o estado
    local ainda passa em tudo antes de continuar.
-4. Escolha a próxima onda pela tabela (Onda 2 é a próxima, na ordem
-   combinada) e comece por ela — cada onda é independente o suficiente para
-   ser feita isolada, mas Onda 2 (middleware compartilhado) facilita a Onda 3
-   (CSP mexe nos mesmos arquivos de edge/middleware).
+4. **A próxima é a Onda 3 (CSP enforce).** A Onda 2 entregou o
+   `server/_middleware/` que ela ia precisar de qualquer forma, e já removeu
+   as entradas `*.stripe.com` da política — permissão morta que a Onda 3
+   herdaria e teria de decidir o que fazer.
 5. Ao terminar uma onda: atualize a tabela de status, adicione uma linha no
    changelog com a data, e comite este arquivo junto com o código da onda.
