@@ -4,6 +4,22 @@ export const CSP_REPORT_GROUP = "csp";
 export const CSP_REPORT_PATH = "/api/csp-report";
 export const CSP_PRODUCTION_REPORT_ENDPOINT = "https://www.inovapro3d.com.br/api/csp-report";
 
+/**
+ * Nome do cabeçalho publicado. Ficou muito tempo em
+ * `Content-Security-Policy-Report-Only`: o navegador anotava as violações e
+ * avisava o servidor, mas nunca bloqueava — proteção decorativa (achado A6 da
+ * auditoria). Promovido a enforce depois que os relatórios de produção
+ * identificaram os dois únicos violadores reais.
+ *
+ * NÃO publicar os dois cabeçalhos ao mesmo tempo com esta política: em modo
+ * enforce, `report-uri`/`report-to` já enviam relatório do que é bloqueado, e
+ * o par duplicaria cada violação no coletor.
+ *
+ * O `vercel.json` repete este nome em texto (é JSON, não importa daqui); os
+ * scripts que o leem usam esta constante, então a troca não pode divergir.
+ */
+export const CSP_HEADER_NAME = "Content-Security-Policy";
+
 const EXTERNAL_SCRIPT_SOURCES = [
   "https://apis.google.com",
   "https://www.googletagmanager.com",
@@ -55,7 +71,17 @@ export function buildCspPolicy(html: string): string {
     directive("default-src", ["'self'"]),
     directive("script-src", ["'self'", ...hashes, ...EXTERNAL_SCRIPT_SOURCES]),
     directive("script-src-attr", ["'none'"]),
-    directive("style-src", ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"]),
+    // `web.webpushs.com` serve o CSS do prompt de push do SendPulse. O host já
+    // era liberado em `script-src` e `connect-src`, mas não aqui — os
+    // relatórios do modo Report-Only registraram 28 violações de
+    // `style-src-elem` em produção por causa disso. Sem esta entrada, ligar a
+    // política em enforce deixaria o prompt sem formatação.
+    directive("style-src", [
+      "'self'",
+      "'unsafe-inline'",
+      "https://fonts.googleapis.com",
+      "https://web.webpushs.com",
+    ]),
     directive("font-src", ["'self'", "https://fonts.gstatic.com", "data:"]),
     directive("img-src", ["'self'", "data:", "blob:", "https:"]),
     directive("media-src", ["'self'", "blob:", "https:"]),

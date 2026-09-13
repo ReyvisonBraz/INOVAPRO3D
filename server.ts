@@ -41,6 +41,7 @@ import {
 import { resolveServerRuntime } from "./server/_serverRuntime.ts";
 import {
   buildCspPolicy,
+  CSP_HEADER_NAME,
   CSP_REPORT_PATH,
   reportingEndpointsHeader,
 } from "./shared/security/cspPolicy.ts";
@@ -637,10 +638,10 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    // Paridade com vercel.ts para quando o app é auto-hospedado (npm start).
-    // A política é deliberadamente Report-Only nesta etapa: os relatos reais
-    // serão analisados antes de autorizar qualquer bloqueio em produção.
-    const cspReportOnly = buildCspPolicy(readFileSync(path.join(distPath, "index.html"), "utf8"));
+    // Paridade com vercel.json para quando o app é auto-hospedado (npm start).
+    // Em enforce desde a Onda 3: os relatos do modo Report-Only foram
+    // analisados e apontaram só dois violadores reais, ambos tratados.
+    const cspPolicy = buildCspPolicy(readFileSync(path.join(distPath, "index.html"), "utf8"));
     let reportingEndpoint = reportingEndpointsHeader();
     try {
       if (process.env.APP_URL) {
@@ -662,7 +663,7 @@ async function startServer() {
         "camera=(), microphone=(), geolocation=(), payment=(self)",
       );
       res.setHeader("Reporting-Endpoints", reportingEndpoint);
-      res.setHeader("Content-Security-Policy-Report-Only", cspReportOnly);
+      res.setHeader(CSP_HEADER_NAME, cspPolicy);
       next();
     });
     app.use(

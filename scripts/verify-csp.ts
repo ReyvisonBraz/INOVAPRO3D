@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import {
   buildCspPolicy,
+  CSP_HEADER_NAME,
   findInlineEventHandlers,
   inlineScriptHashes,
 } from "../shared/security/cspPolicy.js";
@@ -33,7 +34,7 @@ if (inlineHandlers.length > 0) {
 const policy = buildCspPolicy(builtHtml);
 const configuredPolicy = vercelConfig.headers
   ?.find((entry) => entry.source === "/(.*)")
-  ?.headers?.find((header) => header.key === "Content-Security-Policy-Report-Only")?.value;
+  ?.headers?.find((header) => header.key === CSP_HEADER_NAME)?.value;
 if (configuredPolicy !== buildCspPolicy(sourceHtml)) {
   throw new Error("A CSP do vercel.json está desatualizada. Execute `npm run csp:sync`.");
 }
@@ -43,5 +44,5 @@ if (!scriptDirective || scriptDirective.includes("'unsafe-inline'")) {
 }
 
 console.info(
-  `[csp] ${builtHashes.length} scripts inline cobertos; nenhum handler HTML; política Report-Only válida.`,
+  `[csp] ${builtHashes.length} scripts inline cobertos; nenhum handler HTML; política de enforce válida.`,
 );

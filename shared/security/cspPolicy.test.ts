@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   buildCspPolicy,
+  CSP_HEADER_NAME,
   extractInlineScripts,
   findInlineEventHandlers,
   inlineScriptHashes,
@@ -33,6 +34,22 @@ describe("CSP policy", () => {
     expect(policy).toContain("report-uri /api/csp-report; report-to csp");
   });
 
+  it("libera o CSS do prompt SendPulse, que as violações de produção apontaram", () => {
+    const styleDirective = buildCspPolicy("<script>bootstrap()</script>")
+      .split("; ")
+      .find((value) => value.startsWith("style-src "));
+
+    // Sem isto, ligar a política em enforce deixa o prompt de push sem
+    // formatação — foram 28 violações de style-src-elem em produção.
+    expect(styleDirective).toContain("https://web.webpushs.com");
+  });
+
+  it("não libera o beacon do Cloudflare Insights", () => {
+    // Decisão do dono do projeto: a estatística não é usada. Fica registrado
+    // em teste para que uma inclusão futura seja deliberada, não acidental.
+    expect(buildCspPolicy("<script>bootstrap()</script>")).not.toContain("cloudflareinsights");
+  });
+
   it("detecta handlers HTML que os hashes de script não autorizam", () => {
     expect(findInlineEventHandlers(`<link onload="ready()"><img ONERROR="fail()">`)).toEqual([
       "onload",
@@ -57,11 +74,15 @@ describe("CSP policy", () => {
         headers: Array<{ key: string; value: string }>;
       }>;
     };
-    const policy = config.headers
-      .find((entry) => entry.source === "/(.*)")
-      ?.headers.find((header) => header.key === "Content-Security-Policy-Report-Only")?.value;
+    const globalHeaders = config.headers.find((entry) => entry.source === "/(.*)")?.headers;
+    const policy = globalHeaders?.find((header) => header.key === CSP_HEADER_NAME)?.value;
 
     expect(policy).toBe(buildCspPolicy(html));
+    // O par enforce + Report-Only com a MESMA política duplicaria cada
+    // violação no coletor: em enforce, report-uri/report-to já relatam.
+    expect(
+      globalHeaders?.some((header) => header.key === "Content-Security-Policy-Report-Only"),
+    ).toBe(false);
   });
 
   it("recusa endpoint de reporting sem HTTPS", () => {

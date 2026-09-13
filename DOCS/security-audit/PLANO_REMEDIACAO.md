@@ -24,20 +24,22 @@ na `main`** no commit `9a5797f` — não há PR pendente dela.
 | A3  | SSRF anônimo (proxy-image, model-metadata)                                                  | Média       | ✅ Corrigido (fechado por auth admin, não por revalidação de redirect) | Onda 1 |
 | A4  | Rate limit em memória (inefetivo em serverless)                                             | Baixa       | ✅ Corrigido (causa raiz do A2)                                        | Onda 1 |
 | A5  | Personificação de identidade em avaliações (`userName`/`userPhoto` não vinculados ao token) | Baixa       | ⬜ Aberto                                                              | Onda 4 |
-| A6  | CSP em `Report-Only`, nunca promovida a enforce                                             | Baixa       | ⬜ Aberto                                                              | Onda 3 |
+| A6  | CSP em `Report-Only`, nunca promovida a enforce                                             | Baixa       | ✅ Corrigido — política em **enforce**                                 | Onda 3 |
 | A7  | Webhook Stripe sem conferência de valor (existe no código, não em produção)                 | Baixa       | ✅ Corrigido — caminho Stripe **removido** por inteiro                 | Onda 2 |
 | A9  | `api/calculator/extract-slicer` sem rate limit na Vercel (espelho Express tinha)            | Baixa       | ✅ Corrigido — achado durante a Onda 2, fora do relatório original     | Onda 2 |
 | A8  | `GITHUB_TOKEN` sem `permissions: contents: read` explícito no CI                            | Informativa | ✅ Corrigido                                                           | Onda 0 |
 
-**Zero críticas, zero altas, zero médias em aberto.** Restam 2 baixas (A5 e A6).
+**Zero críticas, zero altas, zero médias em aberto.** Resta 1 baixa (A5).
 
 ## Itens operacionais (não são código)
 
-| Item                                                    | Status                                                                                                                  |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Deploy de `storage.rules`/`firestore.rules` em produção | ✅ Feito 04/09/2026 — ver changelog                                                                                     |
-| Política de TTL em `rateLimits.resetAt` (Firestore)     | ✅ Criada 04/09/2026 via API Admin do Firestore (`ttlConfig` state `CREATING` → `ACTIVE` é automático, não requer ação) |
-| Abrir o PR da branch da Onda 0/1 para `main`            | ✅ Obsoleto — a branch já foi mergeada em `9a5797f`                                                                     |
+| Item                                                        | Status                                                                                                                  |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Deploy de `storage.rules`/`firestore.rules` em produção     | ✅ Feito 04/09/2026 — ver changelog                                                                                     |
+| Política de TTL em `rateLimits.resetAt` (Firestore)         | ✅ Criada 04/09/2026 via API Admin do Firestore (`ttlConfig` state `CREATING` → `ACTIVE` é automático, não requer ação) |
+| Abrir o PR da branch da Onda 0/1 para `main`                | ✅ Obsoleto — a branch já foi mergeada em `9a5797f`                                                                     |
+| Desligar o Web Analytics no painel do Cloudflare            | ⬜ **Pendente — só o dono do projeto pode fazer.** Ver Onda 3.                                                          |
+| Revogar a `STRIPE_SECRET_KEY` e limpar `STRIPE_*` na Vercel | ⬜ **Pendente — só o dono do projeto pode fazer.** O código foi removido na Onda 2, a credencial continua válida.       |
 
 ---
 
@@ -113,20 +115,45 @@ passaram a checar.
 
 Commits: `9cc8afd`, `fa12152`, `e0afffc`, `b369289`, `1c717c0`.
 
-### Onda 3 — não iniciada
+### Onda 3 — concluída
 
-**Objetivo:** promover a CSP de `Content-Security-Policy-Report-Only` para
-enforce (A6), sem quebrar terceiros que só carregam pós-consentimento de cookies.
+**Objetivo:** promover a CSP de `Report-Only` para enforce (A6).
 
-- Fechar o loop de feedback do Report-Only primeiro: hoje `cspReports` não tem
-  regra de leitura no Firestore nem painel no admin — os relatórios são
-  gravados e nunca lidos por ninguém.
-- Medir com tráfego real **incluindo aceitar cookies** — GTM/Meta/TikTok só
-  carregam pós-consentimento e são os scripts que injetam `<script>` inline que
-  o `script-src` baseado em hash bloquearia.
-- Promover publicando os dois headers juntos (enforce + Report-Only), preview
-  antes de produção. Toca `vercel.json`, `scripts/verify-csp.ts`,
-  `scripts/sync-csp-config.ts` e `server.ts` no mesmo commit.
+**A espera que o plano previa não era mais necessária.** Ele mandava medir com
+tráfego real e cookies aceitos, porque GTM/Meta/TikTok só carregam
+pós-consentimento. Mas `VITE_GA4_ID`, `VITE_META_PIXEL_ID` e
+`VITE_TIKTOK_PIXEL_ID` estão **os três vazios** — esses scripts nunca carregam,
+não havia o que medir.
+
+**O painel de `cspReports` também não foi necessário.** O plano pedia fechar o
+loop de feedback antes. Na prática, um script pontual com o Admin SDK leu a
+coleção em segundos: eram só **2 fingerprints, 65 violações**, ambas de
+produção. Construir uma tela de admin para dois documentos seria
+sobre-engenharia; a decisão foi tomada com o dado na mão.
+
+Os dois violadores, e o que foi feito:
+
+| Violação                | Origem                                       | Decisão                                                                                                                                     |
+| ----------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `style-src-elem` (28x)  | `web.webpushs.com` — CSS do prompt SendPulse | **Liberado.** O host já estava em `script-src`/`connect-src`, faltava em `style-src`. Sem isso, o enforce deixaria o prompt sem formatação. |
+| `script-src-elem` (37x) | `static.cloudflareinsights.com`              | **Não liberado**, por decisão do dono (não usa a estatística). Há teste garantindo que uma inclusão futura seja deliberada.                 |
+
+**Correção ao plano original: NÃO publicar os dois headers juntos.** O plano
+dizia "publicando os dois headers juntos (enforce + Report-Only)". Isso está
+errado: em modo enforce, `report-uri`/`report-to` **já enviam relatório** do que
+é bloqueado. O par com a mesma política duplicaria cada violação no coletor —
+dobro de requisições em `/api/csp-report` e contadores inflados em 2×. Publicar
+dois só faria sentido com o Report-Only carregando uma política _mais estrita_,
+como candidata ao passo seguinte. Há teste travando isso.
+
+Criada a constante `CSP_HEADER_NAME` em `cspPolicy.ts`: o nome do header estava
+repetido em texto em 5 lugares (`vercel.json`, `server.ts`, os dois scripts de
+CSP e o teste) — a mesma classe de duplicação que a Onda 2 atacou.
+
+Corrigido de passagem: o `<script>` do SendPulse no `index.html` usava URL
+protocolo-relativa (`//web.webpushs.com`). Em produção resolvia para HTTPS e
+funcionava, mas em teste local sobre HTTP virava `http://` e era bloqueado pela
+política. Fixado em `https://`. Não afeta os hashes (a tag tem `src`).
 
 ### Onda 4 — não iniciada
 
@@ -143,6 +170,14 @@ avaliação com nome/foto de terceiro.
 
 ## Changelog
 
+- **2026-09-13** — Onda 3 concluída. CSP promovida a **enforce**; A6 fechado.
+  Decisão tomada a partir dos relatórios reais de produção (2 fingerprints),
+  não de uma campanha de medição — que o plano previa mas que os pixels
+  desligados tornaram desnecessária. Fica **pendente e fora do código**:
+  desligar o Web Analytics no painel do Cloudflare. Enquanto isso não for
+  feito, o Cloudflare segue injetando o beacon em toda página, o navegador
+  segue bloqueando e o relatório segue sendo gravado — ruído permanente no
+  canal que serve justamente para enxergar violações reais.
 - **2026-09-10/11** — Onda 2 concluída (commits `9cc8afd`, `fa12152`,
   `e0afffc`, `b369289`, `1c717c0`). Guardas compartilhados em
   `server/_middleware/`, 7 cópias de verificação de token reduzidas a uma,
@@ -174,9 +209,9 @@ dia, outra pessoa):
    o que já foi commitado fora da `main`.
 3. Rode `npm run check && npm run test:rules` para confirmar que o estado
    local ainda passa em tudo antes de continuar.
-4. **A próxima é a Onda 3 (CSP enforce).** A Onda 2 entregou o
-   `server/_middleware/` que ela ia precisar de qualquer forma, e já removeu
-   as entradas `*.stripe.com` da política — permissão morta que a Onda 3
-   herdaria e teria de decidir o que fazer.
+4. **A próxima é a Onda 4 (A5, personificação em avaliações)** — é o único
+   achado que resta. Antes dela, vale conferir os dois itens operacionais
+   pendentes na tabela acima: nenhum é código, e o do Cloudflare afeta a
+   qualidade dos relatórios de CSP daqui em diante.
 5. Ao terminar uma onda: atualize a tabela de status, adicione uma linha no
    changelog com a data, e comite este arquivo junto com o código da onda.

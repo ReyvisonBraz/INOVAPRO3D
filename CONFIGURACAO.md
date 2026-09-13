@@ -37,6 +37,18 @@ Sem IDs, o site funciona normal — o rastreamento só fica dormindo. Carrega s�
 
 Eventos já enviados automaticamente: `page_view`, `add_to_cart`, `begin_checkout`, `purchase`.
 
+> ⚠️ **Antes de ligar qualquer um destes, revise a CSP.** Desde setembro/2026 a
+> política está em **enforce** (bloqueia de verdade, não só avisa). Os domínios
+> do GTM, Meta e TikTok já estão liberados em `script-src`, mas o Google Tag
+> Manager costuma injetar script **inline** e puxar hosts extras conforme as
+> tags configuradas — e a política é baseada em hash, então isso é bloqueado.
+>
+> Como proceder: ligue o pixel em **preview** primeiro, abra o console do
+> navegador e procure por `Content-Security-Policy`. Cada bloqueio aponta o que
+> falta liberar em [`shared/security/cspPolicy.ts`](shared/security/cspPolicy.ts);
+> depois rode `npm run csp:sync` para propagar ao `vercel.json`. As violações
+> também chegam sozinhas na coleção `cspReports` do Firestore.
+
 ---
 
 ## 3. 🌐 SEO

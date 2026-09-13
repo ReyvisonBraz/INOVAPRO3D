@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync } from "node:fs";
-import { buildCspPolicy } from "../shared/security/cspPolicy.js";
+import { buildCspPolicy, CSP_HEADER_NAME } from "../shared/security/cspPolicy.js";
 
 interface VercelHeader {
   key: string;
@@ -17,12 +17,10 @@ const configUrl = new URL("../vercel.json", import.meta.url);
 const indexUrl = new URL("../index.html", import.meta.url);
 const config = JSON.parse(readFileSync(configUrl, "utf8")) as VercelConfigFile;
 const globalHeaders = config.headers?.find((entry) => entry.source === "/(.*)")?.headers;
-const cspHeader = globalHeaders?.find(
-  (header) => header.key === "Content-Security-Policy-Report-Only",
-);
+const cspHeader = globalHeaders?.find((header) => header.key === CSP_HEADER_NAME);
 
 if (!cspHeader) {
-  throw new Error("Header Content-Security-Policy-Report-Only ausente em vercel.json.");
+  throw new Error(`Header ${CSP_HEADER_NAME} ausente em vercel.json.`);
 }
 
 cspHeader.value = buildCspPolicy(readFileSync(indexUrl, "utf8"));
