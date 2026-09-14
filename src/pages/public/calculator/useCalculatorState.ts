@@ -1017,10 +1017,15 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     setTemplateSaving(true);
     try {
       const templateSnapshot = currentTemplateSnapshot();
+      // Gravado sempre, em silêncio — é o que permite, mais tarde, vincular
+      // este modelo como âncora de uma família de quantidades sem precisar
+      // perguntar nada ao usuário no fluxo comum de "salvar modelo".
+      const quantityValue = Math.max(1, Math.floor(project.outputQuantity) || 1);
       const id = await createCalculatorTemplate({
         name,
         imageUrl: quoteImageUrl || undefined,
         snapshot: templateSnapshot,
+        quantityValue,
       });
       setCalculatorTemplates((current) => [
         {
@@ -1029,6 +1034,7 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
           imageUrl: quoteImageUrl || undefined,
           usageCount: 0,
           snapshot: templateSnapshot,
+          quantityValue,
         },
         ...current,
       ]);
@@ -1036,6 +1042,77 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
       return true;
     } catch {
       toast.error("Não foi possível salvar o modelo. Confira as regras do Firebase.", {
+        position: "bottom-center",
+      });
+      return false;
+    } finally {
+      setTemplateSaving(false);
+    }
+  };
+
+  /**
+   * Salva o projeto atual como uma NOVA quantidade de um produto já
+   * existente — o caminho pensado para quando o admin acabou de colar os
+   * números reais do fatiador para uma tiragem diferente (ex.: 5 peças) do
+   * mesmo produto que já tem um modelo salvo.
+   *
+   * Se o modelo escolhido ainda for avulso (sem `productKey`), esta chamada
+   * o transforma na âncora da família, uma única vez — a partir daqui, as
+   * duas variantes aparecem agrupadas num só cartão no painel de Modelos.
+   */
+  const saveProjectTemplateVariant = async (
+    anchor: CalculatorTemplate,
+    quantityValue: number,
+  ): Promise<boolean> => {
+    const issues = validateCalculatorProject(project);
+    if (issues.length) {
+      setProjectIssues(issues);
+      toast.error(`Complete o projeto antes de salvar a variante: ${issues[0].message}`, {
+        position: "bottom-center",
+      });
+      return false;
+    }
+    const safeQuantity = Math.max(1, Math.floor(quantityValue) || 1);
+    setTemplateSaving(true);
+    try {
+      const productKey =
+        anchor.productKey ??
+        globalThis.crypto?.randomUUID?.() ??
+        `product-${Date.now()}-${anchor.id}`;
+      if (!anchor.productKey) {
+        await updateCalculatorTemplate(anchor.id, { productKey });
+        setCalculatorTemplates((current) =>
+          current.map((item) => (item.id === anchor.id ? { ...item, productKey } : item)),
+        );
+      }
+
+      const templateSnapshot = currentTemplateSnapshot();
+      const id = await createCalculatorTemplate({
+        // Nome interno — nunca aparece sozinho na UI, que mostra o nome da
+        // âncora para o grupo inteiro. Só existe para reaproveitar campos
+        // que já esperam um `name` (ex.: `templateFromDocument`).
+        name: `${anchor.name} (${safeQuantity} pç)`,
+        imageUrl: quoteImageUrl || anchor.imageUrl || undefined,
+        snapshot: templateSnapshot,
+        productKey,
+        quantityValue: safeQuantity,
+      });
+      setCalculatorTemplates((current) => [
+        {
+          id,
+          name: `${anchor.name} (${safeQuantity} pç)`,
+          imageUrl: quoteImageUrl || anchor.imageUrl || undefined,
+          usageCount: 0,
+          snapshot: templateSnapshot,
+          productKey,
+          quantityValue: safeQuantity,
+        },
+        ...current,
+      ]);
+      toast.success(`Quantidade adicionada a “${anchor.name}”.`, { position: "bottom-center" });
+      return true;
+    } catch {
+      toast.error("Não foi possível salvar esta quantidade. Confira as regras do Firebase.", {
         position: "bottom-center",
       });
       return false;
@@ -1564,6 +1641,7 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     templateSaving,
     applyProjectTemplate,
     saveProjectTemplate,
+    saveProjectTemplateVariant,
     updateProjectTemplateMetadata,
     updateProjectTemplateFromCurrent,
     cloneProjectTemplate,

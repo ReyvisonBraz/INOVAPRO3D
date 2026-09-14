@@ -20,6 +20,7 @@ import {
   updateCalculatorTemplate,
 } from "../../../services/calculatorTemplates";
 import type { CalculatorTemplate } from "../../../types/domain";
+import { groupTemplatesByProduct } from "../../../lib/calculatorTemplateGroups";
 import { AdminEmptyState, AdminMetric, AdminSectionHeader } from "./AdminPrimitives";
 
 interface Props {
@@ -34,6 +35,9 @@ export default function AdminCalculatorTemplatesPanel({ onEditInCalculator }: Pr
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  // Qual variante de cada família (ver calculatorTemplateGroups.ts) o cartão
+  // está exibindo agora — só relevante para grupos com 2+ quantidades.
+  const [selectedVariantByGroup, setSelectedVariantByGroup] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -61,6 +65,10 @@ export default function AdminCalculatorTemplatesPanel({ onEditInCalculator }: Pr
       }),
     [templates, view],
   );
+
+  // Agrupa DEPOIS de filtrar por aba: uma variante arquivada não deve
+  // aparecer como chip enquanto se navega pelos modelos ativos.
+  const groups = useMemo(() => groupTemplatesByProduct(visible), [visible]);
 
   const beginEdit = (template: CalculatorTemplate) => {
     setEditing(template);
@@ -123,154 +131,186 @@ export default function AdminCalculatorTemplatesPanel({ onEditInCalculator }: Pr
         </div>
       ) : visible.length ? (
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {visible.map((template) => (
-            <article key={template.id} className="admin-panel p-4">
-              <div className="flex gap-3">
-                {template.imageUrl ? (
-                  <img
-                    src={template.imageUrl}
-                    alt=""
-                    className="h-16 w-16 shrink-0 rounded-xl object-cover"
-                  />
-                ) : (
-                  <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-300">
-                    <Calculator className="h-5 w-5" />
-                  </span>
+          {groups.map((group) => {
+            const groupKey = group.anchor.productKey ?? group.anchor.id;
+            const selectedId = selectedVariantByGroup[groupKey] ?? group.anchor.id;
+            const template =
+              group.variants.find((variant) => variant.id === selectedId) ?? group.anchor;
+            const isMultiVariant = group.variants.length > 1;
+
+            return (
+              <article key={groupKey} className="admin-panel p-4">
+                <div className="flex gap-3">
+                  {group.anchor.imageUrl ? (
+                    <img
+                      src={group.anchor.imageUrl}
+                      alt=""
+                      className="h-16 w-16 shrink-0 rounded-xl object-cover"
+                    />
+                  ) : (
+                    <span className="grid h-16 w-16 shrink-0 place-items-center rounded-xl bg-violet-500/10 text-violet-300">
+                      <Calculator className="h-5 w-5" />
+                    </span>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-sm font-bold text-white">{group.anchor.name}</h3>
+                    <p className="mt-1 text-[11px] text-white/40">
+                      {template.snapshot.project.plates.length} bandeja(s) ·{" "}
+                      {template.usageCount || 0} uso(s)
+                    </p>
+                    <p className="mt-1 line-clamp-2 text-xs text-white/45">
+                      {template.description || "Sem descrição"}
+                    </p>
+                  </div>
+                </div>
+
+                {isMultiVariant && (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {group.variants.map((variant) => (
+                      <button
+                        key={variant.id}
+                        type="button"
+                        onClick={() =>
+                          setSelectedVariantByGroup((current) => ({
+                            ...current,
+                            [groupKey]: variant.id,
+                          }))
+                        }
+                        className={`min-h-7 rounded-lg px-2.5 text-[11px] font-black transition ${
+                          variant.id === template.id
+                            ? "bg-violet-500 text-white"
+                            : "bg-white/[0.05] text-white/50 hover:text-white/80"
+                        }`}
+                      >
+                        {variant.quantityValue ?? "?"} pç
+                      </button>
+                    ))}
+                  </div>
                 )}
-                <div className="min-w-0 flex-1">
-                  <h3 className="truncate text-sm font-bold text-white">{template.name}</h3>
-                  <p className="mt-1 text-[11px] text-white/40">
-                    {template.snapshot.project.plates.length} bandeja(s) ·{" "}
-                    {template.usageCount || 0} uso(s)
-                  </p>
-                  <p className="mt-1 line-clamp-2 text-xs text-white/45">
-                    {template.description || "Sem descrição"}
-                  </p>
-                </div>
-              </div>
-              {view === "TRASH" ? (
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await restoreCalculatorTemplate(template.id);
-                        toast.success("Modelo restaurado para os ativos.");
-                        await reload();
-                      } catch {
-                        toast.error("Falha ao restaurar modelo.");
+                {view === "TRASH" ? (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await restoreCalculatorTemplate(template.id);
+                          toast.success("Modelo restaurado para os ativos.");
+                          await reload();
+                        } catch {
+                          toast.error("Falha ao restaurar modelo.");
+                        }
+                      }}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-emerald-500/15 text-[11px] font-bold text-emerald-200 hover:bg-emerald-500 hover:text-white"
+                    >
+                      <RotateCcw className="h-4 w-4" /> Restaurar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (pendingDeleteId !== template.id) {
+                          setPendingDeleteId(template.id);
+                          return;
+                        }
+                        try {
+                          await permanentlyDeleteCalculatorTemplate(template.id);
+                          toast.success("Modelo excluído definitivamente.");
+                          setPendingDeleteId(null);
+                          await reload();
+                        } catch {
+                          toast.error("Falha ao excluir definitivamente.");
+                        }
+                      }}
+                      className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg text-[11px] font-bold ${pendingDeleteId === template.id ? "bg-red-500 text-white" : "bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white"}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      {pendingDeleteId === template.id ? "Confirmar exclusão" : "Excluir de vez"}
+                    </button>
+                  </div>
+                ) : (
+                  <div className="mt-4 grid grid-cols-[1fr_repeat(4,36px)] gap-2">
+                    <button
+                      type="button"
+                      onClick={() => onEditInCalculator(template)}
+                      className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-500/15 px-2 text-[10px] font-bold uppercase text-blue-200 hover:bg-blue-500 hover:text-white"
+                    >
+                      <Calculator className="h-3.5 w-3.5" /> Editar conteúdo
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => beginEdit(template)}
+                      title="Editar nome e descrição"
+                      className="grid h-9 place-items-center rounded-lg bg-white/[0.05] text-white/55 hover:text-white"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await cloneCalculatorTemplate(template);
+                          toast.success("Modelo clonado.");
+                          await reload();
+                        } catch {
+                          toast.error("Falha ao clonar modelo.");
+                        }
+                      }}
+                      title="Clonar"
+                      className="grid h-9 place-items-center rounded-lg bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500 hover:text-white"
+                    >
+                      <Copy className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          await setCalculatorTemplateArchived(template.id, !template.archived);
+                          toast.success(
+                            template.archived ? "Modelo restaurado." : "Modelo arquivado.",
+                          );
+                          await reload();
+                        } catch {
+                          toast.error("Falha ao alterar o arquivamento.");
+                        }
+                      }}
+                      title={template.archived ? "Restaurar" : "Arquivar"}
+                      className="grid h-9 place-items-center rounded-lg bg-amber-500/10 text-amber-300 hover:bg-amber-500 hover:text-black"
+                    >
+                      {template.archived ? (
+                        <ArchiveRestore className="h-4 w-4" />
+                      ) : (
+                        <Archive className="h-4 w-4" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (pendingDeleteId !== template.id) {
+                          setPendingDeleteId(template.id);
+                          return;
+                        }
+                        try {
+                          await deleteCalculatorTemplate(template.id);
+                          toast.success("Modelo movido para a lixeira.");
+                          setPendingDeleteId(null);
+                          await reload();
+                        } catch {
+                          toast.error("Falha ao excluir modelo.");
+                        }
+                      }}
+                      title={
+                        pendingDeleteId === template.id
+                          ? "Clique novamente para confirmar"
+                          : "Excluir"
                       }
-                    }}
-                    className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-emerald-500/15 text-[11px] font-bold text-emerald-200 hover:bg-emerald-500 hover:text-white"
-                  >
-                    <RotateCcw className="h-4 w-4" /> Restaurar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (pendingDeleteId !== template.id) {
-                        setPendingDeleteId(template.id);
-                        return;
-                      }
-                      try {
-                        await permanentlyDeleteCalculatorTemplate(template.id);
-                        toast.success("Modelo excluído definitivamente.");
-                        setPendingDeleteId(null);
-                        await reload();
-                      } catch {
-                        toast.error("Falha ao excluir definitivamente.");
-                      }
-                    }}
-                    className={`inline-flex h-9 items-center justify-center gap-2 rounded-lg text-[11px] font-bold ${pendingDeleteId === template.id ? "bg-red-500 text-white" : "bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white"}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    {pendingDeleteId === template.id ? "Confirmar exclusão" : "Excluir de vez"}
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-4 grid grid-cols-[1fr_repeat(4,36px)] gap-2">
-                  <button
-                    type="button"
-                    onClick={() => onEditInCalculator(template)}
-                    className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-blue-500/15 px-2 text-[10px] font-bold uppercase text-blue-200 hover:bg-blue-500 hover:text-white"
-                  >
-                    <Calculator className="h-3.5 w-3.5" /> Editar conteúdo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => beginEdit(template)}
-                    title="Editar nome e descrição"
-                    className="grid h-9 place-items-center rounded-lg bg-white/[0.05] text-white/55 hover:text-white"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await cloneCalculatorTemplate(template);
-                        toast.success("Modelo clonado.");
-                        await reload();
-                      } catch {
-                        toast.error("Falha ao clonar modelo.");
-                      }
-                    }}
-                    title="Clonar"
-                    className="grid h-9 place-items-center rounded-lg bg-cyan-500/10 text-cyan-300 hover:bg-cyan-500 hover:text-white"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      try {
-                        await setCalculatorTemplateArchived(template.id, !template.archived);
-                        toast.success(
-                          template.archived ? "Modelo restaurado." : "Modelo arquivado.",
-                        );
-                        await reload();
-                      } catch {
-                        toast.error("Falha ao alterar o arquivamento.");
-                      }
-                    }}
-                    title={template.archived ? "Restaurar" : "Arquivar"}
-                    className="grid h-9 place-items-center rounded-lg bg-amber-500/10 text-amber-300 hover:bg-amber-500 hover:text-black"
-                  >
-                    {template.archived ? (
-                      <ArchiveRestore className="h-4 w-4" />
-                    ) : (
-                      <Archive className="h-4 w-4" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      if (pendingDeleteId !== template.id) {
-                        setPendingDeleteId(template.id);
-                        return;
-                      }
-                      try {
-                        await deleteCalculatorTemplate(template.id);
-                        toast.success("Modelo movido para a lixeira.");
-                        setPendingDeleteId(null);
-                        await reload();
-                      } catch {
-                        toast.error("Falha ao excluir modelo.");
-                      }
-                    }}
-                    title={
-                      pendingDeleteId === template.id
-                        ? "Clique novamente para confirmar"
-                        : "Excluir"
-                    }
-                    className={`grid h-9 place-items-center rounded-lg ${pendingDeleteId === template.id ? "bg-red-500 text-white" : "bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white"}`}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              )}
-            </article>
-          ))}
+                      className={`grid h-9 place-items-center rounded-lg ${pendingDeleteId === template.id ? "bg-red-500 text-white" : "bg-red-500/10 text-red-300 hover:bg-red-500 hover:text-white"}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       ) : (
         <div className="admin-panel">

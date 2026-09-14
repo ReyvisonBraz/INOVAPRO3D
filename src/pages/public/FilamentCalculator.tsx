@@ -232,6 +232,7 @@ function FilamentCalculatorContent({
     templateSaving,
     applyProjectTemplate,
     saveProjectTemplate,
+    saveProjectTemplateVariant,
     updateProjectTemplateMetadata,
     updateProjectTemplateFromCurrent,
     cloneProjectTemplate,
@@ -304,8 +305,10 @@ function FilamentCalculatorContent({
                 templates={calculatorTemplates}
                 loading={templatesLoading}
                 saving={templateSaving}
+                currentQuantity={project.outputQuantity}
                 onApply={applyProjectTemplate}
                 onSave={saveProjectTemplate}
+                onSaveVariant={saveProjectTemplateVariant}
                 onEdit={updateProjectTemplateMetadata}
                 onUpdateFromCurrent={updateProjectTemplateFromCurrent}
                 onClone={cloneProjectTemplate}

@@ -447,6 +447,10 @@ export interface CalculatorTemplate {
   deleted?: boolean;
   deletedAt?: FirestoreDate;
   snapshot: import("../lib/calculatorSnapshot").QuoteCalcSnapshot;
+  /** Agrupa variantes de quantidade do mesmo produto. Ausente = modelo avulso. */
+  productKey?: string;
+  /** outputQuantity do projeto no momento em que este modelo foi salvo. */
+  quantityValue?: number;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;
 }

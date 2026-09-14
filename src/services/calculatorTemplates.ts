@@ -35,6 +35,11 @@ function templateFromDocument(entry: {
     deleted: raw.deleted === true,
     deletedAt: raw.deletedAt as CalculatorTemplate["deletedAt"],
     snapshot: calcSnapshot,
+    productKey: typeof raw.productKey === "string" && raw.productKey ? raw.productKey : undefined,
+    quantityValue:
+      typeof raw.quantityValue === "number" && Number.isFinite(raw.quantityValue)
+        ? raw.quantityValue
+        : undefined,
     createdAt: raw.createdAt as CalculatorTemplate["createdAt"],
     updatedAt: raw.updatedAt as CalculatorTemplate["updatedAt"],
   };
@@ -64,12 +69,18 @@ export async function createCalculatorTemplate(input: {
   description?: string;
   imageUrl?: string;
   snapshot: QuoteCalcSnapshot;
+  /** Presente só quando este modelo é uma variante de quantidade de um produto existente. */
+  productKey?: string;
+  /** outputQuantity do projeto no momento do salvamento — gravado sempre, silenciosamente. */
+  quantityValue?: number;
 }): Promise<string> {
   const reference = await addDoc(collection(db, COLLECTION), {
     name: input.name.trim(),
     ...(input.description?.trim() ? { description: input.description.trim() } : {}),
     ...(input.imageUrl ? { imageUrl: input.imageUrl } : {}),
     snapshot: input.snapshot,
+    ...(input.productKey ? { productKey: input.productKey } : {}),
+    ...(typeof input.quantityValue === "number" ? { quantityValue: input.quantityValue } : {}),
     usageCount: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -91,6 +102,11 @@ export async function updateCalculatorTemplate(
     description?: string;
     imageUrl?: string;
     snapshot?: QuoteCalcSnapshot;
+    /**
+     * Usado só para tornar um modelo avulso na âncora de uma família, na
+     * primeira vez que uma variante de quantidade é vinculada a ele.
+     */
+    productKey?: string;
   },
 ): Promise<void> {
   await updateDoc(doc(db, COLLECTION, id), {
@@ -98,6 +114,7 @@ export async function updateCalculatorTemplate(
     ...(input.description !== undefined ? { description: input.description.trim() } : {}),
     ...(input.imageUrl !== undefined ? { imageUrl: input.imageUrl } : {}),
     ...(input.snapshot ? { snapshot: input.snapshot } : {}),
+    ...(input.productKey !== undefined ? { productKey: input.productKey } : {}),
     updatedAt: serverTimestamp(),
   });
 }
