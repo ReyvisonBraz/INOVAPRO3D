@@ -124,8 +124,30 @@ service cloud.firestore {
              data.createdAt == request.time;
     }
 
+    // Os nomes que o próprio token autoriza este usuário a exibir. Espelha
+    // exatamente o fallback de `useReviews.submit` (nome do token → parte local
+    // do e-mail → "Cliente"), porque é a regra que decide, não o cliente.
+    function reviewTokenNames() {
+      return [
+        request.auth.token.get('name', ''),
+        request.auth.token.get('email', '').split('@')[0],
+        'Cliente'
+      ];
+    }
+
+    // A5: sem isto, qualquer usuário logado assinava a avaliação com o nome que
+    // quisesse ("InovaPro3D Oficial") e apontava userPhoto para uma URL
+    // arbitrária — que a vitrine pública carrega em <img> para todo visitante.
+    function isOwnReviewIdentity(data) {
+      return (data.get('userName', null) == null ||
+              data.get('userName', '') in reviewTokenNames()) &&
+             (data.get('userPhoto', null) == null ||
+              data.get('userPhoto', '') == request.auth.token.get('picture', ''));
+    }
+
     function isValidReview(data) {
-      return data.productId is string && data.productId.size() <= 128 &&
+      return isOwnReviewIdentity(data) &&
+             data.productId is string && data.productId.size() <= 128 &&
              data.userId is string &&
              data.rating is number && data.rating >= 1 && data.rating <= 5 &&
              optionalString(data.get('comment', null), 1000) &&

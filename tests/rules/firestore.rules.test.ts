@@ -134,6 +134,54 @@ describe("reviews", () => {
       setDoc(doc(asUser(USER_UID), "reviews", `prod-1_${OTHER_UID}`), review("prod-1", USER_UID)),
     );
   });
+
+  // A5: a assinatura da avaliação é pública e some da moderação — quem escolhe
+  // o nome e a foto é o token, não o corpo da requisição.
+  describe("identidade assinada pelo token", () => {
+    const CLAIMS = { name: "Ana Souza", picture: "https://lh3.example.com/ana.jpg" };
+
+    function asAna() {
+      return testEnv.authenticatedContext(USER_UID, CLAIMS).firestore();
+    }
+
+    it("aceita nome e foto iguais aos do token", async () => {
+      await assertSucceeds(
+        setDoc(doc(asAna(), "reviews", `prod-1_${USER_UID}`), {
+          ...review("prod-1", USER_UID),
+          userName: CLAIMS.name,
+          userPhoto: CLAIMS.picture,
+        }),
+      );
+    });
+
+    it("nega nome forjado — o caminho da falsa avaliação oficial", async () => {
+      await assertFails(
+        setDoc(doc(asAna(), "reviews", `prod-1_${USER_UID}`), {
+          ...review("prod-1", USER_UID),
+          userName: "InovaPro3D Oficial",
+        }),
+      );
+    });
+
+    it("nega foto apontando para uma URL de fora do token", async () => {
+      await assertFails(
+        setDoc(doc(asAna(), "reviews", `prod-1_${USER_UID}`), {
+          ...review("prod-1", USER_UID),
+          userPhoto: "https://rastreador.example.com/pixel.gif",
+        }),
+      );
+    });
+
+    it("aceita a parte local do e-mail quando o token não traz nome", async () => {
+      const ctx = testEnv.authenticatedContext(USER_UID, { email: "ana@example.com" }).firestore();
+      await assertSucceeds(
+        setDoc(doc(ctx, "reviews", `prod-1_${USER_UID}`), {
+          ...review("prod-1", USER_UID),
+          userName: "ana",
+        }),
+      );
+    });
+  });
 });
 
 describe("reviewVotes", () => {

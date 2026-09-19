@@ -23,13 +23,14 @@ na `main`** no commit `9a5797f` — não há PR pendente dela.
 | A2  | Rate limit ausente no runtime Vercel                                                        | Média       | ✅ Corrigido                                                           | Onda 1 |
 | A3  | SSRF anônimo (proxy-image, model-metadata)                                                  | Média       | ✅ Corrigido (fechado por auth admin, não por revalidação de redirect) | Onda 1 |
 | A4  | Rate limit em memória (inefetivo em serverless)                                             | Baixa       | ✅ Corrigido (causa raiz do A2)                                        | Onda 1 |
-| A5  | Personificação de identidade em avaliações (`userName`/`userPhoto` não vinculados ao token) | Baixa       | ⬜ Aberto                                                              | Onda 4 |
+| A5  | Personificação de identidade em avaliações (`userName`/`userPhoto` não vinculados ao token) | Baixa       | ✅ Corrigido — identidade vem do token                                 | Onda 4 |
 | A6  | CSP em `Report-Only`, nunca promovida a enforce                                             | Baixa       | ✅ Corrigido — política em **enforce**                                 | Onda 3 |
 | A7  | Webhook Stripe sem conferência de valor (existe no código, não em produção)                 | Baixa       | ✅ Corrigido — caminho Stripe **removido** por inteiro                 | Onda 2 |
 | A9  | `api/calculator/extract-slicer` sem rate limit na Vercel (espelho Express tinha)            | Baixa       | ✅ Corrigido — achado durante a Onda 2, fora do relatório original     | Onda 2 |
 | A8  | `GITHUB_TOKEN` sem `permissions: contents: read` explícito no CI                            | Informativa | ✅ Corrigido                                                           | Onda 0 |
 
-**Zero críticas, zero altas, zero médias em aberto.** Resta 1 baixa (A5).
+**Todos os achados do relatório estão fechados.** Restam apenas itens
+operacionais, fora do código — ver a tabela abaixo.
 
 ## Itens operacionais (não são código)
 
@@ -155,21 +156,42 @@ protocolo-relativa (`//web.webpushs.com`). Em produção resolvia para HTTPS e
 funcionava, mas em teste local sobre HTTP virava `http://` e era bloqueado pela
 política. Fixado em `https://`. Não afeta os hashes (a tag tem `src`).
 
-### Onda 4 — não iniciada
+### Onda 4 — concluída (18/09/2026)
 
-**Objetivo:** A5 — `firestore.rules` linhas ~127-136 (`isValidReview`) não
-vincula `userName`/`userPhoto` ao usuário autenticado, permitindo gravar uma
-avaliação com nome/foto de terceiro.
+**Objetivo:** A5 — `isValidReview` não vinculava `userName`/`userPhoto` ao
+usuário autenticado: qualquer cliente logado podia assinar a avaliação como
+"InovaPro3D Oficial" e apontar a foto para uma URL arbitrária, que a vitrine
+pública carrega em `<img>` para todo visitante.
 
-- Opção A: vincular `userName`/`userPhoto` ao token no momento da escrita.
-- Opção B (mais limpa, remove duplicação, mas exige migração de dados
-  existentes): resolver esses campos em tempo de leitura a partir de
-  `users/{userId}`, em vez de duplicá-los no documento da avaliação.
+Escolhida a **opção A** (vincular ao token). A opção B — resolver os campos em
+tempo de leitura a partir de `users/{userId}` — foi descartada porque
+`users/{uid}` só é legível pelo dono e por admin, e a lista de avaliações é
+pública: ninguém conseguiria ler o nome do autor.
+
+Duas mudanças que se sustentam mutuamente:
+
+- `firestore.rules` — `isOwnReviewIdentity()` exige `userPhoto` idêntico à
+  claim `picture` e `userName` dentro do conjunto que o token autoriza
+  (`name` → parte local do `email` → `"Cliente"`), espelhando o fallback do
+  cliente. Campo ausente/`null` continua aceito.
+- `useReviews.submit` — a identidade passa a vir de `getIdTokenResult(u, true)`,
+  não de `user.displayName`/`user.photoURL`. O SDK atualiza esses dois
+  localmente no ato de um `updateProfile`, mas a claim do token só muda no
+  refresh; ler do objeto local faria a regra negar a avaliação de quem tivesse
+  acabado de trocar o nome.
+
+4 testes novos em `tests/rules/firestore.rules.test.ts` (nome do token aceito,
+nome forjado negado, foto de fora negada, fallback do e-mail aceito).
 
 ---
 
 ## Changelog
 
+- **2026-09-18** — Onda 4 concluída; A5 fechado. Com isso **todos os achados do
+  relatório de auditoria estão corrigidos**. O que resta é operacional e fora do
+  código: desligar o Web Analytics no Cloudflare e revogar/remover as variáveis
+  `STRIPE_*` (o caminho Stripe saiu do código na Onda 2, mas a chave em si
+  continua válida até ser revogada no painel).
 - **2026-09-13** — Onda 3 concluída. CSP promovida a **enforce**; A6 fechado.
   Decisão tomada a partir dos relatórios reais de produção (2 fingerprints),
   não de uma campanha de medição — que o plano previa mas que os pixels
@@ -209,9 +231,9 @@ dia, outra pessoa):
    o que já foi commitado fora da `main`.
 3. Rode `npm run check && npm run test:rules` para confirmar que o estado
    local ainda passa em tudo antes de continuar.
-4. **A próxima é a Onda 4 (A5, personificação em avaliações)** — é o único
-   achado que resta. Antes dela, vale conferir os dois itens operacionais
-   pendentes na tabela acima: nenhum é código, e o do Cloudflare afeta a
-   qualidade dos relatórios de CSP daqui em diante.
+4. **Não resta nenhuma onda de código.** O que está pendente são os itens
+   operacionais da tabela acima — o do Cloudflare afeta a qualidade dos
+   relatórios de CSP daqui em diante, e a chave da Stripe segue válida até ser
+   revogada no painel.
 5. Ao terminar uma onda: atualize a tabela de status, adicione uma linha no
    changelog com a data, e comite este arquivo junto com o código da onda.

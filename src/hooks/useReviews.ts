@@ -9,8 +9,24 @@ import {
   doc,
   serverTimestamp,
 } from "firebase/firestore";
+import { getIdTokenResult, type User } from "firebase/auth";
 import { db, auth } from "../services/firebase";
 import type { Review, ReviewVote } from "../types/domain";
+
+/**
+ * Identidade que as regras do Firestore aceitam na avaliação. Vem das claims do
+ * ID token — e não de `user.displayName`/`user.photoURL`, que o SDK atualiza
+ * localmente na hora e deixam o token para trás por até uma hora. A regra
+ * `isOwnReviewIdentity` compara contra o token, então é dele que temos de ler.
+ */
+async function reviewIdentity(user: User): Promise<{ userName: string; userPhoto: string | null }> {
+  const { claims } = await getIdTokenResult(user, true);
+  const claim = (key: string): string => (typeof claims[key] === "string" ? claims[key] : "");
+  return {
+    userName: claim("name") || claim("email").split("@")[0] || "Cliente",
+    userPhoto: claim("picture") || null,
+  };
+}
 
 function secondsOf(d?: Review["createdAt"]): number {
   return d && typeof d === "object" && "seconds" in d ? (d as { seconds: number }).seconds : 0;
@@ -85,11 +101,11 @@ export function useReviews(productId?: string) {
       const u = auth.currentUser;
       if (!u || !productId) throw new Error("É preciso entrar para avaliar.");
       const id = `${productId}_${u.uid}`; // 1 avaliação por usuário/produto
+      const identity = await reviewIdentity(u);
       await setDoc(doc(db, "reviews", id), {
         productId,
         userId: u.uid,
-        userName: u.displayName || u.email?.split("@")[0] || "Cliente",
-        userPhoto: u.photoURL || null,
+        ...identity,
         rating,
         comment: comment.trim() || null,
         createdAt: serverTimestamp(),
