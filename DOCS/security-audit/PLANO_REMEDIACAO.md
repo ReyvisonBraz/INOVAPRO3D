@@ -42,7 +42,7 @@ Restam apenas itens operacionais, fora do código; ver a tabela abaixo, e o
 
 | Item                                                        | Status                                                                                                                  |
 | ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Deploy de `storage.rules`/`firestore.rules` em produção     | ✅ Feito 04/09/2026 — ver changelog                                                                                     |
+| Deploy de `storage.rules`/`firestore.rules` em produção     | ✅ Feito 04/09/2026 e 22/09/2026 (Onda 5, aplicação antes das regras) — ver changelog                                   |
 | Política de TTL em `rateLimits.resetAt` (Firestore)         | ✅ Criada 04/09/2026 via API Admin do Firestore (`ttlConfig` state `CREATING` → `ACTIVE` é automático, não requer ação) |
 | Abrir o PR da branch da Onda 0/1 para `main`                | ✅ Obsoleto — a branch já foi mergeada em `9a5797f`                                                                     |
 | Desligar o Web Analytics no painel do Cloudflare            | ⬜ **Pendente — só o dono do projeto pode fazer.** Ver Onda 3.                                                          |
@@ -260,6 +260,15 @@ rascunho e legado, `productsInternal`, `settings`, enumeração do Storage).
 
 ## Changelog
 
+- **2026-09-22** — Onda 5 **no ar**. Ordem seguida: commit → deploy da
+  aplicação na Vercel → conferência de que produção já servia o `where` novo
+  (os chunks `Catalog`/`ProductDetail` do build publicado) → `firebase deploy
+--only firestore:rules,storage`. Sonda anônima depois do deploy: `materials`,
+  `productsInternal`, `settings/global` e a listagem do Storage em **403**;
+  catálogo filtrado devolvendo os 20 produtos e produto por id em 200.
+  A migração dos campos internos foi aplicada na hora pelo Admin SDK (20
+  produtos), em vez de esperar o próximo carregamento do painel — o caminho
+  automático continua no código como rede de segurança e hoje é no-op.
 - **2026-09-19** — Onda 5 concluída; A10–A13 fechados. Achados novos, vindos do
   inventário da superfície anônima (o relatório original não fazia essa
   pergunta). Registrados também o risco aceito das avaliações ocultadas e a
