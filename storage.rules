@@ -14,18 +14,33 @@ service firebase.storage {
       return request.resource.contentType.matches('image/.*');
     }
 
+    // PASTAS DE VITRINE — a imagem é pública, a *listagem* do prefixo não.
+    //
+    // `read` concede `get` E `list`. Com `read: if true`, qualquer visitante
+    // chamava `listAll()` e recebia todo arquivo já enviado: inclusive imagens
+    // de produtos desativados ou apagados que nenhuma página referencia, e o
+    // UID do admin, que aparece no caminho (`products/manual/{uid}/...`).
+    //
+    // `get` fica público porque é dele que depende o `getDownloadURL` de toda
+    // imagem do catálogo. `list` não tem um único chamador no app — nenhuma
+    // tela faz `list`/`listAll`, só `uploadBytes` e `getDownloadURL` — então
+    // fechá-lo não tira nada de ninguém. Mesmo raciocínio já aplicado a
+    // `quotes/` mais abaixo.
     match /products/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 
     match /showcase/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 
     match /categories/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 
@@ -49,14 +64,16 @@ service firebase.storage {
 
     // Fotos das impressoras cadastradas, exibidas na calculadora e na ficha.
     match /printers/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 
-    // Logo da empresa. Leitura publica porque entra no cabecalho dos
-    // documentos impressos e na previa de impressao.
+    // Logo da empresa. `get` publico porque entra no cabecalho dos documentos
+    // impressos e na previa de impressao.
     match /company/{allPaths=**} {
-      allow read: if true;
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin() && isImage() && request.resource.size < 10 * 1024 * 1024;
     }
 

@@ -32,7 +32,14 @@ export default function Catalog() {
     error: fetchError,
     refetch: fetchData,
   } = useFirestoreCollection<Product>("products", {
-    transform: (items) => items.filter((p) => p.active !== false),
+    // O filtro saiu da tela e virou parte da consulta: a regra do Firestore
+    // agora nega o produto inativo, e uma consulta que pudesse devolvê-lo
+    // falharia inteira — regra não é filtro.
+    //
+    // Efeito colateral aceito: produto sem o campo `active` também não volta
+    // (igualdade não casa com campo ausente). Todos os produtos em produção o
+    // têm, e o formulário nasce com `active: true`.
+    constraints: (fs) => [fs.where("active", "==", true)],
   });
   const { data: categoriesData } = useFirestoreCollection<Category>("categories", {
     transform: (items) => items.filter((c) => c.active !== false),

@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useMemo, useState } from "react";
-import { addDoc, collection, doc, serverTimestamp, updateDoc } from "firebase/firestore";
+import { collection, doc, serverTimestamp, updateDoc, writeBatch } from "firebase/firestore";
 import { getDownloadURL, ref as storageRef, uploadBytes } from "firebase/storage";
 import { toast } from "sonner";
 import {
@@ -24,6 +24,7 @@ import {
   isUnoptimizedExternalUrl,
   fileToWebpBlob,
 } from "../../../lib/adminHelpers";
+import { productInternalRef, splitProductPayload } from "../../../services/products";
 import type { Category, Product, ProductionMaterial } from "../../../types/domain";
 
 const defaultProduct = {
@@ -115,20 +116,32 @@ export function useProductAdmin({ categories, fetchData }: Deps) {
             );
           }
         }
-        const payload = {
+        // O formulário continua trabalhando com o produto inteiro; a divisão
+        // entre o documento público e o interno acontece só aqui, na borda da
+        // gravação. Em batch: o produto nunca fica salvo pela metade.
+        const { publicData, internalData } = splitProductPayload({
           ...newProduct,
           images,
           categoryId: category.id,
           category: category.name,
-        };
+        });
+        const batch = writeBatch(db);
         if (isEditingProduct && selectedProduct) {
-          await updateDoc(doc(db, "products", selectedProduct.id), {
-            ...payload,
+          batch.update(doc(db, "products", selectedProduct.id), {
+            ...publicData,
             updatedAt: serverTimestamp(),
           });
+          batch.set(productInternalRef(selectedProduct.id), internalData, { merge: true });
+          await batch.commit();
           toast.success("Produto atualizado com sucesso!");
         } else {
-          await addDoc(collection(db, "products"), { ...payload, createdAt: serverTimestamp() });
+          // O id precisa existir antes do batch para os dois documentos
+          // compartilharem — por isso `doc(collection(...))` no lugar de
+          // `addDoc`, que só devolve o id depois de gravar.
+          const productRef = doc(collection(db, "products"));
+          batch.set(productRef, { ...publicData, createdAt: serverTimestamp() });
+          batch.set(productInternalRef(productRef.id), internalData);
+          await batch.commit();
           toast.success("Produto adicionado ao catálogo!");
         }
         setIsAddingProduct(false);

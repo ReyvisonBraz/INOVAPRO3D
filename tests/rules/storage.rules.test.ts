@@ -127,6 +127,19 @@ describe("vitrine — segue pública", () => {
       }),
     );
   });
+
+  // A distinção que `get`/`list` separados existem para fazer: a imagem
+  // referenciada pelo catálogo carrega para todo mundo, mas descobrir *quais*
+  // arquivos existem no prefixo não. Enumerar entregava também as imagens de
+  // produtos desativados e o UID do admin, que está no caminho.
+  it("nega enumeração do prefixo a visitante anônimo", async () => {
+    await assertFails(listAll(ref(anon(), "products")));
+    await assertFails(listAll(ref(anon(), "categories")));
+  });
+
+  it("permite enumeração ao admin", async () => {
+    await assertSucceeds(listAll(ref(asUser(ADMIN_UID), "products")));
+  });
 });
 
 describe("bucket fora das pastas declaradas", () => {

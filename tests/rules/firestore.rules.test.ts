@@ -13,7 +13,18 @@ import {
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from "@firebase/rules-unit-testing";
-import { doc, getDoc, serverTimestamp, setDoc, setLogLevel } from "firebase/firestore";
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  limit,
+  query,
+  serverTimestamp,
+  setDoc,
+  setLogLevel,
+  where,
+} from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const ADMIN_UID = "admin-1";
@@ -76,6 +87,35 @@ describe("coupons", () => {
 
   it("permite leitura ao admin", async () => {
     await assertSucceeds(getDoc(doc(asUser(ADMIN_UID), "coupons", "PROMO10")));
+  });
+});
+
+// A ficha do filamento é estoque, não vitrine: custo de compra, saldo,
+// fornecedor e lote. Era legível por qualquer visitante, e uma consulta
+// anônima em produção devolvia os documentos inteiros.
+describe("materials", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "materials", "pla-branco"), {
+        name: "BRANCO",
+        type: "PLA",
+        color: "#ffffff",
+        pricePerKg: 120,
+        stockGrams: 1000,
+        supplier: "Fornecedor X",
+        active: true,
+      });
+    });
+  });
+
+  it("nega leitura a visitante e a cliente logado", async () => {
+    await assertFails(getDoc(doc(anon(), "materials", "pla-branco")));
+    await assertFails(getDoc(doc(asUser(USER_UID), "materials", "pla-branco")));
+  });
+
+  // A calculadora é quem lê a coleção, e ela é rota `requireAdmin`.
+  it("permite leitura ao admin", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ADMIN_UID), "materials", "pla-branco")));
   });
 });
 
@@ -319,5 +359,100 @@ describe("campos opcionais ausentes", () => {
         createdAt: serverTimestamp(),
       }),
     );
+  });
+});
+
+// O catálogo é público, mas só do que está publicado. O filtro de `active`
+// vivia na tela (`Catalog.tsx`), então o rascunho não aparecia na vitrine e
+// mesmo assim vinha inteiro para quem consultasse a coleção direto.
+describe("products", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "products", "publicado"), { name: "Publicado", active: true });
+      await setDoc(doc(db, "products", "rascunho"), { name: "Rascunho", active: false });
+      // Produto legado: nunca teve o campo. O padrão `true` do `get()` o mantém
+      // visível, senão a regra apagaria da vitrine tudo o que veio antes.
+      await setDoc(doc(db, "products", "legado"), { name: "Legado" });
+    });
+  });
+
+  it("permite ao visitante ler o produto publicado e o legado", async () => {
+    await assertSucceeds(getDoc(doc(anon(), "products", "publicado")));
+    await assertSucceeds(getDoc(doc(anon(), "products", "legado")));
+  });
+
+  it("nega ao visitante o rascunho", async () => {
+    await assertFails(getDoc(doc(anon(), "products", "rascunho")));
+  });
+
+  it("permite ao admin ler o rascunho", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ADMIN_UID), "products", "rascunho")));
+  });
+
+  // Regra não é filtro: a consulta sem `where` pode devolver o rascunho, e
+  // por isso falha inteira. É o que obriga toda consulta pública a filtrar.
+  it("nega a listagem sem filtro e aceita a filtrada", async () => {
+    await assertFails(getDocs(collection(anon(), "products")));
+    await assertSucceeds(
+      getDocs(query(collection(anon(), "products"), where("active", "==", true))),
+    );
+  });
+
+  it("permite ao admin listar sem filtro", async () => {
+    await assertSucceeds(getDocs(query(collection(asUser(ADMIN_UID), "products"), limit(10))));
+  });
+});
+
+// Os campos que saíram do documento público do produto.
+describe("productsInternal", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), "productsInternal", "publicado"), {
+        sourceUrl: "https://makerworld.com/pt/models/13717",
+        productionMaterial: "PLA",
+      });
+    });
+  });
+
+  it("nega leitura a visitante e a cliente logado", async () => {
+    await assertFails(getDoc(doc(anon(), "productsInternal", "publicado")));
+    await assertFails(getDoc(doc(asUser(USER_UID), "productsInternal", "publicado")));
+  });
+
+  it("permite leitura e escrita ao admin", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ADMIN_UID), "productsInternal", "publicado")));
+    await assertSucceeds(
+      setDoc(doc(asUser(ADMIN_UID), "productsInternal", "publicado"), {
+        productionMaterial: "PETG",
+      }),
+    );
+  });
+});
+
+describe("settings", () => {
+  beforeEach(async () => {
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+      const db = context.firestore();
+      await setDoc(doc(db, "settings", "storefront"), { pixDiscountPct: 5, maxInstallments: 3 });
+      await setDoc(doc(db, "settings", "global"), { promoBanner: "Frete grátis", flatRate: 20 });
+      await setDoc(doc(db, "settings", "pricing"), { energyCostKwh: 0.9 });
+    });
+  });
+
+  // A projeção que a página do produto consome — e só ela.
+  it("permite ao visitante ler storefront", async () => {
+    await assertSucceeds(getDoc(doc(anon(), "settings", "storefront")));
+  });
+
+  // `global` não tem leitor público no app, e o tipo aceita campo livre: o que
+  // for gravado ali não pode virar público por descuido.
+  it("nega ao visitante global e pricing", async () => {
+    await assertFails(getDoc(doc(anon(), "settings", "global")));
+    await assertFails(getDoc(doc(anon(), "settings", "pricing")));
+  });
+
+  it("permite ao admin ler global", async () => {
+    await assertSucceeds(getDoc(doc(asUser(ADMIN_UID), "settings", "global")));
   });
 });

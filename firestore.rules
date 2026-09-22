@@ -188,10 +188,40 @@ service cloud.firestore {
                     (isSignedIn() && isAdmin() && isValidAdminUserUpdate());
     }
 
-    // PRODUCTS
+    // PRODUCTS — o catálogo. Leitura pública por natureza, mas só do que a
+    // vitrine mostra: o rascunho ainda não publicado e os campos internos
+    // ficam fora (ver `productsInternal` logo abaixo).
+    //
+    // ATENÇÃO às duas formas diferentes abaixo — elas não são estilo, são a
+    // diferença entre a regra valer e não valer:
+    //
+    // `get` é avaliado contra o documento de verdade, então `get('active',
+    // true)` funciona e preserva o produto legado que nunca teve o campo.
+    //
+    // `list` NÃO é avaliado documento a documento: o Firestore analisa a
+    // consulta e só a aceita quando as restrições dela provam a condição. Um
+    // `get('active', true)` ali não se liga a `where('active','==',true)` — a
+    // análise não consegue provar nada, e o efeito observado no emulador é a
+    // consulta sem filtro nenhum ser ACEITA, devolvendo os rascunhos. Só a
+    // forma direta `resource.data.active == true` é reconhecida. Por isso
+    // toda consulta pública de produtos carrega esse `where` (Catalog.tsx,
+    // ProductDetail.tsx, seed.ts) — e por isso o legado sem o campo não volta
+    // em listagem, embora continue abrindo por id.
     match /products/{productId} {
-      allow read: if true;
+      // A condição barata vem primeiro: `isAdmin()` custa uma leitura de
+      // `users/{uid}`.
+      allow get: if existing().get('active', true) != false || isAdmin();
+      allow list: if existing().active == true || isAdmin();
       allow write: if isAdmin();
+    }
+
+    // Campos do produto que não podem ser públicos. O Firestore não tem
+    // seguranca por campo, então `sourceUrl` (a procedência do modelo) e
+    // `productionMaterial` (o insumo de fabricação) saem do documento do
+    // catálogo e vivem aqui. Ver `src/services/products.ts`, que é o único
+    // lugar que divide e junta as duas metades.
+    match /productsInternal/{productId} {
+      allow read, write: if isAdmin();
     }
 
     // SHOWCASE
@@ -200,9 +230,17 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // MATERIALS
+    // MATERIALS — o mesmo caso de `printers` e `calculatorTemplates`, que já
+    // estão fechados: o documento do filamento é ficha de estoque, não item de
+    // vitrine. Carrega `pricePerKg` (o custo de compra), `stockGrams`,
+    // `reservedGrams`, `supplier`, `batch`, `location` e `notes` — a leitura
+    // pública entregava tudo isso a qualquer visitante.
+    //
+    // Nenhuma tela de cliente lê esta coleção: os únicos consumidores são a
+    // calculadora (`/calculadora`, rota `requireAdmin`) e o painel. O servidor
+    // usa o Admin SDK, que ignora estas regras ao recalcular pedidos.
     match /materials/{materialId} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
@@ -342,11 +380,19 @@ service cloud.firestore {
 
     // SETTINGS
     match /settings/{settingId} {
-      // Somente o banner/configuração global é público. Custos, margens e
-      // depreciação da calculadora são informação operacional do admin.
+      // Só `storefront` é público — e ele existe justamente para isso: é a
+      // projeção dos dois campos que a página do produto precisa (desconto no
+      // Pix e número de parcelas), gravada por `savePricingSettings` ao lado
+      // do `pricing` completo, que fica fechado.
+      //
+      // `global` saiu da lista: nenhum caminho público o lê (só
+      // `fetchAdminSettings`), e o tipo `GlobalSettings` tem índice livre
+      // `[key: string]: unknown` — qualquer campo novo gravado ali viraria
+      // público sem ninguém notar.
+      //
       // Docs em uso: global, storefront, machine, pricing e company (a
       // identidade impressa nos documentos, editada na aba Ajustes).
-      allow read: if settingId in ["global", "storefront"] || isAdmin();
+      allow read: if settingId == "storefront" || isAdmin();
       allow write: if isAdmin();
     }
 

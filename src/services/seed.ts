@@ -1,4 +1,12 @@
-import { collection, getDocs, addDoc, serverTimestamp } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  addDoc,
+  limit,
+  query,
+  serverTimestamp,
+  where,
+} from "firebase/firestore";
 import { db, handleFirestoreError, OperationType } from "./firebase";
 
 const SAMPLE_PRODUCTS = [
@@ -37,7 +45,12 @@ const SAMPLE_PRODUCTS = [
 export async function seedProducts() {
   const path = "products";
   try {
-    const querySnapshot = await getDocs(collection(db, path));
+    // Roda no boot de todo visitante: precisa do mesmo `where('active')` das
+    // demais consultas públicas, senão a regra nega a leitura inteira assim
+    // que existir um rascunho. `limit(1)` porque a pergunta é só "está vazio?".
+    const querySnapshot = await getDocs(
+      query(collection(db, path), where("active", "==", true), limit(1)),
+    );
     if (querySnapshot.empty) {
       console.log("Seeding initial products...");
       for (const product of SAMPLE_PRODUCTS) {

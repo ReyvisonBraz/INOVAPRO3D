@@ -28,9 +28,15 @@ na `main`** no commit `9a5797f` — não há PR pendente dela.
 | A7  | Webhook Stripe sem conferência de valor (existe no código, não em produção)                 | Baixa       | ✅ Corrigido — caminho Stripe **removido** por inteiro                 | Onda 2 |
 | A9  | `api/calculator/extract-slicer` sem rate limit na Vercel (espelho Express tinha)            | Baixa       | ✅ Corrigido — achado durante a Onda 2, fora do relatório original     | Onda 2 |
 | A8  | `GITHUB_TOKEN` sem `permissions: contents: read` explícito no CI                            | Informativa | ✅ Corrigido                                                           | Onda 0 |
+| A10 | `materials` com leitura pública — custo de compra, saldo, fornecedor e lote do filamento    | Média       | ✅ Corrigido — `read: if isAdmin()`                                    | Onda 5 |
+| A11 | Storage: `read: if true` concede `list`, e o bucket inteiro da vitrine era enumerável       | Baixa       | ✅ Corrigido — `get` público, `list` admin                             | Onda 5 |
+| A12 | Campos internos no documento público do produto (`sourceUrl`, `productionMaterial`)         | Baixa       | ✅ Corrigido — movidos para `productsInternal`                         | Onda 5 |
+| A13 | Rascunho (`active: false`) e `settings/global` legíveis por visitante                       | Baixa       | ✅ Corrigido — regra de `list` e `settings` fechadas                   | Onda 5 |
 
-**Todos os achados do relatório estão fechados.** Restam apenas itens
-operacionais, fora do código — ver a tabela abaixo.
+**Todos os achados do relatório estão fechados**, e os quatro da Onda 5 —
+levantados fora do relatório, ao inventariar a superfície anônima — também.
+Restam apenas itens operacionais, fora do código; ver a tabela abaixo, e o
+**risco aceito** registrado na seção da Onda 5.
 
 ## Itens operacionais (não são código)
 
@@ -183,10 +189,82 @@ Duas mudanças que se sustentam mutuamente:
 4 testes novos em `tests/rules/firestore.rules.test.ts` (nome do token aceito,
 nome forjado negado, foto de fora negada, fallback do e-mail aceito).
 
+### Onda 5 — concluída (19/09/2026)
+
+**Origem:** não veio do relatório. Veio de inventariar a pergunta que o
+relatório não fazia — _o que exatamente um visitante deslogado consegue ler?_ —
+e de responder com requisição real, sem token, contra produção (Firestore e
+Storage REST). O relatório procurava vetores de ataque; sobrou o que estava
+aberto por configuração, não por vulnerabilidade.
+
+O que a sonda anônima devolveu antes da onda:
+
+| Superfície          | Antes                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `materials`         | 200 — 3 documentos com `pricePerKg`, `stockGrams`, `reservedGrams`, `supplier`, `batch` |
+| Storage `products/` | 11 arquivos enumerados, com o UID do admin no caminho                                   |
+| `products`          | 20 documentos com `sourceUrl` (procedência do modelo) e `productionMaterial`            |
+| `settings/global`   | legível, e sem nenhum leitor público no código                                          |
+
+**A10 — `materials`.** Mesma natureza de `printers` e `calculatorTemplates`,
+fechados na Onda 1: ficha de estoque, não item de vitrine. Passou batido
+porque o nome sugere catálogo. Os únicos leitores são a calculadora
+(`/calculadora`, rota `requireAdmin`) e o painel; o servidor usa o Admin SDK.
+
+**A11 — enumeração do bucket.** `read` no Storage concede `get` **e** `list` —
+a mesma lição que fechou `quotes/` na Onda 0, só não aplicada aos prefixos de
+vitrine. `get` segue público (é dele que depende todo `getDownloadURL`) e
+`list` virou admin. Não há um único `list`/`listAll` no app.
+
+**A12 — campos internos do produto.** Firestore não tem segurança por campo:
+para fechar um campo, ele sai do documento. `sourceUrl` e `productionMaterial`
+passaram a morar em `productsInternal/{id}`, admin-only. `src/services/products.ts`
+é o único lugar que divide (na gravação) e junta (na leitura) as duas metades,
+com `PRODUCT_INTERNAL_FIELDS` como lista única — então o resto do painel não
+mudou. A migração roda sozinha no carregamento do painel: é idempotente e vira
+no-op depois que o último produto migra.
+
+**A13 — rascunhos e `settings/global`.** `global` saiu da lista de leitura
+pública: nenhum caminho público o lê, e o tipo `GlobalSettings` tem índice
+livre `[key: string]: unknown` — qualquer campo novo ali viraria público sem
+ninguém notar. Já `products` passou a negar `active: false`.
+
+**O que aprendemos sobre `list` e que vale para a próxima regra** (está
+comentado em `firestore.rules`, mas registrado aqui porque custou um teste
+vermelho para aparecer): `get` e `list` não são avaliados do mesmo jeito.
+`get` roda contra o documento real; `list` é analisado contra a **consulta**, e
+só passa quando as restrições dela provam a condição. Escrever
+`resource.data.get('active', true) != false` no `list` não é conservador — a
+análise não liga esse `get()` ao `where` da consulta, e o resultado observado
+no emulador foi a **consulta sem filtro nenhum ser aceita**, devolvendo os
+rascunhos. Só a forma direta `resource.data.active == true` é reconhecida. A
+contrapartida é que documento sem o campo não volta em listagem (igualdade não
+casa com campo ausente), embora continue abrindo por id.
+
+**Risco aceito — avaliações ocultadas.** `hidden: true` some da vitrine por
+filtro de UI (`useReviews.ts`), mas o documento continua legível por consulta
+direta. Fechar exigiria backfill do campo (hoje ele não existe nos documentos),
+`where('hidden','==',false)` na consulta e índice composto — e um backfill que
+falhe num único documento derruba a lista de avaliações do produto inteiro. A
+decisão foi não pagar esse preço agora. Fica aqui para não ser confundido com
+esquecimento.
+
+**Ordem de deploy (importa):** a aplicação **antes** das regras. A regra nova de
+`list` exige `where('active','==',true)`, que só existe na versão nova do
+front; publicar as regras primeiro deixa o catálogo vazio para todo visitante.
+
+11 testes novos entre as duas suítes de regra (`materials`, `products` com
+rascunho e legado, `productsInternal`, `settings`, enumeração do Storage).
+
 ---
 
 ## Changelog
 
+- **2026-09-19** — Onda 5 concluída; A10–A13 fechados. Achados novos, vindos do
+  inventário da superfície anônima (o relatório original não fazia essa
+  pergunta). Registrados também o risco aceito das avaliações ocultadas e a
+  diferença de avaliação entre `get` e `list` nas regras, que decidiu a forma
+  da regra de `products`. **Deploy em duas etapas: aplicação antes das regras.**
 - **2026-09-18** — Onda 4 concluída; A5 fechado. Com isso **todos os achados do
   relatório de auditoria estão corrigidos**. O que resta é operacional e fora do
   código: desligar o Web Analytics no Cloudflare e revogar/remover as variáveis
@@ -234,6 +312,13 @@ dia, outra pessoa):
 4. **Não resta nenhuma onda de código.** O que está pendente são os itens
    operacionais da tabela acima — o do Cloudflare afeta a qualidade dos
    relatórios de CSP daqui em diante, e a chave da Stripe segue válida até ser
-   revogada no painel.
-5. Ao terminar uma onda: atualize a tabela de status, adicione uma linha no
+   revogada no painel. A Onda 5 também deixou um pendente de deploy: se as
+   regras dela ainda não subiram, **publique a aplicação primeiro** (ver a
+   seção da Onda 5).
+5. Se for procurar achado novo, o método da Onda 5 rendeu quatro: em vez de
+   ler o código procurando vulnerabilidade, consulte a produção **sem token**
+   (Firestore e Storage REST com a chave pública do front) e confira coleção
+   por coleção o que volta 200. O que está aberto por configuração não aparece
+   numa leitura de código; aparece na resposta.
+6. Ao terminar uma onda: atualize a tabela de status, adicione uma linha no
    changelog com a data, e comite este arquivo junto com o código da onda.

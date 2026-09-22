@@ -307,6 +307,12 @@ export interface Product {
   /** Id do doc em `categories`. Fonte da verdade do vinculo. */
   categoryId?: string;
   active?: boolean;
+  /**
+   * INTERNO — não mora no documento público de `products`, e sim em
+   * `productsInternal/{id}`, fechado por regra. A procedência do modelo era
+   * legível por qualquer visitante. Só o painel vê este campo, e só porque
+   * `src/services/products.ts` junta as duas metades na leitura.
+   */
   sourceUrl?: string;
   modelUrl?: string;
   stock?: number;
@@ -315,7 +321,11 @@ export interface Product {
   baseDimensions?: ProductDimensions;
   /** Oculta o bloco de dimensões na página pública do produto. */
   hideDimensions?: boolean;
-  /** Material interno de fabricação. Não é uma opção exibida ao cliente. */
+  /**
+   * INTERNO — material de fabricação, não é uma opção exibida ao cliente.
+   * Como `sourceUrl`, mora em `productsInternal/{id}`, não no documento
+   * público.
+   */
   productionMaterial?: ProductionMaterial;
   createdAt?: FirestoreDate;
   updatedAt?: FirestoreDate;

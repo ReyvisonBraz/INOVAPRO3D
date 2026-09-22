@@ -5,6 +5,11 @@ import { useAdminOrders } from "../../../features/orders/hooks/useAdminOrders";
 import { useAdminQuotes } from "../../../features/quotes/hooks/useAdminQuotes";
 import { db, handleFirestoreError, OperationType } from "../../../services/firebase";
 import { fetchPrinters, isPermissionDenied } from "../../../services/printers";
+import {
+  fetchProductsInternal,
+  mergeProductsInternal,
+  migrateProductsInternal,
+} from "../../../services/products";
 import type {
   AuditLog,
   Category,
@@ -67,6 +72,7 @@ export function useAdminData() {
     try {
       const [
         productsSnap,
+        productsInternal,
         showcaseSnap,
         materialsSnap,
         customersSnap,
@@ -75,6 +81,9 @@ export function useAdminData() {
         logsSnap,
       ] = await Promise.all([
         getDocs(collection(db, "products")),
+        // Os campos que não moram no documento público. Uma leitura a mais, em
+        // paralelo, e o painel volta a ver o produto inteiro.
+        fetchProductsInternal(),
         getDocs(collection(db, "showcase")),
         getDocs(collection(db, "materials")),
         getDocs(collection(db, "customers")),
@@ -83,7 +92,21 @@ export function useAdminData() {
         getDocs(query(collection(db, "logs"), orderBy("createdAt", "desc"), limit(100))),
       ]);
 
-      setProducts(productsSnap.docs.map((p) => ({ id: p.id, ...p.data() }) as Product));
+      const storedProducts = productsSnap.docs.map((p) => ({ id: p.id, ...p.data() }) as Product);
+      setProducts(mergeProductsInternal(storedProducts, productsInternal));
+
+      // Migração dos produtos que ainda guardam os campos internos no
+      // documento público. Roda aqui, e não num botão: é uma passagem única,
+      // idempotente e invisível — depois que o último produto migra, não faz
+      // mais nada. Fora do `await` de propósito: o painel não espera por ela, e
+      // uma falha (permissão, rede) não pode derrubar o carregamento.
+      void migrateProductsInternal(storedProducts)
+        .then((migrated) => {
+          if (migrated > 0) {
+            console.info(`[products] ${migrated} produto(s) com campos internos separados.`);
+          }
+        })
+        .catch((err) => console.warn("[products] migração dos campos internos adiada:", err));
       setShowcase(showcaseSnap.docs.map((s) => ({ id: s.id, ...s.data() }) as ShowcaseItem));
       setMaterials(materialsSnap.docs.map((m) => ({ id: m.id, ...m.data() }) as Material));
       setCustomers(customersSnap.docs.map((c) => ({ id: c.id, ...c.data() }) as Customer));

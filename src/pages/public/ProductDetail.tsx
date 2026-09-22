@@ -177,8 +177,18 @@ export default function ProductDetail() {
             const sameCategory = prod.categoryId
               ? where("categoryId", "==", prod.categoryId)
               : where("category", "==", prod.category);
+            // `active` entra na consulta porque a regra nega o produto
+            // inativo: sem o filtro, um rascunho na mesma categoria derrubaria
+            // a busca de relacionados inteira. Duas igualdades sem `orderBy`
+            // são servidas por merge de índices de campo único — sem índice
+            // composto novo.
             const relSnap = await getDocs(
-              query(collection(db, "products"), sameCategory, limit(7)),
+              query(
+                collection(db, "products"),
+                sameCategory,
+                where("active", "==", true),
+                limit(7),
+              ),
             );
             setRelatedProducts(
               relSnap.docs

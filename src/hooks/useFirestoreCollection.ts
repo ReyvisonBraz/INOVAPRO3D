@@ -1,9 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { QueryConstraint } from "firebase/firestore";
 
+type FirestoreModule = typeof import("firebase/firestore");
+
 interface Options<T> {
-  /** Restrições do Firestore (where, orderBy, limit...). Não precisa memoizar. */
-  constraints?: QueryConstraint[];
+  /**
+   * Restrições do Firestore (where, orderBy, limit...). Não precisa memoizar.
+   *
+   * A forma de função recebe o módulo já carregado — use-a para não precisar
+   * de um `import { where }` estático na página: o import dinâmico abaixo
+   * existe justamente para manter `firebase/firestore` fora do chunk de quem
+   * chama este hook.
+   */
+  constraints?: QueryConstraint[] | ((firestore: FirestoreModule) => QueryConstraint[]);
   /** Transformação aplicada após o fetch (filtro, ordenação...). Não precisa memoizar. */
   transform?: (items: T[]) => T[];
   /** Quando false, o fetch automático no mount é pulado. */
@@ -40,13 +49,16 @@ export function useFirestoreCollection<T extends { id: string }>(
     setLoading(true);
     setError(null);
     try {
-      const [{ collection, getDocs, query }, { publicDb }] = await Promise.all([
+      const [firestore, { publicDb }] = await Promise.all([
         import("firebase/firestore"),
         import("../services/firebaseData"),
       ]);
+      const { collection, getDocs, query } = firestore;
       const { constraints, transform } = optionsRef.current;
+      const resolved =
+        typeof constraints === "function" ? constraints(firestore) : (constraints ?? []);
       const base = collection(publicDb, path);
-      const q = constraints?.length ? query(base, ...constraints) : base;
+      const q = resolved.length ? query(base, ...resolved) : base;
       const snap = await Promise.race([
         getDocs(q),
         new Promise<never>((_, reject) =>

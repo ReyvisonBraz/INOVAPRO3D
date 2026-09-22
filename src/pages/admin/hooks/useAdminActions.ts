@@ -14,7 +14,12 @@ import { auth, db, handleFirestoreError, OperationType } from "../../../services
 import type { Order, Quote, Ticket, TrashEntry } from "../../../types/domain";
 import type { OrderStatus } from "../../../types/domain";
 import { InsufficientInventoryError, transitionOrderStatus } from "../../../services/inventory";
-import { clearProductsCategory } from "../../../services/products";
+import {
+  clearProductsCategory,
+  productInternalRef,
+  readProductInternal,
+  splitProductPayload,
+} from "../../../services/products";
 import type { Product } from "../../../types/domain";
 
 interface Deps {
@@ -171,13 +176,22 @@ export function useAdminActions({
           }
         }
 
+        // O produto vive em dois documentos. A lixeira guarda a cópia inteira,
+        // senão restaurar traria um produto sem a procedência nem o insumo de
+        // fabricação — campos que ninguém notaria terem sumido.
+        let archivedData = sourceData;
+        if (type === "products") {
+          const internal = await readProductInternal(id);
+          if (internal) archivedData = { ...sourceData, ...internal };
+        }
+
         const trashRef = doc(collection(db, "trash"));
         const batch = writeBatch(db);
         batch.set(trashRef, {
           sourceCollection: type,
           originalId: id,
           label: recordLabel(type, id, sourceData),
-          data: sourceData,
+          data: archivedData,
           deletedAt: serverTimestamp(),
           deletedBy: auth.currentUser?.email || auth.currentUser?.uid || null,
         });
@@ -189,6 +203,7 @@ export function useAdminActions({
           });
         } else {
           batch.delete(sourceRef);
+          if (type === "products") batch.delete(productInternalRef(id));
         }
         await batch.commit();
         if (type === "orders") setOrders((prev) => prev.filter((o) => o.id !== id));
@@ -243,7 +258,17 @@ export function useAdminActions({
     async (entry: TrashEntry) => {
       try {
         const batch = writeBatch(db);
-        batch.set(doc(db, entry.sourceCollection, entry.originalId), entry.data);
+        if (entry.sourceCollection === "products") {
+          // A lixeira guarda o produto inteiro; ao voltar, ele se divide de
+          // novo nas duas metades — pela mesma função que a gravação usa.
+          const { publicData, internalData } = splitProductPayload(entry.data);
+          batch.set(doc(db, "products", entry.originalId), publicData);
+          if (Object.keys(internalData).length > 0) {
+            batch.set(productInternalRef(entry.originalId), internalData);
+          }
+        } else {
+          batch.set(doc(db, entry.sourceCollection, entry.originalId), entry.data);
+        }
         batch.delete(doc(db, "trash", entry.id));
         await batch.commit();
         setTrashItems((current) => current.filter((item) => item.id !== entry.id));
