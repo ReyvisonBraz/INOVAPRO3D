@@ -1,4 +1,5 @@
-import { Calculator, Save } from "lucide-react";
+import type { RefObject } from "react";
+import { Calculator, Eraser, Save } from "lucide-react";
 import { BrandMark } from "../brand/BrandLogo";
 import { cn } from "../../lib/utils";
 
@@ -8,6 +9,10 @@ interface CalculatorHeaderProps {
   quoteId: string;
   mode: "QUICK" | "FULL";
   onModeChange: (mode: "QUICK" | "FULL") => void;
+  /** Abre a confirmação de limpeza, ou limpa direto se não houver dados. */
+  onClear: () => void;
+  /** Recebe o foco de volta quando a confirmação é fechada. */
+  clearButtonRef: RefObject<HTMLButtonElement | null>;
 }
 
 export function CalculatorHeader({
@@ -16,6 +21,8 @@ export function CalculatorHeader({
   quoteId,
   mode,
   onModeChange,
+  onClear,
+  clearButtonRef,
 }: CalculatorHeaderProps) {
   return (
     <header className="mb-8 flex flex-col gap-5 border-b border-white/[0.08] pb-6 lg:flex-row lg:items-end lg:justify-between">
@@ -92,6 +99,16 @@ export function CalculatorHeader({
             Completo
           </button>
         </div>
+
+        <button
+          ref={clearButtonRef}
+          type="button"
+          onClick={onClear}
+          className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 text-[11px] font-black uppercase tracking-[0.14em] text-white/50 transition hover:border-amber-300/30 hover:bg-amber-400/10 hover:text-amber-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-200"
+        >
+          <Eraser className="h-3.5 w-3.5" aria-hidden="true" />
+          Limpar calculadora
+        </button>
       </div>
     </header>
   );

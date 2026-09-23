@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { Loader2 } from "lucide-react";
@@ -12,6 +12,7 @@ import { PrintDocumentHost } from "../../components/print/PrintDocumentHost";
 import { buildPrintDocumentTitle, printDocument } from "../../lib/printing";
 import { ScenarioSimulator } from "../../components/calculator/ScenarioSimulator";
 import { CalculatorStickyBar } from "../../components/calculator/CalculatorStickyBar";
+import { CalculatorClearDialog } from "../../components/calculator/CalculatorClearDialog";
 import { CalculatorTemplatePanel } from "../../components/calculator/CalculatorTemplatePanel";
 import { CalculatorMachineConfigSection } from "../../components/calculator/CalculatorMachineConfigSection";
 import { CalculatorMaterialCostSection } from "../../components/calculator/CalculatorMaterialCostSection";
@@ -218,6 +219,8 @@ function FilamentCalculatorContent({
     continueEditingSavedQuote,
     duplicateSavedQuote,
     startNewCalculation,
+    discardCalculatorDraft,
+    hasCalculatorData,
     uploadingImage,
     handleUploadImage,
     draftSavedAt,
@@ -257,6 +260,30 @@ function FilamentCalculatorContent({
     minPrice,
     pixDiscountPct: pricingSettings.pixDiscountPct,
   });
+  const [confirmingClear, setConfirmingClear] = useState(false);
+  const clearButtonRef = useRef<HTMLButtonElement>(null);
+
+  /** Sem nada preenchido não há o que perder: limpa direto, sem perguntar. */
+  const handleClearRequest = () => {
+    if (!hasCalculatorData) {
+      discardCalculatorDraft();
+      return;
+    }
+    setConfirmingClear(true);
+  };
+
+  const closeClearDialog = () => {
+    setConfirmingClear(false);
+    clearButtonRef.current?.focus();
+  };
+
+  const confirmClear = () => {
+    discardCalculatorDraft();
+    setConfirmingClear(false);
+    clearButtonRef.current?.focus();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const [isPrintingReport, setIsPrintingReport] = useState(false);
   const [imageSectionOpen, setImageSectionOpen] = useState(false);
   const [specSectionOpen, setSpecSectionOpen] = useState(false);
@@ -286,6 +313,8 @@ function FilamentCalculatorContent({
       >
         <div className="relative z-10 mx-auto max-w-7xl">
           <CalculatorHeader
+            onClear={handleClearRequest}
+            clearButtonRef={clearButtonRef}
             draftSavedAt={draftSavedAt}
             printerName={selectedPrinter?.name}
             quoteId={quoteId}
@@ -541,6 +570,13 @@ function FilamentCalculatorContent({
             ?.scrollIntoView({ behavior: "smooth", block: "start" })
         }
       />
+      {confirmingClear && (
+        <CalculatorClearDialog
+          editingSavedQuote={Boolean(quoteId)}
+          onConfirm={confirmClear}
+          onCancel={closeClearDialog}
+        />
+      )}
       {postSave && (
         <CalculatorPostSaveDialog
           created={postSave.created}

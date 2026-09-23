@@ -1300,6 +1300,31 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     setHighlightCustomerNotes(true);
   };
 
+  /**
+   * Há algo que o usuário perderia ao limpar? Decide se "Limpar calculadora"
+   * pede confirmação ou age direto — confirmar um formulário vazio só
+   * atrapalha quem quer começar.
+   *
+   * Editar um orçamento salvo conta como dado preenchido mesmo sem campos
+   * digitados: limpar desfaz o vínculo com esse orçamento.
+   */
+  const hasCalculatorData =
+    Boolean(quoteId) ||
+    project.name.trim().length > 0 ||
+    project.plates.some(
+      (plate) => plate.filaments.length > 0 || plate.totalTime.trim().length > 0,
+    ) ||
+    clientName.trim().length > 0 ||
+    clientLastName.trim().length > 0 ||
+    clientPhone.trim().length > 0 ||
+    Boolean(selectedCustomerId) ||
+    Boolean(quoteImageUrl) ||
+    customerNotes.trim().length > 0 ||
+    Boolean(machineOverrides) ||
+    requiresLabor ||
+    extraSupplies > 0 ||
+    packagingCost > 0;
+
   const continueEditingSavedQuote = () => setPostSave(null);
 
   const duplicateSavedQuote = () => {
@@ -1629,6 +1654,7 @@ export function useCalculatorState(options: UseCalculatorStateOptions = {}) {
     handleUploadImage,
     draftSavedAt,
     discardCalculatorDraft,
+    hasCalculatorData,
     // computed
     result,
     machineBreak,
