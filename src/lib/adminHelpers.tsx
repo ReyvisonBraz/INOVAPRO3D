@@ -3,6 +3,10 @@ import { memo } from "react";
 import type { FirebaseStorage } from "firebase/storage";
 import { NumberField } from "../components/ui/NumberField";
 import { auth } from "../services/firebase";
+import { loadImage, toWebpBlob } from "./imageCompression";
+
+// Reexportado: os hooks de produto e impressora já importam daqui.
+export { fileToWebpBlob } from "./imageCompression";
 
 // A lista de abas vive em `pages/admin/adminConfig.ts`, junto do menu e dos
 // subtítulos. Aqui só reexportamos para não haver duas verdades.
@@ -103,16 +107,6 @@ export function isUnoptimizedExternalUrl(url: string): boolean {
   }
 }
 
-function loadImage(src: string): Promise<HTMLImageElement> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error("cors"));
-    img.src = src;
-  });
-}
-
 /**
  * `/api/proxy-image` agora exige admin (a rota fazia fetch de qualquer URL
  * https de host permitido, sem revalidar redirect — SSRF anônimo). Uma tag
@@ -133,36 +127,6 @@ async function loadImageViaProxy(url: string): Promise<HTMLImageElement> {
   const objectUrl = URL.createObjectURL(await response.blob());
   try {
     return await loadImage(objectUrl);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-}
-
-const WEBP_MAX_DIMENSION = 1200;
-const WEBP_QUALITY = 0.85;
-
-function toWebpBlob(img: HTMLImageElement): Promise<Blob> {
-  const scale = Math.min(
-    1,
-    WEBP_MAX_DIMENSION / Math.max(img.naturalWidth || 1, img.naturalHeight || 1),
-  );
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round((img.naturalWidth || WEBP_MAX_DIMENSION) * scale);
-  canvas.height = Math.round((img.naturalHeight || WEBP_MAX_DIMENSION) * scale);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return Promise.reject(new Error("canvas"));
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return new Promise<Blob>((res, rej) =>
-    canvas.toBlob((b) => (b ? res(b) : rej(new Error("blob"))), "image/webp", WEBP_QUALITY),
-  );
-}
-
-/** Redimensiona e converte um arquivo local (upload do admin) para WebP. */
-export async function fileToWebpBlob(file: File): Promise<Blob> {
-  const objectUrl = URL.createObjectURL(file);
-  try {
-    const img = await loadImage(objectUrl);
-    return await toWebpBlob(img);
   } finally {
     URL.revokeObjectURL(objectUrl);
   }

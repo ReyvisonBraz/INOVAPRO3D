@@ -26,6 +26,7 @@ import { auth, db, getStorageInstance } from "../services/firebase";
 import type { MaterialUsage, QuoteProductSpec, QuoteStatus } from "../types/domain";
 import type { CalculatorProject } from "./calculatorProject";
 import { sanitizeProductSpec, type QuoteCalcSnapshot } from "./calculatorSnapshot";
+import { fileToWebpBlob } from "./imageCompression";
 
 export interface SaveQuoteInput {
   /** Nome do cliente (obrigatório para identificar o orçamento). */
@@ -231,6 +232,9 @@ export async function saveOrUpdateQuoteFromCalc(
   return { id, created: true };
 }
 
+/** Teto de `storage.rules` para `quotes/{uid}/…` (ver storage.rules). */
+const STORAGE_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
 /**
  * Envia uma imagem opcional do produto para o Storage e devolve a URL pública.
  * Caminho: `quotes/{uid}/timestamp-nome.ext`. Requer admin (ver storage.rules).
@@ -238,7 +242,6 @@ export async function saveOrUpdateQuoteFromCalc(
 export async function uploadQuoteImage(file: File): Promise<string> {
   const { ref: storageRef, uploadBytes, getDownloadURL } = await import("firebase/storage");
   const uid = auth.currentUser?.uid || "anon";
-  const extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
   const safeName =
     file.name
       .replace(/\.[^.]+$/, "")
@@ -246,10 +249,33 @@ export async function uploadQuoteImage(file: File): Promise<string> {
       .replace(/^-+|-+$/g, "")
       .toLowerCase()
       .slice(0, 50) || "imagem";
+
+  // A foto sobe redimensionada e em WebP, como já acontecia em produtos e
+  // impressoras. Sem isso, um PNG de câmera ou de gerador de imagem ia inteiro
+  // para o Storage, era copiado para o pedido na conversão e acabava baixado
+  // em tamanho cheio só para virar miniatura nas listas.
+  let payload: Blob = file;
+  let contentType = file.type;
+  let extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
+  try {
+    payload = await fileToWebpBlob(file);
+    contentType = "image/webp";
+    extension = "webp";
+  } catch (err) {
+    // Formato que o navegador não decodifica (HEIC, por exemplo) ou memória
+    // insuficiente: enviar o original é melhor do que perder o upload.
+    console.warn("[quote-image] conversão para WebP falhou; enviando original", err);
+    if (file.size >= STORAGE_IMAGE_MAX_BYTES) {
+      throw new Error(
+        "Não foi possível converter esta imagem, e o arquivo original é grande demais para enviar. Tente exportá-la como JPG ou PNG.",
+      );
+    }
+  }
+
   const path = `quotes/${uid}/${Date.now()}-${safeName}.${extension}`;
   const fileRef = storageRef(await getStorageInstance(), path);
-  await uploadBytes(fileRef, file, {
-    contentType: file.type,
+  await uploadBytes(fileRef, payload, {
+    contentType,
     customMetadata: { uploadedBy: uid, source: "calculator-quote" },
   });
   return getDownloadURL(fileRef);
