@@ -28,7 +28,7 @@ export function AdminQuoteCommercialSection({
   onChangeShowImage,
 }: AdminQuoteCommercialSectionProps) {
   return (
-    <section className="quote-editor-commercial rounded-3xl border border-primary/20 bg-primary/[0.04] p-5 sm:p-7">
+    <section className="quote-editor-commercial rounded-3xl border border-primary/25 bg-[#141a24] p-5 sm:p-7 shadow-xl shadow-black/30">
       <h3 className="flex items-center gap-2.5 text-sm font-bold uppercase tracking-widest text-primary mb-6">
         <BadgeDollarSign className="w-4 h-4" /> Valor da Proposta
       </h3>

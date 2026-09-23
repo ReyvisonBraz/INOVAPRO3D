@@ -244,10 +244,15 @@
     grid-area: assistant;
   }
 
+  /* Sem `position: sticky`, de propósito.
+     O bloco era grudado e invadia o que vinha embaixo na mesma coluna: com o
+     editor rolado, ele ficava preso no topo e cobria a seção de imagem por
+     inteiro (230px medidos em 1440x900). A área do grid não o continha, e o
+     fundo translúcido de antes só disfarçava a sobreposição em vez de evitá-la.
+     Manter no fluxo normal é a correção; o resumo já abre visível no topo da
+     coluna direita. */
   .quote-editor-commercial {
     grid-area: commercial;
-    position: sticky;
-    top: 0.75rem;
   }
 
   .quote-editor-notes {
