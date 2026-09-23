@@ -1,3 +1,4 @@
+import { OrderItemThumb } from "../../../components/ui/OrderItemThumb";
 import { ArrowRight, Layers } from "lucide-react";
 import { PRODUCTION_STAGES } from "../adminConfig";
 import type { Order, OrderItem } from "../../../types/domain";
@@ -155,26 +156,16 @@ export function ProductionKanban({
                         R$ {(order.total || 0).toFixed(2)}
                       </p>
                     </div>
-                    {order.items?.[0]?.image && (
-                      <div
-                        className={
-                          isCompact
-                            ? "mb-2 rounded-xl overflow-hidden border border-white/5 bg-black/20"
-                            : "mb-3 rounded-xl overflow-hidden border border-white/5 bg-black/20"
-                        }
-                      >
-                        <img
-                          src={order.items[0].image}
-                          alt=""
-                          loading="lazy"
-                          className={
-                            isCompact
-                              ? "w-full h-20 object-cover"
-                              : "w-full h-24 sm:h-28 object-cover"
-                          }
-                        />
-                      </div>
-                    )}
+                    <OrderItemThumb
+                      src={order.items?.[0]?.image}
+                      name={order.items?.[0]?.name}
+                      decorative
+                      className={
+                        isCompact
+                          ? "mb-2 h-20 w-full rounded-xl border border-white/5"
+                          : "mb-3 h-24 w-full rounded-xl border border-white/5 sm:h-28"
+                      }
+                    />
                     <h5
                       className={
                         isCompact

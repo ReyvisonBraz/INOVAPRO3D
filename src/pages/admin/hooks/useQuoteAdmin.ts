@@ -229,8 +229,6 @@ export function useQuoteAdmin({
           ? editingQuotePhone
           : matchedCustomer?.phone || quote.phone || "";
         const finalImage = (isSelected ? editingQuoteImageUrl : quote.imageUrl) || "";
-        const fallbackImage =
-          "https://images.unsplash.com/photo-1615810231586-52233952673d?q=80&w=400";
 
         const orderItems = quote.items?.length
           ? quote.items.map((item, index) =>
@@ -241,7 +239,10 @@ export function useQuoteAdmin({
                 name: finalFileName || "Impressão Personalizada",
                 quantity: finalQuantity,
                 price: finalPrice,
-                image: finalImage || fallbackImage,
+                // Orçamento sem foto vira pedido sem foto: a interface mostra um
+                // placeholder neutro. Preencher com imagem de banco criaria um
+                // pedido que aparenta ter foto do produto e não tem.
+                image: finalImage,
                 options: {
                   material: finalMaterial,
                   infill: finalInfill,

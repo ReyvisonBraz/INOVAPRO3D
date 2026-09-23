@@ -1,3 +1,4 @@
+import { OrderItemThumb } from "../../components/ui/OrderItemThumb";
 import { useEffect, useRef, useState } from "react";
 import { PageSEO } from "../../components/seo/PageSEO";
 import { collection, query, where, onSnapshot, orderBy } from "firebase/firestore";
@@ -276,15 +277,13 @@ export default function MyOrders() {
                           key={i}
                           className="flex items-center gap-6 p-3 sm:p-4 rounded-2xl bg-white/[0.02] border border-white/[0.05] group-hover:bg-white/[0.04] transition-colors"
                         >
-                          <div className="w-16 h-16 rounded-xl bg-black/40 overflow-hidden border border-white/5">
-                            <img
-                              src={item.image}
-                              loading="lazy"
-                              decoding="async"
-                              className="w-full h-full object-cover grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
-                              alt=""
-                            />
-                          </div>
+                          <OrderItemThumb
+                            src={item.image}
+                            name={item.name}
+                            decorative
+                            className="w-16 h-16 rounded-xl border border-white/5"
+                            imgClassName="grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100 transition-all duration-700"
+                          />
                           <div className="flex-1">
                             <p className="text-lg font-black font-display uppercase tracking-tight">
                               {item.name}

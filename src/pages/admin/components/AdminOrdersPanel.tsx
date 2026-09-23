@@ -1,3 +1,4 @@
+import { OrderItemThumb } from "../../../components/ui/OrderItemThumb";
 import { memo, type FC, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, toJsDate } from "../../../lib/utils";
@@ -569,13 +570,12 @@ const AdminOrdersPanel: FC<AdminOrdersPanelProps> = memo(
                         <div onClick={() => onSelectOrder(o)} className="cursor-pointer">
                           {/* Product image + header row */}
                           <div className="flex items-start gap-2.5 mb-2">
-                            {o.items?.[0]?.image && (
-                              <img
-                                src={o.items[0].image}
-                                alt=""
-                                className="w-10 h-10 rounded-xl object-cover border border-white/5 shrink-0 bg-black/20"
-                              />
-                            )}
+                            <OrderItemThumb
+                              src={o.items?.[0]?.image}
+                              name={o.items?.[0]?.name}
+                              decorative
+                              className="w-10 h-10 rounded-xl border border-white/5"
+                            />
                             <div className="min-w-0 flex-1">
                               <div className="flex justify-between items-start gap-2">
                                 <p className="text-[11px] font-mono text-secondary">

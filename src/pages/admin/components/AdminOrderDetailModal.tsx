@@ -1,3 +1,4 @@
+import { OrderItemThumb } from "../../../components/ui/OrderItemThumb";
 import { Plus, Trash2, Truck } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "../../../components/ui/Button";
@@ -145,9 +146,11 @@ export function AdminOrderDetailModal({
                   key={idx}
                   className="bg-surface-card p-6 rounded-[32px] border border-white/5 flex items-center gap-5"
                 >
-                  <div className="w-16 h-16 rounded-2xl overflow-hidden shrink-0">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                  </div>
+                  <OrderItemThumb
+                    src={item.image}
+                    name={item.name}
+                    className="w-16 h-16 rounded-2xl"
+                  />
                   <div className="flex-1 min-w-0">
                     {editingItems ? (
                       <input
